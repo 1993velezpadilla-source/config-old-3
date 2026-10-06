@@ -59,7 +59,10 @@ jobs:
           test -s authority/nacht-static-runtime-meshes.json
           test -s authority/nacht-static-scene.json
           test -s authority/nacht-lights.json
+          test -s authority/nacht-particles.json
+          test -s authority/nacht-environment-scene.json
           test -s authority/nacht-audio-scene.json
+          test -s authority/nacht-audio-cues.json
           test -s authority/nacht-materials.json
           test -s authority/nacht-native-library.json
           echo "XZOGOT_NACHT_AUTHORITY_DOWNLOAD_GREEN run=$SOURCE_RUN"
@@ -100,15 +103,29 @@ jobs:
           assert summary["componentFailureCount"]==0,summary
 
           lights=json.loads(Path("authority/nacht-lights.json").read_text())
+          particles=json.loads(Path("authority/nacht-particles.json").read_text())
+          environment=json.loads(Path("authority/nacht-environment-scene.json").read_text())
           audio_scene=json.loads(Path("authority/nacht-audio-scene.json").read_text())
+          audio_cues=json.loads(Path("authority/nacht-audio-cues.json").read_text())
           assert lights["mapPackageCount"]==1,lights
           assert lights["packagesLoaded"]==1,lights
-          assert lights["lightCount"]>0,lights
+          assert lights["lightCount"]==166,lights
+          assert particles["mapPackageCount"]==1,particles
+          assert particles["packagesLoaded"]==1,particles
+          assert particles["particleComponentCount"]>0,particles
+          assert particles["referencedTemplateCount"]>0,particles
+          assert particles["ready"] is True,particles
+          assert environment["mapPackageCount"]==1,environment
+          assert environment["packagesLoaded"]==1,environment
+          assert environment["ready"] is True,environment
           assert audio_scene["mapPackageCount"]==1,audio_scene
           assert audio_scene["packagesLoaded"]==1,audio_scene
           assert audio_scene["audioComponentCount"]>0,audio_scene
           assert audio_scene["referencedSoundCount"]>0,audio_scene
           assert audio_scene["ready"] is True,audio_scene
+          assert audio_cues["cueCount"]==102,audio_cues
+          assert audio_cues["unresolvedNodeReferenceCount"]==0,audio_cues
+          assert audio_cues["ready"] is True,audio_cues
 
           materials=json.loads(Path("authority/nacht-materials.json").read_text())
           ms=materials["summary"]
@@ -125,7 +142,10 @@ jobs:
               "meshes":summary["referencedNativeMeshCount"],
               "instances":summary["sceneInstanceCount"],
               "lights":lights["lightCount"],
+              "particleComponents":particles["particleComponentCount"],
+              "environmentComponents":environment["environmentComponentCount"],
               "audioComponents":audio_scene["audioComponentCount"],
+              "soundCues":audio_cues["cueCount"],
               "referencedSounds":audio_scene["referencedSoundCount"],
               "materials":ms["materialExportsDecoded"],
               "textureRefs":ms["textureReferenceCount"],
@@ -322,7 +342,10 @@ jobs:
 
           cp build/nacht-normalized/scene.json "$STAGE/nacht-static-scene.json"
           cp authority/nacht-lights.json "$STAGE/nacht-lights.json"
+          cp authority/nacht-particles.json "$STAGE/nacht-particles.json"
+          cp authority/nacht-environment-scene.json "$STAGE/nacht-environment-scene.json"
           cp authority/nacht-audio-scene.json "$STAGE/nacht-audio-scene.json"
+          cp authority/nacht-audio-cues.json "$STAGE/nacht-audio-cues.json"
           cp authority/nacht-full-map-handoff.json "$STAGE/nacht-full-map-handoff.json"
 
           python3 - <<'PY'
@@ -380,7 +403,10 @@ jobs:
             xogot/assets/benchmarks/nacht_chronicles/native-glb-report.json
             xogot/assets/benchmarks/nacht_chronicles/xztx-dds-report.json
             xogot/assets/benchmarks/nacht_chronicles/source-audio-report.json
+            xogot/assets/benchmarks/nacht_chronicles/nacht-particles.json
+            xogot/assets/benchmarks/nacht_chronicles/nacht-environment-scene.json
             xogot/assets/benchmarks/nacht_chronicles/nacht-audio-scene.json
+            xogot/assets/benchmarks/nacht_chronicles/nacht-audio-cues.json
             xogot/assets/benchmarks/nacht_chronicles/source_library/skeletal_gltf/manifest.json
             xogot/assets/benchmarks/nacht_chronicles/material-binding-manifest.json
             xogot/assets/benchmarks/nacht_chronicles/xzmi-report.json
