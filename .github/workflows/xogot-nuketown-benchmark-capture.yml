@@ -8,7 +8,7 @@ on:
     paths:
       - "xogot/ci/nuketown_benchmark_capture.gd"
       - "xogot/scripts/xziel_benchmark_loader.gd"
-      - "xogot/assets/benchmarks/nuketown_xziel/**"
+      - "benchmarks/nuketown_xziel/**"
       - ".github/workflows/xogot-nuketown-benchmark-capture.yml"
 
 permissions:
@@ -26,6 +26,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+
+      - name: Mount benchmark payload into Godot project
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d benchmarks/nuketown_xziel
+          rm -rf xogot/assets/benchmarks/nuketown_xziel
+          mkdir -p xogot/assets/benchmarks
+          cp -a benchmarks/nuketown_xziel xogot/assets/benchmarks/nuketown_xziel
+          echo "XZOGOT_NUKETOWN_BENCHMARK_MOUNT_GREEN"
 
       - name: Install rendering tools
         shell: bash
