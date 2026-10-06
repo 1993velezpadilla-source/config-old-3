@@ -323,10 +323,27 @@ jobs:
           rows.sort(key=lambda r:(len(r["unsupportedNodeTypes"]),r["materialTextureCount"],r["systemPath"].lower()))
           payload={"systemCount":len(rows),"systems":rows}
           (out/"particle-candidate-matrix.json").write_text(json.dumps(payload,indent=2)+"\n")
+
+          ranked_keys={canonical(r["systemPath"]) for r in rows[:8]}
+          candidate_graphs=[
+              g for g in graphs.get("systems",[])
+              if canonical(g.get("objectPath","")) in ranked_keys
+          ]
+          (out/"particle-candidate-graphs.json").write_text(
+              json.dumps(
+                  {
+                      "systemCount":len(candidate_graphs),
+                      "systems":candidate_graphs,
+                  },
+                  indent=2,
+              )+"\n"
+          )
+
           print("XZOGOT_NACHT_PARTICLE_CANDIDATE_MATRIX_GREEN", {
               "systems":len(rows),
               "zeroUnsupported":sum(1 for r in rows if not r["unsupportedNodeTypes"]),
               "materialsFound":sum(1 for r in rows if r["materialFound"]),
+              "rankedGraphs":len(candidate_graphs),
           })
           PY
 
