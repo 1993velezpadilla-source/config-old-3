@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "authority": "literal_complete_nuketown_content_folder",
+  "root": "Pavlov/Plugins/UGC5097941/Content",
+  "fileCount": 2859,
+  "totalBytes": 181310836,
+  "extensionCounts": {
+    ".uasset": 1264,
+    ".ubulk": 329,
+    ".uexp": 1265,
+    ".umap": 1
+  },
+  "mapPresent": true,
+  "ready": true
+}
