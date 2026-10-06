@@ -1364,15 +1364,45 @@ func _place_player() -> void:
 	var player := get_node_or_null("Player") as CharacterBody3D
 	if player == null or _source_spawn_candidates.is_empty():
 		return
-	_source_spawn_candidates.sort_custom(
-		func(a: Node3D, b: Node3D) -> bool:
-			return str(a.get_meta("source_object_path", "")) < str(b.get_meta("source_object_path", ""))
-	)
+
+	# Preserve source actor order. Do not lexically reshuffle Pavlov_Spawn10
+	# ahead of Pavlov_Spawn2 and pretend that string ordering is gameplay
+	# authority.
 	var chosen := _source_spawn_candidates[0]
-	player.global_transform = chosen.global_transform
-	player.global_position += Vector3.UP * 0.9
-	player.set_meta("nacht_source_spawn_object", chosen.get_meta("source_object_path", ""))
-	print("XZOGOT_NACHT_PLAYER_SOURCE_SPAWN ", player.global_position)
+	player.global_basis = chosen.global_basis
+
+	# Pavlov_Spawn is rooted on its CollisionCapsule. The extracted anchor is
+	# therefore the source capsule CENTER, while our CharacterBody3D origin is
+	# at the feet and its CollisionShape3D center is +0.88 m. Align capsule
+	# center to capsule center instead of adding another player-height offset.
+	var collision := player.get_node_or_null("CollisionShape3D") as CollisionShape3D
+	if collision != null:
+		player.global_position = (
+			chosen.global_position
+			- player.global_basis * collision.position
+		)
+	else:
+		player.global_position = chosen.global_position
+
+	player.set_meta(
+		"nacht_source_spawn_object",
+		chosen.get_meta("source_object_path", "")
+	)
+	player.set_meta(
+		"nacht_source_spawn_anchor_position",
+		chosen.global_position
+	)
+	player.set_meta(
+		"nacht_source_spawn_candidate_count",
+		_source_spawn_candidates.size()
+	)
+	print(
+		"XZOGOT_NACHT_PLAYER_SOURCE_SPAWN ",
+		"anchor=", chosen.global_position,
+		" player_feet=", player.global_position,
+		" candidates=", _source_spawn_candidates.size(),
+		" source=", chosen.get_meta("source_object_path", "")
+	)
 
 func _transform_from_row_major(raw: Variant) -> Transform3D:
 	if not (raw is Array):
