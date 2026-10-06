@@ -158,8 +158,8 @@ func _build_source_actor_anchors(scene: Dictionary) -> void:
 		_source_actor_root.add_child(marker)
 		_actor_anchor_count += 1
 
-		var class_name := str(row.get("className", ""))
-		match class_name:
+		var source_class := str(row.get("className", ""))
+		match source_class:
 			"Pavlov_Spawn":
 				marker.add_to_group("nuketown_source_spawn")
 				_source_spawn_count += 1
