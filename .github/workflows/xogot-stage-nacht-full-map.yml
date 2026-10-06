@@ -69,10 +69,17 @@ jobs:
           mkdir -p "$RUNNER_TEMP/nacht-authority"
           gh run download "$SOURCE_RUN" -n "$SOURCE_ARTIFACT" -D "$RUNNER_TEMP/nacht-authority"
 
-          AUDIO_BYTECODE_RUN=$(gh api \
-            -H "Accept: application/vnd.github+json" \
-            "/repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100" \
-            --jq '[.workflow_runs[] | select(.head_branch=="feature/godot-aaa-rebuild-v1" and .name=="Xogot Nacht Blueprint Audio Bytecode Truth" and .conclusion=="success")][0].id // empty')
+          AUDIO_BYTECODE_RUN=""
+          for PAGE in 1 2 3 4 5; do
+            AUDIO_BYTECODE_RUN=$(gh api \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100&page=$PAGE" \
+              --jq '[.workflow_runs[] | select(.head_branch=="feature/godot-aaa-rebuild-v1" and .name=="Xogot Nacht Blueprint Audio Bytecode Truth" and .conclusion=="success")][0].id // empty')
+            if [ -n "$AUDIO_BYTECODE_RUN" ]; then
+              echo "XZOGOT_NACHT_STAGE_AUDIO_BYTECODE_PAGE_GREEN page=$PAGE run=$AUDIO_BYTECODE_RUN"
+              break
+            fi
+          done
           echo "XZOGOT_NACHT_STAGE_SELECTED_AUDIO_BYTECODE_RUN=$AUDIO_BYTECODE_RUN"
           test -n "$AUDIO_BYTECODE_RUN"
           echo "NACHT_AUDIO_BYTECODE_RUN=$AUDIO_BYTECODE_RUN" >> "$GITHUB_ENV"
