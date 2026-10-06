@@ -18,14 +18,13 @@ extends Node3D
 @export var vfs_map_root: String = "vfs/xziel/maps/xziel_nuketown_zombies"
 @export_file("*.json") var source_environment_truth_file: String = "res://data/nuketown_source_gameplay.json"
 @export var source_runtime_id: String = "nuketown"
-
-const VISUAL_SCENE_FILE := "visual-scene.json"
-const MATERIAL_BINDINGS_FILE := "material-binding-manifest.json"
-const TEXTURE_REPORT_FILE := "xzml-report.json"
-const EFFECTIVE_MATERIAL_REPORT_FILE := "xzmi-report.json"
-const COMPLETE_TEXTURE_REPORT_FILE := "complete-xztx-report.json"
-const LIGHT_REPORT_FILE := "xzen-report.json"
-const SKELETAL_BINDINGS_FILE := "skeletal-runtime-bindings.json"
+@export var visual_scene_file: String = "visual-scene.json"
+@export var material_bindings_file: String = "material-binding-manifest.json"
+@export var texture_report_file: String = "xzml-report.json"
+@export var effective_material_report_file: String = "xzmi-report.json"
+@export var complete_texture_report_file: String = "complete-xztx-report.json"
+@export var light_report_file: String = "xzen-report.json"
+@export var skeletal_bindings_file: String = "skeletal-runtime-bindings.json"
 const XZMS_HEADER_BYTES := 56
 const XZMS_SUBMESH_BYTES := 16
 const XZTX_HEADER_BYTES := 80
@@ -78,7 +77,7 @@ func _load_benchmark_world() -> void:
 		_runtime_root.queue_free()
 		_runtime_root = null
 
-	var scene := _read_json(_source_path(VISUAL_SCENE_FILE))
+	var scene := _read_json(_source_path(visual_scene_file))
 	if scene.is_empty():
 		push_error("XZIEL benchmark: visual scene missing")
 		return
@@ -223,7 +222,7 @@ func _load_benchmark_world() -> void:
 func _build_source_skeletal_actors() -> void:
 	_source_skeletal_actor_count = 0
 	_source_skeletal_actor_missing = 0
-	var bindings := _read_json(_source_path(SKELETAL_BINDINGS_FILE))
+	var bindings := _read_json(_source_path(skeletal_bindings_file))
 	if bindings.is_empty() or not bool(bindings.get("ready", false)):
 		return
 
@@ -324,10 +323,10 @@ func _prepare_material_authority() -> void:
 	if not build_materials:
 		return
 
-	var bindings := _read_json(_source_path(MATERIAL_BINDINGS_FILE))
-	var texture_report := _read_json(_source_path(TEXTURE_REPORT_FILE))
-	var effective_material_report := _read_json(_source_path(EFFECTIVE_MATERIAL_REPORT_FILE))
-	var complete_texture_report := _read_json(_source_path(COMPLETE_TEXTURE_REPORT_FILE))
+	var bindings := _read_json(_source_path(material_bindings_file))
+	var texture_report := _read_json(_source_path(texture_report_file))
+	var effective_material_report := _read_json(_source_path(effective_material_report_file))
+	var complete_texture_report := _read_json(_source_path(COMPLETE_texture_report_file))
 
 	for raw: Variant in bindings.get("materials", []):
 		if raw is Dictionary:
@@ -1161,7 +1160,7 @@ func _transform_from_row_major(raw: Variant) -> Transform3D:
 	)
 
 func _build_source_lights() -> void:
-	var report := _read_json(_source_path(LIGHT_REPORT_FILE))
+	var report := _read_json(_source_path(light_report_file))
 	if report.is_empty():
 		return
 	var created := 0
