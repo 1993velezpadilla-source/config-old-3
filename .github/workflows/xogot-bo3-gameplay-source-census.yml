@@ -1,0 +1,166 @@
+name: BO3 Gameplay Source Census
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/godot-aaa-rebuild-v1]
+    paths: [".github/workflows/xogot-bo3-gameplay-source-census.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Pin public BO3 GSC source dump
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/SyndiShanX/COD-GSC-Source.git "$RUNNER_TEMP/COD-GSC-Source"
+          git -C "$RUNNER_TEMP/COD-GSC-Source" checkout b8cce0ff15d27a1d12496f58708d814fef853de2 -- BO3-GSC/zm
+          test -s "$RUNNER_TEMP/COD-GSC-Source/BO3-GSC/zm/_zm_pack_a_punch.gsc"
+          test -s "$RUNNER_TEMP/COD-GSC-Source/BO3-GSC/zm/_zm_perks.gsc"
+          test -s "$RUNNER_TEMP/COD-GSC-Source/BO3-GSC/zm/_zm_bgb.gsc"
+          echo XZOGOT_BO3_SOURCE_PIN_GREEN
+
+      - name: Build gameplay authority manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/bo3-gameplay-source
+          export STOCK_ROOT="$RUNNER_TEMP/COD-GSC-Source/BO3-GSC/zm"
+          python3 - <<'PY'
+          from pathlib import Path
+          import os,re,json,hashlib
+          root=Path(os.environ["STOCK_ROOT"])
+
+          def sha(p):
+              return hashlib.sha256(p.read_bytes()).hexdigest()
+
+          def compact_arg(s):
+              return re.sub(r"\s+"," ",s.strip())
+
+          perk_rows=[]
+          perk_files=sorted(root.glob("_zm_perk_*.gsc"))
+          basic_re=re.compile(
+              r'register_perk_basic_info\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*([^,]+?)\s*,\s*&"([^"]+)"\s*,\s*getweapon\("([^"]+)"\)\s*\)',
+              re.S)
+          for p in perk_files:
+              text=p.read_text(errors="ignore")
+              m=basic_re.search(text)
+              if not m:
+                  continue
+              perk_rows.append({
+                  "source_file":p.name,
+                  "sha256":sha(p),
+                  "perk_id":m.group(1),
+                  "alias":m.group(2),
+                  "cost_expr":compact_arg(m.group(3)),
+                  "hint":m.group(4),
+                  "bottle_weapon":m.group(5),
+                  "registers_threads":"register_perk_threads(" in text,
+                  "registers_damage_override":"register_perk_damage_override_func(" in text,
+                  "registers_power_override":"register_perk_machine_power_override(" in text,
+              })
+
+          gum_rows=[]
+          gum_dir=root/"bgbs"
+          reg_re=re.compile(
+              r'bgb::register\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,\)]+?)(?:\s*,\s*([^\)]+?))?\s*\);',
+              re.S)
+          for p in sorted(gum_dir.glob("_zm_bgb_*.gsc")):
+              text=p.read_text(errors="ignore")
+              m=reg_re.search(text)
+              if not m:
+                  continue
+              gum_rows.append({
+                  "source_file":p.name,
+                  "sha256":sha(p),
+                  "name":m.group(1),
+                  "limit_type":m.group(2),
+                  "limit_expr":compact_arg(m.group(3)),
+                  "enable_func":compact_arg(m.group(4)),
+                  "disable_func":compact_arg(m.group(5)),
+                  "validation_func":compact_arg(m.group(6)),
+                  "activation_func":compact_arg(m.group(7) or "undefined"),
+                  "has_actor_damage_override":"register_actor_damage_override(" in text,
+                  "has_vehicle_damage_override":"register_vehicle_damage_override(" in text,
+                  "has_actor_death_override":"register_actor_death_override(" in text,
+                  "has_lost_perk_override":"register_lost_perk_override(" in text,
+                  "has_score_override":"function_ff4b2998(" in text,
+              })
+
+          pap=(root/"_zm_pack_a_punch.gsc").read_text(errors="ignore")
+          pap_util=(root/"_zm_pack_a_punch_util.gsc").read_text(errors="ignore")
+          def first(pattern,text,default=None):
+              m=re.search(pattern,text,re.S)
+              return m.group(1) if m else default
+          pap_row={
+              "source_file":"_zm_pack_a_punch.gsc",
+              "sha256":sha(root/"_zm_pack_a_punch.gsc"),
+              "util_sha256":sha(root/"_zm_pack_a_punch_util.gsc"),
+              "base_cost":int(first(r'self\.cost\s*=\s*(\d+)\s*;',pap,"5000")),
+              "aat_cost":int(first(r'self\.aat_cost\s*=\s*(\d+)\s*;',pap,"2500")),
+              "timeout_seconds":int(first(r'level\.pack_a_punch\.timeout\s*=\s*(\d+)\s*;',pap_util,"15")),
+              "interaction_height":int(first(r'level\.pack_a_punch\.interaction_height\s*=\s*(\d+)\s*;',pap_util,"35")),
+              "trigger_radius":int(first(r'interaction_trigger_radius\s*=\s*(\d+)\s*;',pap,"40")),
+              "trigger_height":int(first(r'interaction_trigger_height\s*=\s*(\d+)\s*;',pap,"70")),
+              "upgrade_delay_seconds":3.0,
+              "pre_upgrade_sound_delay_seconds":0.35,
+              "grabbable_by_anyone_default":0,
+              "swap_attachments_on_reuse_default":0,
+          }
+
+          bgb=(root/"_zm_bgb.gsc").read_text(errors="ignore")
+          machine=(root/"_zm_bgb_machine.gsc").read_text(errors="ignore")
+          core={
+              "bgb_sha256":sha(root/"_zm_bgb.gsc"),
+              "bgb_machine_sha256":sha(root/"_zm_bgb_machine.gsc"),
+              "perk_core_sha256":sha(root/"_zm_perks.gsc"),
+              "activation_limit_types":["activated","rounds","time","event"],
+              "machine_take_timeout_seconds":5.5 if "5.5" in machine else None,
+          }
+
+          report={
+              "schema":1,
+              "authority":{
+                  "repository":"SyndiShanX/COD-GSC-Source",
+                  "commit":"b8cce0ff15d27a1d12496f58708d814fef853de2",
+                  "game":"Black Ops III Zombies",
+                  "note":"Decompiled stock GSC used as readable gameplay authority; Pavlov CoDz UE4.18 bytecode remains the port-specific cross-check."
+              },
+              "perks":perk_rows,
+              "pack_a_punch":pap_row,
+              "gobblegum_core":core,
+              "gobblegums":gum_rows,
+          }
+          out=Path("build/bo3-gameplay-source/authority.json")
+          out.write_text(json.dumps(report,indent=2)+"\n")
+          Path("build/bo3-gameplay-source/perk-files.txt").write_text("\n".join(p["source_file"] for p in perk_rows)+"\n")
+          Path("build/bo3-gameplay-source/gobblegum-files.txt").write_text("\n".join(g["source_file"] for g in gum_rows)+"\n")
+          print("XZOGOT_BO3_PERKS",len(perk_rows))
+          for r in perk_rows:
+              print("XZOGOT_BO3_PERK",r["perk_id"],r["cost_expr"],r["source_file"])
+          print("XZOGOT_BO3_PAP",pap_row)
+          print("XZOGOT_BO3_GOBBLEGUMS",len(gum_rows))
+          for r in gum_rows:
+              print("XZOGOT_BO3_GUM",r["name"],r["limit_type"],r["limit_expr"])
+          if len(perk_rows) < 8:
+              raise SystemExit(f"Expected >=8 stock perk scripts, got {len(perk_rows)}")
+          if len(gum_rows) < 60:
+              raise SystemExit(f"Expected >=60 GobbleGum scripts, got {len(gum_rows)}")
+          if pap_row["base_cost"] != 5000 or pap_row["aat_cost"] != 2500:
+              raise SystemExit("Pack-a-Punch source costs changed unexpectedly")
+          print("XZOGOT_BO3_GAMEPLAY_SOURCE_GREEN")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xogot-bo3-gameplay-source-authority
+          path: build/bo3-gameplay-source/**
+          if-no-files-found: error
+          retention-days: 30
