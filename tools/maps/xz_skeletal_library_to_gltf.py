@@ -272,6 +272,7 @@ def build_one(
     return {
         "output": output_name,
         "sourceGeometry": meshrow["packagePath"],
+        "sourceXzskFile": meshrow["file"],
         "sourceSkeleton": rigrow["packagePath"],
         "skeletonHash": skeleton_hash,
         "bones": len(bones),
