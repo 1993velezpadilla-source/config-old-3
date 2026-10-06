@@ -93,9 +93,8 @@ func _ready() -> void:
 	add_to_group("zombie_interactable")
 	if interaction_kind == Kind.PERK or interaction_kind == Kind.UPGRADE:
 		_build_machine_loop_audio()
-		_machine_animation_player = _find_machine_animation_player(self)
-		if _machine_animation_player != null:
-			_machine_animation_player.animation_finished.connect(_on_machine_animation_finished)
+	if interaction_kind in [Kind.PERK, Kind.UPGRADE, Kind.MYSTERY]:
+		refresh_source_animation_player()
 	_last_power_visual_state = not bool(get_tree().get_meta("power_on", false))
 	_update_power_visual()
 	if interaction_kind == Kind.PERK or interaction_kind == Kind.UPGRADE:
@@ -111,6 +110,16 @@ func _find_machine_animation_player(node: Node) -> AnimationPlayer:
 			return found
 	return null
 
+func refresh_source_animation_player() -> bool:
+	_machine_animation_player = _find_machine_animation_player(self)
+	if _machine_animation_player == null:
+		set_meta("source_animation_player_ready", false)
+		return false
+	if not _machine_animation_player.animation_finished.is_connected(_on_machine_animation_finished):
+		_machine_animation_player.animation_finished.connect(_on_machine_animation_finished)
+	set_meta("source_animation_player_ready", true)
+	return true
+
 func _machine_animation_aliases(role: String) -> Array[String]:
 	match role:
 		"idle":
@@ -123,6 +132,20 @@ func _machine_animation_aliases(role: String) -> Array[String]:
 			return ["purchase", "buy", "dispense", "vend", "use", "drink", "bottle"]
 		"upgrade":
 			return ["upgrade", "pack", "process", "forge", "use"]
+		"mystery_arrive":
+			return ["arrive", "magic_box_arrive"]
+		"mystery_open":
+			return ["open", "magic_box_open"]
+		"mystery_weapon_rise":
+			return ["weapon_rise", "magic_box_weapon_rise"]
+		"mystery_weapon_dual_rise":
+			return ["weapon_dual_rise", "magic_box_weapon_dual_rise"]
+		"mystery_teddy_rise":
+			return ["teddy_rise", "magic_box_teddy_rise"]
+		"mystery_close":
+			return ["close", "magic_box_close"]
+		"mystery_leave":
+			return ["leave", "magic_box_leave"]
 		_:
 			return [role]
 
@@ -221,7 +244,28 @@ func _update_power_visual() -> void:
 	if requires_power:
 		set_meta("powered_visual_on", powered)
 
+func _play_mystery_source_sequence() -> bool:
+	if _machine_animation_player == null or not is_instance_valid(_machine_animation_player):
+		if not refresh_source_animation_player():
+			return false
+	var open_name := _machine_animation_name_for_role("mystery_open")
+	var rise_name := _machine_animation_name_for_role("mystery_weapon_rise")
+	var close_name := _machine_animation_name_for_role("mystery_close")
+	if open_name.is_empty() or rise_name.is_empty() or close_name.is_empty():
+		return false
+	_machine_animation_player.stop()
+	_machine_animation_player.play(open_name, 0.05)
+	_machine_animation_player.queue(rise_name)
+	_machine_animation_player.queue(close_name)
+	set_meta("mystery_source_anim_active", true)
+	set_meta("mystery_source_anim_sequence", [open_name, rise_name, close_name])
+	print("XZOGOT_MYSTERY_SOURCE_ANIMATION ", name, " sequence=", [open_name, rise_name, close_name])
+	return true
+
 func _animate_mystery_box() -> void:
+	if _play_mystery_source_sequence():
+		return
+	set_meta("mystery_source_anim_active", false)
 	var lid := find_child("MysteryLid", true, false) as Node3D
 	if lid == null:
 		return
