@@ -239,6 +239,7 @@ ResolveAuthoritativeTextureReferences(
                     expression is null)
                     continue;
 
+                var expressionTextureRecorded = false;
                 foreach (var property in expression.Properties)
                 {
                     if (!property.Name.Text.Equals(
@@ -289,6 +290,99 @@ ResolveAuthoritativeTextureReferences(
                         loadedTexture is not null,
                         reference,
                         referenceType);
+                    expressionTextureRecorded = true;
+                }
+
+                // Several cooked UE4.21 MaterialExpressionTextureSample
+                // subclasses deserialize Texture into a typed field/property
+                // instead of leaving it in UObject.Properties. Recover that
+                // source reference reflection-safely so the audit works across
+                // CUE4Parse revisions without hard-binding a specific class.
+                if (!expressionTextureRecorded)
+                {
+                    var flags =
+                        System.Reflection.BindingFlags.Instance |
+                        System.Reflection.BindingFlags.Public |
+                        System.Reflection.BindingFlags.NonPublic;
+                    object? runtimeValue = null;
+
+                    var runtimeProperty =
+                        expression.GetType().GetProperty(
+                            "Texture",
+                            flags);
+                    if (runtimeProperty is not null &&
+                        runtimeProperty.GetIndexParameters().Length == 0)
+                    {
+                        try
+                        {
+                            runtimeValue =
+                                runtimeProperty.GetValue(expression);
+                        }
+                        catch
+                        {
+                        }
+                    }
+
+                    if (runtimeValue is null)
+                    {
+                        var runtimeField =
+                            expression.GetType().GetField(
+                                "Texture",
+                                flags);
+                        if (runtimeField is not null)
+                        {
+                            try
+                            {
+                                runtimeValue =
+                                    runtimeField.GetValue(expression);
+                            }
+                            catch
+                            {
+                            }
+                        }
+                    }
+
+                    UTexture? loadedTexture = null;
+                    string? objectPath = null;
+                    string? exportType = null;
+                    string? reference = null;
+                    string? referenceType = null;
+
+                    if (runtimeValue is FPackageIndex runtimeTextureRef &&
+                        !runtimeTextureRef.IsNull)
+                    {
+                        runtimeTextureRef.TryLoad<UTexture>(
+                            out loadedTexture);
+                        objectPath =
+                            loadedTexture?.GetPathName()
+                            ?? runtimeTextureRef.ResolvedObject?.GetPathName();
+                        exportType = loadedTexture?.ExportType;
+                        reference = runtimeTextureRef.ToString();
+                        referenceType =
+                            runtimeTextureRef.GetType().FullName;
+                    }
+                    else if (runtimeValue is UTexture runtimeTexture)
+                    {
+                        loadedTexture = runtimeTexture;
+                        objectPath = runtimeTexture.GetPathName();
+                        exportType = runtimeTexture.ExportType;
+                        reference = objectPath;
+                        referenceType =
+                            runtimeTexture.GetType().FullName;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(objectPath))
+                    {
+                        var name =
+                            $"ExpressionTexture_{expressionIndex}_Texture";
+                        result[name] = new TextureTruth(
+                            name,
+                            objectPath,
+                            exportType,
+                            loadedTexture is not null,
+                            reference,
+                            referenceType);
+                    }
                 }
             }
         }
