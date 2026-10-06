@@ -49,6 +49,7 @@ on:
       - tools/maps/patch_cue4parse_animation_fallback.py
       - tools/maps/UESceneTransformAudit/**
       - tools/maps/UEStaticSceneExtract/**
+      - tools/maps/UESkeletalSceneExtract/**
       - tools/maps/UELightExtract/**
       - tools/maps/compile_xziel_environment.py
       - tools/maps/xz_environment_file_gate.c
@@ -1649,6 +1650,55 @@ jobs:
           grep -q "XZIEL_XZMS_NATIVE_FILES_GREEN count=$EXPECTED_XZMS" \
             nuketown-download/ue-xzms-native-gate.log
 
+      - name: Extract exact cooked UE skeletal placements
+        run: |
+          set -euxo pipefail
+
+          dotnet restore \
+            tools/maps/UESkeletalSceneExtract/UESkeletalSceneExtract.csproj
+
+          dotnet build \
+            tools/maps/UESkeletalSceneExtract/UESkeletalSceneExtract.csproj \
+            --configuration Release \
+            --no-restore
+
+          APP="tools/maps/UESkeletalSceneExtract/bin/Release/net10.0/UESkeletalSceneExtract.dll"
+          test -s "$APP"
+
+          mkdir -p nuketown-download/runtime-skeletal-scene
+
+          dotnet "$APP" \
+            nuketown-pak-unpacked \
+            nuketown-download/PavMappings.usmap \
+            nuketown-download/nuketown-class-census.json \
+            nuketown-download/ue-xzsk-probe/report.json \
+            nuketown-download/runtime-skeletal-scene/skeletal-scene.json \
+            ue5.1 \
+            | tee nuketown-download/runtime-skeletal-scene/extract.log
+
+          grep -q 'XZOGOT_UE_SKELETAL_SCENE_EXTRACT_GREEN' \
+            nuketown-download/runtime-skeletal-scene/extract.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          path=Path("nuketown-download/runtime-skeletal-scene/skeletal-scene.json")
+          d=json.loads(path.read_text())
+          assert d["ready"] is True,d
+          assert d["skeletalComponentCount"]==2,d
+          assert d["resolvedActorCount"]==2,d
+          assert d["unresolvedCount"]==0,d
+          assert d["failureCount"]==0,d
+          assert len(d["actors"])==2,d
+          assert len({row["sourceXzskFile"] for row in d["actors"]})==2,d
+          assert all(row["skeletonHash"] for row in d["actors"]),d
+          print(
+              "XZOGOT_NUKETOWN_EXACT_SKELETAL_PLACEMENTS_GREEN",
+              [(row["actorName"],row["sourceXzskFile"],row["skeletonHash"]) for row in d["actors"]]
+          )
+          PY
+
       - name: Build native XZSC from cooked UE static placements
         run: |
           set -euxo pipefail
@@ -1671,7 +1721,8 @@ jobs:
             nuketown-download/PavMappings.usmap \
             nuketown-download/nuketown-class-census.json \
             nuketown-download/ue-xzms-probe/report.json \
-            nuketown-download/runtime-static-scene/visual-scene.json \
+            nuketown-download/runtime-static-scene/
+            nuketown-download/runtime-skeletal-scene/visual-scene.json \
             ue5.1 \
             | tee nuketown-download/runtime-static-scene/extract.log
 
