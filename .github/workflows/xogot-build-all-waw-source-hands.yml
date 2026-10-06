@@ -1,0 +1,208 @@
+name: Build All WaW Source Hands
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-build-all-waw-source-hands.yml"
+      - "tools/weapons/build_aether_waw_source_hands.py"
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: xogot-build-all-waw-source-hands
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      GH_TOKEN: ${{ github.token }}
+      HAND_SOURCE_RUN: "37394234814"
+      HAND_SOURCE_ARTIFACT: "xogot-source-first-golden-reference"
+      WEAPON_PSA_RUN: "37244741312"
+      WEAPON_PSA_ARTIFACT: "aether-waw-usmap-real-weapons"
+
+    steps:
+      - name: Checkout gameplay branch
+        uses: actions/checkout@v5
+        with:
+          ref: feature/godot-aaa-rebuild-v1
+          fetch-depth: 0
+
+      - name: Wait for source-first export
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh run watch "$HAND_SOURCE_RUN" --exit-status
+
+      - name: Download exact T4 hands and all WaW weapon PSA
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf source-first weapon-source
+          mkdir -p source-first weapon-source
+          gh run download "$HAND_SOURCE_RUN" -n "$HAND_SOURCE_ARTIFACT" -D source-first
+          gh run download "$WEAPON_PSA_RUN" -n "$WEAPON_PSA_ARTIFACT" -D weapon-source
+
+          HANDS=$(find source-first/source-first-export -type f \( -iname 'viewmodel_usa_marine_arms.glb' -o -iname 'viewmodel_usa_marine_arms.gltf' \) | head -1)
+          test -n "$HANDS"
+          test -s "$HANDS"
+          test -d weapon-source/recovered-actorx
+          count=$(find weapon-source/recovered-actorx -type f -iname '*.psa' | wc -l)
+          test "$count" -ge 300
+          echo "T4_HANDS=$HANDS" >> "$GITHUB_ENV"
+          echo "XZOGOT_ALL_WAW_HANDS_SOURCE_GREEN psa=$count hands=$HANDS"
+
+      - name: Install Blender and maintained PSA importer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check blender-downloader
+          BLENDER_PATH=$(blender-downloader 5.0 --extract --remove-compressed --print-blender-executable)
+          test -x "$BLENDER_PATH"
+          echo "BLENDER=$BLENDER_PATH" >> "$GITHUB_ENV"
+
+          rm -rf "$RUNNER_TEMP/io_scene_psk_psa" "$RUNNER_TEMP/psk_psa_py_installed"
+          git clone --depth 1 https://github.com/DarklightGames/io_scene_psk_psa.git "$RUNNER_TEMP/io_scene_psk_psa"
+          WHEEL=$(find "$RUNNER_TEMP/io_scene_psk_psa/io_scene_psk_psa/wheels" -maxdepth 1 -type f -name 'psk_psa_py-*.whl' | sort | tail -n 1)
+          test -n "$WHEEL"
+          mkdir -p "$RUNNER_TEMP/psk_psa_py_installed"
+          python3 -m pip install --no-deps --disable-pip-version-check --target "$RUNNER_TEMP/psk_psa_py_installed" "$WHEEL"
+          test -f "$RUNNER_TEMP/psk_psa_py_installed/psk_psa_py/__init__.py"
+          echo "PSK_PSA_PY_TARGET=$RUNNER_TEMP/psk_psa_py_installed" >> "$GITHUB_ENV"
+          echo "XZOGOT_ALL_WAW_HANDS_IMPORTER_GREEN"
+
+      - name: Build 27 exact T4 source hand packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build/waw-source-hands
+          mkdir -p build/waw-source-hands
+          "$BLENDER" --background --factory-startup \
+            --python tools/weapons/build_aether_waw_source_hands.py -- \
+            "$T4_HANDS" \
+            "$PWD/weapon-source/recovered-actorx" \
+            "$RUNNER_TEMP/io_scene_psk_psa" \
+            "$PSK_PSA_PY_TARGET" \
+            "$PWD/build/waw-source-hands" \
+            2>&1 | tee build/waw-source-hands.log
+
+          grep -q "XZOGOT_WAW_27_SOURCE_HANDS_GREEN 27" build/waw-source-hands.log
+          test -s build/waw-source-hands/inventory.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("build/waw-source-hands/inventory.json").read_text())
+          assert d["built_weapon_count"] == 27
+          assert d["expected_weapon_count"] == 27
+          assert d["source_pending"] == {"sawnoff":"SawedOffDB"}
+          for rec in d["weapons"]:
+              assert all(rec["core_roles"].values()), rec
+              assert rec["translation_scale"] == 0.01, rec
+              assert rec["has_tag_weapon"], rec
+              assert Path(rec["output"]).is_file(), rec["output"]
+          print("XZOGOT_WAW_27_SOURCE_HANDS_VALIDATE_GREEN")
+          PY
+
+      - name: Stage all source hands into Godot
+        shell: bash
+        run: |
+          set -euo pipefail
+          dst=xogot/assets/weapons/aether_waw_hands/t4_marine
+          rm -rf "$dst"
+          mkdir -p "$dst"
+
+          python3 - <<'PY'
+          import json,shutil
+          from pathlib import Path
+
+          src=Path("build/waw-source-hands")
+          dst=Path("xogot/assets/weapons/aether_waw_hands/t4_marine")
+          inv=json.loads((src/"inventory.json").read_text())
+
+          for rec in inv["weapons"]:
+              wid=rec["runtime_id"]
+              out=Path(rec["output"])
+              weapon_dst=dst/wid
+              weapon_dst.mkdir(parents=True,exist_ok=True)
+              shutil.copy2(out,weapon_dst/"viewhands.glb")
+              report=out.parent/"animation-report.json"
+              shutil.copy2(report,weapon_dst/"animation-report.json")
+
+          shutil.copy2(src/"inventory.json",dst/"inventory.json")
+          print("XZOGOT_WAW_27_SOURCE_HANDS_STAGED",len(inv["weapons"]))
+          PY
+
+      - name: Update weapon manifest to exact per-weapon T4 hands
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          inv=json.loads(Path("xogot/assets/weapons/aether_waw_hands/t4_marine/inventory.json").read_text())
+          p=Path("xogot/assets/weapons/mapmod_weapon_asset_manifest.json")
+          d=json.loads(p.read_text())
+          weapons=d["weapons"]
+          updated=[]
+
+          for rec in inv["weapons"]:
+              wid=rec["runtime_id"]
+              if wid not in weapons:
+                  raise SystemExit(f"runtime weapon missing from manifest: {wid}")
+              weapons[wid].setdefault("runtime",{})["hands"] = (
+                  f"res://assets/weapons/aether_waw_hands/t4_marine/{wid}/viewhands.glb"
+              )
+              weapons[wid]["hands_source"]={
+                  "authority":"Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+                  "source_dir":rec["source_dir"],
+                  "source_psa_count":rec["source_psa_count"],
+                  "core_roles":rec["core_roles"],
+                  "translation_scale":rec["translation_scale"],
+              }
+              updated.append(wid)
+
+          if "sawnoff" in weapons:
+              weapons["sawnoff"].setdefault("runtime",{}).pop("hands",None)
+              weapons["sawnoff"]["hands_source"]={
+                  "authority":"source_pending",
+                  "reason":"SawedOffDB has no recovered Hands PSA in the validated WaW artifact"
+              }
+
+          p.write_text(json.dumps(d,indent=2)+"\n")
+          print("XZOGOT_WAW_HANDS_MANIFEST_GREEN",len(updated),sorted(updated))
+          PY
+
+      - name: Commit global T4 source hands
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add xogot/assets/weapons/aether_waw_hands/t4_marine xogot/assets/weapons/mapmod_weapon_asset_manifest.json
+          if git diff --cached --quiet; then
+            echo "XZOGOT_WAW_SOURCE_HANDS_ALREADY_STAGED"
+            exit 0
+          fi
+          git commit -m "assets: integrate exact T4 hands across WaW weapons"
+          git pull --rebase origin feature/godot-aaa-rebuild-v1
+          git push origin HEAD:feature/godot-aaa-rebuild-v1
+          echo "XZOGOT_WAW_27_SOURCE_HANDS_COMMIT_GREEN"
+
+      - name: Upload global hands proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: xogot-waw-27-source-hands-proof
+          path: |
+            build/waw-source-hands/inventory.json
+            build/waw-source-hands/*/animation-report.json
+            build/waw-source-hands.log
+          if-no-files-found: error
+          retention-days: 14
