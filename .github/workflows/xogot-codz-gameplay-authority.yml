@@ -1,0 +1,208 @@
+name: CoDz Gameplay Authority Census
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/godot-aaa-rebuild-v1]
+    paths: [".github/workflows/xogot-codz-gameplay-authority.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      XZOGOT_ENGINE_VERSION: VER_UE4_18
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Download public CoDz Parity modkit
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full
+          python3 -m pip install --disable-pip-version-check --quiet gdown
+          mkdir -p source selected build/gameplay-authority
+          python3 -m gdown "https://drive.google.com/uc?id=1BiThIcM5dEjeAcm9xlFQZF8bzk9MyfK1" -O source/codz.zip
+          test -s source/codz.zip
+          echo XZOGOT_GAMEPLAY_AUTHORITY_SOURCE_GREEN
+
+      - name: Select every gameplay authority Blueprint
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile,re,json
+          zpath=Path("source/codz.zip")
+          out=Path("selected")
+          classes={"perks":[],"pap":[],"gums":[],"guns":[],"core":[]}
+          exact_core={
+            "BP_CODZ_PlayerProxy.uasset",
+            "Perk_Core.uasset",
+            "Pavlov_Codz_GameLogic.uasset",
+            "ZombieGameLogic.uasset",
+            "LimitedAmmoMarker.uasset",
+            "MagazineOverlapDetection.uasset",
+          }
+          with zipfile.ZipFile(zpath) as z:
+            names=z.namelist()
+            for n in names:
+              norm=n.replace("\\","/")
+              low=norm.lower()
+              base=Path(norm).name
+              if not low.endswith(".uasset"):
+                continue
+              bucket=None
+              if "/bps/perks/" in low:
+                bucket="perks"
+              if any(t in low for t in ("packapunch","pack_a_punch","pack-a-punch","pack a punch","/pap/","papmachine","packpunch")):
+                bucket="pap"
+              if any(t in low for t in ("gobble","gumball","gobblegum","gum_machine","gummachine")):
+                bucket="gums"
+              if "/bps/customitems/guns/" in low and (
+                base.lower().startswith("gun_") or
+                "limitedammomarker" in low or
+                "magazineoverlapdetection" in low
+              ):
+                bucket=bucket or "guns"
+              if base in exact_core:
+                bucket=bucket or "core"
+              if bucket:
+                classes[bucket].append(norm)
+                target=out/norm
+                target.parent.mkdir(parents=True,exist_ok=True)
+                with z.open(n) as src, open(target,"wb") as dst:
+                  dst.write(src.read())
+          # Anything named Pap/Pack/Punch/Gum outside BPs is reported but not decompiled.
+          with zipfile.ZipFile(zpath) as z:
+            names=[n.replace("\\","/") for n in z.namelist()]
+          discovery={
+            "selected":{k:sorted(set(v),key=str.lower) for k,v in classes.items()},
+            "allPapNamedPaths":sorted({n for n in names if any(t in n.lower() for t in ("packapunch","pack_a_punch","pack-a-punch","/pap/","papmachine","packpunch"))},key=str.lower),
+            "allGumNamedPaths":sorted({n for n in names if any(t in n.lower() for t in ("gobble","gumball","gobblegum","gum_machine","gummachine"))},key=str.lower),
+          }
+          Path("build/gameplay-authority/discovery.json").write_text(json.dumps(discovery,indent=2)+"\n")
+          for k,v in classes.items():
+            print("XZOGOT_GAMEPLAY_SELECT",k,len(set(v)))
+            for p in sorted(set(v),key=str.lower)[:120]:
+              print(" ",p)
+          print("XZOGOT_GAMEPLAY_PAP_NAMED",len(discovery["allPapNamedPaths"]))
+          print("XZOGOT_GAMEPLAY_GUM_NAMED",len(discovery["allGumNamedPaths"]))
+          total=sum(len(set(v)) for v in classes.values())
+          print("XZOGOT_GAMEPLAY_SELECTED_TOTAL",total)
+          if total < 10:
+            raise SystemExit("Gameplay authority selection unexpectedly small")
+          PY
+
+      - name: Pin mappings and build Kismet extractor
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 --retry-delay 2 -o source/PavMappings.usmap             "https://raw.githubusercontent.com/THW-Reaper/PavlovVRMappings/4976647b4f3a209042460bc55a7a3122662d05b7/PavMappings.usmap"
+          echo "6d19f9731cc3fbaba34ca8e0833e81e4ffdf1b407edf24de48b1ccb5c63b060c  source/PavMappings.usmap" | sha256sum -c -
+          dotnet restore tools/maps/UENuketownWallbuyBytecode/UENuketownWallbuyBytecode.csproj
+          dotnet build tools/maps/UENuketownWallbuyBytecode/UENuketownWallbuyBytecode.csproj -c Release --no-restore
+          echo XZOGOT_GAMEPLAY_KISMET_READY
+
+      - name: Decompile all selected gameplay Blueprints
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=tools/maps/UENuketownWallbuyBytecode/bin/Release/net10.0/UENuketownWallbuyBytecode.dll
+          mapfile -t ASSETS < <(find selected -type f -name '*.uasset' | sort)
+          dotnet "$APP" source/PavMappings.usmap build/gameplay-authority/bytecode.json "${ASSETS[@]}"
+          echo XZOGOT_GAMEPLAY_BYTECODE_GREEN
+
+      - name: Build source-authority reports
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re
+          d=json.loads(Path("build/gameplay-authority/bytecode.json").read_text())
+          discovery=json.loads(Path("build/gameplay-authority/discovery.json").read_text())
+
+          def all_text(fn):
+            return json.dumps(fn,sort_keys=True)
+
+          def nums(o,out=None):
+            if out is None: out=[]
+            if isinstance(o,(int,float)):
+              out.append(o)
+            elif isinstance(o,dict):
+              for v in o.values(): nums(v,out)
+            elif isinstance(o,list):
+              for v in o: nums(v,out)
+            return out
+
+          systems={"double_tap":[],"pack_a_punch":[],"perks":[],"gobblegum":[],"guns":[]}
+          perk_names=set()
+          for pkg in d.get("packages",[]):
+            path=pkg["assetPath"].replace("\\","/")
+            low=path.lower()
+            if "/bps/perks/" in low:
+              perk_names.add(pkg["fileName"])
+            for fn in pkg.get("functions",[]):
+              blob=all_text(fn)
+              lowblob=blob.lower()
+              row={
+                "fileName":pkg["fileName"],
+                "assetPath":path,
+                "function":fn["name"],
+                "calls":[c.get("call","") for c in fn.get("calls",[])],
+                "integerConstants":fn.get("integerConstants",[]),
+                "numbers":nums(fn.get("rawExpressionJson",[]))[:500],
+              }
+              if "hasperk?" in lowblob and (
+                '"value": 6' in lowblob or "doubletap" in lowblob or "double tap" in lowblob
+              ):
+                systems["double_tap"].append(row)
+              if any(t in lowblob or t in low for t in ("packapunch","pack_a_punch","pack-a-punch","papdamage","papdamage multiplier","packpunch")):
+                systems["pack_a_punch"].append(row)
+              if "/bps/perks/" in low or any(t in lowblob for t in ("give perk","take perk","hasperk?","perk_list","perk machine","perk bottle")):
+                systems["perks"].append(row)
+              if any(t in lowblob or t in low for t in ("gobble","gumball","gobblegum","gum_machine","gummachine")):
+                systems["gobblegum"].append(row)
+              if "/bps/customitems/guns/" in low:
+                systems["guns"].append(row)
+
+          report={
+            "schema":1,
+            "engineVersion":d.get("engineVersion"),
+            "packageCount":d.get("packageSuccessCount"),
+            "functionCount":d.get("parsedFunctions"),
+            "expressionCount":d.get("parsedExpressions"),
+            "perkBlueprintFiles":sorted(perk_names),
+            "discovery":discovery,
+            "systems":systems,
+          }
+          Path("build/gameplay-authority/authority.json").write_text(json.dumps(report,indent=2)+"\n")
+          for k,v in systems.items():
+            print("XZOGOT_GAMEPLAY_SYSTEM",k,"functions=",len(v),"files=",len({r["fileName"] for r in v}))
+            for r in v[:80]:
+              print(" ",r["fileName"],"::",r["function"],"calls=",r["calls"][:12],"nums=",r["numbers"][:30])
+          if not systems["perks"]:
+            raise SystemExit("No perk authority functions found")
+          if not systems["guns"]:
+            raise SystemExit("No gun authority functions found")
+          print("XZOGOT_GAMEPLAY_AUTHORITY_GREEN")
+          PY
+
+      - name: Upload gameplay authority
+        uses: actions/upload-artifact@v4
+        with:
+          name: xogot-codz-gameplay-authority
+          path: |
+            build/gameplay-authority/discovery.json
+            build/gameplay-authority/bytecode.json
+            build/gameplay-authority/authority.json
+          if-no-files-found: error
+          retention-days: 14
