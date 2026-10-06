@@ -430,6 +430,16 @@ foreach (var logicalPackage in mapPackages)
                     ? parentPath.Split('.').Last()
                     : "";
 
+            string? ownerExportType = null;
+            string? ownerClassPath = null;
+            try
+            {
+                var owner = component.Outer?.Object?.Value;
+                ownerExportType = owner?.ExportType;
+                ownerClassPath = owner?.Class?.GetPathName();
+            }
+            catch { }
+
             var explicitVisible =
                 component.GetOrDefault<bool?>("bVisible");
             var hiddenInGame =
@@ -445,6 +455,8 @@ foreach (var logicalPackage in mapPackages)
                 id = $"particle_{rows.Count:0000}",
                 packagePath = logicalPackage,
                 actorName = parentName,
+                ownerExportType,
+                ownerClassPath,
                 componentName = component.Name,
                 sourcePath = componentPath,
                 hierarchy = BuildHierarchy(component),
