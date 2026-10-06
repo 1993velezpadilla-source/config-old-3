@@ -55,6 +55,8 @@ var wantedLevelClasses = new HashSet<string>(
         "BuyWheelBox_2_C",
         "Pavlov_Spawn",
         "Pavlov_Ladder",
+        "AmbientSound",
+        "AudioComponent",
         "SkyAtmosphere",
         "SkyAtmosphereComponent",
         "SkyLight",
