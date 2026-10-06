@@ -176,10 +176,8 @@ foreach (var logicalPackage in mapPackages)
                 // resolve every cooked component to its exact source XZSK.
                 skeletalComponents++;
 
-                var meshReference =
-                    TryPackageIndex(component, "SkeletalMesh") ??
-                    TryPackageIndex(component, "SkeletalMeshAsset") ??
-                    TryPackageIndex(component, "SkinnedAsset");
+                var meshResolution = ResolveSkeletalMeshReference(component);
+                var meshReference = meshResolution.Reference;
 
                 if (meshReference is null || meshReference.IsNull)
                 {
@@ -194,7 +192,9 @@ foreach (var logicalPackage in mapPackages)
                             "SkeletalMeshAsset",
                             "SkinnedAsset"
                         },
-                        reason = "SkeletalMesh reference null"
+                        templateDepth = meshResolution.TemplateDepth,
+                        templatePath = meshResolution.TemplatePath,
+                        reason = "SkeletalMesh reference null after instance/template resolution"
                     });
                     continue;
                 }
@@ -252,6 +252,9 @@ foreach (var logicalPackage in mapPackages)
                     sourceXzskFile = nativeMesh.File,
                     sourceXzskIndex = nativeMesh.Index,
                     skeletonHash = nativeMesh.SkeletonHash,
+                    meshReferenceProperty = meshResolution.PropertyName,
+                    meshReferenceTemplateDepth = meshResolution.TemplateDepth,
+                    meshReferenceTemplatePath = meshResolution.TemplatePath,
                     matrixRowMajor = matrix,
                     positionMeters = new[] {
                         matrix[3],
@@ -361,6 +364,54 @@ if (!ready)
 
 Console.WriteLine("XZOGOT_UE_SKELETAL_SCENE_EXTRACT_GREEN");
 return 0;
+
+static SkeletalMeshResolution ResolveSkeletalMeshReference(UObject source)
+{
+    var current = source;
+    var templateDepth = 0;
+    string? templatePath = null;
+    var visited = new HashSet<string>(StringComparer.Ordinal);
+
+    while (current is not null && templateDepth <= 16)
+    {
+        var currentPath = current.GetPathName();
+        if (!visited.Add(currentPath))
+            break;
+
+        foreach (var property in new[] {
+                     "SkeletalMesh",
+                     "SkeletalMeshAsset",
+                     "SkinnedAsset"
+                 })
+        {
+            var reference = TryPackageIndex(current, property);
+            if (reference is not null && !reference.IsNull)
+            {
+                return new SkeletalMeshResolution(
+                    reference,
+                    property,
+                    templateDepth,
+                    templatePath);
+            }
+        }
+
+        var template = current.Template;
+        if (template is null ||
+            !template.TryLoad(out var loaded) ||
+            loaded is null)
+            break;
+
+        templateDepth++;
+        templatePath = loaded.GetPathName();
+        current = loaded;
+    }
+
+    return new SkeletalMeshResolution(
+        null,
+        null,
+        templateDepth,
+        templatePath);
+}
 
 static FPackageIndex? TryPackageIndex(UObject source, string property)
 {
@@ -527,6 +578,12 @@ static string? ResolveProviderPackagePath(
         .ThenBy(key => key, StringComparer.OrdinalIgnoreCase)
         .FirstOrDefault();
 }
+
+sealed record SkeletalMeshResolution(
+    FPackageIndex? Reference,
+    string? PropertyName,
+    int TemplateDepth,
+    string? TemplatePath);
 
 sealed record NativeSkeletalMesh(
     string ObjectPath,
