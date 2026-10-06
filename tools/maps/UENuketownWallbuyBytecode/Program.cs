@@ -22,6 +22,15 @@ if (!File.Exists(mappingsPath))
     throw new FileNotFoundException("mappings missing", mappingsPath);
 
 var mappings = new Usmap(mappingsPath);
+var requestedEngineVersion = Environment.GetEnvironmentVariable("XZOGOT_ENGINE_VERSION");
+var engineVersion = EngineVersion.VER_UE5_1;
+if (!string.IsNullOrWhiteSpace(requestedEngineVersion) &&
+    !Enum.TryParse<EngineVersion>(requestedEngineVersion, out engineVersion))
+{
+    throw new ArgumentException(
+        $"Unknown XZOGOT_ENGINE_VERSION '{requestedEngineVersion}'");
+}
+Console.WriteLine($"XZOGOT_UASSET_ENGINE_VERSION {engineVersion}");
 var packageRows = new JArray();
 var failures = new JArray();
 var parsedFunctions = 0;
@@ -34,7 +43,7 @@ foreach (var assetPath in assetPaths)
     {
         var asset = new UAsset(
             assetPath,
-            EngineVersion.VER_UE5_1,
+            engineVersion,
             mappings);
 
         var functionRows = new JArray();
@@ -201,7 +210,7 @@ var ready =
 var report = new JObject
 {
     ["schemaVersion"] = 1,
-    ["engineVersion"] = "VER_UE5_1",
+    ["engineVersion"] = engineVersion.ToString(),
     ["assetCount"] = assetPaths.Length,
     ["packageSuccessCount"] = packageRows.Count,
     ["failureCount"] = failures.Count,
