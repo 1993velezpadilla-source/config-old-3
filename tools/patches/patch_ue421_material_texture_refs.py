@@ -239,6 +239,48 @@ ResolveAuthoritativeTextureReferences(
                     expression is null)
                     continue;
 
+                string? expressionParameterName = null;
+                var expressionFlags =
+                    System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.Public |
+                    System.Reflection.BindingFlags.NonPublic;
+                var parameterNameProperty =
+                    expression.GetType().GetProperty(
+                        "ParameterName",
+                        expressionFlags);
+                if (parameterNameProperty is not null &&
+                    parameterNameProperty.GetIndexParameters().Length == 0)
+                {
+                    try
+                    {
+                        expressionParameterName =
+                            parameterNameProperty.GetValue(expression)
+                                ?.ToString();
+                    }
+                    catch
+                    {
+                    }
+                }
+                if (string.IsNullOrWhiteSpace(expressionParameterName))
+                {
+                    var parameterNameField =
+                        expression.GetType().GetField(
+                            "ParameterName",
+                            expressionFlags);
+                    if (parameterNameField is not null)
+                    {
+                        try
+                        {
+                            expressionParameterName =
+                                parameterNameField.GetValue(expression)
+                                    ?.ToString();
+                        }
+                        catch
+                        {
+                        }
+                    }
+                }
+
                 var expressionTextureRecorded = false;
                 foreach (var property in expression.Properties)
                 {
@@ -281,8 +323,10 @@ ResolveAuthoritativeTextureReferences(
                         continue;
 
                     var name =
-                        $"ExpressionTexture_{expressionIndex}_" +
-                        property.Name.Text;
+                        !string.IsNullOrWhiteSpace(expressionParameterName)
+                            ? expressionParameterName
+                            : $"ExpressionTexture_{expressionIndex}_" +
+                                property.Name.Text;
                     result[name] = new TextureTruth(
                         name,
                         objectPath,
@@ -374,7 +418,9 @@ ResolveAuthoritativeTextureReferences(
                     if (!string.IsNullOrWhiteSpace(objectPath))
                     {
                         var name =
-                            $"ExpressionTexture_{expressionIndex}_Texture";
+                            !string.IsNullOrWhiteSpace(expressionParameterName)
+                                ? expressionParameterName
+                                : $"ExpressionTexture_{expressionIndex}_Texture";
                         result[name] = new TextureTruth(
                             name,
                             objectPath,
