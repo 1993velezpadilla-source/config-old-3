@@ -57,6 +57,7 @@ var _source_effective_material_textured_count: int = 0
 var _source_effective_material_flat_fallback_count: int = 0
 var _source_effective_source_color_count: int = 0
 var _source_effective_default_surface_count: int = 0
+var _source_effective_engine_default_count: int = 0
 var _source_effective_unresolved_fallback_count: int = 0
 var _source_effective_flat_fallback_rows: Array[Dictionary] = []
 var _source_texture_resource_hits: int = 0
@@ -196,6 +197,7 @@ func _load_benchmark_world() -> void:
 	set_meta("xziel_benchmark_effective_material_flat_fallback_count", _source_effective_material_flat_fallback_count)
 	set_meta("xziel_benchmark_effective_source_color_count", _source_effective_source_color_count)
 	set_meta("xziel_benchmark_effective_default_surface_count", _source_effective_default_surface_count)
+	set_meta("xziel_benchmark_effective_engine_default_count", _source_effective_engine_default_count)
 	set_meta("xziel_benchmark_effective_unresolved_fallback_count", _source_effective_unresolved_fallback_count)
 	set_meta("xziel_benchmark_texture_resource_hits", _source_texture_resource_hits)
 	set_meta("xziel_benchmark_texture_image_hits", _source_texture_image_hits)
@@ -228,6 +230,7 @@ func _load_benchmark_world() -> void:
 		" effective_flat_fallbacks=", _source_effective_material_flat_fallback_count,
 		" effective_source_color=", _source_effective_source_color_count,
 		" effective_default_surface=", _source_effective_default_surface_count,
+		" effective_engine_default=", _source_effective_engine_default_count,
 		" effective_unresolved_fallbacks=", _source_effective_unresolved_fallback_count,
 		" texture_resource_hits=", _source_texture_resource_hits,
 		" texture_image_hits=", _source_texture_image_hits,
@@ -331,6 +334,7 @@ func _prepare_material_authority() -> void:
 	_source_effective_material_flat_fallback_count = 0
 	_source_effective_source_color_count = 0
 	_source_effective_default_surface_count = 0
+	_source_effective_engine_default_count = 0
 	_source_effective_unresolved_fallback_count = 0
 	_source_effective_flat_fallback_rows.clear()
 	_source_texture_resource_hits = 0
@@ -707,14 +711,38 @@ func _material_for_path(material_path: String) -> Material:
 	else:
 		_source_material_flat_fallback_count += 1
 		var colors: Array = record.get("colors", [])
+		var export_type := str(record.get("exportType", ""))
 		var is_source_color := not colors.is_empty() and colors[0] is Dictionary
-		var is_default_surface := str(record.get("exportType", "")) == "SyntheticDefaultSurface"
+		var is_default_surface := export_type == "SyntheticDefaultSurface"
+		var raw_property_keys: Array = record.get("rawPropertyKeys", [])
+		# UE4.21 UMaterial constructor defaults are source engine semantics:
+		# BaseColor = FColor(128,128,128), Metallic = 0, Specular = 0.5,
+		# Roughness = 0.5. If a cooked base UMaterial has no BaseColor property
+		# and no explicit color/texture binding, reproduce that exact constant
+		# instead of letting Godot's white StandardMaterial default masquerade
+		# as source material output.
+		var is_engine_default_base_color := (
+			export_type == "Material"
+			and not is_source_color
+			and not raw_property_keys.has("BaseColor")
+		)
+		if is_engine_default_base_color:
+			var ue_default_channel := 128.0 / 255.0
+			material.albedo_color = Color(
+				ue_default_channel,
+				ue_default_channel,
+				ue_default_channel,
+				1.0
+			)
+			material.set_meta("source_ue421_default_base_color", true)
 		if _source_effective_material_paths.has(material_path):
 			_source_effective_material_flat_fallback_count += 1
 			if is_source_color:
 				_source_effective_source_color_count += 1
 			elif is_default_surface:
 				_source_effective_default_surface_count += 1
+			elif is_engine_default_base_color:
+				_source_effective_engine_default_count += 1
 			else:
 				_source_effective_unresolved_fallback_count += 1
 			var diagnostic_textures: Array[Dictionary] = []
@@ -754,7 +782,8 @@ func _material_for_path(material_path: String) -> Material:
 		material.emission = Color.WHITE
 
 	material.metallic = clampf(_source_scalar(record, "metallic", 0.0), 0.0, 1.0)
-	material.roughness = clampf(_source_scalar(record, "roughness", 1.0), 0.0, 1.0)
+	# UE4.21 UMaterial constructor default Roughness is 0.5.
+	material.roughness = clampf(_source_scalar(record, "roughness", 0.5), 0.0, 1.0)
 	material.metallic_specular = maxf(0.0, _source_scalar(record, "specular", 0.5))
 	material.cull_mode = (
 		BaseMaterial3D.CULL_DISABLED
