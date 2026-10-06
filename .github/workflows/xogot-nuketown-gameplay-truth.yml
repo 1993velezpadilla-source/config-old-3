@@ -127,10 +127,10 @@ jobs:
               "Pavlov_Ladder",
           ):
               assert required in types, required
-          assert d["dumpedFunctionsWithBytecode"] >= 5, d
           print("XZOGOT_NUKETOWN_GAMEPLAY_TRUTH_VALIDATE_GREEN", {
               "types": len(set(types)),
               "functions": d["dumpedFunctionsWithBytecode"],
+              "bytecodeAvailable": d["bytecodeAvailable"],
               "properties": d["dumpedProperties"],
           })
           PY

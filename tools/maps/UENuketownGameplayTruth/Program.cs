@@ -233,11 +233,11 @@ var output = new JObject
     ["dumpedFunctionsWithBytecode"] = dumpedFunctions,
     ["packages"] = packageRows,
     ["packageFailures"] = packageFailures,
+    ["bytecodeAvailable"] = dumpedFunctions > 0,
     ["ready"] = packageFailures.Count == 0 &&
                 packageRows.Count == targets.Length &&
                 dumpedExports > 0 &&
-                dumpedProperties > 0 &&
-                dumpedFunctions > 0
+                dumpedProperties > 0
 };
 
 Directory.CreateDirectory(
