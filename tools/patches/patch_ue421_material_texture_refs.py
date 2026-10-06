@@ -73,17 +73,14 @@ new = r'''                var textureTruth =
                             loadedTexture.GetPathName(),
                             loadedTexture.GetType().FullName);
                     }
-                    else if (textureEntry.Value is not null)
+                    else if (textureEntry.Value is not null &&
+                             !textureTruth.ContainsKey(key))
                     {
                         var reference = textureEntry.Value.ToString();
-                        var objectPath =
-                            textureEntry.Value is FPackageIndex packageIndex
-                                ? packageIndex.ResolvedObject?.GetPathName()
-                                : null;
                         textureTruth[key] = new TextureTruth(
                             key,
-                            objectPath,
-                            null,
+                            textureEntry.Value.GetPathName(),
+                            textureEntry.Value.ExportType,
                             false,
                             reference,
                             textureEntry.Value.GetType().FullName);
@@ -151,17 +148,9 @@ ResolveAuthoritativeTextureReferences(
     {
         if (material is UMaterialInstance instance)
         {
-            UUnrealMaterial? parent = null;
+            UUnrealMaterial? parent = instance.Parent;
 
-            if (instance.Parent is not null &&
-                instance.Parent.TryLoad<UUnrealMaterial>(
-                    out var loadedParent) &&
-                loadedParent is not null &&
-                loadedParent != material)
-            {
-                parent = loadedParent;
-            }
-            else
+            if (parent is null)
             {
                 var rawParentProperty =
                     instance.Properties.FirstOrDefault(
