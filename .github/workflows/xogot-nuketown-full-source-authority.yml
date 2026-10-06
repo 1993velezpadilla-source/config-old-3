@@ -1721,8 +1721,7 @@ jobs:
             nuketown-download/PavMappings.usmap \
             nuketown-download/nuketown-class-census.json \
             nuketown-download/ue-xzms-probe/report.json \
-            nuketown-download/runtime-static-scene/
-            nuketown-download/runtime-skeletal-scene/visual-scene.json \
+            nuketown-download/runtime-static-scene/visual-scene.json \
             ue5.1 \
             | tee nuketown-download/runtime-static-scene/extract.log
 
