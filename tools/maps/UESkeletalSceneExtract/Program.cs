@@ -193,8 +193,9 @@ foreach (var logicalPackage in mapPackages)
                             "SkinnedAsset"
                         },
                         templateDepth = meshResolution.TemplateDepth,
-                        templatePath = meshResolution.TemplatePath,
-                        reason = "SkeletalMesh reference null after instance/template resolution"
+                        resolutionObjectPath = meshResolution.ResolutionObjectPath,
+                        resolutionLayer = meshResolution.ResolutionLayer,
+                        reason = "SkeletalMesh reference null after instance/template/class resolution"
                     });
                     continue;
                 }
@@ -254,7 +255,8 @@ foreach (var logicalPackage in mapPackages)
                     skeletonHash = nativeMesh.SkeletonHash,
                     meshReferenceProperty = meshResolution.PropertyName,
                     meshReferenceTemplateDepth = meshResolution.TemplateDepth,
-                    meshReferenceTemplatePath = meshResolution.TemplatePath,
+                    meshReferenceResolutionObjectPath = meshResolution.ResolutionObjectPath,
+                    meshReferenceResolutionLayer = meshResolution.ResolutionLayer,
                     matrixRowMajor = matrix,
                     positionMeters = new[] {
                         matrix[3],
@@ -367,50 +369,94 @@ return 0;
 
 static SkeletalMeshResolution ResolveSkeletalMeshReference(UObject source)
 {
-    var current = source;
-    var templateDepth = 0;
-    string? templatePath = null;
     var visited = new HashSet<string>(StringComparer.Ordinal);
+    return ResolveSkeletalMeshReferenceRecursive(
+        source,
+        0,
+        visited,
+        "instance");
+}
 
-    while (current is not null && templateDepth <= 16)
+static SkeletalMeshResolution ResolveSkeletalMeshReferenceRecursive(
+    UObject current,
+    int templateDepth,
+    HashSet<string> visited,
+    string layer)
+{
+    var currentPath = current.GetPathName();
+    if (!visited.Add(currentPath))
+        return new SkeletalMeshResolution(
+            null,
+            null,
+            templateDepth,
+            currentPath,
+            "cycle");
+
+    foreach (var property in new[] {
+                 "SkeletalMesh",
+                 "SkeletalMeshAsset",
+                 "SkinnedAsset"
+             })
     {
-        var currentPath = current.GetPathName();
-        if (!visited.Add(currentPath))
-            break;
+        var reference = TryPackageIndex(current, property);
+        if (reference is not null && !reference.IsNull)
+        {
+            return new SkeletalMeshResolution(
+                reference,
+                property,
+                templateDepth,
+                currentPath,
+                layer);
+        }
+    }
 
+    var templateObject = current.Template?.Object?.Value;
+    if (templateObject is not null && templateDepth < 16)
+    {
+        var inherited = ResolveSkeletalMeshReferenceRecursive(
+            templateObject,
+            templateDepth + 1,
+            visited,
+            "template");
+        if (inherited.Reference is not null &&
+            !inherited.Reference.IsNull)
+            return inherited;
+    }
+
+    // CUE4Parse's own PropertyUtil template search falls back to Class after
+    // Template. Mirror that behavior explicitly so provenance remains visible.
+    var classObject = current.Class?.Object?.Value;
+    if (classObject is not null &&
+        !string.Equals(
+            classObject.GetPathName(),
+            currentPath,
+            StringComparison.Ordinal))
+    {
         foreach (var property in new[] {
                      "SkeletalMesh",
                      "SkeletalMeshAsset",
                      "SkinnedAsset"
                  })
         {
-            var reference = TryPackageIndex(current, property);
+            var reference = TryPackageIndex(classObject, property);
             if (reference is not null && !reference.IsNull)
             {
                 return new SkeletalMeshResolution(
                     reference,
                     property,
                     templateDepth,
-                    templatePath);
+                    classObject.GetPathName(),
+                    "class");
             }
         }
-
-        var template = current.Template;
-        if (template is null ||
-            !template.TryLoad(out var loaded) ||
-            loaded is null)
-            break;
-
-        templateDepth++;
-        templatePath = loaded.GetPathName();
-        current = loaded;
     }
 
     return new SkeletalMeshResolution(
         null,
         null,
         templateDepth,
-        templatePath);
+        currentPath,
+        layer);
 }
 
 static FPackageIndex? TryPackageIndex(UObject source, string property)
@@ -583,7 +629,8 @@ sealed record SkeletalMeshResolution(
     FPackageIndex? Reference,
     string? PropertyName,
     int TemplateDepth,
-    string? TemplatePath);
+    string? ResolutionObjectPath,
+    string ResolutionLayer);
 
 sealed record NativeSkeletalMesh(
     string ObjectPath,
