@@ -1,0 +1,146 @@
+name: Xogot Nuketown Gameplay Truth Extract
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - "tools/maps/UENuketownGameplayTruth/**"
+      - ".github/workflows/xogot-nuketown-gameplay-truth.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-nuketown-gameplay-truth-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install source package tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full xz-utils
+          mkdir -p "$RUNNER_TEMP/repak"
+          curl -fL --retry 5 \
+            https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz \
+            -o "$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" -C "$RUNNER_TEMP/repak"
+          REPAK=$(find "$RUNNER_TEMP/repak" -type f -name 'repak*' -perm -111 | head -1)
+          test -n "$REPAK"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
+
+      - name: Download pinned public Nuketown source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p source-download source-outer source-unpacked
+          curl -fL --retry 8 --retry-delay 3 --retry-all-errors \
+            -o source-download/nuketown-v49-oculus.zip \
+            "https://g-3959.modapi.io/v1/games/3959/mods/5097941/files/7509509/download"
+          test -s source-download/nuketown-v49-oculus.zip
+          7z x -y source-download/nuketown-v49-oculus.zip -osource-outer >/dev/null
+          PAK=$(find source-outer -type f -name '*.pak' -print -quit)
+          test -n "$PAK"
+          "$REPAK" unpack "$PAK" -o source-unpacked
+          test -s source-unpacked/Pavlov/Plugins/UGC5097941/Content/nuketownz.umap
+          echo "XZOGOT_NUKETOWN_SOURCE_PAYLOAD_GREEN"
+
+      - name: Pin Pavlov UE5 mappings
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 --retry-delay 2 \
+            -o source-download/PavMappings.usmap \
+            "https://raw.githubusercontent.com/THW-Reaper/PavlovVRMappings/4976647b4f3a209042460bc55a7a3122662d05b7/PavMappings.usmap"
+          echo "6d19f9731cc3fbaba34ca8e0833e81e4ffdf1b407edf24de48b1ccb5c63b060c  source-download/PavMappings.usmap" \
+            | sha256sum -c -
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build targeted gameplay extractor
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet restore tools/maps/UENuketownGameplayTruth/UENuketownGameplayTruth.csproj
+          dotnet build tools/maps/UENuketownGameplayTruth/UENuketownGameplayTruth.csproj \
+            --configuration Release --no-restore
+
+      - name: Extract exact gameplay properties and Kismet
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nuketown-gameplay-truth
+          APP=tools/maps/UENuketownGameplayTruth/bin/Release/net10.0/UENuketownGameplayTruth.dll
+          test -s "$APP"
+          dotnet "$APP" \
+            source-unpacked \
+            source-download/PavMappings.usmap \
+            build/nuketown-gameplay-truth/source-gameplay.json \
+            Pavlov/Plugins/UGC5097941/Content/nuketownz.umap \
+            Pavlov/Plugins/UGC5097941/Content/pulse/wallbuy.uasset \
+            Pavlov/Plugins/UGC5097941/Content/pulse/wallbuy_2.uasset \
+            Pavlov/Plugins/UGC5097941/Content/pulse/wallbuy_3.uasset \
+            Pavlov/Plugins/UGC5097941/Content/box/NewBlueprint1_2.uasset \
+            Pavlov/Plugins/UGC5097941/Content/admin/BuyWheelBox_2.uasset \
+            | tee build/nuketown-gameplay-truth/extract.log
+
+          grep -q "XZOGOT_NUKETOWN_GAMEPLAY_TRUTH_GREEN" \
+            build/nuketown-gameplay-truth/extract.log
+          test -s build/nuketown-gameplay-truth/source-gameplay.json
+
+      - name: Validate core source actors are present
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          p=Path("build/nuketown-gameplay-truth/source-gameplay.json")
+          d=json.loads(p.read_text())
+          assert d["ready"] is True, d
+          assert d["packageSuccessCount"] == 6, d
+          types=[]
+          for package in d["packages"]:
+              for export in package["exports"]:
+                  types.append(export["exportType"])
+          for required in (
+              "wallbuy_C",
+              "wallbuy_2_C",
+              "wallbuy_3_C",
+              "NewBlueprint1_2_C",
+              "BuyWheelBox_2_C",
+              "Pavlov_Spawn",
+              "Pavlov_Ladder",
+          ):
+              assert required in types, required
+          assert d["dumpedFunctionsWithBytecode"] >= 5, d
+          print("XZOGOT_NUKETOWN_GAMEPLAY_TRUTH_VALIDATE_GREEN", {
+              "types": len(set(types)),
+              "functions": d["dumpedFunctionsWithBytecode"],
+              "properties": d["dumpedProperties"],
+          })
+          PY
+
+      - name: Upload gameplay truth
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nuketown-Gameplay-Truth
+          path: |
+            build/nuketown-gameplay-truth/source-gameplay.json
+            build/nuketown-gameplay-truth/extract.log
+          if-no-files-found: error
+          retention-days: 14
