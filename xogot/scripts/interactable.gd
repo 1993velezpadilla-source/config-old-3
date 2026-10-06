@@ -33,6 +33,8 @@ enum Kind {
 @export var source_item_pool: Array[String] = []
 @export var source_item_authority: String = ""
 @export var ladder_climb_height: float = 2.25
+@export var source_sfx_path: String = ""
+@export var source_sfx_fallback: String = ""
 
 var _used: bool = false
 var _interaction_count: int = 0
@@ -76,6 +78,16 @@ func _play_world_sfx(path: String, volume_db: float = -4.0) -> void:
 	player.finished.connect(player.queue_free)
 	player.play()
 
+func _play_source_or_fallback_sfx(default_fallback: String, volume_db: float = -4.0) -> void:
+	if not source_sfx_path.is_empty() and ResourceLoader.exists(source_sfx_path):
+		set_meta("source_sfx_active", true)
+		set_meta("active_sfx_path", source_sfx_path)
+		_play_world_sfx(source_sfx_path, volume_db)
+		return
+	var fallback := source_sfx_fallback if not source_sfx_fallback.is_empty() else default_fallback
+	set_meta("source_sfx_active", false)
+	set_meta("active_sfx_path", fallback)
+	_play_world_sfx(fallback, volume_db)
 
 func _ready() -> void:
 	add_to_group("zombie_interactable")
@@ -383,7 +395,7 @@ func interact(player: Node) -> bool:
 			if weapon != null and weapon.has_method("play_interaction_animation"):
 				weapon.call("play_interaction_animation", "machine_use")
 			_animate_mystery_box()
-			_play_world_sfx(SFX_MYSTERY)
+			_play_source_or_fallback_sfx(SFX_MYSTERY)
 		Kind.PERK:
 			if not bool(player.call("grant_perk", perk_id)):
 				return false
@@ -535,7 +547,7 @@ func apply_network_world_state(
 		Kind.MYSTERY:
 			if not last_result.is_empty():
 				_animate_mystery_box()
-				_play_world_sfx(SFX_MYSTERY, -7.0)
+				_play_source_or_fallback_sfx(SFX_MYSTERY, -7.0)
 		Kind.PERK:
 			if not last_result.is_empty():
 				_pulse_perk_machine()

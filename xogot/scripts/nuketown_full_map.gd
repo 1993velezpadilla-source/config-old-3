@@ -19,6 +19,7 @@ extends Node3D
 const SOURCE_LOADER := preload("res://scripts/xziel_benchmark_loader.gd")
 const INTERACTABLE := preload("res://scripts/interactable.gd")
 const NUKETOWN_NAVIGATION := preload("res://scripts/nuketown_navigation_runtime.gd")
+const NUKETOWN_AUDIO := preload("res://scripts/nuketown_source_audio_runtime.gd")
 const WeaponCatalog := preload("res://scripts/weapon_catalog.gd")
 const VISUAL_SCENE_FILE := "visual-scene.json"
 const SOURCE_GAMEPLAY_FILE := "res://data/nuketown_source_gameplay.json"
@@ -27,6 +28,7 @@ const SOURCE_ACTOR_COVERAGE_FILE := "res://data/nuketown_actor_coverage.json"
 var _source_loader: Node3D
 var _source_actor_root: Node3D
 var _navigation_runtime: Node3D
+var _source_audio_runtime: Node3D
 var _source_gameplay_truth: Dictionary = {}
 var _source_actor_coverage: Dictionary = {}
 var _collision_count: int = 0
@@ -90,6 +92,9 @@ func _boot_full_map() -> void:
 	if preserve_all_actor_anchors:
 		_build_source_actor_anchors(scene)
 
+	if not _build_source_audio_runtime():
+		return
+
 	if build_world_collision:
 		_collision_count = _build_collision_recursive(_source_loader)
 
@@ -114,6 +119,11 @@ func _boot_full_map() -> void:
 	set_meta("navigation_polygon_count", int(_navigation_runtime.call("get_polygon_count")))
 	set_meta("zombie_spawn_anchor_count", int(_navigation_runtime.call("get_spawn_anchor_count")))
 	set_meta("nuketown_round_runtime_ready", bool(_navigation_runtime.call("is_navigation_ready")))
+	set_meta("source_audio_ambient_count", int(_source_audio_runtime.call("get_ambient_runtime_count")))
+	set_meta("source_audio_source_stream_count", int(_source_audio_runtime.call("get_source_stream_count")))
+	set_meta("source_audio_fallback_stream_count", int(_source_audio_runtime.call("get_fallback_stream_count")))
+	set_meta("source_audio_missing_stream_count", int(_source_audio_runtime.call("get_missing_stream_count")))
+	set_meta("source_audio_join_sound_count", int(_source_audio_runtime.get_meta("join_sound_count", -1)))
 	var mystery_truth: Dictionary = _source_gameplay_truth.get("mysteryBox", {})
 	set_meta("source_mystery_pool_count", (mystery_truth.get("pool", []) as Array).size())
 	set_meta("nuketown_full_map_ready", true)
@@ -362,6 +372,37 @@ func _build_collision_recursive(node: Node) -> int:
 	for child: Node in node.get_children():
 		created += _build_collision_recursive(child)
 	return created
+
+func _build_source_audio_runtime() -> bool:
+	if _source_actor_root == null:
+		push_error("NUKETOWN_FULL_MAP: source actor root missing before audio build")
+		return false
+	_source_audio_runtime = NUKETOWN_AUDIO.new() as Node3D
+	if _source_audio_runtime == null:
+		push_error("NUKETOWN_FULL_MAP: source audio runtime instantiate failed")
+		return false
+	_source_audio_runtime.name = "NuketownSourceAudioRuntime"
+	add_child(_source_audio_runtime)
+	if not bool(_source_audio_runtime.call("configure", _source_actor_root)):
+		push_error("NUKETOWN_FULL_MAP: source audio coverage failed")
+		return false
+
+	var mystery_path := str(_source_audio_runtime.call("mystery_source_path"))
+	var mystery_fallback := str(_source_audio_runtime.call("mystery_fallback_path"))
+	for mystery_runtime: Node in get_tree().get_nodes_in_group("nuketown_source_mystery_runtime"):
+		mystery_runtime.set("source_sfx_path", mystery_path)
+		mystery_runtime.set("source_sfx_fallback", mystery_fallback)
+		mystery_runtime.set_meta("source_audio_reference", "music_box_00")
+		mystery_runtime.set_meta("source_audio_policy", "SOURCE_IF_MOUNTED_ELSE_FALLBACK")
+
+	print(
+		"XZOGOT_NUKETOWN_AUDIO_BRIDGE_GREEN ambient=",
+		_source_audio_runtime.call("get_ambient_runtime_count"),
+		" source=", _source_audio_runtime.call("get_source_stream_count"),
+		" fallback=", _source_audio_runtime.call("get_fallback_stream_count"),
+		" missing=", _source_audio_runtime.call("get_missing_stream_count")
+	)
+	return true
 
 func _build_navigation_runtime() -> bool:
 	_navigation_runtime = NUKETOWN_NAVIGATION.new() as Node3D

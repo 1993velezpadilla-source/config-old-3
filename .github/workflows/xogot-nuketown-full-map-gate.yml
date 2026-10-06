@@ -9,6 +9,8 @@ on:
       - "xogot/nuketown_full_map.tscn"
       - "xogot/scripts/nuketown_full_map.gd"
       - "xogot/scripts/nuketown_navigation_runtime.gd"
+      - "xogot/scripts/nuketown_source_audio_runtime.gd"
+      - "xogot/data/nuketown_source_audio.json"
       - "xogot/scripts/interactable.gd"
       - "xogot/scripts/weapon.gd"
       - "xogot/ci/nuketown_full_map_probe.gd"

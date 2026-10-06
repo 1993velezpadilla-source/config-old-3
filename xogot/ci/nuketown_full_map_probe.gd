@@ -38,6 +38,11 @@ func _run() -> void:
 	var coverage_class_count := int(scene.get_meta("source_coverage_class_count", -1))
 	var navigation_polygon_count := int(scene.get_meta("navigation_polygon_count", -1))
 	var zombie_spawn_anchor_count := int(scene.get_meta("zombie_spawn_anchor_count", -1))
+	var source_audio_ambient_count := int(scene.get_meta("source_audio_ambient_count", -1))
+	var source_audio_source_stream_count := int(scene.get_meta("source_audio_source_stream_count", -1))
+	var source_audio_fallback_stream_count := int(scene.get_meta("source_audio_fallback_stream_count", -1))
+	var source_audio_missing_stream_count := int(scene.get_meta("source_audio_missing_stream_count", -1))
+	var source_audio_join_sound_count := int(scene.get_meta("source_audio_join_sound_count", -1))
 
 	if mesh_count != 52:
 		_fail(4, "mesh count mismatch " + str(mesh_count))
@@ -80,6 +85,21 @@ func _run() -> void:
 		return
 	if get_nodes_in_group("nuketown_source_ladder_runtime").size() != 2:
 		_fail(31, "ladder runtime adapter mismatch")
+		return
+	if source_audio_ambient_count != 4:
+		_fail(55, "source ambient runtime count mismatch " + str(source_audio_ambient_count))
+		return
+	if source_audio_join_sound_count != 3:
+		_fail(56, "source join-sound route count mismatch " + str(source_audio_join_sound_count))
+		return
+	if get_nodes_in_group("nuketown_source_ambient_runtime").size() != 4:
+		_fail(57, "source ambient runtime group mismatch")
+		return
+	if get_nodes_in_group("nuketown_source_join_audio_runtime").size() != 1:
+		_fail(58, "source join audio router missing")
+		return
+	if source_audio_source_stream_count + source_audio_fallback_stream_count + source_audio_missing_stream_count != 4:
+		_fail(59, "source ambient disposition total mismatch")
 		return
 	if navigation_polygon_count <= 0:
 		_fail(46, "source-collision navigation bake produced no polygons")
@@ -182,6 +202,12 @@ func _run() -> void:
 		return
 
 	var mystery_runtime: Node = get_nodes_in_group("nuketown_source_mystery_runtime")[0]
+	if str(mystery_runtime.get("source_sfx_path")).get_file() != "music_box_00.wav":
+		_fail(60, "mystery source audio path not wired")
+		return
+	if not ResourceLoader.exists(str(mystery_runtime.get("source_sfx_fallback"))):
+		_fail(61, "mystery fallback audio missing")
+		return
 	var points_before_mystery := int(player.call("get_points"))
 	if points_before_mystery != 500:
 		_fail(39, "unexpected starting points before mystery test " + str(points_before_mystery))
