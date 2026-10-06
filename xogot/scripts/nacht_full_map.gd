@@ -1413,10 +1413,25 @@ func _place_player() -> void:
 		"nacht_source_spawn_candidate_count",
 		_source_spawn_candidates.size()
 	)
+	var placement_capsule_error := -1.0
+	if collision != null:
+		placement_capsule_error = collision.global_position.distance_to(
+			chosen.global_position
+		)
+	player.set_meta(
+		"nacht_source_spawn_capsule_error_at_placement_m",
+		placement_capsule_error
+	)
+	player.set_meta(
+		"nacht_source_spawn_up_dot_at_placement",
+		player.global_basis.y.dot(Vector3.UP)
+	)
 	print(
 		"XZOGOT_NACHT_PLAYER_SOURCE_SPAWN ",
 		"anchor=", chosen.global_position,
 		" player_feet=", player.global_position,
+		" placement_capsule_error_m=", placement_capsule_error,
+		" up_dot=", player.global_basis.y.dot(Vector3.UP),
 		" candidates=", _source_spawn_candidates.size(),
 		" source=", chosen.get_meta("source_object_path", "")
 	)
