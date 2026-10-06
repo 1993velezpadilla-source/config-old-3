@@ -94,6 +94,7 @@ var _source_particle_pap_wheel_descriptor: Dictionary = {}
 var _source_particle_mystery_fog_descriptor: Dictionary = {}
 var _source_particle_mystery_inside_descriptor: Dictionary = {}
 var _source_particle_fire_smoke_descriptor: Dictionary = {}
+var _source_particle_pap_wheel_out_descriptor: Dictionary = {}
 var _source_environment_fog_runtime_ready := false
 var _source_environment_reflection_runtime_ready := false
 var _source_spawn_candidates: Array[Node3D] = []
@@ -215,7 +216,7 @@ func _boot() -> void:
 	# audible runtime reproduction. They must only flip when those systems are
 	# actually mounted, never merely because the JSON exists.
 	set_meta("particle_visual_runtime_ready", false)
-	set_meta("source_particle_semantic_runtime_ready", _source_particle_semantic_runtime_count == 8 and _source_particle_semantic_placement_count == 17)
+	set_meta("source_particle_semantic_runtime_ready", _source_particle_semantic_runtime_count == 9 and _source_particle_semantic_placement_count == 18)
 	set_meta("source_particle_semantic_runtime_count", _source_particle_semantic_runtime_count)
 	set_meta("source_particle_semantic_placement_count", _source_particle_semantic_placement_count)
 	set_meta("source_audio_runtime_ready", _source_audio_semantics_ready())
@@ -1296,6 +1297,21 @@ func _build_source_particle_semantic_runtime() -> bool:
 		return false
 	_source_particle_semantic_runtime_count += 1
 
+	_source_particle_pap_wheel_out_descriptor = NachtCascadeRuntime.pap_wheel_out_descriptor(_particle_graphs)
+	if not bool(_source_particle_pap_wheel_out_descriptor.get("ready", false)):
+		push_error(
+			"NACHT_FULL_MAP: PaP wheel out Cascade semantics unresolved "
+			+ str(_source_particle_pap_wheel_out_descriptor.get("error", "unknown"))
+		)
+		return false
+	if not _mount_source_particle_semantic_anchors(
+		_source_particle_pap_wheel_out_descriptor,
+		1,
+		"PaP wheel out"
+	):
+		return false
+	_source_particle_semantic_runtime_count += 1
+
 	set_meta(
 		"source_particle_mystery_spawn_rate",
 		float(_source_particle_mystery_descriptor.get("spawnRateMin", -1.0))
@@ -1692,6 +1708,90 @@ func _build_source_particle_semantic_runtime() -> bool:
 		"source_particle_fire_smoke_peak_active_by_lod",
 		_source_particle_fire_smoke_descriptor.get("peakActiveByLOD", [])
 	)
+	set_meta(
+		"source_particle_pap_wheel_out_lifetime_min",
+		float(_source_particle_pap_wheel_out_descriptor.get("lifetimeMin", -1.0))
+	)
+	set_meta(
+		"source_particle_pap_wheel_out_lifetime_max",
+		float(_source_particle_pap_wheel_out_descriptor.get("lifetimeMax", -1.0))
+	)
+	set_meta(
+		"source_particle_pap_wheel_out_location_min_ue_cm",
+		_source_particle_pap_wheel_out_descriptor.get("startLocationMinUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_pap_wheel_out_location_max_ue_cm",
+		_source_particle_pap_wheel_out_descriptor.get("startLocationMaxUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_pap_wheel_out_start_size_min_ue_cm",
+		_source_particle_pap_wheel_out_descriptor.get("startSizeMinUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_pap_wheel_out_start_size_max_ue_cm",
+		_source_particle_pap_wheel_out_descriptor.get("startSizeMaxUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_pap_wheel_out_size_life_table_value_count",
+		int(_source_particle_pap_wheel_out_descriptor.get("sizeLifeTableValueCount", -1))
+	)
+	set_meta(
+		"source_particle_pap_wheel_out_size_life_time_scale",
+		float(_source_particle_pap_wheel_out_descriptor.get("sizeLifeTimeScale", -1.0))
+	)
+	set_meta(
+		"source_particle_pap_wheel_out_start_velocity_min_ue_cm",
+		_source_particle_pap_wheel_out_descriptor.get("startVelocityMinUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_pap_wheel_out_start_velocity_max_ue_cm",
+		_source_particle_pap_wheel_out_descriptor.get("startVelocityMaxUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_pap_wheel_out_velocity_life_max",
+		_source_particle_pap_wheel_out_descriptor.get("velocityOverLifeMax", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_pap_wheel_out_velocity_life_table_value_count",
+		int(_source_particle_pap_wheel_out_descriptor.get("velocityOverLifeTableValueCount", -1))
+	)
+	set_meta(
+		"source_particle_pap_wheel_out_velocity_life_time_scale",
+		float(_source_particle_pap_wheel_out_descriptor.get("velocityOverLifeTimeScale", -1.0))
+	)
+	set_meta(
+		"source_particle_pap_wheel_out_acceleration_min_ue_cm",
+		_source_particle_pap_wheel_out_descriptor.get("accelerationMinUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_pap_wheel_out_acceleration_max_ue_cm",
+		_source_particle_pap_wheel_out_descriptor.get("accelerationMaxUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_pap_wheel_out_acceleration_world_space",
+		bool(_source_particle_pap_wheel_out_descriptor.get("accelerationWorldSpace", false))
+	)
+	set_meta(
+		"source_particle_pap_wheel_out_rotation_rate_min",
+		float(_source_particle_pap_wheel_out_descriptor.get("rotationRateMin", 999.0))
+	)
+	set_meta(
+		"source_particle_pap_wheel_out_rotation_rate_max",
+		float(_source_particle_pap_wheel_out_descriptor.get("rotationRateMax", -999.0))
+	)
+	set_meta(
+		"source_particle_pap_wheel_out_spawn_rate",
+		float(_source_particle_pap_wheel_out_descriptor.get("spawnRate", -1.0))
+	)
+	set_meta(
+		"source_particle_pap_wheel_out_spawn_rate_scale",
+		float(_source_particle_pap_wheel_out_descriptor.get("spawnRateScale", -1.0))
+	)
+	set_meta(
+		"source_particle_pap_wheel_out_peak_active",
+		int(_source_particle_pap_wheel_out_descriptor.get("peakActiveParticles", -1))
+	)
 
 	print(
 		"XZOGOT_NACHT_CASCADE_SEMANTIC_RUNTIME_GREEN systems=",
@@ -1737,7 +1837,11 @@ func _build_source_particle_semantic_runtime() -> bool:
 		" fire_smoke_subuv_fps=",
 		_source_particle_fire_smoke_descriptor.get("subUVFrameRate"),
 		" fire_smoke_rates=",
-		_source_particle_fire_smoke_descriptor.get("spawnRatesByLOD")
+		_source_particle_fire_smoke_descriptor.get("spawnRatesByLOD"),
+		" pap_wheel_out_rate=",
+		_source_particle_pap_wheel_out_descriptor.get("spawnRate"),
+		" pap_wheel_out_peak=",
+		_source_particle_pap_wheel_out_descriptor.get("peakActiveParticles")
 	)
 	return true
 
