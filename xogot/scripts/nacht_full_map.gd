@@ -383,7 +383,11 @@ func _cue_node_map(cue: Dictionary) -> Dictionary:
 	return result
 
 
-func _random_node_child_index(cue_path: String, node: Dictionary) -> int:
+func _random_node_child_index(
+	cue_path: String,
+	node: Dictionary,
+	consume_state: bool = true
+) -> int:
 	var children := node.get("children", []) as Array
 	if children.is_empty():
 		return -1
@@ -398,7 +402,7 @@ func _random_node_child_index(cue_path: String, node: Dictionary) -> int:
 	var state_key := _authority_object_key(cue_path) + "|" + _authority_object_key(node_path)
 	var candidates: Array[int] = []
 
-	if without_replacement:
+	if without_replacement and consume_state:
 		var remaining_raw: Variant = _source_audio_random_remaining.get(state_key, [])
 		if remaining_raw is Array:
 			for raw_index: Variant in remaining_raw:
@@ -409,6 +413,12 @@ func _random_node_child_index(cue_path: String, node: Dictionary) -> int:
 	else:
 		for index in range(children.size()):
 			candidates.append(index)
+
+	# Building an autoplay=false component must not burn a source random draw.
+	# Use the first reachable child only as a non-consuming preview stream; the
+	# first real Play call performs the actual weighted source selection.
+	if not consume_state:
+		return candidates[0]
 
 	var total_weight := 0.0
 	var candidate_weights: Array[float] = []
@@ -432,7 +442,7 @@ func _random_node_child_index(cue_path: String, node: Dictionary) -> int:
 		selected_candidate = randi_range(0, candidates.size() - 1)
 
 	var selected_index := candidates[selected_candidate]
-	if without_replacement:
+	if without_replacement and consume_state:
 		candidates.remove_at(selected_candidate)
 		_source_audio_random_remaining[state_key] = candidates
 	return selected_index
@@ -442,7 +452,8 @@ func _resolve_cue_wave_selection(
 	cue: Dictionary,
 	node_path: String = "",
 	inherited_loop: bool = false,
-	depth: int = 0
+	depth: int = 0,
+	consume_random_state: bool = true
 ) -> Dictionary:
 	if depth > 64:
 		return {}
@@ -481,14 +492,19 @@ func _resolve_cue_wave_selection(
 		return {}
 
 	if node_type == "SoundNodeRandom":
-		var child_index := _random_node_child_index(str(cue.get("objectPath", "")), node)
+		var child_index := _random_node_child_index(
+			str(cue.get("objectPath", "")),
+			node,
+			consume_random_state
+		)
 		if child_index < 0 or child_index >= children.size():
 			return {}
 		return _resolve_cue_wave_selection(
 			cue,
 			str(children[child_index]),
 			inherited_loop,
-			depth + 1
+			depth + 1,
+			consume_random_state
 		)
 
 	var next_loop := inherited_loop or node_type == "SoundNodeLooping"
@@ -496,7 +512,8 @@ func _resolve_cue_wave_selection(
 		cue,
 		str(children[0]),
 		next_loop,
-		depth + 1
+		depth + 1,
+		consume_random_state
 	)
 
 
@@ -788,7 +805,7 @@ func _build_source_audio_runtime() -> bool:
 			return false
 
 		var cue := cue_by_key[cue_key] as Dictionary
-		var selection := _resolve_cue_wave_selection(cue)
+		var selection := _resolve_cue_wave_selection(cue, "", false, 0, false)
 		if selection.is_empty():
 			push_error(
 				"NACHT_FULL_MAP: source UMAP cue graph could not resolve a wave "
