@@ -1,0 +1,166 @@
+name: Xogot Nuketown Custom Blueprint Truth
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-nuketown-custom-blueprint-truth.yml"
+      - "tools/maps/UENuketownWallbuyBytecode/**"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-nuketown-custom-blueprint-truth-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  extract-custom-blueprints:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install source package tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full xz-utils
+          mkdir -p "$RUNNER_TEMP/repak"
+          curl -fL --retry 5 \
+            https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz \
+            -o "$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" -C "$RUNNER_TEMP/repak"
+          REPAK=$(find "$RUNNER_TEMP/repak" -type f -name 'repak*' -perm -111 | head -1)
+          test -n "$REPAK"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
+
+      - name: Download pinned Nuketown source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p source-download source-outer source-unpacked
+          curl -fL --retry 8 --retry-delay 3 --retry-all-errors \
+            -o source-download/nuketown-v49-oculus.zip \
+            "https://g-3959.modapi.io/v1/games/3959/mods/5097941/files/7509509/download"
+          7z x -y source-download/nuketown-v49-oculus.zip -osource-outer >/dev/null
+          PAK=$(find source-outer -type f -name '*.pak' -print -quit)
+          test -n "$PAK"
+          "$REPAK" unpack "$PAK" -o source-unpacked
+
+      - name: Pin Pavlov UE5 mappings
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 --retry-delay 2 \
+            -o source-download/PavMappings.usmap \
+            "https://raw.githubusercontent.com/THW-Reaper/PavlovVRMappings/4976647b4f3a209042460bc55a7a3122662d05b7/PavMappings.usmap"
+          echo "6d19f9731cc3fbaba34ca8e0833e81e4ffdf1b407edf24de48b1ccb5c63b060c  source-download/PavMappings.usmap" \
+            | sha256sum -c -
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build Kismet extractor
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet restore tools/maps/UENuketownWallbuyBytecode/UENuketownWallbuyBytecode.csproj
+          dotnet build tools/maps/UENuketownWallbuyBytecode/UENuketownWallbuyBytecode.csproj \
+            --configuration Release --no-restore
+
+      - name: Discover all suspicious custom Blueprints
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nuketown-custom-blueprints
+          : > build/nuketown-custom-blueprints/assets.txt
+          for stem in \
+            speed \
+            NewBlueprint \
+            NewBlueprint_11 \
+            NewBlueprint_19 \
+            disgod \
+            OldFashionedGod \
+            Enter_your_key \
+            GamemodeDetector \
+            tpout1 \
+            viptp \
+            cash_text
+          do
+            hit=$(find source-unpacked -type f -iname "${stem}.uasset" -print -quit)
+            if [ -n "$hit" ]; then
+              printf '%s\n' "$hit" >> build/nuketown-custom-blueprints/assets.txt
+              echo "XZOGOT_CUSTOM_BP_FOUND $stem $hit"
+            else
+              echo "XZOGOT_CUSTOM_BP_MISSING $stem"
+            fi
+          done
+          sort -u -o build/nuketown-custom-blueprints/assets.txt build/nuketown-custom-blueprints/assets.txt
+          test "$(wc -l < build/nuketown-custom-blueprints/assets.txt)" -ge 8
+          cat build/nuketown-custom-blueprints/assets.txt
+
+      - name: Decompile custom Blueprint Kismet
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t ASSETS < build/nuketown-custom-blueprints/assets.txt
+          APP=tools/maps/UENuketownWallbuyBytecode/bin/Release/net10.0/UENuketownWallbuyBytecode.dll
+          set +e
+          dotnet "$APP" \
+            source-download/PavMappings.usmap \
+            build/nuketown-custom-blueprints/custom-blueprints.json \
+            "${ASSETS[@]}" \
+            | tee build/nuketown-custom-blueprints/extract.log
+          rc=${PIPESTATUS[0]}
+          set -e
+          # Preserve the report even if an individual cooked Blueprint has no
+          # integer constants. The report itself is the source-truth artifact.
+          test -s build/nuketown-custom-blueprints/custom-blueprints.json
+          echo "XZOGOT_CUSTOM_BP_EXTRACT_RC $rc"
+
+      - name: Summarize custom Blueprint behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("build/nuketown-custom-blueprints/custom-blueprints.json")
+          d=json.loads(p.read_text())
+          assert d["packageSuccessCount"] == d["assetCount"], d
+          summary={}
+          for pkg in d["packages"]:
+              calls=set()
+              values=set()
+              for fn in pkg["functions"]:
+                  calls.update(x["call"] for x in fn["calls"])
+                  values.update(x["value"] for x in fn["integerConstants"])
+              summary[pkg["fileName"]]={
+                  "functions": pkg["functionCount"],
+                  "calls": sorted(calls),
+                  "ints": sorted(values),
+              }
+              print("XZOGOT_CUSTOM_BP", pkg["fileName"], json.dumps(summary[pkg["fileName"]], sort_keys=True))
+          Path("build/nuketown-custom-blueprints/summary.json").write_text(
+              json.dumps(summary, indent=2)+"\n"
+          )
+          print("XZOGOT_NUKETOWN_CUSTOM_BLUEPRINT_TRUTH_GREEN", len(summary))
+          PY
+
+      - name: Upload custom Blueprint truth
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nuketown-Custom-Blueprint-Truth
+          path: |
+            build/nuketown-custom-blueprints/custom-blueprints.json
+            build/nuketown-custom-blueprints/summary.json
+            build/nuketown-custom-blueprints/extract.log
+            build/nuketown-custom-blueprints/assets.txt
+          if-no-files-found: error
+          retention-days: 14
