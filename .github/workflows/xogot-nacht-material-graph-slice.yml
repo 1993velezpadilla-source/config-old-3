@@ -233,6 +233,17 @@ jobs:
           placements=json.loads(placements_path.read_text())
           materials=json.loads(materials_path.read_text())
 
+          if int(graphs.get("truncatedSourceValueCount",-1)) != 0:
+              raise SystemExit(
+                  "particle graph authority contains truncated source values: "
+                  + str(graphs.get("truncatedSourceValueCount"))
+              )
+          if graphs.get("opaqueValueTypeCounts",{}):
+              raise SystemExit(
+                  "particle graph authority contains opaque source values: "
+                  + str(graphs.get("opaqueValueTypeCounts"))
+              )
+
           structural_types={"ParticleSystem","ParticleSpriteEmitter","ParticleLODLevel"}
           value_prefixes=("DistributionFloat","DistributionVector")
           direct_mapping_types={
@@ -336,7 +347,13 @@ jobs:
               })
 
           rows.sort(key=lambda r:(len(r["unsupportedNodeTypes"]),r["materialTextureCount"],r["systemPath"].lower()))
-          payload={"systemCount":len(rows),"systems":rows}
+          payload={
+              "sourceRun":int(os.environ["SOURCE_RUN"]),
+              "truncatedSourceValueCount":int(graphs.get("truncatedSourceValueCount",0)),
+              "opaqueValueTypeCounts":graphs.get("opaqueValueTypeCounts",{}),
+              "systemCount":len(rows),
+              "systems":rows,
+          }
           (out/"particle-candidate-matrix.json").write_text(json.dumps(payload,indent=2)+"\n")
 
           ranked_keys={canonical(r["systemPath"]) for r in rows}
@@ -347,6 +364,9 @@ jobs:
           (out/"particle-candidate-graphs.json").write_text(
               json.dumps(
                   {
+                      "sourceRun":int(os.environ["SOURCE_RUN"]),
+                      "truncatedSourceValueCount":int(graphs.get("truncatedSourceValueCount",0)),
+                      "opaqueValueTypeCounts":graphs.get("opaqueValueTypeCounts",{}),
                       "systemCount":len(candidate_graphs),
                       "systems":candidate_graphs,
                   },
