@@ -48,6 +48,22 @@ func _run() -> void:
 	var complete_textures := int(scene.get_meta("source_complete_texture_catalog_count", -1))
 	var texture_failures := int(scene.get_meta("source_texture_load_failures", -1))
 	var textured_materials := int(scene.get_meta("source_material_textured_count", -1))
+	var effective_materials := int(scene.get_meta("source_effective_material_count", -1))
+	var effective_textured_materials := int(
+		scene.get_meta("source_effective_material_textured_count", -1)
+	)
+	var effective_flat_fallbacks := int(
+		scene.get_meta("source_effective_material_flat_fallback_count", -1)
+	)
+	var effective_source_color := int(
+		scene.get_meta("source_effective_source_color_count", -1)
+	)
+	var effective_default_surface := int(
+		scene.get_meta("source_effective_default_surface_count", -1)
+	)
+	var effective_unresolved_fallbacks := int(
+		scene.get_meta("source_effective_unresolved_fallback_count", -1)
+	)
 	var source_particles := int(scene.get_meta("source_particle_component_count", -1))
 	var particle_authority := int(scene.get_meta("runtime_particle_authority_count", -1))
 	var source_particle_systems := int(scene.get_meta("source_particle_system_count", -1))
@@ -318,6 +334,12 @@ func _run() -> void:
 		" textures=", complete_textures,
 		" expected_textures=", expected_texture_count,
 		" textured_materials=", textured_materials,
+		" effective_materials=", effective_materials,
+		" effective_textured_materials=", effective_textured_materials,
+		" effective_flat_fallbacks=", effective_flat_fallbacks,
+		" effective_source_color=", effective_source_color,
+		" effective_default_surface=", effective_default_surface,
+		" effective_unresolved_fallbacks=", effective_unresolved_fallbacks,
 		" particles_authority=", particle_authority,
 		" particle_graphs_authority=", particle_graph_authority,
 		" environment_authority=", environment_authority,
