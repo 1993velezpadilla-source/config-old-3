@@ -212,6 +212,7 @@ func _make_source_interactable(
 	node.set("one_shot", false)
 	node.set_meta("source_actor_adapter", true)
 	node.set_meta("source_class_name", marker.get_meta("source_class_name", ""))
+	node.set_meta("source_object_path", marker.get_meta("source_object_path", ""))
 	node.set_meta("source_export_index", marker.get_meta("source_export_index", -1))
 	var collision := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
@@ -272,6 +273,12 @@ func _source_actor_marker_by_object_path(source_object_path: String) -> Marker3D
 			return node as Marker3D
 	return null
 
+func _source_mystery_runtime_by_object_path(source_object_path: String) -> Node3D:
+	for node: Node in get_tree().get_nodes_in_group("nuketown_source_mystery_runtime"):
+		if node is Node3D and str(node.get_meta("source_object_path", "")) == source_object_path:
+			return node as Node3D
+	return null
+
 func _mount_source_skeletal_actor_visuals() -> bool:
 	if _source_actor_root == null:
 		push_error("NUKETOWN_FULL_MAP: source actor root missing before skeletal mount")
@@ -290,7 +297,7 @@ func _mount_source_skeletal_actor_visuals() -> bool:
 		return false
 
 	var rows: Array = document.get("bindings", [])
-	if rows.size() != int(document.get("bindingCount", -1)) or rows.size() != 2:
+	if rows.size() != int(document.get("bindingCount", -1)) or rows.size() != 3:
 		push_error("NUKETOWN_FULL_MAP: exact skeletal binding count mismatch " + str(rows.size()))
 		return false
 
@@ -331,20 +338,34 @@ func _mount_source_skeletal_actor_visuals() -> bool:
 			return false
 
 		visual.name = "SourceSkeletalVisual_" + str(row.get("actorName", "Actor"))
-		# The binding matrix is the cooked SkeletalMeshComponent world transform,
-		# already converted into the shared XZIEL X,-Y,Z meter basis. Parent it
-		# directly under SourceActorAnchors, whose basis performs the one Godot
-		# coordinate conversion, instead of inheriting the coarser actor marker.
-		visual.transform = _transform_from_row_major(row.get("matrixRowMajor", []))
+		var exact_transform := _transform_from_row_major(row.get("matrixRowMajor", []))
+		var parent: Node3D = _source_actor_root
+		var source_class := str(marker.get_meta("source_class_name", ""))
+		var mystery_runtime: Node3D = null
+		if source_class == "NewBlueprint1_2_C":
+			mystery_runtime = _source_mystery_runtime_by_object_path(actor_object_path)
+			if mystery_runtime == null:
+				push_error("NUKETOWN_FULL_MAP: exact Mystery skeletal parent missing " + actor_object_path)
+				return false
+			parent = mystery_runtime
+			# Both transforms are authored beneath SourceActorAnchors. Convert
+			# the exact cooked component world transform into Mystery runtime
+			# local space so interaction animation still owns the visual.
+			visual.transform = parent.transform.affine_inverse() * exact_transform
+			visual.add_to_group("nuketown_source_mystery_visual")
+		else:
+			visual.transform = exact_transform
+
 		visual.add_to_group("nuketown_source_skeletal_visual")
 		visual.set_meta("source_actor_object_path", actor_object_path)
+		visual.set_meta("source_actor_class_name", source_class)
 		visual.set_meta("source_skeletal_mesh_object_path", str(row.get("sourceSkeletalMeshObjectPath", "")))
 		visual.set_meta("source_skeletal_mesh_package_path", str(row.get("sourceSkeletalMeshPackagePath", "")))
 		visual.set_meta("source_xzsk_file", str(row.get("sourceXzskFile", "")))
 		visual.set_meta("source_skeleton_hash", str(row.get("skeletonHash", "")))
 		visual.set_meta("source_gltf", gltf_name)
 		visual.set_meta("source_transform_from_cooked_component", true)
-		_source_actor_root.add_child(visual)
+		parent.add_child(visual)
 
 		var animation_player := _find_animation_player_recursive(visual)
 		if animation_player == null:
@@ -374,13 +395,19 @@ func _mount_source_skeletal_actor_visuals() -> bool:
 		# Whether these cooked actors auto-play is decoded separately from UE.
 		visual.set_meta("source_animation_names", actual_clips)
 		visual.set_meta("source_animation_playback_decoded", false)
+		if mystery_runtime != null:
+			mystery_runtime.set_meta("source_mystery_visual_ready", true)
+			mystery_runtime.set_meta("source_mystery_animation_count", actual_clips.size())
+			mystery_runtime.set_meta("source_mystery_animation_names", actual_clips)
+			if mystery_runtime.has_method("refresh_source_animation_player"):
+				mystery_runtime.call("refresh_source_animation_player")
 		total_clips += actual_clips.size()
 		mounted_paths[actor_object_path] = true
 		mounted_gltfs[gltf_name] = true
 
 	_source_skeletal_visual_count = mounted_paths.size()
 	_source_skeletal_clip_count = total_clips
-	if _source_skeletal_visual_count != 2 or _source_skeletal_clip_count != 2:
+	if _source_skeletal_visual_count != 3 or _source_skeletal_clip_count != 9:
 		push_error(
 			"NUKETOWN_FULL_MAP: skeletal runtime coverage mismatch visuals="
 			+ str(_source_skeletal_visual_count)
@@ -534,8 +561,8 @@ func _build_source_actor_anchors(scene: Dictionary) -> void:
 					typed_pool.append(str(item_raw))
 				mystery_runtime.set("source_item_pool", typed_pool)
 				mystery_runtime.set("source_item_authority", str(mystery.get("itemClass", "")))
-				if not _attach_mystery_source_visual(mystery_runtime):
-					push_error("NUKETOWN_FULL_MAP: Mystery source visual bridge failed")
+				# The complete-source skeletal bridge mounts the exact cooked
+				# Mystery component after all source actor adapters exist.
 				mystery_runtime.add_to_group("nuketown_source_mystery_runtime")
 				_source_mystery_count += 1
 			_:
