@@ -1,0 +1,143 @@
+name: Xogot Nuketown Source Audio Truth
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - "tools/maps/UENuketownAudioExtract/**"
+      - ".github/workflows/xogot-nuketown-audio-truth.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-nuketown-audio-truth-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  extract-audio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install source package tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full xz-utils
+          mkdir -p "$RUNNER_TEMP/repak"
+          curl -fL --retry 5 \
+            https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz \
+            -o "$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" -C "$RUNNER_TEMP/repak"
+          REPAK=$(find "$RUNNER_TEMP/repak" -type f -name 'repak*' -perm -111 | head -1)
+          test -n "$REPAK"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
+
+      - name: Download pinned Nuketown source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p source-download source-outer source-unpacked
+          curl -fL --retry 8 --retry-delay 3 --retry-all-errors \
+            -o source-download/nuketown-v49-oculus.zip \
+            "https://g-3959.modapi.io/v1/games/3959/mods/5097941/files/7509509/download"
+          7z x -y source-download/nuketown-v49-oculus.zip -osource-outer >/dev/null
+          PAK=$(find source-outer -type f -name '*.pak' -print -quit)
+          test -n "$PAK"
+          "$REPAK" unpack "$PAK" -o source-unpacked
+
+          test -s source-unpacked/Pavlov/Plugins/UGC5097941/Content/box/music_box_00.uasset
+          test -s source-unpacked/Pavlov/Plugins/UGC5097941/Content/map_creator.uasset
+          test -s source-unpacked/Pavlov/Plugins/UGC5097941/Content/admin.uasset
+
+      - name: Pin Pavlov UE5 mappings
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 --retry-delay 2 \
+            -o source-download/PavMappings.usmap \
+            "https://raw.githubusercontent.com/THW-Reaper/PavlovVRMappings/4976647b4f3a209042460bc55a7a3122662d05b7/PavMappings.usmap"
+          echo "6d19f9731cc3fbaba34ca8e0833e81e4ffdf1b407edf24de48b1ccb5c63b060c  source-download/PavMappings.usmap" \
+            | sha256sum -c -
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build source audio extractor
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet restore tools/maps/UENuketownAudioExtract/UENuketownAudioExtract.csproj
+          dotnet build tools/maps/UENuketownAudioExtract/UENuketownAudioExtract.csproj \
+            --configuration Release --no-restore
+
+      - name: Decode internal source SoundWaves
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nuketown-source-audio/files
+          APP=tools/maps/UENuketownAudioExtract/bin/Release/net10.0/UENuketownAudioExtract.dll
+          dotnet "$APP" \
+            source-unpacked \
+            source-download/PavMappings.usmap \
+            build/nuketown-source-audio/files \
+            build/nuketown-source-audio/audio-manifest.json \
+            Pavlov/Plugins/UGC5097941/Content/box/music_box_00.uasset \
+            Pavlov/Plugins/UGC5097941/Content/map_creator.uasset \
+            Pavlov/Plugins/UGC5097941/Content/admin.uasset \
+            | tee build/nuketown-source-audio/extract.log
+          grep -q "XZOGOT_NUKETOWN_AUDIO_EXTRACT_GREEN" build/nuketown-source-audio/extract.log
+
+      - name: Record JoinSounds provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          p=Path("build/nuketown-source-audio/audio-manifest.json")
+          d=json.loads(p.read_text())
+          assert d["ready"] is True, d
+          assert d["decodedSoundCount"] == 3, d
+          d["joinSoundBlueprints"] = {
+              "JoinSounds_C": {
+                  "sound": "/UGC4905655/bps/synthesized_audio_wav",
+                  "availability": "EXTERNAL_UGC_NOT_IN_NUKETOWN_PAYLOAD",
+                  "runtimeDisposition": "XOGOT_REPLACEMENT_REQUIRED",
+              },
+              "JoinSounds_2_C": {
+                  "sound": "/UGC5097941/map_creator",
+                  "availability": "SOURCE_INTERNAL_DECODED",
+              },
+              "JoinSounds_3_C": {
+                  "sound": "/UGC5097941/admin",
+                  "availability": "SOURCE_INTERNAL_DECODED",
+              },
+              "NewBlueprint1_2_C": {
+                  "sound": "/UGC5097941/box/music_box_00",
+                  "availability": "SOURCE_INTERNAL_DECODED",
+              },
+          }
+          p.write_text(json.dumps(d, indent=2) + "\n")
+          print("XZOGOT_NUKETOWN_AUDIO_PROVENANCE_GREEN")
+          PY
+
+      - name: Upload private benchmark audio proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nuketown-Source-Audio-Proof
+          path: |
+            build/nuketown-source-audio/audio-manifest.json
+            build/nuketown-source-audio/extract.log
+            build/nuketown-source-audio/files/*
+          if-no-files-found: error
+          retention-days: 14
