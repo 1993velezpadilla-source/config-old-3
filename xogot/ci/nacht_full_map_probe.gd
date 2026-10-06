@@ -248,6 +248,35 @@ func _run() -> void:
 		_fail(13, "round manager must remain gated until Nacht source spawns/nav are wired")
 		return
 
+	var spawn_candidate_count := int(
+		player.get_meta("nacht_source_spawn_candidate_count", -1)
+	)
+	if spawn_candidate_count != 10:
+		_fail(
+			26,
+			"source spawn candidate count mismatch %d/10"
+			% spawn_candidate_count
+		)
+		return
+
+	var collision := player.get_node_or_null("CollisionShape3D") as CollisionShape3D
+	var raw_spawn_anchor: Variant = player.get_meta(
+		"nacht_source_spawn_anchor_position",
+		null
+	)
+	if collision == null or not (raw_spawn_anchor is Vector3):
+		_fail(27, "source spawn capsule alignment metadata missing")
+		return
+	var spawn_anchor := raw_spawn_anchor as Vector3
+	var capsule_error := collision.global_position.distance_to(spawn_anchor)
+	if capsule_error > 0.001:
+		_fail(
+			28,
+			"source spawn capsule center mismatch error_m=%f"
+			% capsule_error
+		)
+		return
+
 	print(
 		"XZOGOT_NACHT_FULL_MAP_PROBE_GREEN ",
 		"packages=", packages,
@@ -279,6 +308,8 @@ func _run() -> void:
 		" source_environment_exact=", source_environment_exact,
 		" source_environment_fog_runtime=", source_environment_fog_runtime,
 		" source_environment_reflection_runtime=", source_environment_reflection_runtime,
+		" spawn_candidates=", spawn_candidate_count,
+		" spawn_capsule_error_m=", capsule_error,
 		" player=", player.global_position
 	)
 	scene.queue_free()
