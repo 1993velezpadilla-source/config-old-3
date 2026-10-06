@@ -162,6 +162,7 @@ var nodeTypeCounts = new SortedDictionary<string,int>(StringComparer.Ordinal);
 var packagesLoaded = 0;
 var totalNodes = 0;
 var totalReferences = 0;
+var distributionNodeCount = 0;
 
 foreach (var logical in candidates)
 {
@@ -183,7 +184,8 @@ foreach (var logical in candidates)
                 x.ExportType.Equals("ParticleSystem", StringComparison.Ordinal) ||
                 x.ExportType.StartsWith("ParticleEmitter", StringComparison.Ordinal) ||
                 x.ExportType.StartsWith("ParticleModule", StringComparison.Ordinal) ||
-                x.ExportType.Contains("ParticleLOD", StringComparison.Ordinal))
+                x.ExportType.Contains("ParticleLOD", StringComparison.Ordinal) ||
+                x.ExportType.StartsWith("Distribution", StringComparison.Ordinal))
             .OrderBy(x => x.GetPathName(), StringComparer.Ordinal)
             .ToArray();
 
@@ -211,6 +213,8 @@ foreach (var logical in candidates)
 
                 nodeTypeCounts[node.ExportType] =
                     nodeTypeCounts.GetValueOrDefault(node.ExportType) + 1;
+                if (node.ExportType.StartsWith("Distribution", StringComparison.Ordinal))
+                    distributionNodeCount++;
                 totalNodes++;
                 totalReferences += refs.Count;
 
@@ -262,6 +266,7 @@ var output = new {
     particleSystemCount = systems.Count,
     totalNodes,
     totalReferences,
+    distributionNodeCount,
     nodeTypeCounts,
     systems,
     packageFailures,
