@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import re
 from pathlib import Path
 
 
@@ -51,6 +52,71 @@ def build_canonical_lookup(rows, field):
             )
         lookup[key] = row
     return lookup
+
+
+
+def material_family_key(value):
+    text = str(value or "").replace("\\", "/")
+    name = text.rsplit("/", 1)[-1].split(".", 1)[0].lower()
+    # Numbered authored siblings such as foo_01/foo_02/foo_03 share a family.
+    # This does not assign semantics by filename alone; it is only a grouping
+    # key for explicit semantic parameters recovered from sibling materials.
+    return re.sub(r"(?<=_)\\d+$", "#", name)
+
+
+def exact_texture_parameter(material, parameter_name):
+    matches = []
+    for row in material.get("textures", []):
+        if str(row.get("parameter", "")).lower() != parameter_name.lower():
+            continue
+        object_path = row.get("objectPath")
+        if object_path:
+            matches.append(object_path)
+    normalized = {}
+    for value in matches:
+        normalized[canonical_ue_path(value)] = value
+    if len(normalized) != 1:
+        return None
+    return next(iter(normalized.values()))
+
+
+def sibling_parameter_consensus(materials, target_path, target_textures, parameter_name):
+    family = material_family_key(target_path)
+    if not family or "#" not in family:
+        return None
+
+    sibling_values = []
+    sibling_count = 0
+    for candidate in materials:
+        candidate_path = candidate.get("objectPath")
+        if not candidate_path or canonical_ue_path(candidate_path) == canonical_ue_path(target_path):
+            continue
+        if material_family_key(candidate_path) != family:
+            continue
+        value = exact_texture_parameter(candidate, parameter_name)
+        if not value:
+            continue
+        sibling_count += 1
+        sibling_values.append(value)
+
+    # Require multiple source-authored siblings before using family consensus.
+    if sibling_count < 2:
+        return None
+
+    target_by_canonical = {
+        canonical_ue_path(value): value
+        for value in target_textures
+        if value
+    }
+    intersections = {
+        canonical_ue_path(value)
+        for value in sibling_values
+        if canonical_ue_path(value) in target_by_canonical
+    }
+    if len(intersections) != 1:
+        return None
+    key = next(iter(intersections))
+    return target_by_canonical[key]
 
 
 def load(path: str):
@@ -333,6 +399,38 @@ def main() -> int:
                 else None
             )
 
+        # Some UE4.21 cooked base Materials retain all TextureSample inputs but
+        # lose the semantic PM_* parameter names. Recover only when multiple
+        # numbered siblings expose an explicit semantic parameter and exactly
+        # one of those source paths is also present in this target's own graph.
+        # This is source-family consensus, never a guessed filename binding.
+        target_texture_paths = [
+            row.get("texturePath")
+            for row in texture_rows
+            if row.get("texturePath")
+        ]
+        sibling_semantic_bindings = {}
+        if not canonical.get("diffuse"):
+            sibling_diffuse = sibling_parameter_consensus(
+                materials.get("materials", []),
+                material_path,
+                target_texture_paths,
+                "AlbedoTexture",
+            )
+            if sibling_diffuse:
+                canonical["diffuse"] = sibling_diffuse
+                sibling_semantic_bindings["diffuse"] = sibling_diffuse
+        if not canonical.get("normal"):
+            sibling_normal = sibling_parameter_consensus(
+                materials.get("materials", []),
+                material_path,
+                target_texture_paths,
+                "NormalTexture",
+            )
+            if sibling_normal:
+                canonical["normal"] = sibling_normal
+                sibling_semantic_bindings["normal"] = sibling_normal
+
         # CUE4Parse's UMaterial model initializes ShadingModel to Unlit,
         # but UE4.21.2's UMaterial constructor initializes it to DefaultLit.
         # Cooked packages omit properties that equal the engine constructor
@@ -430,6 +528,7 @@ def main() -> int:
             "auditShadingModel": material.get("shadingModel"),
             "semanticBaseMaterialPath": base_path,
             "runtimeEngineDefaults": runtime_default_sources,
+            "sourceSiblingSemanticBindings": sibling_semantic_bindings,
         })
 
     # De-duplicate error rows while keeping deterministic JSON.
