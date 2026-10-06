@@ -1,4 +1,5 @@
 name: Probe CoDz Parity Cooked Weapon Payload
+# trigger-v2
 
 on:
   workflow_dispatch:
