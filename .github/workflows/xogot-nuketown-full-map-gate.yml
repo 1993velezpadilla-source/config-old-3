@@ -1,0 +1,120 @@
+name: Xogot Nuketown Full Map Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - "xogot/nuketown_full_map.tscn"
+      - "xogot/scripts/nuketown_full_map.gd"
+      - "xogot/ci/nuketown_full_map_probe.gd"
+      - "xogot/scripts/xziel_benchmark_loader.gd"
+      - "tools/maps/xztx_astc6_to_png.py"
+      - "benchmarks/nuketown_xziel/**"
+      - ".github/workflows/xogot-nuketown-full-map-gate.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-nuketown-full-map-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-map:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Mount complete source-world payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d benchmarks/nuketown_xziel
+          rm -rf xogot/assets/benchmarks/nuketown_xziel
+          mkdir -p xogot/assets/benchmarks
+          cp -a benchmarks/nuketown_xziel xogot/assets/benchmarks/nuketown_xziel
+
+          python3 - <<'PY'
+          import json
+          from collections import Counter
+          from pathlib import Path
+
+          p=Path("xogot/assets/benchmarks/nuketown_xziel/visual-scene.json")
+          d=json.loads(p.read_text())
+          classes=Counter(x["className"] for x in d["actorAnchors"])
+          assert d["summary"]["ready"] is True
+          assert len(d["meshes"]) == 52
+          assert len(d["instances"]) == 124
+          assert len(d["actorAnchors"]) == 233
+          assert classes["Pavlov_Spawn"] == 3
+          assert classes["Pavlov_Ladder"] == 2
+          assert classes["wallbuy_C"] + classes["wallbuy_2_C"] + classes["wallbuy_3_C"] == 3
+          assert classes["NewBlueprint1_2_C"] == 1
+          print("XZOGOT_NUKETOWN_FULL_SOURCE_PREFLIGHT_GREEN", dict(classes))
+          PY
+
+      - name: Install rendering and ASTC tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq unzip curl xvfb libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers astcenc
+
+      - name: Decode source ASTC 6x6 textures
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          python3 tools/maps/xztx_astc6_to_png.py \
+            xogot/assets/benchmarks/nuketown_xziel \
+            2>&1 | tee build/nuketown-full-map-textures.log
+          grep -q "XZOGOT_ASTC6_DECODE_GREEN" build/nuketown-full-map-textures.log
+
+      - name: Install Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+
+      - name: Import complete map project
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 420 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit \
+            2>&1 | tee build/nuketown-full-map-import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|MAX_MESH_SURFACES" build/nuketown-full-map-import.log
+
+      - name: Gate full source map runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 420 xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --path xogot \
+            --rendering-method gl_compatibility \
+            --script res://ci/nuketown_full_map_probe.gd \
+            2>&1 | tee build/nuketown-full-map-probe.log
+          grep -q "XZOGOT_NUKETOWN_FULL_MAP_PROBE_GREEN" build/nuketown-full-map-probe.log
+          ! grep -E "NUKETOWN_FULL_MAP_PROBE:|NUKETOWN_FULL_MAP:" build/nuketown-full-map-probe.log
+
+      - name: Upload full-map proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nuketown-Full-Map-Proof
+          path: |
+            build/nuketown-full-map-textures.log
+            build/nuketown-full-map-import.log
+            build/nuketown-full-map-probe.log
+          if-no-files-found: error
+          retention-days: 14
