@@ -56,6 +56,7 @@ jobs:
           mkdir -p authority
           gh run download "$SOURCE_RUN"             --repo "$GITHUB_REPOSITORY"             --name Xogot-Nacht-Chronicles-Full-Map-Authority             --dir authority
           test -s authority/nacht-full-map-handoff.json
+          test -s authority/nacht-static-runtime-meshes.json
           test -s authority/nacht-static-scene.json
           test -s authority/nacht-lights.json
           test -s authority/nacht-audio-scene.json
@@ -180,7 +181,7 @@ jobs:
                           override["objectPath"]=canon(override.get("objectPath"))
           (dst/"scene.json").write_text(json.dumps(scene,indent=2)+"\n")
 
-          xzms=json.loads((src/"nacht-native/static-meshes/report.json").read_text())
+          xzms=json.loads((src/"nacht-static-runtime-meshes.json").read_text())
           for row in xzms.get("meshes",[]):
               row["objectPath"]=canon(row.get("objectPath"))
               for mat in row.get("sourceMaterials",[]):
@@ -258,7 +259,7 @@ jobs:
           dds=json.loads((root/"xztx-dds-report.json").read_text())
           audio=json.loads((root/"source-audio-report.json").read_text())
           skeletal=json.loads((root/"source_library/skeletal_gltf/manifest.json").read_text())
-          assert glb["mesh_count"]==568,glb["mesh_count"]
+          assert glb["mesh_count"]==569,glb["mesh_count"]
           assert dds["texture_count"]==1581,dds
           assert dds["failure_count"]==0,dds
           assert audio["audioCount"]==295,audio
@@ -268,11 +269,11 @@ jobs:
           assert skeletal["coveredAnimationCount"]==106,skeletal
           assert skeletal["outputCount"]==60,skeletal
           assert skeletal["ready"] is True,skeletal
-          assert len(list((root/"vfs/xziel/maps/xziel_nacht_chronicles/meshes_glb").glob("*.glb")))==568
+          assert len(list((root/"vfs/xziel/maps/xziel_nacht_chronicles/meshes_glb").glob("*.glb")))==569
           assert len(list((root/"vfs/xziel/maps/xziel_nacht_chronicles/textures_dds").glob("*.dds")))==1581
           assert len(list((root/"audio_source").glob("*.ogg")))==295
           print("XZOGOT_NACHT_PORTABLE_ASSET_STAGE_GREEN",{
-              "glb":568,"dds":1581,"ogg":295,
+              "glb":569,"source_glb":568,"engine_builtin_glb":1,"dds":1581,"ogg":295,
               "skeletal_gltf":60,"animations":106
           })
           PY
