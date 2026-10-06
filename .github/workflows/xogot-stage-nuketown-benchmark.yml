@@ -1,0 +1,151 @@
+name: Stage Nuketown Source World Benchmark
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-stage-nuketown-benchmark.yml"
+      - "xogot/scripts/xziel_benchmark_loader.gd"
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: xogot-stage-nuketown-benchmark
+  cancel-in-progress: true
+
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: "36613010234"
+      SOURCE_ARTIFACT: "XZIEL-Nuketown-Zombies-Virgin-Package-Census"
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/godot-aaa-rebuild-v1
+          fetch-depth: 0
+
+      - name: Download resolved XZIEL Nuketown world artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/nuketown-rich"
+          mkdir -p "$RUNNER_TEMP/nuketown-rich"
+          gh run download "$SOURCE_RUN" -n "$SOURCE_ARTIFACT" -D "$RUNNER_TEMP/nuketown-rich"
+
+          SCENE=$(find "$RUNNER_TEMP/nuketown-rich" -type f -path '*/runtime-static-scene/visual-scene.json' | head -1)
+          test -n "$SCENE"
+          RUNTIME_ROOT=$(dirname "$SCENE")
+          echo "RUNTIME_ROOT=$RUNTIME_ROOT" >> "$GITHUB_ENV"
+
+          test -s "$RUNTIME_ROOT/ue-lights.json"
+          test -s "$RUNTIME_ROOT/xzen-report.json"
+          test -s "$RUNTIME_ROOT/material-binding-manifest.json"
+          test -s "$RUNTIME_ROOT/xzml-report.json"
+          test -d "$RUNTIME_ROOT/vfs/xziel/maps/xziel_nuketown_zombies/meshes"
+          test -d "$RUNTIME_ROOT/vfs/xziel/maps/xziel_nuketown_zombies/textures"
+          echo "XZOGOT_NUKETOWN_RESOLVED_WORLD_SOURCE_GREEN"
+
+      - name: Stage only runtime world payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          dst=xogot/assets/benchmarks/nuketown_xziel
+          rm -rf "$dst"
+          mkdir -p "$dst/vfs/xziel/maps/xziel_nuketown_zombies"
+
+          cp "$RUNTIME_ROOT/visual-scene.json" "$dst/visual-scene.json"
+          cp "$RUNTIME_ROOT/ue-lights.json" "$dst/ue-lights.json"
+          cp "$RUNTIME_ROOT/xzen-report.json" "$dst/xzen-report.json"
+          cp "$RUNTIME_ROOT/material-binding-manifest.json" "$dst/material-binding-manifest.json"
+          cp "$RUNTIME_ROOT/xzml-report.json" "$dst/xzml-report.json"
+          cp "$RUNTIME_ROOT/xzmi-report.json" "$dst/xzmi-report.json"
+          cp "$RUNTIME_ROOT/materials.xzml" "$dst/materials.xzml"
+          cp "$RUNTIME_ROOT/materials.xzmi" "$dst/materials.xzmi"
+
+          srcmap="$RUNTIME_ROOT/vfs/xziel/maps/xziel_nuketown_zombies"
+          cp -a "$srcmap/meshes" "$dst/vfs/xziel/maps/xziel_nuketown_zombies/meshes"
+          cp -a "$srcmap/textures" "$dst/vfs/xziel/maps/xziel_nuketown_zombies/textures"
+          cp "$srcmap/scene.xzsc" "$dst/vfs/xziel/maps/xziel_nuketown_zombies/scene.xzsc"
+          cp "$srcmap/environment.xzen" "$dst/vfs/xziel/maps/xziel_nuketown_zombies/environment.xzen"
+          cp "$srcmap/materials.xzml" "$dst/vfs/xziel/maps/xziel_nuketown_zombies/materials.xzml"
+          cp "$srcmap/materials.xzmi" "$dst/vfs/xziel/maps/xziel_nuketown_zombies/materials.xzmi"
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          dst=Path("xogot/assets/benchmarks/nuketown_xziel")
+          scene=json.loads((dst/"visual-scene.json").read_text())
+          lights=json.loads((dst/"xzen-report.json").read_text())
+          mats=json.loads((dst/"material-binding-manifest.json").read_text())
+          tex=json.loads((dst/"xzml-report.json").read_text())
+          mesh_files=sorted((dst/"vfs/xziel/maps/xziel_nuketown_zombies/meshes").glob("*.xzm"))
+          texture_files=sorted((dst/"vfs/xziel/maps/xziel_nuketown_zombies/textures").glob("*.xzt"))
+
+          assert scene["format"] == "xziel_visual_scene_v1"
+          assert scene["summary"]["ready"] is True
+          assert len(scene["meshes"]) == 52
+          assert len(scene["instances"]) == 124
+          assert len(mesh_files) == 52
+          assert lights["lightCount"] == 5
+          assert mats["summary"]["unresolvedMaterialCount"] == 0
+          assert mats["summary"]["unresolvedTextureCount"] == 0
+          assert len(texture_files) == tex["textureAssetCount"]
+
+          manifest={
+              "schema":1,
+              "id":"xogot_nuketown_xziel_source_world_benchmark",
+              "purpose":"complete world-import benchmark; not final church art",
+              "source_run":36613010234,
+              "source_artifact":"XZIEL-Nuketown-Zombies-Virgin-Package-Census",
+              "source_map":"Pavlov/Plugins/UGC5097941/Content/nuketownz.umap",
+              "coordinate_system":"XZIEL X,-Y,Z meters; Godot conversion happens once at XZIELSceneRoot",
+              "mesh_count":len(mesh_files),
+              "instance_count":len(scene["instances"]),
+              "material_count":mats["summary"]["usedMaterialCount"],
+              "texture_count":len(texture_files),
+              "light_count":lights["lightCount"],
+              "unresolved_meshes":scene["summary"]["unresolvedMeshCount"],
+              "unresolved_materials":mats["summary"]["unresolvedMaterialCount"],
+              "unresolved_textures":mats["summary"]["unresolvedTextureCount"],
+              "runtime_loader":"res://scripts/xziel_benchmark_loader.gd",
+          }
+          (dst/"source_manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")
+          print("XZOGOT_NUKETOWN_WORLD_STAGE_GREEN",manifest)
+          PY
+
+          du -sh "$dst"
+          find "$dst" -type f -size +95M -print -quit | (! grep .)
+          echo "XZOGOT_NUKETOWN_WORLD_FILESIZE_GATE_GREEN"
+
+      - name: Commit portable Godot benchmark payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add xogot/assets/benchmarks/nuketown_xziel
+          if git diff --cached --quiet; then
+            echo "XZOGOT_NUKETOWN_WORLD_ALREADY_STAGED"
+            exit 0
+          fi
+          git commit -m "assets: stage complete Nuketown source-world benchmark"
+          git pull --rebase origin feature/godot-aaa-rebuild-v1
+          git push origin HEAD:feature/godot-aaa-rebuild-v1
+          echo "XZOGOT_NUKETOWN_WORLD_COMMIT_GREEN"
+
+      - name: Upload stage proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: xogot-nuketown-world-stage-proof
+          path: xogot/assets/benchmarks/nuketown_xziel/source_manifest.json
+          if-no-files-found: error
+          retention-days: 14
