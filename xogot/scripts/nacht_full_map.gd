@@ -443,7 +443,7 @@ func play_source_audio_event(
 		player_3d.volume_db = linear_to_db(volume_scale)
 		player_3d.pitch_scale = pitch_scale
 		if source_position is Vector3:
-			player_3d.position = source_position as Vector3
+			player_3d.position = source_position
 		else:
 			player_3d.position = _source_audio_actor_position(actor_name)
 		if not _cue_has_loop(cue):
