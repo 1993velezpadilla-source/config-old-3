@@ -73,6 +73,18 @@ func _run() -> void:
 	if get_nodes_in_group("nuketown_source_wallbuy").size() != 3:
 		_fail(15, "wallbuy marker group mismatch")
 		return
+	var wallbuy_ids: Array[String] = []
+	for node: Node in get_nodes_in_group("nuketown_source_wallbuy"):
+		wallbuy_ids.append(str(node.get_meta("source_weapon_id", "")))
+		if bool(node.get_meta("source_price_known", true)):
+			_fail(18, "source wallbuy price was guessed")
+			return
+	wallbuy_ids.sort()
+	var expected_wallbuy_ids: Array[String] = ["crminigun", "crraygun", "stingray"]
+	expected_wallbuy_ids.sort()
+	if wallbuy_ids != expected_wallbuy_ids:
+		_fail(19, "source wallbuy weapon ids mismatch " + str(wallbuy_ids))
+		return
 	if get_nodes_in_group("nuketown_source_mystery").size() != 1:
 		_fail(16, "mystery marker group mismatch")
 		return

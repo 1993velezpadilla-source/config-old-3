@@ -168,6 +168,11 @@ func _build_source_actor_anchors(scene: Dictionary) -> void:
 				_source_ladder_count += 1
 			"wallbuy_C", "wallbuy_2_C", "wallbuy_3_C":
 				marker.add_to_group("nuketown_source_wallbuy")
+				var source_weapon_id := _source_wallbuy_weapon_id(source_class)
+				marker.set_meta("source_weapon_id", source_weapon_id)
+				marker.set_meta("source_price_known", false)
+				marker.set_meta("source_price", -1)
+				marker.set_meta("source_interaction_ready", false)
 				_source_wallbuy_count += 1
 			"NewBlueprint1_2_C":
 				# Proven from the source Blueprint dependencies: GiveItem,
@@ -176,6 +181,17 @@ func _build_source_actor_anchors(scene: Dictionary) -> void:
 				_source_mystery_count += 1
 			_:
 				pass
+
+func _source_wallbuy_weapon_id(source_class: String) -> String:
+	match source_class:
+		"wallbuy_C":
+			return "stingray"
+		"wallbuy_2_C":
+			return "crraygun"
+		"wallbuy_3_C":
+			return "crminigun"
+		_:
+			return ""
 
 func _build_collision_recursive(node: Node) -> int:
 	var created := 0

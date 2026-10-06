@@ -35,6 +35,7 @@ var _material_cache: Dictionary = {}
 var _texture_cache: Dictionary = {}
 var _material_records: Dictionary = {}
 var _texture_runtime_files: Dictionary = {}
+var _source_srgb_texture_paths: Array[String] = []
 var _mesh_material_paths: Dictionary = {}
 var _instance_overrides: Dictionary = {}
 var _runtime_root: Node3D
@@ -162,6 +163,7 @@ func _read_json(path: String) -> Dictionary:
 func _prepare_material_authority() -> void:
 	_material_records.clear()
 	_texture_runtime_files.clear()
+	_source_srgb_texture_paths.clear()
 	_mesh_material_paths.clear()
 	_instance_overrides.clear()
 
@@ -179,9 +181,12 @@ func _prepare_material_authority() -> void:
 	for raw: Variant in texture_report.get("textureAssets", []):
 		if raw is Dictionary:
 			var texture_row := raw as Dictionary
-			_texture_runtime_files[str(texture_row.get("sourcePath", ""))] = str(
+			var source_path := str(texture_row.get("sourcePath", ""))
+			_texture_runtime_files[source_path] = str(
 				texture_row.get("runtimeFile", "")
 			)
+			if bool(texture_row.get("srgb", false)) and not source_path.is_empty():
+				_source_srgb_texture_paths.append(source_path)
 
 	for raw: Variant in bindings.get("meshes", []):
 		if not (raw is Dictionary):
@@ -452,6 +457,8 @@ func _material_for_path(material_path: String) -> Material:
 	# linear texturePath. These paths are source-authored UE bindings.
 	if diffuse_source.is_empty():
 		diffuse_source = _unique_source_srgb_texture(record)
+	if diffuse_source.is_empty():
+		diffuse_source = _source_named_composite_diffuse(material_path)
 	if normal_source.is_empty():
 		normal_source = _unique_source_normal_texture(record)
 
@@ -505,6 +512,48 @@ func _material_for_path(material_path: String) -> Material:
 	material.set_meta("source_specular_mask_path", str(canonical.get("specular_masks", "")))
 	_material_cache[material_path] = material
 	return material
+
+func _source_name_token(value: String) -> String:
+	var token := value.get_file().get_basename().to_lower()
+	var out := ""
+	var previous_separator := false
+	for i in range(token.length()):
+		var ch := token.substr(i, 1)
+		var code := ch.unicode_at(0)
+		var is_alpha_num := (
+			(code >= 48 and code <= 57)
+			or (code >= 97 and code <= 122)
+		)
+		if is_alpha_num:
+			out += ch
+			previous_separator = false
+		elif not previous_separator:
+			out += "_"
+			previous_separator = true
+	return out.trim_prefix("_").trim_suffix("_")
+
+func _source_named_composite_diffuse(material_path: String) -> String:
+	# Nuketown contains hundreds of cooked "nt/" composite materials whose
+	# source graph was flattened into a generated material name. The original
+	# layer names survive exactly in that name (split by "__"). Resolve only
+	# when one layer token maps to exactly one source sRGB texture path.
+	# This is deterministic source recovery, never fuzzy nearest-name matching.
+	if not material_path.contains("/nt/"):
+		return ""
+	var material_name := material_path.get_file().get_basename()
+	var layers := material_name.split("__", false)
+	for layer_raw: String in layers:
+		var layer := _source_name_token(layer_raw)
+		if layer.length() < 5:
+			continue
+		var matches: Array[String] = []
+		for source_path: String in _source_srgb_texture_paths:
+			var source_name := _source_name_token(source_path)
+			if source_name.contains(layer):
+				matches.append(source_path)
+		if matches.size() == 1:
+			return matches[0]
+	return ""
 
 func _unique_source_srgb_texture(record: Dictionary) -> String:
 	var unique: Dictionary = {}
@@ -700,9 +749,10 @@ func _build_source_lights() -> void:
 					world_environment = WorldEnvironment.new()
 					world_environment.name = "SourceSkyEnvironment"
 					environment = Environment.new()
-					environment.background_mode = Environment.BG_COLOR
-					environment.background_color = color
-					environment.background_energy_multiplier = intensity
+					# UE SkyLight is ambient/IBL authority, not the rendered sky.
+					# Treating its white light color as the background caused the
+					# giant white capture. Keep its ambient contribution only.
+					environment.background_mode = Environment.BG_CLEAR_COLOR
 					environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 					environment.ambient_light_color = color
 					environment.ambient_light_energy = intensity
