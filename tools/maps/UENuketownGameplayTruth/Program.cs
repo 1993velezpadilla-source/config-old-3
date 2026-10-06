@@ -1,5 +1,6 @@
 using CUE4Parse.FileProvider;
 using CUE4Parse.MappingsProvider.Usmap;
+using CUE4Parse.UE4.Assets;
 using CUE4Parse.UE4.Assets.Exports;
 using CUE4Parse.UE4.Objects.UObject;
 using CUE4Parse.UE4.Versions;
@@ -198,12 +199,37 @@ foreach (var logicalPath in targets)
             dumpedExports++;
         }
 
+        var imports = new JArray();
+        if (package is Package legacyPackage)
+        {
+            foreach (var import in legacyPackage.ImportMap)
+            {
+                imports.Add(new JObject
+                {
+                    ["classPackage"] = import.ClassPackage.Text,
+                    ["className"] = import.ClassName.Text,
+                    ["objectName"] = import.ObjectName.Text,
+                    ["outerIndex"] = import.OuterIndex?.Index ?? 0,
+                    ["resolved"] = import.OuterIndex?.ResolvedObject?.ToString()
+                });
+            }
+        }
+
+        var sourceNames = new JArray();
+        foreach (var entry in package.NameMap)
+        {
+            sourceNames.Add(entry.Name);
+        }
+
         packageRows.Add(new JObject
         {
             ["packagePath"] = logicalPath,
             ["resolvedPackagePath"] = resolved,
             ["exportMapLength"] = package.ExportMapLength,
+            ["importMapLength"] = package.ImportMapLength,
             ["dumpedExportCount"] = exports.Count,
+            ["imports"] = imports,
+            ["sourceNames"] = sourceNames,
             ["exports"] = exports
         });
     }
