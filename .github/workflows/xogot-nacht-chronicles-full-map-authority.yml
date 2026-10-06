@@ -45,7 +45,9 @@ jobs:
           git checkout $old -- engine/xz tools/maps tests
           git checkout $env:GITHUB_SHA -- tools/maps/UEStaticSceneExtract/Program.cs
           if($LASTEXITCODE -ne 0){throw 'patched UEStaticSceneExtract restore failed'}
-          Write-Host "XZOGOT_NACHT_CONVERTER_STACK_GREEN source=$old patched_scene_extractor=$env:GITHUB_SHA"
+          python tools/patches/patch_ue421_material_texture_refs.py
+          if($LASTEXITCODE -ne 0){throw 'UE4.21 material texture reference patch failed'}
+          Write-Host "XZOGOT_NACHT_CONVERTER_STACK_GREEN source=$old patched_scene_extractor=$env:GITHUB_SHA material_texture_refs=patched"
 
       - name: Download exact validated Nacht package
         shell: pwsh
