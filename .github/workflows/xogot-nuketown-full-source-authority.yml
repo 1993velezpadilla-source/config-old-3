@@ -1686,12 +1686,14 @@ jobs:
           path=Path("nuketown-download/runtime-skeletal-scene/skeletal-scene.json")
           d=json.loads(path.read_text())
           assert d["ready"] is True,d
-          assert d["skeletalComponentCount"]==2,d
-          assert d["resolvedActorCount"]==2,d
+          assert d["skeletalComponentCount"]==3,d
+          assert d["resolvedActorCount"]==3,d
           assert d["unresolvedCount"]==0,d
           assert d["failureCount"]==0,d
-          assert len(d["actors"])==2,d
-          assert len({row["sourceXzskFile"] for row in d["actors"]})==2,d
+          assert len(d["actors"])==3,d
+          assert len({row["sourceXzskFile"] for row in d["actors"]})==3,d
+          assert sum(1 for row in d["actors"] if row["actorClassName"]=="SkeletalMeshActor")==2,d
+          assert sum(1 for row in d["actors"] if row["actorClassName"]!="SkeletalMeshActor")==1,d
           assert all(row["skeletonHash"] for row in d["actors"]),d
           print(
               "XZOGOT_NUKETOWN_EXACT_SKELETAL_PLACEMENTS_GREEN",
