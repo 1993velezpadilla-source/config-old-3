@@ -37,6 +37,29 @@ jobs:
           cp -a benchmarks/nuketown_xziel xogot/assets/benchmarks/nuketown_xziel
           echo "XZOGOT_NUKETOWN_BENCHMARK_MOUNT_GREEN"
 
+      - name: Validate Godot-safe native mesh payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("xogot/assets/benchmarks/nuketown_xziel/native-glb-report.json")
+          d=json.loads(p.read_text())
+          assert d["mesh_count"] == 52, d
+          assert d["mesh_chunks"] == 53, d
+          assert d["max_chunk_surfaces"] <= 240, d
+          assert d["vertices"] == 671012, d
+          assert d["indices"] == 859353, d
+          assert d["submeshes"] == 563, d
+          print(
+              "XZOGOT_NUKETOWN_CHUNK_PREFLIGHT_GREEN",
+              "meshes=", d["mesh_count"],
+              "chunks=", d["mesh_chunks"],
+              "max_surfaces=", d["max_chunk_surfaces"],
+          )
+          PY
+
       - name: Install rendering tools
         shell: bash
         run: |
@@ -69,7 +92,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          xvfb-run -a -s "-screen 0 1280x720x24" \
+          timeout 300 xvfb-run -a -s "-screen 0 1280x720x24" \
             /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
             --path xogot \
             --rendering-method gl_compatibility \
