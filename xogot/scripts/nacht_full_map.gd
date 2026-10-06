@@ -1142,6 +1142,30 @@ func _build_shared_source_world() -> bool:
 		int(_benchmark_loader.get_meta("xziel_benchmark_material_flat_fallback_count", 0))
 	)
 	set_meta(
+		"source_effective_material_count",
+		int(_benchmark_loader.get_meta("xziel_benchmark_effective_material_count", 0))
+	)
+	set_meta(
+		"source_effective_material_textured_count",
+		int(_benchmark_loader.get_meta("xziel_benchmark_effective_material_textured_count", 0))
+	)
+	set_meta(
+		"source_effective_material_flat_fallback_count",
+		int(_benchmark_loader.get_meta("xziel_benchmark_effective_material_flat_fallback_count", 0))
+	)
+	set_meta(
+		"source_effective_source_color_count",
+		int(_benchmark_loader.get_meta("xziel_benchmark_effective_source_color_count", 0))
+	)
+	set_meta(
+		"source_effective_default_surface_count",
+		int(_benchmark_loader.get_meta("xziel_benchmark_effective_default_surface_count", 0))
+	)
+	set_meta(
+		"source_effective_unresolved_fallback_count",
+		int(_benchmark_loader.get_meta("xziel_benchmark_effective_unresolved_fallback_count", 0))
+	)
+	set_meta(
 		"source_texture_load_failures",
 		int(_benchmark_loader.get_meta("xziel_benchmark_texture_load_failures", 0))
 	)
