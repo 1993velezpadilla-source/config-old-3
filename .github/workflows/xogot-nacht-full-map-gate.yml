@@ -58,6 +58,7 @@ jobs:
           test -s authority/nacht-full-map-handoff.json
           test -s authority/nacht-static-scene.json
           test -s authority/nacht-lights.json
+          test -s authority/nacht-audio-scene.json
           test -s authority/nacht-materials.json
           test -s authority/nacht-native-library.json
           echo "XZOGOT_NACHT_AUTHORITY_DOWNLOAD_GREEN run=$SOURCE_RUN"
@@ -98,9 +99,15 @@ jobs:
           assert summary["componentFailureCount"]==0,summary
 
           lights=json.loads(Path("authority/nacht-lights.json").read_text())
+          audio_scene=json.loads(Path("authority/nacht-audio-scene.json").read_text())
           assert lights["mapPackageCount"]==1,lights
           assert lights["packagesLoaded"]==1,lights
           assert lights["lightCount"]>0,lights
+          assert audio_scene["mapPackageCount"]==1,audio_scene
+          assert audio_scene["packagesLoaded"]==1,audio_scene
+          assert audio_scene["audioComponentCount"]>0,audio_scene
+          assert audio_scene["referencedSoundCount"]>0,audio_scene
+          assert audio_scene["ready"] is True,audio_scene
 
           materials=json.loads(Path("authority/nacht-materials.json").read_text())
           ms=materials["summary"]
@@ -117,6 +124,8 @@ jobs:
               "meshes":summary["referencedNativeMeshCount"],
               "instances":summary["sceneInstanceCount"],
               "lights":lights["lightCount"],
+              "audioComponents":audio_scene["audioComponentCount"],
+              "referencedSounds":audio_scene["referencedSoundCount"],
               "materials":ms["materialExportsDecoded"],
               "textureRefs":ms["textureReferenceCount"],
           })
@@ -239,6 +248,8 @@ jobs:
           cp -a authority/nacht-native/skeletal-meshes "$STAGE/source_library/"
           cp -a authority/nacht-native/animations "$STAGE/source_library/"
 
+          python3 tools/maps/xz_skeletal_library_to_gltf.py             authority/nacht-native             "$STAGE/source_library/skeletal_gltf"             --rig-report authority/nacht-native/skeletons/report.json             --mesh-report authority/nacht-native/skeletal-meshes/report.json             --anim-report authority/nacht-native/animations/report.json             --expected-rigs 45             --expected-meshes 60             --expected-anims 106
+
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -246,15 +257,23 @@ jobs:
           glb=json.loads((root/"native-glb-report.json").read_text())
           dds=json.loads((root/"xztx-dds-report.json").read_text())
           audio=json.loads((root/"source-audio-report.json").read_text())
+          skeletal=json.loads((root/"source_library/skeletal_gltf/manifest.json").read_text())
           assert glb["mesh_count"]==568,glb["mesh_count"]
           assert dds["texture_count"]==1581,dds
           assert dds["failure_count"]==0,dds
           assert audio["audioCount"]==295,audio
+          assert skeletal["sourceSkeletonCount"]==45,skeletal
+          assert skeletal["sourceSkeletalMeshCount"]==60,skeletal
+          assert skeletal["sourceAnimationCount"]==106,skeletal
+          assert skeletal["coveredAnimationCount"]==106,skeletal
+          assert skeletal["outputCount"]==60,skeletal
+          assert skeletal["ready"] is True,skeletal
           assert len(list((root/"vfs/xziel/maps/xziel_nacht_chronicles/meshes_glb").glob("*.glb")))==568
           assert len(list((root/"vfs/xziel/maps/xziel_nacht_chronicles/textures_dds").glob("*.dds")))==1581
           assert len(list((root/"audio_source").glob("*.ogg")))==295
           print("XZOGOT_NACHT_PORTABLE_ASSET_STAGE_GREEN",{
-              "glb":568,"dds":1581,"ogg":295
+              "glb":568,"dds":1581,"ogg":295,
+              "skeletal_gltf":60,"animations":106
           })
           PY
 
@@ -302,6 +321,7 @@ jobs:
 
           cp build/nacht-normalized/scene.json "$STAGE/nacht-static-scene.json"
           cp authority/nacht-lights.json "$STAGE/nacht-lights.json"
+          cp authority/nacht-audio-scene.json "$STAGE/nacht-audio-scene.json"
           cp authority/nacht-full-map-handoff.json "$STAGE/nacht-full-map-handoff.json"
 
           python3 - <<'PY'
@@ -359,6 +379,8 @@ jobs:
             xogot/assets/benchmarks/nacht_chronicles/native-glb-report.json
             xogot/assets/benchmarks/nacht_chronicles/xztx-dds-report.json
             xogot/assets/benchmarks/nacht_chronicles/source-audio-report.json
+            xogot/assets/benchmarks/nacht_chronicles/nacht-audio-scene.json
+            xogot/assets/benchmarks/nacht_chronicles/source_library/skeletal_gltf/manifest.json
             xogot/assets/benchmarks/nacht_chronicles/material-binding-manifest.json
             xogot/assets/benchmarks/nacht_chronicles/xzmi-report.json
             xogot/assets/benchmarks/nacht_chronicles/xzml-report.json
