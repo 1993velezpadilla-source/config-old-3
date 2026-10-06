@@ -1,6 +1,15 @@
 name: Stage Nacht Chronicles Full Map
 
 on:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-stage-nacht-full-map.yml"
+      - "tools/maps/compile_nacht_*"
+      - "tools/maps/xzaw_to_ogg.py"
+      - "xogot/scripts/nacht_full_map.gd"
+      - "xogot/ci/nacht_full_map_probe.gd"
   workflow_dispatch:
     inputs:
       source_run:
@@ -23,7 +32,7 @@ concurrency:
 
 jobs:
   stage:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
