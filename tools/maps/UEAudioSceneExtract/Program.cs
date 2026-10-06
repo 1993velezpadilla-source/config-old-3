@@ -380,6 +380,13 @@ Console.WriteLine(
         output.ready
     }));
 
+foreach (var failure in packageFailures.Take(20))
+{
+    Console.WriteLine(
+        "XZIEL_UE_AUDIO_SCENE_PACKAGE_FAILURE " +
+        JsonSerializer.Serialize(failure));
+}
+
 if (!ready)
 {
     Console.WriteLine(
