@@ -125,6 +125,19 @@ static func package_path(value: Variant) -> String:
 	return str(decoded) if decoded != null else ""
 
 
+static func vector2(value: Variant, default_value := Vector2.ZERO) -> Vector2:
+	var decoded: Variant = unwrap(value)
+	if not (decoded is Dictionary):
+		return default_value
+	var row := decoded as Dictionary
+	if not row.has("X") or not row.has("Y"):
+		return default_value
+	return Vector2(
+		float(row.get("X", 0.0)),
+		float(row.get("Y", 0.0))
+	)
+
+
 static func vector3(value: Variant, default_value := Vector3.ZERO) -> Vector3:
 	var decoded: Variant = unwrap(value)
 	if not (decoded is Dictionary):
