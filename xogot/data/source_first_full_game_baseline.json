@@ -1,0 +1,236 @@
+{
+  "schema": 1,
+  "id": "xogot_source_first_full_game_baseline_v1",
+  "policy": {
+    "source_baseline_before_reskin": true,
+    "no_manual_per_asset_pose_hacks": true,
+    "no_placeholder_geometry_for_green": true,
+    "visual_green_requires_visible_correct_output": true,
+    "custom_models_only_after_behavior_green": true,
+    "custom_skins_preserve_source_rig_animation_and_gameplay_contract": true,
+    "map_art_can_change_without_rewriting_gameplay_systems": true
+  },
+  "authorities": {
+    "aether_source_first_run": 37394234814,
+    "aether_source_first_artifact": "xogot-source-first-golden-reference",
+    "aether_interactive_census_run": 37346210060,
+    "aether_interactive_artifact": "aether-knife-hands-machines-source",
+    "nacht_chronicles_census_run": 37394741892,
+    "nacht_chronicles_artifact": "xogot-chronicles-nacht-gameplay-census",
+    "nuketown_reference_run": 36517362784,
+    "nuketown_reference_artifact": "XZIEL-Nuketown-Zombies-Virgin-Package-Census"
+  },
+  "required_layers": {
+    "first_person": {
+      "weapons": {
+        "source_hand_packages": 27,
+        "pending_source_weapon_hands": ["sawnoff"],
+        "required_roles": [
+          "idle",
+          "fire",
+          "fire_ads",
+          "reload",
+          "reload_empty",
+          "equip",
+          "putaway"
+        ]
+      },
+      "melee": {
+        "required": true,
+        "source_classes": [
+          "/Game/Assets/BP/Weapons/BP_MeleeBase",
+          "/Game/Assets/Weapons/BO1/Bowie/Bowieknife"
+        ],
+        "required_roles": [
+          "idle",
+          "pullout",
+          "swipe",
+          "stab",
+          "putaway"
+        ],
+        "required_audio_roles": [
+          "swing",
+          "hit_flesh",
+          "hit_world",
+          "zombie_cut"
+        ]
+      },
+      "interaction_hands": {
+        "required": true,
+        "roles": [
+          "generic_use",
+          "machine_use",
+          "power_switch",
+          "perk_drink",
+          "gumball_use",
+          "pickup",
+          "repair_barricade",
+          "revive",
+          "trap_activate",
+          "teleporter_use",
+          "pack_a_punch_use"
+        ],
+        "source_examples": [
+          "/Game/FirstPerson/Blueprints/Interactables/Bottles/Anim+Bottle/PerkHandDrink",
+          "/Game/FirstPerson/Blueprints/Interactables/Bottles/Anim+Bottle/NewAnims/BO3Knife/ChroniclesRichtofenKnife"
+        ]
+      }
+    },
+    "interactables": {
+      "required": [
+        "door",
+        "window_barricade",
+        "wallbuy",
+        "mystery_box",
+        "perk_machine",
+        "perk_bottle",
+        "pack_a_punch",
+        "power_switch",
+        "trap",
+        "teleporter",
+        "wunderfizz",
+        "gumball_machine",
+        "pickup",
+        "revive_station_or_player_revive"
+      ],
+      "source_examples": [
+        "/Game/FirstPerson/Blueprints/Interactables/Vending/BP_PackAPunch",
+        "/Game/FirstPerson/Blueprints/Interactables/Vending/BP_PerkMachine",
+        "/Game/FirstPerson/Blueprints/Interactables/Essentials/Perks/Wunderfizz/BP_Wunderfizz",
+        "/Game/Assets/BP/MapEnt/zm_theater/BP_TeleporterBase"
+      ],
+      "nacht_gumball_root": "Pavlov/Content/CustomMaps/UGC2755515831/Blueprints/Gumball_Machine"
+    },
+    "power_and_world_state": {
+      "required": [
+        "global_power_state",
+        "powered_machine_enable_disable",
+        "light_startup_sequence",
+        "trap_power_requirement",
+        "teleporter_link_state",
+        "door_open_state",
+        "barricade_board_state",
+        "network_replication"
+      ]
+    },
+    "enemies": {
+      "zombies": {
+        "source_animation_count_min": 84,
+        "source_mesh_count_min": 19,
+        "required_states": [
+          "idle",
+          "walk",
+          "walk_fast",
+          "run",
+          "sprint",
+          "attack",
+          "run_attack",
+          "stumble",
+          "hit",
+          "death",
+          "traverse",
+          "board_tear",
+          "crawler"
+        ],
+        "required_damage_outcomes": [
+          "head_dismember",
+          "left_arm_dismember",
+          "right_arm_dismember",
+          "left_leg_dismember",
+          "right_leg_dismember",
+          "crawler_from_leg_damage",
+          "crawler_from_explosion",
+          "gore_material_swap"
+        ]
+      },
+      "hellhounds": {
+        "source_animation_count_min": 7,
+        "required_states": [
+          "spawn",
+          "idle",
+          "trot",
+          "run",
+          "run_attack",
+          "death"
+        ],
+        "required_round_behavior": [
+          "special_round_start",
+          "spawn_fx",
+          "announcer_or_round_audio",
+          "reward_after_round"
+        ]
+      }
+    },
+    "round_game": {
+      "required": [
+        "round_progression",
+        "spawn_budget",
+        "difficulty_scaling",
+        "zombie_speed_mix",
+        "dog_rounds",
+        "points",
+        "drops",
+        "max_ammo",
+        "double_points",
+        "insta_kill",
+        "nuke",
+        "carpenter",
+        "downed",
+        "revive",
+        "game_over",
+        "restart"
+      ]
+    },
+    "world_reference": {
+      "nuketown": {
+        "map_file": "Pavlov/Plugins/UGC5097941/Content/nuketownz.umap",
+        "package_count": 1266,
+        "export_count": 2499,
+        "kind_counts": {
+          "world_geometry": 529,
+          "material_texture_shader": 1075,
+          "lighting_environment": 20,
+          "collision_physics": 196,
+          "navigation": 103,
+          "script_gameplay": 440,
+          "audio": 80,
+          "animation_rig": 21,
+          "fx_particles": 12,
+          "hud_ui": 16
+        },
+        "use": "benchmark_for_complete_world_import_not_final_church_layout"
+      },
+      "church_target": {
+        "rule": "rebuild church after complete benchmark is playable",
+        "inherit": [
+          "lighting_pipeline",
+          "material_pipeline",
+          "collision_navigation_pipeline",
+          "interaction_placement_rules",
+          "spawn_flow_rules",
+          "audio_fx_pipeline",
+          "performance_budgets"
+        ]
+      }
+    },
+    "aaa_acceptance": {
+      "required_playtest": [
+        "landscape_mobile",
+        "weapon_and_hands_visible",
+        "hip_and_ads_correct",
+        "reload_and_fire_animations_correct",
+        "knife_correct",
+        "machine_interactions_show_hands",
+        "power_changes_world",
+        "barricades_break_and_repair",
+        "zombies_traverse_attack_die_and_crawl",
+        "dog_round_completes",
+        "perk_and_pack_a_punch_work",
+        "mystery_box_and_wallbuys_work",
+        "gumball_machine_works",
+        "round_10_survival_possible",
+        "co_op_state_remains_synchronized"
+      ]
+    }
+  }
+}
