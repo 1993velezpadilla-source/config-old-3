@@ -104,6 +104,12 @@ jobs:
           if [ -s "$AUTH_ROOT/nuketown-complete-converted-library.json" ]; then
             cp "$AUTH_ROOT/nuketown-complete-converted-library.json" "$dst/nuketown-complete-converted-library.json"
           fi
+          if [ -s "$AUTH_ROOT/runtime-skeletal-scene/skeletal-scene.json" ]; then
+            cp "$AUTH_ROOT/runtime-skeletal-scene/skeletal-scene.json" "$dst/skeletal-scene.json"
+            echo "XZOGOT_NUKETOWN_EXACT_SKELETAL_SCENE_STAGED"
+          else
+            echo "XZOGOT_NUKETOWN_EXACT_SKELETAL_SCENE_PENDING source_run=$SOURCE_RUN"
+          fi
           test -s "$AUTH_ROOT/ue-xztx-probe/report.json"
           cp "$AUTH_ROOT/ue-xztx-probe/report.json" "$dst/complete-xztx-native-report.json"
 
@@ -424,6 +430,59 @@ jobs:
               )+"\n"
           )
 
+          exact_path=root/"skeletal-scene.json"
+          exact_ready=False
+          bindings=[]
+          if exact_path.is_file():
+              exact=json.loads(exact_path.read_text())
+              assert exact["ready"] is True, exact
+              assert exact["skeletalComponentCount"]==2, exact
+              assert exact["resolvedActorCount"]==2, exact
+              assert exact["unresolvedCount"]==0, exact
+              assert exact["failureCount"]==0, exact
+              by_xzsk={row["sourceXzskFile"]:row for row in lib["meshes"]}
+              assert len(by_xzsk)==3, by_xzsk
+              for actor in exact["actors"]:
+                  source_xzsk=actor["sourceXzskFile"]
+                  assert source_xzsk in by_xzsk, (source_xzsk,by_xzsk)
+                  asset=by_xzsk[source_xzsk]
+                  assert asset["skeletonHash"]==actor["skeletonHash"], (asset,actor)
+                  bindings.append({
+                      "actorName":actor["actorName"],
+                      "actorObjectPath":actor["actorObjectPath"],
+                      "componentObjectPath":actor["componentObjectPath"],
+                      "sourceSkeletalMeshObjectPath":actor["sourceSkeletalMeshObjectPath"],
+                      "sourceSkeletalMeshPackagePath":actor["sourceSkeletalMeshPackagePath"],
+                      "sourceXzskFile":source_xzsk,
+                      "skeletonHash":actor["skeletonHash"],
+                      "matrixRowMajor":actor["matrixRowMajor"],
+                      "gltf":asset["output"],
+                      "animations":[row["name"] for row in asset["animations"]],
+                  })
+              assert len(bindings)==2, bindings
+              assert len({row["gltf"] for row in bindings})==2, bindings
+              exact_ready=True
+
+          (root/"skeletal-runtime-bindings.json").write_text(
+              json.dumps(
+                  {
+                      "schemaVersion":1,
+                      "authority":"cooked UE skeletal component -> recovered XZSK -> Godot glTF",
+                      "bindingCount":len(bindings),
+                      "bindings":bindings,
+                      "ready":exact_ready,
+                  },
+                  indent=2,
+              )+"\n"
+          )
+          if exact_ready:
+              print(
+                  "XZOGOT_NUKETOWN_EXACT_SKELETAL_BINDINGS_GREEN",
+                  [(row["actorName"],row["sourceXzskFile"],row["gltf"],row["animations"]) for row in bindings]
+              )
+          else:
+              print("XZOGOT_NUKETOWN_EXACT_SKELETAL_BINDINGS_PENDING")
+
           names=[
               "SkeletalMeshActor_3",
               "SkeletalMeshActor_5",
@@ -466,6 +525,9 @@ jobs:
               "actor_anchors":"skeletal-actor-anchors.json",
               "source_node_audit":"skeletal-actor-source-node-audit.json",
               "source_node_matches":len(matched),
+              "exact_placement_report":"skeletal-scene.json" if exact_path.is_file() else "",
+              "runtime_bindings":"skeletal-runtime-bindings.json",
+              "exact_runtime_bindings_ready":exact_ready,
           }
           manifest_path.write_text(json.dumps(manifest,indent=2)+"\n")
 
@@ -473,6 +535,7 @@ jobs:
               "XZOGOT_NUKETOWN_SKELETAL_ACTOR_AUDIT_GREEN",
               f"actors={len(anchors)}",
               f"source_nodes={len(matched)}",
+              f"exact_bindings={len(bindings)}",
           )
           PY
 
