@@ -1,0 +1,133 @@
+name: Nacht Particle Authority Slice
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-nacht-particle-authority-slice.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-nacht-particle-authority-slice
+  cancel-in-progress: true
+
+jobs:
+  slice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_ARTIFACT: Xogot-Nacht-Chronicles-Full-Map-Authority
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/godot-aaa-rebuild-v1
+          fetch-depth: 1
+
+      - name: Resolve latest GREEN full Nacht authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_RUN=""
+          for PAGE in 1 2 3 4 5; do
+            SOURCE_RUN=$(gh api \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100&page=$PAGE" \
+              --jq '[.workflow_runs[] | select(.head_branch=="feature/godot-aaa-rebuild-v1" and .name=="Xogot Nacht Chronicles Full Map Authority" and .conclusion=="success")][0].id // empty')
+            if [ -n "$SOURCE_RUN" ]; then
+              echo "XZOGOT_NACHT_PARTICLE_SLICE_SOURCE_GREEN page=$PAGE run=$SOURCE_RUN"
+              break
+            fi
+          done
+          test -n "$SOURCE_RUN"
+          echo "SOURCE_RUN=$SOURCE_RUN" >> "$GITHUB_ENV"
+
+      - name: Download exact full authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf full slice
+          mkdir -p full slice
+          downloaded=false
+          for attempt in 1 2 3; do
+            rm -rf full
+            mkdir -p full
+            if gh run download "$SOURCE_RUN" \
+              -R "${GITHUB_REPOSITORY}" \
+              -n "$SOURCE_ARTIFACT" \
+              -D full; then
+              downloaded=true
+              echo "XZOGOT_NACHT_PARTICLE_SLICE_DOWNLOAD_GREEN attempt=$attempt"
+              break
+            fi
+            sleep $((attempt * 8))
+          done
+          test "$downloaded" = true
+
+      - name: Build focused particle slice
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, shutil
+          from pathlib import Path
+
+          root=Path("full")
+          out=Path("slice")
+          out.mkdir(exist_ok=True)
+
+          def find(name):
+              matches=list(root.rglob(name))
+              if not matches:
+                  raise SystemExit(f"missing {name}")
+              return matches[0]
+
+          for name in ("nacht-particles.json","nacht-particle-graphs.json"):
+              shutil.copy2(find(name), out/name)
+
+          graphs=json.loads((out/"nacht-particle-graphs.json").read_text())
+          placements=json.loads((out/"nacht-particles.json").read_text())
+          summary={
+              "sourceRun": int(os.environ["SOURCE_RUN"]),
+              "particleSystemCount": graphs.get("particleSystemCount"),
+              "totalNodes": graphs.get("totalNodes"),
+              "totalReferences": graphs.get("totalReferences"),
+              "scriptStructCount": graphs.get("scriptStructCount"),
+              "scriptStructExpandedCount": graphs.get("scriptStructExpandedCount"),
+              "scriptStructOpaqueCount": graphs.get("scriptStructOpaqueCount"),
+              "reflectedValueTypeCounts": graphs.get("reflectedValueTypeCounts", {}),
+              "opaqueValueTypeCounts": graphs.get("opaqueValueTypeCounts", {}),
+              "nodeTypeCounts": graphs.get("nodeTypeCounts", {}),
+              "placementCount": placements.get("particleComponentCount"),
+              "ready": graphs.get("ready") is True and placements.get("ready") is True,
+          }
+          (out/"particle-decode-summary.json").write_text(
+              json.dumps(summary,indent=2)+"\n"
+          )
+          print("XZOGOT_NACHT_PARTICLE_DECODE_SUMMARY",json.dumps(summary,separators=(",",":")))
+          PY
+
+          python3 tools/maps/compile_nacht_particle_runtime_authority.py \
+            --scene slice/nacht-particles.json \
+            --graphs slice/nacht-particle-graphs.json \
+            --output slice/nacht-particle-runtime-authority.json
+
+          python3 tools/maps/compile_nacht_particle_runtime.py \
+            --placements slice/nacht-particles.json \
+            --graphs slice/nacht-particle-graphs.json \
+            --output slice/particle-runtime-manifest.json
+
+      - name: Upload particle authority slice
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nacht-Particle-Authority-Slice
+          path: slice/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 9
