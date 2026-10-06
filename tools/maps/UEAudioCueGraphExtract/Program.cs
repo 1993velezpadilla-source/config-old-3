@@ -66,6 +66,60 @@ string? RefPath(FPackageIndex? index)
         ?? index.Name;
 }
 
+object? DescribeValue(object? value, int depth = 0)
+{
+    if (value is null)
+        return null;
+    if (depth >= 5)
+        return value.ToString();
+
+    if (value is FPackageIndex packageIndex)
+    {
+        return new {
+            kind = "FPackageIndex",
+            index = packageIndex.Index,
+            path = packageIndex.ResolvedObject?.GetPathName()
+                ?? packageIndex.Name
+        };
+    }
+
+    if (value is string || value is bool ||
+        value is byte || value is sbyte ||
+        value is short || value is ushort ||
+        value is int || value is uint ||
+        value is long || value is ulong ||
+        value is float || value is double ||
+        value is decimal)
+        return value;
+
+    if (value is System.Collections.IEnumerable enumerable)
+    {
+        var values = new List<object?>();
+        foreach (var item in enumerable)
+        {
+            if (values.Count >= 128)
+                break;
+            values.Add(DescribeValue(item, depth + 1));
+        }
+        return values.ToArray();
+    }
+
+    return new {
+        kind = value.GetType().FullName,
+        text = value.ToString()
+    };
+}
+
+object[] DescribeProperties(
+    IEnumerable<CUE4Parse.UE4.Assets.Objects.FPropertyTag> properties)
+{
+    return properties.Select(property => new {
+        name = property.Name.Text,
+        valueType = property.Tag?.GenericValue?.GetType().FullName,
+        value = DescribeValue(property.Tag?.GenericValue)
+    }).Cast<object>().ToArray();
+}
+
 using var censusDoc =
     JsonDocument.Parse(File.ReadAllText(censusPath));
 
@@ -219,7 +273,8 @@ foreach (var logicalPackage in candidatePackages)
                     objectPath = nodePath,
                     exportType = nodeType,
                     wavePath,
-                    children = childPaths
+                    children = childPaths,
+                    properties = DescribeProperties(node.Properties)
                 });
                 totalNodes++;
             }
@@ -230,6 +285,7 @@ foreach (var logicalPackage in candidatePackages)
                 exportType = cue.ExportType,
                 volumeMultiplier = cue.VolumeMultiplier,
                 pitchMultiplier = cue.PitchMultiplier,
+                properties = DescribeProperties(cue.Properties),
                 firstNode = RefPath(cue.FirstNode),
                 nodeCount = nodes.Count,
                 edgeCount = edges.Count,
