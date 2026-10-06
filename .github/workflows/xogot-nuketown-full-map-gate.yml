@@ -52,8 +52,25 @@ jobs:
           from collections import Counter
           from pathlib import Path
 
-          p=Path("xogot/assets/benchmarks/nuketown_xziel/visual-scene.json")
+          root=Path("xogot/assets/benchmarks/nuketown_xziel")
+          p=root/"visual-scene.json"
           d=json.loads(p.read_text())
+          authority=json.loads((root/"source_manifest.json").read_text())
+          assert authority["source_authority"] == "Pavlov/Plugins/UGC5097941/Content (complete folder)", authority
+          assert authority["source_file_count"] == 2859, authority
+          assert authority["source_package_count"] == 1266, authority
+          assert authority["source_export_count"] == 2499, authority
+          complete=authority["complete_converted_library"]
+          expected={
+              "static_meshes":83,
+              "textures":321,
+              "audio":26,
+              "skeletons":3,
+              "skeletal_meshes":3,
+              "animations":9,
+          }
+          assert {k:int(complete[k]["count"]) for k in expected} == expected, complete
+          print("XZOGOT_NUKETOWN_COMPLETE_SOURCE_AUTHORITY_GREEN", expected)
           classes=Counter(x["className"] for x in d["actorAnchors"])
           assert d["summary"]["ready"] is True
           assert len(d["meshes"]) == 52
