@@ -8,6 +8,7 @@ on:
     paths:
       - ".github/workflows/xogot-nacht-chronicles-full-map-authority.yml"
       - "tools/maps/UEStaticSceneExtract/Program.cs"
+      - "tools/patches/patch_ue421_material_texture_refs.py"
 
 permissions:
   contents: read
