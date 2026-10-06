@@ -53,10 +53,22 @@ jobs:
           rm -rf "$tmp" "$root"
           mkdir -p "$tmp" "$root"
 
-          gh run download "$SOURCE_RUN" \
-            --repo "$GITHUB_REPOSITORY" \
-            --name "$SOURCE_ARTIFACT" \
-            --dir "$tmp"
+          downloaded=false
+          for attempt in 1 2 3; do
+            rm -rf "$tmp"
+            mkdir -p "$tmp"
+            if gh run download "$SOURCE_RUN" \
+              --repo "$GITHUB_REPOSITORY" \
+              --name "$SOURCE_ARTIFACT" \
+              --dir "$tmp"; then
+              downloaded=true
+              echo "XZOGOT_NACHT_CAPTURE_ARTIFACT_DOWNLOAD_GREEN attempt=$attempt"
+              break
+            fi
+            echo "XZOGOT_NACHT_CAPTURE_ARTIFACT_DOWNLOAD_RETRY attempt=$attempt" >&2
+            sleep $((attempt * 10))
+          done
+          test "$downloaded" = true
 
           manifest=$(find "$tmp" -type f -name source_manifest.json -print -quit)
           test -n "$manifest"
