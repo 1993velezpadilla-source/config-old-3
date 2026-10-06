@@ -70,6 +70,8 @@ jobs:
           test -s "$AUTH/nacht-materials.json"
           test -s "$AUTH/nacht-native/static-meshes/report.json"
           test -s "$AUTH/nacht-native/textures/report.json"
+          test -s "$AUTH/nacht-native/audio/report.json"
+          test "$(find "$AUTH/nacht-native/audio" -maxdepth 1 -type f -name '*.xaw' | wc -l)" -eq 295
           echo "AUTH=$AUTH" >> "$GITHUB_ENV"
           echo "XZOGOT_NACHT_STAGE_AUTHORITY_GREEN run=$SOURCE_RUN"
 
@@ -91,7 +93,7 @@ jobs:
           set -euo pipefail
           root="$RUNNER_TEMP/nacht-stage"
           rm -rf "$root"
-          mkdir -p "$root/$MAP_REL/meshes" "$root/$MAP_REL/textures"
+          mkdir -p "$root/$MAP_REL/meshes" "$root/$MAP_REL/textures" "$root/audio"
           cp "$AUTH/nacht-full-map-handoff.json" "$root/"
           cp "$AUTH/nacht-full-map-authority.json" "$root/"
           cp "$AUTH/nacht-static-scene.json" "$root/"
@@ -119,6 +121,7 @@ jobs:
           map_rel=Path(os.environ["MAP_REL"])
           scene=json.loads((root/"nacht-static-scene.json").read_text())
           xzml=json.loads((root/"xzml-report.json").read_text())
+          audio_runtime=json.loads((root/"audio-runtime-report.json").read_text())
 
           mesh_source=auth/"nacht-native/static-meshes"
           mesh_dst=root/map_rel/"meshes"
@@ -159,6 +162,10 @@ jobs:
           python3 tools/maps/xztx_to_dds.py             "$root/$MAP_REL/textures"             "$root/$MAP_REL/textures_dds"             --report "$root/native-dds-report.json"
 
           python3 tools/maps/compile_xziel_environment.py             --source "$root/nacht-lights.json"             --output "$root/$MAP_REL/environment.xzen"             --report "$root/nacht-environment-report.json"
+
+          python3 tools/maps/xzaw_to_ogg.py             "$AUTH/nacht-native/audio"             "$root/audio"             --report "$AUTH/nacht-native/audio/report.json"             --output-report "$root/audio-runtime-report.json"
+
+          cp "$AUTH/nacht-native/audio/report.json" "$root/nacht-native-audio-report.json"
 
           cp "$root/materials.xzmi" "$root/$MAP_REL/materials.xzmi"
           cp "$root/materials.xzml" "$root/$MAP_REL/materials.xzml"
@@ -209,6 +216,10 @@ jobs:
           assert glb["mesh_count"] == len(scene["meshes"]), (glb["mesh_count"],len(scene["meshes"]))
           assert dds["ready"] is True and dds["failure_count"] == 0, dds
           assert dds["texture_count"] == xzml["textureAssetCount"], (dds,xzml["textureAssetCount"])
+          assert audio_runtime["ready"] is True, audio_runtime
+          assert audio_runtime["audioCount"] == 295, audio_runtime
+          assert len(audio_runtime["audio"]) == 295, audio_runtime
+          assert len(list((root/"audio").glob("*.ogg"))) == 295
 
           manifest={
               "schemaVersion":1,
@@ -221,6 +232,8 @@ jobs:
               "sourceLights":lights["lightCount"],
               "sourceMaterials":mats["summary"]["usedMaterialCount"],
               "sourceTextures":xzml["textureAssetCount"],
+              "sourceAudioWaves":audio_runtime["audioCount"],
+              "sourceAudioFormat":audio_runtime["format"],
               "ddsFormats":dds["format_counts"],
               "ready":True,
           }
