@@ -215,6 +215,36 @@ foreach (var assetPath in assetPaths)
             exportRows.Add(exportRow);
         }
 
+        var normalExportProperties = new JArray();
+        for (var exportIndex = 0; exportIndex < asset.Exports.Count; exportIndex++)
+        {
+            if (asset.Exports[exportIndex] is not NormalExport normal)
+                continue;
+
+            JToken dataJson;
+            try
+            {
+                dataJson = JToken.Parse(
+                    asset.SerializeJsonObject(
+                        normal.Data,
+                        Newtonsoft.Json.Formatting.None));
+            }
+            catch (Exception e)
+            {
+                dataJson = new JObject
+                {
+                    ["serializationError"] = e.GetType().Name + ": " + e.Message
+                };
+            }
+
+            normalExportProperties.Add(new JObject
+            {
+                ["exportIndex"] = exportIndex,
+                ["objectName"] = normal.ObjectName.ToString(),
+                ["properties"] = dataJson
+            });
+        }
+
         var imports = new JArray();
         for (var importIndex = 0; importIndex < asset.Imports.Count; importIndex++)
         {
@@ -240,6 +270,7 @@ foreach (var assetPath in assetPaths)
             ["exportCount"] = asset.Exports.Count,
             ["importCount"] = asset.Imports.Count,
             ["imports"] = imports,
+            ["normalExportProperties"] = normalExportProperties,
             ["functionCount"] = functionRows.Count,
             ["functions"] = functionRows,
             ["exports"] = exportRows,
