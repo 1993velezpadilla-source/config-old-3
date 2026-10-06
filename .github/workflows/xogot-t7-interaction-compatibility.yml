@@ -1,0 +1,140 @@
+name: Xogot T7 Interaction Rig Compatibility
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-t7-interaction-compatibility.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-t7-interaction-compatibility
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VIEWHANDS_RUN: "37382140735"
+      VIEWHANDS_ARTIFACT: "aether-source-presentation-metadata"
+      INTERACTION_RUN: "37398434025"
+      INTERACTION_ARTIFACT: "xogot-source-first-interactives"
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download validated T7 viewhands and interaction source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p source/viewhands source/interactions
+          gh run download "$VIEWHANDS_RUN" -n "$VIEWHANDS_ARTIFACT" -D source/viewhands
+          gh run download "$INTERACTION_RUN" -n "$INTERACTION_ARTIFACT" -D source/interactions
+          test -n "$(find source/viewhands -type f -iname 'RichtofenBO3Ultimis.glb' -print -quit)"
+          test -n "$(find source/interactions -type f -iname 'PerkHandDrink.psa' -print -quit)"
+          test -n "$(find source/interactions -type f -iname 'ChroniclesRichtofenKnife.psa' -print -quit)"
+          echo "XZOGOT_T7_INTERACTION_SOURCE_GREEN"
+
+      - name: Compare source skeletons bone-for-bone
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,struct
+
+          def glb_joints(path:Path):
+              data=path.read_bytes()
+              off=12; doc=None
+              while off+8<=len(data):
+                  n,kind=struct.unpack_from("<II",data,off);off+=8
+                  if kind==0x4E4F534A:
+                      doc=json.loads(data[off:off+n].rstrip(b" \t\r\n\0"))
+                      break
+                  off+=n
+              if doc is None: raise RuntimeError("GLB JSON missing")
+              nodes=doc.get("nodes",[])
+              names=set()
+              for skin in doc.get("skins",[]):
+                  for i in skin.get("joints",[]):
+                      if isinstance(i,int) and 0<=i<len(nodes):
+                          n=str(nodes[i].get("name",""))
+                          if n:names.add(n)
+              return names,doc
+
+          def psa_bones(path:Path):
+              data=path.read_bytes()
+              off=0
+              while off+32<=len(data):
+                  chunk=data[off:off+20].split(b"\0",1)[0].decode("ascii","ignore")
+                  _type,size,count=struct.unpack_from("<iii",data,off+20)
+                  off+=32
+                  total=size*count
+                  if off+total>len(data):
+                      raise RuntimeError(f"{path}: truncated {chunk}")
+                  if chunk=="BONENAMES":
+                      out=[]
+                      for i in range(count):
+                          rec=data[off+i*size:off+(i+1)*size]
+                          name=rec[:64].split(b"\0",1)[0].decode("ascii","ignore")
+                          if name:out.append(name)
+                      return out
+                  off+=total
+              raise RuntimeError(f"{path}: BONENAMES missing")
+
+          view=next(Path("source/viewhands").rglob("RichtofenBO3Ultimis.glb"))
+          joints,doc=glb_joints(view)
+          psas={}
+          for name in ("PerkHandDrink.psa","ChroniclesRichtofenKnife.psa","BO2KnifeSlash.psa"):
+              paths=list(Path("source/interactions").rglob(name))
+              if not paths: continue
+              bones=psa_bones(paths[0])
+              missing=[b for b in bones if b not in joints]
+              psas[name]={
+                  "path":paths[0].as_posix(),
+                  "bone_count":len(bones),
+                  "shared_count":len([b for b in bones if b in joints]),
+                  "missing_count":len(missing),
+                  "missing":missing,
+              }
+
+          report={
+              "schema":1,
+              "t7_viewhands":view.as_posix(),
+              "t7_joint_count":len(joints),
+              "t7_important_joints":sorted(
+                  x for x in joints
+                  if any(k in x.lower() for k in ("wrist","finger","thumb","elbow","shoulder","tag_"))
+              ),
+              "psa_compatibility":psas,
+          }
+          Path("t7-interaction-compatibility.json").write_text(json.dumps(report,indent=2)+"\n")
+          print("XZOGOT_T7_JOINTS",len(joints))
+          for name,row in psas.items():
+              print(
+                  "XZOGOT_T7_PSA_COMPAT",
+                  name,
+                  "bones=",row["bone_count"],
+                  "shared=",row["shared_count"],
+                  "missing=",row["missing_count"],
+                  row["missing"][:20]
+              )
+          if "PerkHandDrink.psa" not in psas:
+              raise SystemExit("PerkHandDrink PSA missing")
+          print("XZOGOT_T7_INTERACTION_COMPAT_AUDIT_GREEN")
+          PY
+
+      - name: Upload compatibility report
+        uses: actions/upload-artifact@v4
+        with:
+          name: xogot-t7-interaction-compatibility
+          path: t7-interaction-compatibility.json
+          if-no-files-found: error
+          retention-days: 14
