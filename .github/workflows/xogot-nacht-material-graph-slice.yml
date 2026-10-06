@@ -209,14 +209,25 @@ jobs:
           root=Path("full")
           out=Path("slice")
           graphs_path=next(root.rglob("nacht-particle-graphs.json"), None)
-          runtime_path=next(root.rglob("particle-runtime-manifest.json"), None)
+          placements_path=next(root.rglob("nacht-particles.json"), None)
           materials_path=next(root.rglob("nacht-materials.json"), None)
-          if not graphs_path or not runtime_path or not materials_path:
+          if not graphs_path or not placements_path or not materials_path:
               raise SystemExit("particle/material authority missing")
 
           graphs=json.loads(graphs_path.read_text())
-          runtime=json.loads(runtime_path.read_text())
+          placements=json.loads(placements_path.read_text())
           materials=json.loads(materials_path.read_text())
+
+          structural_types={"ParticleSystem","ParticleSpriteEmitter","ParticleLODLevel"}
+          value_prefixes=("DistributionFloat","DistributionVector")
+          direct_mapping_types={
+              "ParticleModuleRequired","ParticleModuleSpawn","ParticleModuleLifetime",
+              "ParticleModuleSize","ParticleModuleColorOverLife",
+              "ParticleModuleSizeMultiplyLife","ParticleModuleVelocity",
+              "ParticleModuleRotation","ParticleModuleLocation","ParticleModuleSubUV",
+              "ParticleModuleColor","ParticleModuleLocationPrimitiveCylinder",
+              "ParticleModuleOrientationAxisLock",
+          }
 
           def canonical(raw):
               value=str(raw or "").strip().replace("\\","/")
@@ -262,8 +273,10 @@ jobs:
           mats={canonical(row.get("objectPath")):row for row in materials.get("materials",[]) if row.get("objectPath")}
           rows=[]
           seen=set()
-          for placement in runtime.get("placements",[]):
-              system_path=str(placement.get("templatePath",""))
+          particle_components=placements.get("particleComponents",[])
+          for placement in particle_components:
+              template=placement.get("template",{}) if isinstance(placement,dict) else {}
+              system_path=str(template.get("objectPath","") or "")
               key=canonical(system_path)
               graph=next((g for g in graphs.get("systems",[]) if canonical(g.get("objectPath"))==key),None)
               if graph is None:
@@ -282,10 +295,20 @@ jobs:
               node_types=sorted({str(n.get("exportType","")) for n in graph.get("nodes",[]) if n.get("exportType")})
               rows.append({
                   "systemPath":system_path,
-                  "placementCount":sum(1 for p in runtime.get("placements",[]) if canonical(p.get("templatePath"))==key),
+                  "placementCount":sum(
+                      1 for p in particle_components
+                      if canonical((p.get("template",{}) or {}).get("objectPath"))==key
+                  ),
                   "nodeCount":graph.get("nodeCount"),
                   "referenceCount":graph.get("referenceCount"),
-                  "unsupportedNodeTypes":placement.get("unsupportedNodeTypes",[]),
+                  "unsupportedNodeTypes":sorted({
+                      str(n.get("exportType",""))
+                      for n in graph.get("nodes",[])
+                      if str(n.get("exportType",""))
+                      and str(n.get("exportType","")) not in structural_types
+                      and not str(n.get("exportType","")).startswith(value_prefixes)
+                      and str(n.get("exportType","")) not in direct_mapping_types
+                  }),
                   "nodeTypes":node_types,
                   "materialPath":material_path,
                   "screenAlignment":screen_alignment,
