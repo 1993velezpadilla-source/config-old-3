@@ -1,0 +1,47 @@
+name: Reuse CoDz Census Source
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/godot-aaa-rebuild-v1]
+    paths: [".github/workflows/xogot-codz-reuse-census-source.yml"]
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  reuse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      SOURCE_RUN_ID: "37470563200"
+      SOURCE_ARTIFACT: "xogot-codz-parity-wonder-weapon-census"
+      XZOGOT_ENGINE_VERSION: VER_UE4_18
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+      - name: Download existing census artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p census build/reuse-census
+          gh run download "$SOURCE_RUN_ID" -n "$SOURCE_ARTIFACT" -D census
+          echo "XZOGOT_REUSE_CENSUS_DOWNLOADED"
+      - name: Find gameplay source already preserved
+        shell: bash
+        run: |
+          set -euo pipefail
+          find census -type f | grep -Ei '/(KillerJimsPaP|BPs/Perks|ProxiesAndGameLogics)/.*\.uasset$'             | sort > build/reuse-census/gameplay-uassets.txt || true
+          find census -type f | grep -Ei '/(KillerJimsPaP|BPs/Perks|ProxiesAndGameLogics)/'             | sort > build/reuse-census/gameplay-files.txt || true
+          echo "XZOGOT_REUSE_GAMEPLAY_UASSETS $(wc -l < build/reuse-census/gameplay-uassets.txt)"
+          head -100 build/reuse-census/gameplay-uassets.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xogot-codz-reuse-census-source-report
+          path: build/reuse-census/**
+          retention-days: 14
