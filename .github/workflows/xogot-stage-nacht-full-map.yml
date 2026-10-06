@@ -212,11 +212,15 @@ jobs:
           assert mats["summary"]["unresolvedMaterialCount"] == 0, mats["summary"]
           assert mats["summary"]["unresolvedTextureCount"] == 0, mats["summary"]
           assert lights["lightCount"] == 166, lights
-          assert particles["particleComponentCount"] > 0 and particles["ready"] is True, particles
+          assert particles["particleComponentCount"] == 29 and particles["ready"] is True, particles
+          assert particles["referencedTemplateCount"] == 29, particles
+          assert particles["nullTemplateCount"] == 0, particles
           assert particle_graph["particleSystemCount"] == 39 and particle_graph["ready"] is True, particle_graph
           assert particle_graphs["particleSystemCount"] == 39 and particle_graphs["ready"] is True, particle_graphs
           assert environment["ready"] is True, environment
-          assert audio_scene["audioComponentCount"] > 0 and audio_scene["ready"] is True, audio_scene
+          assert audio_scene["audioComponentCount"] == 3 and audio_scene["ready"] is True, audio_scene
+          assert audio_scene["referencedSoundCount"] == 3, audio_scene
+          assert audio_scene["nullSoundCount"] == 0, audio_scene
           assert audio_cues["cueCount"] == 102 and audio_cues["ready"] is True, audio_cues
           assert glb["mesh_count"] == len(scene["meshes"]), (glb["mesh_count"],len(scene["meshes"]))
           assert dds["ready"] is True and dds["failure_count"] == 0, dds
