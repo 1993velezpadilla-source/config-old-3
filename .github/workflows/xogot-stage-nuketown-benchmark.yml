@@ -100,6 +100,9 @@ jobs:
           cp "$AUTH_ROOT/nuketown-full-content-manifest.json" "$dst/nuketown-full-content-manifest.json"
           cp "$AUTH_ROOT/nuketown-content-files.txt" "$dst/nuketown-content-files.txt"
           cp "$AUTH_ROOT/nuketown-source-export-manifest-summary.json" "$dst/nuketown-source-export-manifest-summary.json"
+          if [ -s "$AUTH_ROOT/nuketown-complete-converted-library.json" ]; then
+            cp "$AUTH_ROOT/nuketown-complete-converted-library.json" "$dst/nuketown-complete-converted-library.json"
+          fi
 
           srcmap="$RUNTIME_ROOT/vfs/xziel/maps/xziel_nuketown_zombies"
           cp -a "$srcmap/meshes" "$dst/vfs/xziel/maps/xziel_nuketown_zombies/meshes"
@@ -118,6 +121,14 @@ jobs:
           lights=json.loads((dst/"xzen-report.json").read_text())
           mats=json.loads((dst/"material-binding-manifest.json").read_text())
           tex=json.loads((dst/"xzml-report.json").read_text())
+          full_content=json.loads((dst/"nuketown-full-content-manifest.json").read_text())
+          full_deps=json.loads((dst/"nuketown-source-export-manifest-summary.json").read_text())
+          complete_library_path=dst/"nuketown-complete-converted-library.json"
+          complete_library=(
+              json.loads(complete_library_path.read_text())
+              if complete_library_path.is_file()
+              else {}
+          )
           mesh_files=sorted((dst/"vfs/xziel/maps/xziel_nuketown_zombies/meshes").glob("*.xzm"))
           texture_files=sorted((dst/"vfs/xziel/maps/xziel_nuketown_zombies/textures").glob("*.xzt"))
 
@@ -152,6 +163,18 @@ jobs:
               "full_content_manifest":"nuketown-full-content-manifest.json",
               "full_content_file_list":"nuketown-content-files.txt",
               "full_dependency_manifest":"nuketown-source-export-manifest-summary.json",
+              "source_file_count":full_content["fileCount"],
+              "source_total_bytes":full_content["totalBytes"],
+              "source_package_count":full_deps["packageCount"],
+              "source_export_count":full_deps["exportsDecoded"],
+              "source_dependency_edges":{
+                  "structural":full_deps["structuralEdges"],
+                  "preload":full_deps["preloadEdges"],
+                  "local":full_deps["localDependencyEdges"],
+                  "external":full_deps["externalImportEdges"],
+                  "script":full_deps["scriptImportEdges"],
+              },
+              "complete_converted_library":complete_library.get("assets", {}),
           }
           (dst/"source_manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")
           print("XZOGOT_NUKETOWN_WORLD_STAGE_GREEN",manifest)
