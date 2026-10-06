@@ -629,6 +629,17 @@ func _material_for_path(material_path: String) -> Material:
 	var normal_source := _optional_source_path(canonical.get("normal", null))
 	var emissive_source := _optional_source_path(canonical.get("emissive", null))
 
+	# Preserve explicit cooked parameter semantics before any uniqueness-based
+	# fallback. UE4 material instances commonly expose AlbedoTexture and
+	# NormalTexture directly even when the canonical PM_* binding is absent.
+	# This is source-authored metadata, not a filename/material-name guess.
+	if diffuse_source.is_empty():
+		diffuse_source = _exact_parameter_texture(record, "AlbedoTexture")
+	if normal_source.is_empty():
+		normal_source = _exact_parameter_texture(record, "NormalTexture")
+	if emissive_source.is_empty():
+		emissive_source = _exact_parameter_texture(record, "EmissiveTexture")
+
 	# Some cooked source materials expose their real texture binding under the
 	# original parameter name instead of PM_Diffuse/PM_Normals. Do not guess by
 	# material name: accept a fallback only when the manifest itself declares
@@ -993,6 +1004,21 @@ func _source_exact_token_diffuse_for_composite(material_path: String) -> String:
 	if matches.size() == 1:
 		return matches[0]
 	return ""
+
+func _exact_parameter_texture(record: Dictionary, parameter_name: String) -> String:
+	var matches: Dictionary = {}
+	for raw: Variant in record.get("textures", []):
+		if not (raw is Dictionary):
+			continue
+		var row := raw as Dictionary
+		if str(row.get("parameter", "")).nocasecmp_to(parameter_name) != 0:
+			continue
+		var source := str(row.get("texturePath", ""))
+		if not source.is_empty():
+			matches[source] = true
+	if matches.size() != 1:
+		return ""
+	return str(matches.keys()[0])
 
 func _unique_source_srgb_texture(record: Dictionary) -> String:
 	var unique: Dictionary = {}
