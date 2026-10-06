@@ -40,7 +40,8 @@
       "skeletonHash": "40e5473fcfae14e8",
       "meshReferenceProperty": "SkeletalMesh",
       "meshReferenceTemplateDepth": 1,
-      "meshReferenceTemplatePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/box/NewBlueprint1_2.NewBlueprint1_2_C:untitled1_GEN_VARIABLE",
+      "meshReferenceResolutionObjectPath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/box/NewBlueprint1_2.NewBlueprint1_2_C:untitled1_GEN_VARIABLE",
+      "meshReferenceResolutionLayer": "template",
       "matrixRowMajor": [
         0.9396927,
         0.3420199,
@@ -78,7 +79,8 @@
       "skeletonHash": "70299695c85b0559",
       "meshReferenceProperty": "SkeletalMesh",
       "meshReferenceTemplateDepth": 0,
-      "meshReferenceTemplatePath": null,
+      "meshReferenceResolutionObjectPath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/nuketownz.nuketownz:PersistentLevel.SkeletalMeshActor_3.SkeletalMeshComponent0",
+      "meshReferenceResolutionLayer": "instance",
       "matrixRowMajor": [
         -0.25881898,
         -0.9659258,
@@ -116,7 +118,8 @@
       "skeletonHash": "09f7e917b6599364",
       "meshReferenceProperty": "SkeletalMesh",
       "meshReferenceTemplateDepth": 0,
-      "meshReferenceTemplatePath": null,
+      "meshReferenceResolutionObjectPath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/nuketownz.nuketownz:PersistentLevel.SkeletalMeshActor_5.SkeletalMeshComponent0",
+      "meshReferenceResolutionLayer": "instance",
       "matrixRowMajor": [
         0.3420201,
         -0.9396927,
