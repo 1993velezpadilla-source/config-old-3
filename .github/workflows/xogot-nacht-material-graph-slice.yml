@@ -150,6 +150,54 @@ jobs:
           })
           PY
 
+      - name: Slice portable source material exports
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p slice/portable
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, shutil
+
+          root=Path("full")
+          out=Path("slice/portable")
+          needles=(
+              "mysterboxverticalmat",
+              "mysteryboxverticalparticle",
+              "mysteryboxverticalrippleparticle",
+              "mysteryboxverticalmaskparticlethin",
+              "mtl_p7_zm_gen_debris_concrete_rubble_lg_03",
+          )
+          copied=[]
+          for source in root.rglob("*"):
+              if not source.is_file():
+                  continue
+              rel=source.relative_to(root).as_posix()
+              lower=rel.lower()
+              if not any(needle in lower for needle in needles):
+                  continue
+              # Portable material/texture JSON is the useful diagnostic lane;
+              # keep logs/binaries out of this focused slice.
+              if source.suffix.lower() != ".json":
+                  continue
+              target=out / rel.replace("/", "__")
+              target.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(source,target)
+              copied.append({
+                  "source":rel,
+                  "slice":target.relative_to(Path("slice")).as_posix(),
+                  "bytes":source.stat().st_size,
+              })
+
+          (out/"index.json").write_text(json.dumps(copied,indent=2)+"\n")
+          if not copied:
+              raise SystemExit("no portable target material exports found")
+          print("XZOGOT_NACHT_PORTABLE_MATERIAL_SLICE_GREEN", {
+              "count":len(copied),
+              "files":[row["source"] for row in copied],
+          })
+          PY
+
       - name: Upload material graph slice
         uses: actions/upload-artifact@v4
         with:
