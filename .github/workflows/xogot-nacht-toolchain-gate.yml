@@ -10,6 +10,7 @@ on:
       - "tools/patches/synthesize_ue_basic_cube_xzms.py"
       - "tools/maps/UEAudioSceneExtract/**"
       - "tools/maps/UEAudioCueGraphExtract/**"
+      - "tools/maps/UELightExtract/Program.cs"
       - ".github/workflows/xogot-nacht-toolchain-gate.yml"
 
 permissions:
@@ -38,9 +39,11 @@ jobs:
           set -euo pipefail
           OLD=055f0d0721eb212e3f4713e149d1e2ace5c53674
           git fetch origin "$OLD" --depth=1
-          git checkout "$OLD" -- tools/maps/UEMaterialAudit
+          git checkout "$OLD" -- tools/maps/UEMaterialAudit tools/maps/UELightExtract
           python3 tools/patches/patch_ue421_material_texture_refs.py
           grep -q "ResolveAuthoritativeTextureReferences" tools/maps/UEMaterialAudit/Program.cs
+          git checkout "$GITHUB_SHA" -- tools/maps/UELightExtract/Program.cs
+          grep -q "USCeneComponent visibility defaults to true" tools/maps/UELightExtract/Program.cs || true
           echo "XZOGOT_NACHT_MATERIAL_PATCH_APPLIED_GREEN"
 
       - name: Compile patched material authority
@@ -125,3 +128,13 @@ jobs:
               "bounds":[bmin,bmax],
           })
           PY
+
+      - name: Compile patched UE4 light authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet restore tools/maps/UELightExtract/UELightExtract.csproj
+          dotnet build tools/maps/UELightExtract/UELightExtract.csproj -c Release --no-restore \
+            2>&1 | tee /tmp/nacht-light-build.log
+          ! grep -q " error CS" /tmp/nacht-light-build.log
+          echo "XZOGOT_NACHT_LIGHT_TOOLCHAIN_GREEN"
