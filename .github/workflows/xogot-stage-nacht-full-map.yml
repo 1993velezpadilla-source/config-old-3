@@ -61,6 +61,10 @@ jobs:
           test -s "$AUTH/nacht-static-runtime-meshes.json"
           test -s "$AUTH/nacht-static-scene.json"
           test -s "$AUTH/nacht-lights.json"
+          test -s "$AUTH/nacht-particles.json"
+          test -s "$AUTH/nacht-environment-scene.json"
+          test -s "$AUTH/nacht-audio-scene.json"
+          test -s "$AUTH/nacht-audio-cues.json"
           test -s "$AUTH/nacht-materials.json"
           test -s "$AUTH/nacht-native/static-meshes/report.json"
           test -s "$AUTH/nacht-native/textures/report.json"
@@ -90,6 +94,10 @@ jobs:
           cp "$AUTH/nacht-full-map-authority.json" "$root/"
           cp "$AUTH/nacht-static-scene.json" "$root/"
           cp "$AUTH/nacht-lights.json" "$root/"
+          cp "$AUTH/nacht-particles.json" "$root/"
+          cp "$AUTH/nacht-environment-scene.json" "$root/"
+          cp "$AUTH/nacht-audio-scene.json" "$root/"
+          cp "$AUTH/nacht-audio-cues.json" "$root/"
           cp "$AUTH/nacht-materials.json" "$root/"
 
           python3 tools/maps/compile_ue_material_bindings.py             --scene "$root/nacht-static-scene.json"             --xzms "$AUTH/nacht-static-runtime-meshes.json"             --materials "$root/nacht-materials.json"             --xztx "$AUTH/nacht-native/textures/report.json"             --output "$root/material-binding-manifest.json"
@@ -167,6 +175,10 @@ jobs:
           authority=json.loads((root/"nacht-full-map-authority.json").read_text())
           scene=json.loads((root/"nacht-static-scene.json").read_text())
           lights=json.loads((root/"nacht-environment-report.json").read_text())
+          particles=json.loads((root/"nacht-particles.json").read_text())
+          environment=json.loads((root/"nacht-environment-scene.json").read_text())
+          audio_scene=json.loads((root/"nacht-audio-scene.json").read_text())
+          audio_cues=json.loads((root/"nacht-audio-cues.json").read_text())
           mats=json.loads((root/"material-binding-manifest.json").read_text())
           glb=json.loads((root/"native-glb-report.json").read_text())
           dds=json.loads((root/"native-dds-report.json").read_text())
@@ -181,7 +193,11 @@ jobs:
           assert mats["summary"]["ready"] is True, mats["summary"]
           assert mats["summary"]["unresolvedMaterialCount"] == 0, mats["summary"]
           assert mats["summary"]["unresolvedTextureCount"] == 0, mats["summary"]
-          assert lights["lightCount"] == authority["lighting"]["count"], (lights,authority["lighting"])
+          assert lights["lightCount"] == 166, lights
+          assert particles["particleComponentCount"] > 0 and particles["ready"] is True, particles
+          assert environment["ready"] is True, environment
+          assert audio_scene["audioComponentCount"] > 0 and audio_scene["ready"] is True, audio_scene
+          assert audio_cues["cueCount"] == 102 and audio_cues["ready"] is True, audio_cues
           assert glb["mesh_count"] == len(scene["meshes"]), (glb["mesh_count"],len(scene["meshes"]))
           assert dds["ready"] is True and dds["failure_count"] == 0, dds
           assert dds["texture_count"] == xzml["textureAssetCount"], (dds,xzml["textureAssetCount"])
