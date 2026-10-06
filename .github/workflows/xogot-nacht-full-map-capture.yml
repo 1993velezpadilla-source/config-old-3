@@ -180,8 +180,11 @@ jobs:
           ! grep -E "NACHT_CAPTURE:|SCRIPT ERROR|Parse Error|MAX_MESH_SURFACES" build/nacht-capture/render.log
           test -s /tmp/xogot-nacht-spawn.png
           test -s /tmp/xogot-nacht-overview.png
+          test "$(find /tmp -maxdepth 1 -type f -name 'xogot-nacht-spawn-candidate-*.png' | wc -l)" -eq 10
           cp /tmp/xogot-nacht-spawn.png build/nacht-capture/xogot-nacht-spawn.png
           cp /tmp/xogot-nacht-overview.png build/nacht-capture/xogot-nacht-overview.png
+          cp /tmp/xogot-nacht-spawn-candidate-*.png build/nacht-capture/
+          echo "XZOGOT_NACHT_CAPTURE_SPAWN_SWEEP_GREEN count=10"
           echo "XZOGOT_NACHT_CAPTURE_RENDER_GREEN"
 
       - name: Upload Nacht screenshots
@@ -191,6 +194,7 @@ jobs:
           path: |
             build/nacht-capture/xogot-nacht-spawn.png
             build/nacht-capture/xogot-nacht-overview.png
+            build/nacht-capture/xogot-nacht-spawn-candidate-*.png
             build/nacht-capture/render.log
           if-no-files-found: error
           retention-days: 7
