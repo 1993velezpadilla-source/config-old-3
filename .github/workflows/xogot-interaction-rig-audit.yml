@@ -1,0 +1,153 @@
+name: Xogot Interaction Rig Source Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-interaction-rig-audit.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-interaction-rig-source-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: "37398434025"
+      SOURCE_ARTIFACT: "xogot-source-first-interactives"
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download validated Aether interaction source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/interactive-source"
+          mkdir -p "$RUNNER_TEMP/interactive-source"
+          gh run download "$SOURCE_RUN" -n "$SOURCE_ARTIFACT" -D "$RUNNER_TEMP/interactive-source"
+          test -d "$RUNNER_TEMP/interactive-source/interactive-gltf"
+          test -d "$RUNNER_TEMP/interactive-source/interactive-actorx"
+          echo "INTERACTIVE_SOURCE=$RUNNER_TEMP/interactive-source" >> "$GITHUB_ENV"
+          echo "XZOGOT_INTERACTION_RIG_AUDIT_SOURCE_GREEN"
+
+      - name: Audit candidate first-person rigs and source clips
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,struct,os,re
+
+          root=Path(os.environ["INTERACTIVE_SOURCE"])
+          gltf=root/"interactive-gltf"
+          actorx=root/"interactive-actorx"
+
+          def glb_json(path:Path):
+              data=path.read_bytes()
+              if data[:4] != b"glTF":
+                  return {}
+              off=12
+              while off+8 <= len(data):
+                  n,kind=struct.unpack_from("<II",data,off); off+=8
+                  if kind == 0x4E4F534A:
+                      return json.loads(data[off:off+n].rstrip(b" \t\r\n\0"))
+                  off += n
+              return {}
+
+          wanted=re.compile(
+              r"(BO3Knife|Bowieknife|DoubleTapBottle|"
+              r"wpn_t7_zmb_perk_bottle|viewhand|viewarm|richtofen|perk)",
+              re.I,
+          )
+          candidates=[]
+          for p in gltf.rglob("*.glb"):
+              if not wanted.search(p.as_posix()):
+                  continue
+              doc=glb_json(p)
+              nodes=doc.get("nodes",[])
+              skins=doc.get("skins",[])
+              joint_names=[]
+              for skin in skins:
+                  for idx in skin.get("joints",[]):
+                      if isinstance(idx,int) and 0 <= idx < len(nodes):
+                          joint_names.append(str(nodes[idx].get("name","")))
+              lower=" ".join(joint_names).lower()
+              hand_tokens=sum(
+                  1 for token in (
+                      "wrist","finger","thumb","hand","elbow","shoulder",
+                      "tag_view","tag_weapon","tag_ads","tag_camera"
+                  )
+                  if token in lower
+              )
+              candidates.append({
+                  "path":p.relative_to(root).as_posix(),
+                  "meshes":[str(x.get("name","")) for x in doc.get("meshes",[])],
+                  "skin_count":len(skins),
+                  "joint_count":len(set(joint_names)),
+                  "hand_token_score":hand_tokens,
+                  "important_joints":sorted({
+                      n for n in joint_names
+                      if re.search(r"(wrist|finger|thumb|hand|elbow|shoulder|tag_)",n,re.I)
+                  })[:160],
+                  "animation_names":[str(x.get("name","")) for x in doc.get("animations",[])],
+              })
+
+          psa_names=sorted(
+              p.relative_to(root).as_posix()
+              for p in actorx.rglob("*.psa")
+              if re.search(
+                  r"(PerkHandDrink|ChroniclesRichtofenKnife|BO2KnifeSlash|BowiePullout)",
+                  p.name,re.I
+              )
+          )
+          psk_names=sorted(
+              p.relative_to(root).as_posix()
+              for p in actorx.rglob("*")
+              if p.is_file()
+              and p.suffix.lower() in {".psk",".pskx"}
+              and wanted.search(p.as_posix())
+          )
+
+          candidates.sort(key=lambda x:(-x["hand_token_score"],-x["joint_count"],x["path"]))
+          report={
+              "schema":1,
+              "source_run":37398434025,
+              "source_artifact":"xogot-source-first-interactives",
+              "candidate_glb_count":len(candidates),
+              "candidates":candidates,
+              "interaction_psa":psa_names,
+              "candidate_psk":psk_names,
+          }
+          Path("interaction-rig-audit.json").write_text(json.dumps(report,indent=2)+"\n")
+          print("XZOGOT_INTERACTION_RIG_CANDIDATES",len(candidates))
+          for row in candidates[:30]:
+              print(
+                  "XZOGOT_INTERACTION_RIG_CANDIDATE",
+                  row["hand_token_score"],row["joint_count"],row["path"]
+              )
+          print("XZOGOT_INTERACTION_PSA",psa_names)
+          print("XZOGOT_INTERACTION_PSK",psk_names)
+          if not psa_names:
+              raise SystemExit("validated interaction PSA set missing")
+          if not candidates:
+              raise SystemExit("no candidate interaction GLB")
+          print("XZOGOT_INTERACTION_RIG_AUDIT_GREEN")
+          PY
+
+      - name: Upload compact interaction-rig report
+        uses: actions/upload-artifact@v4
+        with:
+          name: xogot-interaction-rig-audit
+          path: interaction-rig-audit.json
+          if-no-files-found: error
+          retention-days: 14
