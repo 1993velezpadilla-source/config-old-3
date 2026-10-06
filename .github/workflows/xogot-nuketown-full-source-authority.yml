@@ -82,6 +82,10 @@ on:
       - engine/xz/xz_source_class_registry.h
       - tools/maps/audit_ue_class_requirements.py
 
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   nuketown-census:
     runs-on: ubuntu-latest
@@ -959,8 +963,6 @@ jobs:
 
           echo "XZIEL_KINO_UE_XZAW_NATIVE_ALL_GREEN count=$EXPECTED_AUDIO"
 
-          find nuketown-download/ue-xzaw-probe \
-            -maxdepth 1 -type f -name '*.xaw' -delete
 
       - name: Convert cooked UE skeletons directly to native XZRG
         run: |
@@ -1230,8 +1232,6 @@ jobs:
 
           echo "XZIEL_KINO_UE_XZSK_NATIVE_ALL_GREEN count=$EXPECTED_SKELETAL"
 
-          find nuketown-download/ue-xzsk-probe \
-            -maxdepth 1 -type f -name '*.xsk' -delete
 
       - name: Convert decoded UE animations directly to native XZAN
         run: |
@@ -1367,8 +1367,6 @@ jobs:
 
           echo "XZIEL_KINO_UE_XZAN_NATIVE_ALL_GREEN count=$EXPECTED_ANIMS"
 
-          find nuketown-download/ue-xzan-probe \
-            -maxdepth 1 -type f -name '*.xan' -delete
 
       - name: Audit complete UE scene transform semantics
         run: |
@@ -2087,10 +2085,8 @@ jobs:
           grep -q 'xzml=1' \
             nuketown-download/runtime-static-scene/runtime-xzml-gate.log
 
-          # The complete 321-texture source conversion was already validated.
-          # Keep only the final visible runtime texture subset in the artifact.
-          find nuketown-download/ue-xztx-probe \
-            -maxdepth 1 -type f -name '*.xzt' -delete
+          # Preserve all 321 converted source textures. The world scene may
+          # reference fewer today, but the authority is the complete Content folder.
 
       - name: Build 1-to-1 source export dependency manifest
         run: |
@@ -2263,6 +2259,53 @@ jobs:
           print("XZIEL_KINO_SOURCE_MANIFEST_GREEN")
           PY
 
+      - name: Build complete converted source library manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          root=Path("nuketown-download")
+          specs={
+              "static_meshes":("ue-xzms-probe","*.xzm",83),
+              "textures":("ue-xztx-probe","*.xzt",321),
+              "audio":("ue-xzaw-probe","*.xaw",26),
+              "skeletons":("ue-xzrg-probe","*.xrg",3),
+              "skeletal_meshes":("ue-xzsk-probe","*.xsk",3),
+              "animations":("ue-xzan-probe","*.xan",9),
+          }
+          assets={}
+          for kind,(folder,pattern,expected) in specs.items():
+              paths=sorted((root/folder).glob(pattern))
+              assert len(paths)==expected,(kind,len(paths),expected)
+              assets[kind]={
+                  "count":len(paths),
+                  "bytes":sum(p.stat().st_size for p in paths),
+                  "directory":folder,
+                  "files":[p.name for p in paths],
+              }
+
+          source=json.loads((root/"nuketown-full-content-manifest.json").read_text())
+          report={
+              "schemaVersion":1,
+              "authority":"literal_complete_nuketown_content_folder",
+              "sourceFileCount":source["fileCount"],
+              "sourceBytes":source["totalBytes"],
+              "convertedAssetCount":sum(v["count"] for v in assets.values()),
+              "assets":assets,
+              "ready":True,
+          }
+          (root/"nuketown-complete-converted-library.json").write_text(
+              json.dumps(report,indent=2)+"\n"
+          )
+          print(
+              "XZOGOT_NUKETOWN_COMPLETE_CONVERTED_LIBRARY_GREEN",
+              {k:v["count"] for k,v in assets.items()}
+          )
+          PY
+
       - name: Prove native source conversion remains fail closed
         run: |
           set -euxo pipefail
@@ -2339,6 +2382,9 @@ jobs:
             nuketown-download/ue-xzaw-probe/
             nuketown-download/ue-xzaw-probe.log
             nuketown-download/ue-xzaw-native-gate.log
+            nuketown-download/ue-xzrg-probe/
+            nuketown-download/ue-xzrg-probe.log
+            nuketown-download/ue-xzrg-native-gate.log
             nuketown-download/ue-xzsk-probe/
             nuketown-download/ue-xzsk-probe.log
             nuketown-download/ue-xzsk-native-gate.log
@@ -2350,6 +2396,7 @@ jobs:
             nuketown-download/ue-xzms-native-gate.log
             nuketown-download/runtime-static-scene/
             nuketown-download/deep-payload-shards/
+            nuketown-download/nuketown-complete-converted-library.json
             nuketown-download/nuketown-source-export-manifest-summary.json
             nuketown-download/nuketown-source-adapter-requirements.txt
             nuketown-download/source-adapter-blockers.log
@@ -2357,3 +2404,16 @@ jobs:
             nuketown-download/source-class-gate.log
             nuketown-download/class-shards/
           retention-days: 7
+
+      - name: Trigger Godot staging from this complete source run
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh workflow run xogot-stage-nuketown-benchmark.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref feature/godot-aaa-rebuild-v1 \
+            -f source_run="$GITHUB_RUN_ID"
+          echo "XZOGOT_COMPLETE_SOURCE_STAGE_DISPATCH_GREEN run=$GITHUB_RUN_ID"
+
