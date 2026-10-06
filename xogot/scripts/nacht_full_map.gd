@@ -21,6 +21,7 @@ const GLB_DIR := "static_glb"
 const LIGHTS_FILE := "nacht-lights.json"
 const ENVIRONMENT_REPORT_FILE := "nacht-environment-report.json"
 const PARTICLES_FILE := "nacht-particles.json"
+const PARTICLE_GRAPHS_FILE := "nacht-particle-graphs.json"
 const ENVIRONMENT_SCENE_FILE := "nacht-environment-scene.json"
 const AUDIO_SCENE_FILE := "nacht-audio-scene.json"
 const AUDIO_CUES_FILE := "nacht-audio-cues.json"
@@ -33,6 +34,7 @@ var _glb_report: Dictionary = {}
 var _lights_source: Dictionary = {}
 var _environment_report: Dictionary = {}
 var _particle_scene: Dictionary = {}
+var _particle_graphs: Dictionary = {}
 var _environment_scene: Dictionary = {}
 var _audio_scene: Dictionary = {}
 var _audio_cues: Dictionary = {}
@@ -69,6 +71,7 @@ func _boot() -> void:
 	_lights_source = _read_json(_source_path(LIGHTS_FILE))
 	_environment_report = _read_json(_source_path(ENVIRONMENT_REPORT_FILE))
 	_particle_scene = _read_json(_source_path(PARTICLES_FILE))
+	_particle_graphs = _read_json(_source_path(PARTICLE_GRAPHS_FILE))
 	_environment_scene = _read_json(_source_path(ENVIRONMENT_SCENE_FILE))
 	_audio_scene = _read_json(_source_path(AUDIO_SCENE_FILE))
 	_audio_cues = _read_json(_source_path(AUDIO_CUES_FILE))
@@ -109,6 +112,8 @@ func _boot() -> void:
 	set_meta("runtime_light_count", _light_count)
 	set_meta("source_particle_component_count", int(_particle_scene.get("particleComponentCount", -1)))
 	set_meta("runtime_particle_authority_count", (_particle_scene.get("particleComponents", []) as Array).size())
+	set_meta("source_particle_system_count", int(_particle_graphs.get("particleSystemCount", -1)))
+	set_meta("runtime_particle_graph_authority_count", (_particle_graphs.get("systems", []) as Array).size())
 	set_meta("source_environment_component_count", int(_environment_scene.get("environmentComponentCount", -1)))
 	set_meta("runtime_environment_authority_count", (_environment_scene.get("components", []) as Array).size())
 	set_meta("source_audio_component_count", int(_audio_scene.get("audioComponentCount", -1)))
@@ -134,6 +139,7 @@ func _boot() -> void:
 		" collisions=", _collision_count,
 		" lights=", _light_count,
 		" particles_authority=", get_meta("runtime_particle_authority_count"),
+		" particle_graphs_authority=", get_meta("runtime_particle_graph_authority_count"),
 		" environment_authority=", get_meta("runtime_environment_authority_count"),
 		" audio_authority=", get_meta("runtime_audio_authority_count"),
 		" cues_authority=", get_meta("runtime_sound_cue_authority_count")
@@ -170,6 +176,12 @@ func _validate_authority() -> bool:
 		return false
 	if int(_particle_scene.get("particleComponentCount", 0)) <= 0:
 		push_error("NACHT_FULL_MAP: source particle placement authority empty")
+		return false
+	if _particle_graphs.is_empty() or not bool(_particle_graphs.get("ready", false)):
+		push_error("NACHT_FULL_MAP: source particle graph authority missing")
+		return false
+	if int(_particle_graphs.get("particleSystemCount", 0)) != 39:
+		push_error("NACHT_FULL_MAP: source particle graph count mismatch")
 		return false
 	if _environment_scene.is_empty() or not bool(_environment_scene.get("ready", false)):
 		push_error("NACHT_FULL_MAP: source environment authority missing")
