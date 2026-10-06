@@ -119,6 +119,69 @@ foreach (var logicalPath in targets)
                 dumpedFunctions++;
             }
 
+            JToken? classDefaultProperties = null;
+            JToken? classFunctions = null;
+            string? pseudo = null;
+            if (export is UClass klass)
+            {
+                var defaults = klass.ClassDefaultObject.Load();
+                if (defaults is not null)
+                {
+                    var defaultRows = new JArray();
+                    foreach (var property in defaults.Properties)
+                    {
+                        defaultRows.Add(new JObject
+                        {
+                            ["name"] = property.Name.Text,
+                            ["arrayIndex"] = property.ArrayIndex,
+                            ["tagType"] = property.Tag?.GetType().FullName,
+                            ["value"] = SafeToken(property.Tag, serializer)
+                        });
+                        dumpedProperties++;
+                    }
+                    classDefaultProperties = defaultRows;
+                }
+
+                var functionRows = new JArray();
+                foreach (var (functionName, functionRef) in klass.FuncMap)
+                {
+                    if (!functionRef.TryLoad(out var functionExport) ||
+                        functionExport is not UFunction loadedFunction)
+                        continue;
+
+                    var statementCount =
+                        loadedFunction.ScriptBytecode?.Length ?? 0;
+                    var row = new JObject
+                    {
+                        ["name"] = functionName.Text,
+                        ["exportName"] = loadedFunction.Name,
+                        ["functionFlags"] = loadedFunction.FunctionFlags.ToString(),
+                        ["scriptStatementCount"] = statementCount,
+                        ["scriptBytecode"] =
+                            statementCount > 0
+                                ? SafeToken(
+                                    loadedFunction.ScriptBytecode,
+                                    serializer)
+                                : JValue.CreateNull()
+                    };
+                    functionRows.Add(row);
+                    if (statementCount > 0)
+                        dumpedFunctions++;
+                }
+                classFunctions = functionRows;
+
+                try
+                {
+                    pseudo = klass.DecompileBlueprintToPseudo();
+                }
+                catch (Exception e)
+                {
+                    pseudo =
+                        "DECOMPILE_ERROR: " +
+                        e.GetType().Name + ": " + e.Message;
+                }
+            }
+
             exports.Add(new JObject
             {
                 ["exportIndex"] = exportIndex,
@@ -127,7 +190,10 @@ foreach (var logicalPath in targets)
                 ["propertyCount"] = export.Properties.Count,
                 ["properties"] = properties,
                 ["scriptStatementCount"] = scriptStatementCount,
-                ["scriptBytecode"] = scriptBytecode
+                ["scriptBytecode"] = scriptBytecode,
+                ["classDefaultProperties"] = classDefaultProperties,
+                ["classFunctions"] = classFunctions,
+                ["decompiledPseudo"] = pseudo
             });
             dumpedExports++;
         }
