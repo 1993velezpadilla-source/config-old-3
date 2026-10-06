@@ -86,6 +86,7 @@ jobs:
           needles=[
               "mtl_p7_zm_gen_debris_concrete_rubble_lg_03",
               "t7_water_cp_bio_muddy_waterfall",
+              "mysterBoxVerticalMat",
           ]
           rows=source.get("materials",[])
           selected=[]
