@@ -66,8 +66,17 @@ func _run() -> void:
 	if effective_textured != textured_materials or effective_flat != flat_fallbacks:
 		_fail(96, "runtime material cache escaped effective XZMI authority")
 		return
-	if source_color < 0 or default_surface < 0 or unresolved_flat < 0:
-		_fail(97, "effective material reconstruction metadata missing")
+	if source_color != 2:
+		_fail(97, "source-authored constant-color material count mismatch " + str(source_color))
+		return
+	if default_surface != 1:
+		_fail(98, "UE default-surface material count mismatch " + str(default_surface))
+		return
+	if unresolved_flat != 0:
+		_fail(99, "unresolved effective material fallbacks remain " + str(unresolved_flat))
+		return
+	if effective_textured != 195 or effective_flat != 3:
+		_fail(100, "final effective material reconstruction mismatch textured=" + str(effective_textured) + " flat=" + str(effective_flat))
 		return
 
 	if mesh_count != 52:
