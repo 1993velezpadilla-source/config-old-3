@@ -31,24 +31,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          src=xogot/assets/benchmarks/nuketown_xziel/vfs/xziel/maps/xziel_nuketown_zombies/meshes
-          dst=xogot/assets/benchmarks/nuketown_xziel/vfs/xziel/maps/xziel_nuketown_zombies/meshes_glb
+          src=benchmarks/nuketown_xziel/vfs/xziel/maps/xziel_nuketown_zombies/meshes
+          dst=benchmarks/nuketown_xziel/vfs/xziel/maps/xziel_nuketown_zombies/meshes_glb
           test -d "$src"
           rm -rf "$dst"
           mkdir -p "$dst"
-          python3 tools/maps/xzms_to_glb.py "$src" "$dst"             --report xogot/assets/benchmarks/nuketown_xziel/native-glb-report.json             | tee /tmp/nuketown-glb.log
+          python3 tools/maps/xzms_to_glb.py "$src" "$dst"             --report benchmarks/nuketown_xziel/native-glb-report.json             | tee /tmp/nuketown-glb.log
 
           grep -q "XZOGOT_XZMS_GLB_GREEN" /tmp/nuketown-glb.log
           python3 - <<'PY'
           import json
           from pathlib import Path
-          p=Path("xogot/assets/benchmarks/nuketown_xziel/native-glb-report.json")
+          p=Path("benchmarks/nuketown_xziel/native-glb-report.json")
           d=json.loads(p.read_text())
           assert d["mesh_count"] == 52, d
           assert d["vertices"] == 671012, d
           assert d["indices"] == 859353, d
           assert d["submeshes"] == 563, d
-          files=sorted(Path("xogot/assets/benchmarks/nuketown_xziel/vfs/xziel/maps/xziel_nuketown_zombies/meshes_glb").glob("*.glb"))
+          files=sorted(Path("benchmarks/nuketown_xziel/vfs/xziel/maps/xziel_nuketown_zombies/meshes_glb").glob("*.glb"))
           assert len(files)==52, len(files)
           assert all(x.stat().st_size > 100 for x in files)
           print("XZOGOT_NUKETOWN_NATIVE_GLB_VALIDATE_GREEN",len(files))
@@ -61,7 +61,7 @@ jobs:
           python3 - <<'PY'
           import json
           from pathlib import Path
-          p=Path("xogot/assets/benchmarks/nuketown_xziel/source_manifest.json")
+          p=Path("benchmarks/nuketown_xziel/source_manifest.json")
           d=json.loads(p.read_text())
           d["runtime_mesh_format"]="GLB"
           d["runtime_mesh_directory"]="vfs/xziel/maps/xziel_nuketown_zombies/meshes_glb"
@@ -81,7 +81,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add             xogot/assets/benchmarks/nuketown_xziel/native-glb-report.json             xogot/assets/benchmarks/nuketown_xziel/source_manifest.json             xogot/assets/benchmarks/nuketown_xziel/vfs/xziel/maps/xziel_nuketown_zombies/meshes_glb
+          git add             benchmarks/nuketown_xziel/native-glb-report.json             benchmarks/nuketown_xziel/source_manifest.json             benchmarks/nuketown_xziel/vfs/xziel/maps/xziel_nuketown_zombies/meshes_glb
           if git diff --cached --quiet; then
             echo "XZOGOT_NUKETOWN_NATIVE_GLB_ALREADY_GREEN"
             exit 0
@@ -96,7 +96,7 @@ jobs:
         with:
           name: xogot-nuketown-native-glb-proof
           path: |
-            xogot/assets/benchmarks/nuketown_xziel/native-glb-report.json
-            xogot/assets/benchmarks/nuketown_xziel/source_manifest.json
+            benchmarks/nuketown_xziel/native-glb-report.json
+            benchmarks/nuketown_xziel/source_manifest.json
           if-no-files-found: error
           retention-days: 14
