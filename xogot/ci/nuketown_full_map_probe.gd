@@ -49,21 +49,25 @@ func _run() -> void:
 	if source_loader == null:
 		_fail(93, "Nuketown source loader missing")
 		return
-	var alias_resolved := int(source_loader.get_meta("xziel_benchmark_material_alias_resolved_count", -1))
-	var alias_hits := int(source_loader.get_meta("xziel_benchmark_material_alias_hits", -1))
+	var effective_materials := int(source_loader.get_meta("xziel_benchmark_effective_material_count", -1))
 	var textured_materials := int(source_loader.get_meta("xziel_benchmark_material_textured_count", -1))
 	var flat_fallbacks := int(source_loader.get_meta("xziel_benchmark_material_flat_fallback_count", -1))
-	if alias_resolved < 100:
-		_fail(94, "source material alias resolver recovered too few mappings " + str(alias_resolved))
+	var effective_textured := int(source_loader.get_meta("xziel_benchmark_effective_material_textured_count", -1))
+	var effective_flat := int(source_loader.get_meta("xziel_benchmark_effective_material_flat_fallback_count", -1))
+	var source_color := int(source_loader.get_meta("xziel_benchmark_effective_source_color_count", -1))
+	var default_surface := int(source_loader.get_meta("xziel_benchmark_effective_default_surface_count", -1))
+	var unresolved_flat := int(source_loader.get_meta("xziel_benchmark_effective_unresolved_fallback_count", -1))
+	if effective_materials != 198:
+		_fail(94, "effective XZMI material authority mismatch " + str(effective_materials))
 		return
-	if alias_hits <= 0:
-		_fail(95, "source material aliases were resolved but never consumed")
+	if textured_materials + flat_fallbacks != effective_materials:
+		_fail(95, "runtime material accounting mismatch")
 		return
-	if textured_materials <= 132:
-		_fail(96, "source material texture recovery did not improve baseline " + str(textured_materials))
+	if effective_textured != textured_materials or effective_flat != flat_fallbacks:
+		_fail(96, "runtime material cache escaped effective XZMI authority")
 		return
-	if flat_fallbacks >= 529:
-		_fail(97, "source flat fallback count did not improve baseline " + str(flat_fallbacks))
+	if source_color < 0 or default_surface < 0 or unresolved_flat < 0:
+		_fail(97, "effective material reconstruction metadata missing")
 		return
 
 	if mesh_count != 52:
