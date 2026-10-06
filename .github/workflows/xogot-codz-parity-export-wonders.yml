@@ -1,0 +1,195 @@
+name: Export CoDz Parity Wonder Weapons
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-codz-parity-export-wonders.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: xogot-codz-parity-export-wonders
+  cancel-in-progress: true
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      SOURCE_RUN_ID: "37470563200"
+      SOURCE_ARTIFACT: "xogot-codz-parity-wonder-weapon-census"
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download extracted CoDz candidates
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p source-artifact
+          gh run download "$SOURCE_RUN_ID" -n "$SOURCE_ARTIFACT" -D source-artifact
+          PROVIDER="$GITHUB_WORKSPACE/source-artifact/build/codz-parity-census/candidates/CoDz Parity modkit/Content"
+          test -d "$PROVIDER"
+          echo "CODZ_PROVIDER=$PROVIDER" >> "$GITHUB_ENV"
+          test -s "$PROVIDER/CustomMaps/UGC2554408402/Meshes/RayGun/raygun_body.uasset"
+          test -s "$PROVIDER/CustomMaps/UGC2554408402/BPs/CustomItems/Guns/gavs_Wonderweaps/RaygunMk2/model/blackop3/mk2BO3.uasset"
+          test -s "$PROVIDER/CustomMaps/UGC2554408402/BPs/CustomItems/Guns/gavs_Wonderweaps/Thundergun/Model/thunderBody.uasset"
+          echo "XZOGOT_CODZ_WONDER_SOURCE_GREEN"
+
+      - name: Install .NET 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build CUE4Parse CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/joric/CUE4Parse.CLI.git "$RUNNER_TEMP/CUE4Parse.CLI"
+          dotnet publish "$RUNNER_TEMP/CUE4Parse.CLI/CUE4Parse.CLI/CUE4Parse.CLI.csproj" \
+            -c Release -r linux-x64 --self-contained true \
+            -p:RuntimeIdentifier=linux-x64 \
+            -p:PublishTrimmed=false \
+            -p:PublishSingleFile=true \
+            -o "$RUNNER_TEMP/cue4parse-publish"
+          CUE4PARSE=$(find "$RUNNER_TEMP/cue4parse-publish" -maxdepth 1 -type f -perm -111 ! -name '*.so' | head -1)
+          test -x "$CUE4PARSE"
+          echo "CUE4PARSE=$CUE4PARSE" >> "$GITHUB_ENV"
+          mkdir -p build/codz-wonder-export
+          "$CUE4PARSE" --version | tee build/codz-wonder-export/cue4parse-version.txt || true
+          "$CUE4PARSE" --help > build/codz-wonder-export/cue4parse-help.txt 2>&1 || true
+          echo "XZOGOT_CODZ_CUE4PARSE_READY"
+
+      - name: Build native detex
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/hglm/detex.git "$RUNNER_TEMP/detex"
+          cd "$RUNNER_TEMP/detex"
+          sed -i -E 's/^LIBRARY_CONFIGURATION[[:space:]]*=.*/LIBRARY_CONFIGURATION = SHARED/' Makefile.conf
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("detex.h")
+          s=p.read_text()
+          old="DETEX_API bool detexDecompressTextureLinear"
+          new="DETEX_HELPER_SHARED_EXPORT bool detexDecompressTextureLinear"
+          if old in s:
+              s=s.replace(old,new)
+          p.write_text(s)
+          PY
+          make -j2
+          DETEX_SO=$(find . -type f \( -name 'libdetex.so' -o -name 'libdetex.so.*' \) | sort | tail -1)
+          test -n "$DETEX_SO"
+          cp "$DETEX_SO" /tmp/Detex.dll
+          echo "XZOGOT_CODZ_DETEX_READY"
+
+      - name: Probe source Unreal version
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/codz-wonder-export/version-probe
+          : > build/codz-wonder-export/version-probe.log
+          PROBE='*Meshes/RayGun/raygun_body.uasset'
+          SUCCESS_GAME=""
+          for GAME in GAME_UE4_18 GAME_UE4_19 GAME_UE4_20 GAME_UE4_21 GAME_UE4_22 GAME_UE4_23 GAME_UE4_24 GAME_UE4_25 GAME_UE4_26 GAME_UE4_27 GAME_UE5_0; do
+            rm -rf build/codz-wonder-export/version-probe/*
+            echo "XZOGOT_CODZ_VERSION_PROBE $GAME" | tee -a build/codz-wonder-export/version-probe.log
+            set +e
+            "$CUE4PARSE" \
+              -i "$CODZ_PROVIDER" -g "$GAME" -p "$PROBE" \
+              -o build/codz-wonder-export/version-probe -y -v \
+              --mesh-format Gltf2 --texture-format Png --mesh-quality Highest --export-materials true \
+              >> build/codz-wonder-export/version-probe.log 2>&1
+            RC=$?
+            set -e
+            COUNT=$(find build/codz-wonder-export/version-probe -type f \( -iname '*.gltf' -o -iname '*.glb' -o -iname '*.psk' -o -iname '*.pskx' -o -iname '*.uemodel' \) | wc -l)
+            echo "XZOGOT_CODZ_VERSION_RESULT game=$GAME rc=$RC meshes=$COUNT" | tee -a build/codz-wonder-export/version-probe.log
+            if [ "$COUNT" -gt 0 ]; then
+              SUCCESS_GAME="$GAME"
+              break
+            fi
+          done
+          if [ -z "$SUCCESS_GAME" ]; then
+            tail -n 250 build/codz-wonder-export/version-probe.log
+            exit 31
+          fi
+          echo "$SUCCESS_GAME" > build/codz-wonder-export/game-version.txt
+          echo "CODZ_GAME=$SUCCESS_GAME" >> "$GITHUB_ENV"
+          echo "XZOGOT_CODZ_VERSION_LOCKED $SUCCESS_GAME"
+
+      - name: Export Ray Gun Ray Gun Mk II and Thundergun source payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > build/codz-wonder-export/packages.txt <<'EOF'
+          *Meshes/RayGun/*.uasset
+          *Materials/RayGun/**/*.uasset
+          *Animations/Raygun/*.uasset
+          *BPs/CustomItems/Guns/RayGun/**/*.uasset
+          *Sounds/Weapons/RayGun/**/*.uasset
+          *BPs/CustomItems/Guns/gavs_Wonderweaps/RaygunMk2/**/*.uasset
+          *BPs/CustomItems/Guns/gavs_Wonderweaps/Thundergun/**/*.uasset
+          EOF
+          rm -rf build/codz-wonder-export/export
+          mkdir -p build/codz-wonder-export/export
+          set +e
+          "$CUE4PARSE" \
+            -i "$CODZ_PROVIDER" -g "$CODZ_GAME" -c build/codz-wonder-export/packages.txt \
+            -o build/codz-wonder-export/export -y -v \
+            --mesh-format Gltf2 --texture-format Png --mesh-quality Highest --export-materials true \
+            > build/codz-wonder-export/export.log 2>&1
+          RC=$?
+          set -e
+          find build/codz-wonder-export/export -type f | sort > build/codz-wonder-export/export-files.txt
+          export RC CODZ_GAME
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,os
+          root=Path("build/codz-wonder-export/export")
+          rows=[{"path":p.as_posix(),"bytes":p.stat().st_size,"ext":p.suffix.lower()} for p in root.rglob("*") if p.is_file()]
+          kinds={}
+          for r in rows:
+              kinds[r["ext"]]=kinds.get(r["ext"],0)+1
+          targets={}
+          for name,tokens in {
+              "ray":["raygun_body","raygun_barrel","gun_raygun"],
+              "raymk2":["mk2bo3","/mk2.","raygunmark2"],
+              "thundergun":["thunderbody","gun_thundergun","thunderinsert"],
+          }.items():
+              targets[name]=[r for r in rows if any(t in r["path"].lower() for t in tokens)]
+          report={"game":os.environ["CODZ_GAME"],"rc":int(os.environ["RC"]),"file_count":len(rows),"bytes":sum(r["bytes"] for r in rows),"extensions":kinds,"targets":targets,"files":rows}
+          Path("build/codz-wonder-export/export-report.json").write_text(json.dumps(report,indent=2)+"\n")
+          print("XZOGOT_CODZ_EXPORT",report["game"],"rc=",report["rc"],"files=",report["file_count"],"extensions=",kinds)
+          for k,v in targets.items():
+              print("XZOGOT_CODZ_EXPORT_TARGET",k,"count=",len(v))
+              for r in v[:40]:
+                  print(" ",r["bytes"],r["path"])
+          mesh=sum(kinds.get(x,0) for x in (".gltf",".glb",".psk",".pskx",".uemodel",".obj"))
+          if mesh < 3:
+              raise SystemExit(f"Expected at least three wonder-weapon mesh exports, got {mesh}")
+          PY
+          test "$RC" -eq 0
+          echo "XZOGOT_CODZ_WONDER_EXPORT_GREEN"
+
+      - name: Upload wonder weapon exports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xogot-codz-parity-wonder-weapon-export
+          path: |
+            build/codz-wonder-export/game-version.txt
+            build/codz-wonder-export/version-probe.log
+            build/codz-wonder-export/packages.txt
+            build/codz-wonder-export/export.log
+            build/codz-wonder-export/export-files.txt
+            build/codz-wonder-export/export-report.json
+            build/codz-wonder-export/export/**
+          if-no-files-found: warn
+          retention-days: 14
+          compression-level: 6
