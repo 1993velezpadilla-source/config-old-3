@@ -15,6 +15,9 @@ extends Node3D
 @export var build_skeletal_actors: bool = true
 @export var cast_geometry_shadows: bool = true
 @export var max_instances: int = 0
+@export var vfs_map_root: String = "vfs/xziel/maps/xziel_nuketown_zombies"
+@export_file("*.json") var source_environment_truth_file: String = "res://data/nuketown_source_gameplay.json"
+@export var source_runtime_id: String = "nuketown"
 
 const VISUAL_SCENE_FILE := "visual-scene.json"
 const MATERIAL_BINDINGS_FILE := "material-binding-manifest.json"
@@ -23,9 +26,7 @@ const EFFECTIVE_MATERIAL_REPORT_FILE := "xzmi-report.json"
 const COMPLETE_TEXTURE_REPORT_FILE := "complete-xztx-report.json"
 const LIGHT_REPORT_FILE := "xzen-report.json"
 const SKELETAL_BINDINGS_FILE := "skeletal-runtime-bindings.json"
-const SOURCE_GAMEPLAY_TRUTH_FILE := "res://data/nuketown_source_gameplay.json"
-const VFS_MAP_ROOT := "vfs/xziel/maps/xziel_nuketown_zombies"
-const XZMS_HEADER_BYTES := 56
+  const XZMS_HEADER_BYTES := 56
 const XZMS_SUBMESH_BYTES := 16
 const XZTX_HEADER_BYTES := 80
 const XZTX_MIP_RECORD_BYTES := 24
@@ -267,7 +268,7 @@ func _build_source_skeletal_actors() -> void:
 		actor_root.set_meta("source_xzsk_file", str(row.get("sourceXzskFile", "")))
 		actor_root.set_meta("source_skeleton_hash", str(row.get("skeletonHash", "")))
 		actor_root.set_meta("source_animation_names", row.get("animations", []))
-		actor_root.add_to_group("nuketown_source_skeletal_actor")
+		actor_root.add_to_group(source_runtime_id + "_source_skeletal_actor")
 		visual.name = "SourceSkeletalVisual"
 		actor_root.add_child(visual)
 		_runtime_root.add_child(actor_root)
@@ -277,7 +278,7 @@ func _build_source_skeletal_actors() -> void:
 	if _source_skeletal_actor_count < expected:
 		_source_skeletal_actor_missing += expected - _source_skeletal_actor_count
 	print(
-		"XZOGOT_NUKETOWN_EXACT_SKELETAL_RUNTIME ",
+		"XZOGOT_SOURCE_EXACT_SKELETAL_RUNTIME map=", source_runtime_id, " ",
 		"actors=", _source_skeletal_actor_count,
 		" expected=", expected,
 		" missing=", _source_skeletal_actor_missing
@@ -416,7 +417,7 @@ func _load_benchmark_mesh_chunks(runtime_file: String, scene_mesh_index: int) ->
 		return _cached_mesh_chunks(cache_key)
 
 	var native_name := runtime_file.get_basename() + ".glb"
-	var native_path := _source_path(VFS_MAP_ROOT.path_join("meshes_glb").path_join(native_name))
+	var native_path := _source_path(vfs_map_root.path_join("meshes_glb").path_join(native_name))
 	if ResourceLoader.exists(native_path):
 		var packed := load(native_path) as PackedScene
 		if packed != null:
@@ -470,7 +471,7 @@ func _load_xzmesh(runtime_file: String, scene_mesh_index: int) -> ArrayMesh:
 	if _mesh_cache.has(runtime_file):
 		return _mesh_cache[runtime_file] as ArrayMesh
 
-	var path := _source_path(VFS_MAP_ROOT.path_join("meshes").path_join(runtime_file))
+	var path := _source_path(vfs_map_root.path_join("meshes").path_join(runtime_file))
 	if not FileAccess.file_exists(path):
 		push_error("XZIEL benchmark mesh missing: " + path)
 		return null
@@ -1055,7 +1056,7 @@ func _texture_for_source(source_path: String) -> Texture2D:
 func _load_decoded_texture(runtime_file: String) -> Texture2D:
 	var decoded_name := runtime_file.get_basename() + ".png"
 	var decoded_path := _source_path(
-		VFS_MAP_ROOT.path_join("textures_png").path_join(decoded_name)
+		vfs_map_root.path_join("textures_png").path_join(decoded_name)
 	)
 	if ResourceLoader.exists(decoded_path):
 		var resource := load(decoded_path)
@@ -1080,7 +1081,7 @@ func _load_decoded_texture(runtime_file: String) -> Texture2D:
 func _load_xztexture(runtime_file: String) -> Texture2D:
 	# Keep XZTX validation for truthful diagnostics, but never reinterpret ASTC
 	# 6x6 as 4x4/8x8. Godot 4.6 has no FORMAT_ASTC_6x6 enum.
-	var path := _source_path(VFS_MAP_ROOT.path_join("textures").path_join(runtime_file))
+	var path := _source_path(vfs_map_root.path_join("textures").path_join(runtime_file))
 	if not FileAccess.file_exists(path):
 		return null
 	var bytes := FileAccess.get_file_as_bytes(path)
@@ -1228,7 +1229,7 @@ func _apply_source_environment_truth(
 	environment: Environment,
 	world_environment: WorldEnvironment
 ) -> void:
-	var truth := _read_json(SOURCE_GAMEPLAY_TRUTH_FILE)
+	var truth := _read_json(source_environment_truth_file)
 	if truth.is_empty():
 		push_warning("XZIEL benchmark source gameplay truth missing")
 		return
@@ -1261,7 +1262,7 @@ func _apply_source_environment_truth(
 	set_meta("xziel_benchmark_fog_density", target_environment.fog_density)
 	set_meta("xziel_benchmark_fog_mode", mode)
 	print(
-		"XZOGOT_NUKETOWN_SOURCE_ENV_GREEN ",
+		"XZOGOT_SOURCE_ENV_GREEN map=", source_runtime_id, " ",
 		"fog_mode=", mode,
 		" fog_density=", target_environment.fog_density,
 		" skylight_realtime=", target_world.get_meta("source_sky_realtime_capture")
