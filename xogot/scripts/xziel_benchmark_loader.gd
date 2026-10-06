@@ -20,6 +20,7 @@ const MATERIAL_BINDINGS_FILE := "material-binding-manifest.json"
 const TEXTURE_REPORT_FILE := "xzml-report.json"
 const COMPLETE_TEXTURE_REPORT_FILE := "complete-xztx-report.json"
 const LIGHT_REPORT_FILE := "xzen-report.json"
+const SKELETAL_BINDINGS_FILE := "skeletal-runtime-bindings.json"
 const SOURCE_GAMEPLAY_TRUTH_FILE := "res://data/nuketown_source_gameplay.json"
 const VFS_MAP_ROOT := "vfs/xziel/maps/xziel_nuketown_zombies"
 const XZMS_HEADER_BYTES := 56
@@ -51,6 +52,8 @@ var _runtime_root: Node3D
 var _native_glb_mesh_count: int = 0
 var _native_glb_chunk_count: int = 0
 var _xzms_fallback_mesh_count: int = 0
+var _source_skeletal_actor_count: int = 0
+var _source_skeletal_actor_missing: int = 0
 
 func _ready() -> void:
 	if load_on_ready:
@@ -131,11 +134,18 @@ func _load_benchmark_world() -> void:
 			surface_offset += node.mesh.get_surface_count()
 		created += 1
 
+	_build_source_skeletal_actors()
+
 	if build_lights:
 		_build_source_lights()
 
 	var summary: Dictionary = scene.get("summary", {})
-	set_meta("xziel_benchmark_ready", missing_meshes == 0 and created == instance_limit)
+	set_meta(
+		"xziel_benchmark_ready",
+		missing_meshes == 0
+		and created == instance_limit
+		and _source_skeletal_actor_missing == 0
+	)
 	set_meta("xziel_benchmark_mesh_count", meshes.size())
 	set_meta("xziel_benchmark_instance_count", created)
 	set_meta("xziel_benchmark_source_instance_count", instances.size())
@@ -144,6 +154,8 @@ func _load_benchmark_world() -> void:
 	set_meta("xziel_benchmark_native_glb_mesh_count", _native_glb_mesh_count)
 	set_meta("xziel_benchmark_native_glb_chunk_count", _native_glb_chunk_count)
 	set_meta("xziel_benchmark_xzms_fallback_mesh_count", _xzms_fallback_mesh_count)
+	set_meta("xziel_benchmark_source_skeletal_actor_count", _source_skeletal_actor_count)
+	set_meta("xziel_benchmark_source_skeletal_actor_missing", _source_skeletal_actor_missing)
 	set_meta("xziel_benchmark_material_alias_count", _source_material_alias_diffuse.size())
 	set_meta("xziel_benchmark_material_alias_conflict_count", _source_material_alias_conflicts.size())
 	set_meta("xziel_benchmark_material_alias_resolved_count", _source_material_resolved_alias_diffuse.size())
@@ -160,6 +172,8 @@ func _load_benchmark_world() -> void:
 		" native_glb=", _native_glb_mesh_count,
 		" native_chunks=", _native_glb_chunk_count,
 		" xzms_fallback=", _xzms_fallback_mesh_count,
+		" skeletal_actors=", _source_skeletal_actor_count,
+		" skeletal_missing=", _source_skeletal_actor_missing,
 		" materials=", _material_cache.size(),
 		" textures=", _texture_cache.size(),
 		" aliases=", _source_material_alias_diffuse.size(),
@@ -169,6 +183,70 @@ func _load_benchmark_world() -> void:
 		" alias_conflicts=", _source_material_alias_conflicts.size(),
 		" textured_materials=", _source_material_textured_count,
 		" flat_fallbacks=", _source_material_flat_fallback_count
+	)
+
+func _build_source_skeletal_actors() -> void:
+	_source_skeletal_actor_count = 0
+	_source_skeletal_actor_missing = 0
+	var bindings := _read_json(_source_path(SKELETAL_BINDINGS_FILE))
+	if bindings.is_empty() or not bool(bindings.get("ready", false)):
+		return
+
+	var rows: Array = bindings.get("bindings", [])
+	for index in range(rows.size()):
+		var raw: Variant = rows[index]
+		if not (raw is Dictionary):
+			_source_skeletal_actor_missing += 1
+			continue
+		var row := raw as Dictionary
+		var output := str(row.get("gltf", ""))
+		if output.is_empty():
+			_source_skeletal_actor_missing += 1
+			continue
+		var resource_path := _source_path(
+			"source_library/skeletal_gltf".path_join(output)
+		)
+		if not ResourceLoader.exists(resource_path):
+			_source_skeletal_actor_missing += 1
+			push_error("XZIEL benchmark: exact skeletal GLTF missing " + resource_path)
+			continue
+		var packed := load(resource_path) as PackedScene
+		if packed == null:
+			_source_skeletal_actor_missing += 1
+			push_error("XZIEL benchmark: exact skeletal GLTF failed to load " + resource_path)
+			continue
+		var visual := packed.instantiate() as Node3D
+		if visual == null:
+			_source_skeletal_actor_missing += 1
+			continue
+
+		var actor_root := Node3D.new()
+		actor_root.name = "SourceSkeletalActor_%02d" % index
+		actor_root.transform = _transform_from_row_major(row.get("matrixRowMajor", []))
+		actor_root.set_meta("source_actor_name", str(row.get("actorName", "")))
+		actor_root.set_meta("source_actor_object_path", str(row.get("actorObjectPath", "")))
+		actor_root.set_meta("source_component_object_path", str(row.get("componentObjectPath", "")))
+		actor_root.set_meta(
+			"source_skeletal_mesh_package_path",
+			str(row.get("sourceSkeletalMeshPackagePath", ""))
+		)
+		actor_root.set_meta("source_xzsk_file", str(row.get("sourceXzskFile", "")))
+		actor_root.set_meta("source_skeleton_hash", str(row.get("skeletonHash", "")))
+		actor_root.set_meta("source_animation_names", row.get("animations", []))
+		actor_root.add_to_group("nuketown_source_skeletal_actor")
+		visual.name = "SourceSkeletalVisual"
+		actor_root.add_child(visual)
+		_runtime_root.add_child(actor_root)
+		_source_skeletal_actor_count += 1
+
+	var expected := int(bindings.get("bindingCount", rows.size()))
+	if _source_skeletal_actor_count < expected:
+		_source_skeletal_actor_missing += expected - _source_skeletal_actor_count
+	print(
+		"XZOGOT_NUKETOWN_EXACT_SKELETAL_RUNTIME ",
+		"actors=", _source_skeletal_actor_count,
+		" expected=", expected,
+		" missing=", _source_skeletal_actor_missing
 	)
 
 func _source_path(relative: String) -> String:
