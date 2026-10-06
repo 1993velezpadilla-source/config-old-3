@@ -1,0 +1,140 @@
+name: Build Source WaW Zombies and Hellhound
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-build-source-enemies.yml"
+      - "tools/zombies/build_aether_waw_enemy_baseline.py"
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: xogot-build-source-enemies
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: "37394234814"
+      SOURCE_ARTIFACT: "xogot-source-first-golden-reference"
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/godot-aaa-rebuild-v1
+          fetch-depth: 0
+
+      - name: Download source-first enemy package
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf source-first
+          mkdir -p source-first
+          gh run download "$SOURCE_RUN" -n "$SOURCE_ARTIFACT" -D source-first
+          test -d source-first/source-first-export
+          test -d source-first/source-first-actorx
+          echo "XZOGOT_SOURCE_ENEMY_ARTIFACT_GREEN"
+
+      - name: Install Blender and PSA importer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check blender-downloader
+          BLENDER_PATH=$(blender-downloader 5.0 --extract --remove-compressed --print-blender-executable)
+          test -x "$BLENDER_PATH"
+          echo "BLENDER=$BLENDER_PATH" >> "$GITHUB_ENV"
+
+          git clone --depth 1 https://github.com/DarklightGames/io_scene_psk_psa.git "$RUNNER_TEMP/io_scene_psk_psa"
+          WHEEL=$(find "$RUNNER_TEMP/io_scene_psk_psa/io_scene_psk_psa/wheels" -maxdepth 1 -type f -name 'psk_psa_py-*.whl' | sort | tail -1)
+          test -n "$WHEEL"
+          mkdir -p "$RUNNER_TEMP/psk_psa_py_installed"
+          python3 -m pip install --no-deps --disable-pip-version-check --target "$RUNNER_TEMP/psk_psa_py_installed" "$WHEEL"
+          echo "PSK_PSA_PY_TARGET=$RUNNER_TEMP/psk_psa_py_installed" >> "$GITHUB_ENV"
+          echo "XZOGOT_SOURCE_ENEMY_IMPORTER_GREEN"
+
+      - name: Build animated source zombies and hellhound
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build/source-enemies
+          mkdir -p build/source-enemies
+          "$BLENDER" --background --factory-startup \
+            --python tools/zombies/build_aether_waw_enemy_baseline.py -- \
+            "$PWD/source-first" \
+            "$RUNNER_TEMP/io_scene_psk_psa" \
+            "$PSK_PSA_PY_TARGET" \
+            "$PWD/build/source-enemies" \
+            "$PWD/build/source-enemies/inventory.json" \
+            2>&1 | tee build/source-enemies.log
+
+          grep -q "XZOGOT_SOURCE_ENEMY_BASELINE_GREEN 3" build/source-enemies.log
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("build/source-enemies/inventory.json").read_text())
+          assert d["zombie_variants"] == ["honorgd","sumpf"]
+          assert d["hellhound"] == "hellhound"
+          assert d["crawler_animation_status"] == "source_pending_nacht_lane"
+          for r in d["reports"]:
+              assert all(r["roles"].values()), r
+              assert r["translation_scale"] == 0.01, r
+              assert Path(r["output"]).is_file(), r
+          print("XZOGOT_SOURCE_ENEMY_VALIDATE_GREEN")
+          PY
+
+      - name: Stage source enemy runtime assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          dst=xogot/assets/zombies/source_waw
+          rm -rf "$dst"
+          mkdir -p "$dst"
+          cp -a build/source-enemies/. "$dst/"
+
+          # Preserve source material definitions/textures for the selected bodies
+          # and hellhound. Runtime material binding is a separate truthful gate.
+          mkdir -p "$dst/source_materials/waw" "$dst/source_materials/hellhound"
+          cp -a source-first/source-first-export/ProjectAether/Content/FirstPerson/Blueprints/Zombies/Resources/Models/Bodies/waw/honorgd/Materials "$dst/source_materials/waw/honorgd"
+          cp -a source-first/source-first-export/ProjectAether/Content/FirstPerson/Blueprints/Zombies/Resources/Models/Bodies/waw/sumpf/Materials "$dst/source_materials/waw/sumpf"
+          cp -a source-first/source-first-export/ProjectAether/Content/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/. "$dst/source_materials/hellhound/source_export"
+
+          # Common zombie material texture dependencies exported by CUE4Parse.
+          mkdir -p "$dst/source_materials/common_textures"
+          find source-first/source-first-export/ProjectAether/Content/Assets/Materials/Textures -maxdepth 1 -type f -name '*.png' -exec cp {} "$dst/source_materials/common_textures/" \;
+
+          echo "XZOGOT_SOURCE_ENEMY_STAGED_GREEN"
+
+      - name: Commit source enemy baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add xogot/assets/zombies/source_waw
+          if git diff --cached --quiet; then
+            echo "XZOGOT_SOURCE_ENEMY_ALREADY_STAGED"
+            exit 0
+          fi
+          git commit -m "assets: stage source WaW zombies and hellhound baseline"
+          git pull --rebase origin feature/godot-aaa-rebuild-v1
+          git push origin HEAD:feature/godot-aaa-rebuild-v1
+          echo "XZOGOT_SOURCE_ENEMY_COMMIT_GREEN"
+
+      - name: Upload source enemy proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: xogot-source-waw-enemy-proof
+          path: |
+            build/source-enemies/inventory.json
+            build/source-enemies/*/*.report.json
+            build/source-enemies.log
+          if-no-files-found: error
+          retention-days: 14
