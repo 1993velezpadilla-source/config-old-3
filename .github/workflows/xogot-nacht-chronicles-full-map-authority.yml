@@ -11,6 +11,8 @@ on:
       - "tools/maps/UELightExtract/Program.cs"
       - "tools/maps/UEAudioSceneExtract/**"
       - "tools/maps/UEAudioCueGraphExtract/**"
+      - "tools/maps/UEParticleSceneExtract/**"
+      - "tools/maps/UEEnvironmentSceneExtract/**"
       - "tools/patches/patch_ue421_material_texture_refs.py"
       - "tools/patches/synthesize_ue_basic_cube_xzms.py"
 
@@ -56,6 +58,10 @@ jobs:
           if($LASTEXITCODE -ne 0){throw 'UEAudioSceneExtract restore failed'}
           git checkout $env:GITHUB_SHA -- tools/maps/UEAudioCueGraphExtract
           if($LASTEXITCODE -ne 0){throw 'UEAudioCueGraphExtract restore failed'}
+          git checkout $env:GITHUB_SHA -- tools/maps/UEParticleSceneExtract
+          if($LASTEXITCODE -ne 0){throw 'UEParticleSceneExtract restore failed'}
+          git checkout $env:GITHUB_SHA -- tools/maps/UEEnvironmentSceneExtract
+          if($LASTEXITCODE -ne 0){throw 'UEEnvironmentSceneExtract restore failed'}
           python tools/patches/patch_ue421_material_texture_refs.py
           if($LASTEXITCODE -ne 0){throw 'UE4.21 material texture reference patch failed'}
           Write-Host "XZOGOT_NACHT_CONVERTER_STACK_GREEN source=$old patched_scene_extractor=$env:GITHUB_SHA material_texture_refs=patched"
@@ -176,7 +182,9 @@ jobs:
             'tools/maps/UEStaticSceneExtract/UEStaticSceneExtract.csproj',
             'tools/maps/UELightExtract/UELightExtract.csproj',
             'tools/maps/UEAudioSceneExtract/UEAudioSceneExtract.csproj',
-            'tools/maps/UEAudioCueGraphExtract/UEAudioCueGraphExtract.csproj'
+            'tools/maps/UEAudioCueGraphExtract/UEAudioCueGraphExtract.csproj',
+            'tools/maps/UEParticleSceneExtract/UEParticleSceneExtract.csproj',
+            'tools/maps/UEEnvironmentSceneExtract/UEEnvironmentSceneExtract.csproj'
           )
           foreach($project in $projects){
             if(-not (Test-Path $project)){throw "missing source tool $project"}
@@ -361,6 +369,57 @@ jobs:
           })
           '@ | python -
 
+      - name: Extract exact UMAP particle placement
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $app='tools/maps/UEParticleSceneExtract/bin/Release/net10.0/UEParticleSceneExtract.dll'
+          dotnet $app $env:NACHT_CONTENT_ROOT PavMappings.usmap nacht-class-census.json nacht-particles.json ue4.21 |
+            Tee-Object nacht-particles.log
+          if($LASTEXITCODE -ne 0){throw "particle scene extraction failed $LASTEXITCODE"}
+
+          @'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("nacht-particles.json").read_text())
+          assert d["mapPackageCount"]==1,d
+          assert d["packagesLoaded"]==1,d
+          assert d["particleComponentCount"]>0,d
+          assert d["referencedTemplateCount"]>0,d
+          assert len(d["packageFailures"])==0,d
+          assert d["ready"] is True,d
+          print("XZOGOT_NACHT_EXACT_PARTICLE_SCENE_GREEN",{
+              "components":d["particleComponentCount"],
+              "referencedTemplates":d["referencedTemplateCount"],
+              "loadedTemplates":d["loadedTemplateCount"],
+              "nullTemplates":d["nullTemplateCount"],
+              "types":d["templateTypeCounts"],
+          })
+          '@ | python -
+
+      - name: Extract exact UMAP environment authority
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $app='tools/maps/UEEnvironmentSceneExtract/bin/Release/net10.0/UEEnvironmentSceneExtract.dll'
+          dotnet $app $env:NACHT_CONTENT_ROOT PavMappings.usmap nacht-class-census.json nacht-environment-scene.json ue4.21 |
+            Tee-Object nacht-environment-scene.log
+          if($LASTEXITCODE -ne 0){throw "environment scene extraction failed $LASTEXITCODE"}
+
+          @'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("nacht-environment-scene.json").read_text())
+          assert d["mapPackageCount"]==1,d
+          assert d["packagesLoaded"]==1,d
+          assert len(d["packageFailures"])==0,d
+          assert d["ready"] is True,d
+          print("XZOGOT_NACHT_EXACT_ENVIRONMENT_GREEN",{
+              "components":d["environmentComponentCount"],
+              "types":d["typeCounts"],
+          })
+          '@ | python -
+
       - name: Extract exact UMAP source audio placement
         shell: pwsh
         run: |
@@ -461,6 +520,8 @@ jobs:
           classes=json.loads(Path("nacht-class-census.json").read_text())
           scene=json.loads(Path("nacht-static-scene.json").read_text())
           lights=json.loads(Path("nacht-lights.json").read_text())
+          particle_scene=json.loads(Path("nacht-particles.json").read_text())
+          environment_scene=json.loads(Path("nacht-environment-scene.json").read_text())
           audio_scene=json.loads(Path("nacht-audio-scene.json").read_text())
           audio_cues=json.loads(Path("nacht-audio-cues.json").read_text())
           native=json.loads(Path("nacht-native-library.json").read_text())
@@ -487,6 +548,17 @@ jobs:
               "lighting":{
                   "count":lights["lightCount"],
                   "types":lights["typeCounts"],
+              },
+              "particleScene":{
+                  "components":particle_scene["particleComponentCount"],
+                  "referencedTemplates":particle_scene["referencedTemplateCount"],
+                  "loadedTemplates":particle_scene["loadedTemplateCount"],
+                  "nullTemplates":particle_scene["nullTemplateCount"],
+                  "types":particle_scene["templateTypeCounts"],
+              },
+              "environmentScene":{
+                  "components":environment_scene["environmentComponentCount"],
+                  "types":environment_scene["typeCounts"],
               },
               "audioScene":{
                   "components":audio_scene["audioComponentCount"],
@@ -563,7 +635,7 @@ jobs:
               "sourceAuthority":"validated complete workshop PAK 2755515831",
               "sourcePackageCount":3871,
               "sourceMap":"Nacht_de_Untoten.umap",
-              "nativeAuthority":"568 workshop StaticMeshes + canonical /Engine/BasicShapes/Cube runtime builtin + Nacht native audio placement/cue-graph/skeletal/texture/material/light authority",
+              "nativeAuthority":"568 workshop StaticMeshes + canonical /Engine/BasicShapes/Cube runtime builtin + Nacht native particle/environment/audio placement/cue-graph/skeletal/texture/material/light authority",
               "portableExportFileCount":len(files),
               "portableMeshCount":sum(p.suffix.lower() in {".glb",".gltf"} for p in files),
               "portableImageCount":sum(p.suffix.lower() in {".png",".jpg",".jpeg",".tga"} for p in files),
@@ -603,6 +675,10 @@ jobs:
             nacht-static-scene.log
             nacht-lights.json
             nacht-lights.log
+            nacht-particles.json
+            nacht-particles.log
+            nacht-environment-scene.json
+            nacht-environment-scene.log
             nacht-audio-scene.json
             nacht-audio-scene.log
             nacht-audio-cues.json
