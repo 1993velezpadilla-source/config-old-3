@@ -38,6 +38,8 @@ var _texture_runtime_files: Dictionary = {}
 var _mesh_material_paths: Dictionary = {}
 var _instance_overrides: Dictionary = {}
 var _runtime_root: Node3D
+var _native_glb_mesh_count: int = 0
+var _xzms_fallback_mesh_count: int = 0
 
 func _ready() -> void:
 	if load_on_ready:
@@ -57,6 +59,8 @@ func _load_benchmark_world() -> void:
 		return
 
 	_prepare_material_authority()
+	_native_glb_mesh_count = 0
+	_xzms_fallback_mesh_count = 0
 
 	_runtime_root = Node3D.new()
 	_runtime_root.name = "XZIELSceneRoot"
@@ -116,12 +120,16 @@ func _load_benchmark_world() -> void:
 	set_meta("xziel_benchmark_source_instance_count", instances.size())
 	set_meta("xziel_benchmark_missing_meshes", missing_meshes)
 	set_meta("xziel_benchmark_source_ready", bool(summary.get("ready", false)))
+	set_meta("xziel_benchmark_native_glb_mesh_count", _native_glb_mesh_count)
+	set_meta("xziel_benchmark_xzms_fallback_mesh_count", _xzms_fallback_mesh_count)
 	print(
 		"XZOGOT_XZIEL_BENCHMARK_WORLD ",
 		"meshes=", meshes.size(),
 		" instances=", created,
 		"/", instance_limit,
 		" missing=", missing_meshes,
+		" native_glb=", _native_glb_mesh_count,
+		" xzms_fallback=", _xzms_fallback_mesh_count,
 		" materials=", _material_cache.size(),
 		" textures=", _texture_cache.size()
 	)
@@ -227,6 +235,7 @@ func _load_benchmark_mesh(runtime_file: String, scene_mesh_index: int) -> ArrayM
 								mesh.surface_set_material(surface, material)
 					instance.free()
 					_mesh_cache[cache_key] = mesh
+					_native_glb_mesh_count += 1
 					return mesh
 				instance.free()
 
@@ -235,6 +244,7 @@ func _load_benchmark_mesh(runtime_file: String, scene_mesh_index: int) -> ArrayM
 	var fallback := _load_xzmesh(runtime_file, scene_mesh_index)
 	if fallback != null:
 		_mesh_cache[cache_key] = fallback
+		_xzms_fallback_mesh_count += 1
 	return fallback
 
 func _load_xzmesh(runtime_file: String, scene_mesh_index: int) -> ArrayMesh:
