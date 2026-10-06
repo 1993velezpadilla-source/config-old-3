@@ -46,6 +46,8 @@ jobs:
           git checkout $old -- engine/xz tools/maps tests
           git checkout $env:GITHUB_SHA -- tools/maps/UEStaticSceneExtract/Program.cs
           if($LASTEXITCODE -ne 0){throw 'patched UEStaticSceneExtract restore failed'}
+          git checkout $env:GITHUB_SHA -- tools/maps/UEAudioSceneExtract
+          if($LASTEXITCODE -ne 0){throw 'UEAudioSceneExtract restore failed'}
           python tools/patches/patch_ue421_material_texture_refs.py
           if($LASTEXITCODE -ne 0){throw 'UE4.21 material texture reference patch failed'}
           Write-Host "XZOGOT_NACHT_CONVERTER_STACK_GREEN source=$old patched_scene_extractor=$env:GITHUB_SHA material_texture_refs=patched"
@@ -164,7 +166,8 @@ jobs:
             'tools/maps/UEAnimationXZAN/UEAnimationXZAN.csproj',
             'tools/maps/UEMaterialAudit/UEMaterialAudit.csproj',
             'tools/maps/UEStaticSceneExtract/UEStaticSceneExtract.csproj',
-            'tools/maps/UELightExtract/UELightExtract.csproj'
+            'tools/maps/UELightExtract/UELightExtract.csproj',
+            'tools/maps/UEAudioSceneExtract/UEAudioSceneExtract.csproj'
           )
           foreach($project in $projects){
             if(-not (Test-Path $project)){throw "missing source tool $project"}
@@ -338,6 +341,34 @@ jobs:
           })
           '@ | python -
 
+      - name: Extract exact UMAP source audio placement
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $app='tools/maps/UEAudioSceneExtract/bin/Release/net10.0/UEAudioSceneExtract.dll'
+          dotnet $app $env:NACHT_CONTENT_ROOT PavMappings.usmap nacht-class-census.json nacht-audio-scene.json ue4.21 |
+            Tee-Object nacht-audio-scene.log
+          if($LASTEXITCODE -ne 0){throw "audio scene extraction failed $LASTEXITCODE"}
+
+          @'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("nacht-audio-scene.json").read_text())
+          assert d["mapPackageCount"]==1,d
+          assert d["packagesLoaded"]==1,d
+          assert d["audioComponentCount"]>0,d
+          assert d["referencedSoundCount"]>0,d
+          assert len(d["packageFailures"])==0,d
+          assert d["ready"] is True,d
+          print("XZOGOT_NACHT_EXACT_AUDIO_SCENE_GREEN",{
+              "components":d["audioComponentCount"],
+              "referenced":d["referencedSoundCount"],
+              "loaded":d["loadedSoundCount"],
+              "null":d["nullSoundCount"],
+              "types":d["soundTypeCounts"],
+          })
+          '@ | python -
+
       - name: Build full gameplay interactive FX and environment manifest
         shell: pwsh
         run: |
@@ -380,6 +411,7 @@ jobs:
           classes=json.loads(Path("nacht-class-census.json").read_text())
           scene=json.loads(Path("nacht-static-scene.json").read_text())
           lights=json.loads(Path("nacht-lights.json").read_text())
+          audio_scene=json.loads(Path("nacht-audio-scene.json").read_text())
           native=json.loads(Path("nacht-native-library.json").read_text())
 
           report={
@@ -404,6 +436,13 @@ jobs:
               "lighting":{
                   "count":lights["lightCount"],
                   "types":lights["typeCounts"],
+              },
+              "audioScene":{
+                  "components":audio_scene["audioComponentCount"],
+                  "referencedSounds":audio_scene["referencedSoundCount"],
+                  "loadedSounds":audio_scene["loadedSoundCount"],
+                  "nullSounds":audio_scene["nullSoundCount"],
+                  "types":audio_scene["soundTypeCounts"],
               },
               "nativeLibrary":native["assets"],
               "ready":True,
@@ -466,7 +505,7 @@ jobs:
               "sourceAuthority":"validated complete workshop PAK 2755515831",
               "sourcePackageCount":3871,
               "sourceMap":"Nacht_de_Untoten.umap",
-              "nativeAuthority":"nacht-native/** + nacht-static-scene.json + nacht-lights.json + nacht-materials.json",
+              "nativeAuthority":"nacht-native/** + nacht-static-scene.json + nacht-lights.json + nacht-audio-scene.json + nacht-materials.json",
               "portableExportFileCount":len(files),
               "portableMeshCount":sum(p.suffix.lower() in {".glb",".gltf"} for p in files),
               "portableImageCount":sum(p.suffix.lower() in {".png",".jpg",".jpeg",".tga"} for p in files),
@@ -505,6 +544,8 @@ jobs:
             nacht-static-scene.log
             nacht-lights.json
             nacht-lights.log
+            nacht-audio-scene.json
+            nacht-audio-scene.log
             nacht-full-map-authority.json
             nacht-full-map-handoff.json
             nacht-portable-export.log
