@@ -31,7 +31,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: feature/godot-aaa-rebuild-v1
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'feature/godot-aaa-rebuild-v1' }}
           fetch-depth: 1
 
       - name: Resolve exact GREEN Nacht staged runtime
