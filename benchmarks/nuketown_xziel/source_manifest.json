@@ -552,6 +552,9 @@
     "manifest": "source_library/skeletal_gltf/manifest.json",
     "actor_anchors": "skeletal-actor-anchors.json",
     "source_node_audit": "skeletal-actor-source-node-audit.json",
-    "source_node_matches": 2
+    "source_node_matches": 2,
+    "exact_placement_report": "",
+    "runtime_bindings": "skeletal-runtime-bindings.json",
+    "exact_runtime_bindings_ready": false
   }
 }
