@@ -40,6 +40,8 @@ var _source_srgb_texture_paths: Array[String] = []
 var _source_material_alias_diffuse: Dictionary = {}
 var _source_material_alias_conflicts: Dictionary = {}
 var _source_material_alias_hits: int = 0
+var _source_material_textured_count: int = 0
+var _source_material_flat_fallback_count: int = 0
 var _mesh_material_paths: Dictionary = {}
 var _instance_overrides: Dictionary = {}
 var _runtime_root: Node3D
@@ -142,6 +144,8 @@ func _load_benchmark_world() -> void:
 	set_meta("xziel_benchmark_material_alias_count", _source_material_alias_diffuse.size())
 	set_meta("xziel_benchmark_material_alias_conflict_count", _source_material_alias_conflicts.size())
 	set_meta("xziel_benchmark_material_alias_hits", _source_material_alias_hits)
+	set_meta("xziel_benchmark_material_textured_count", _source_material_textured_count)
+	set_meta("xziel_benchmark_material_flat_fallback_count", _source_material_flat_fallback_count)
 	print(
 		"XZOGOT_XZIEL_BENCHMARK_WORLD ",
 		"meshes=", meshes.size(),
@@ -155,7 +159,9 @@ func _load_benchmark_world() -> void:
 		" textures=", _texture_cache.size(),
 		" aliases=", _source_material_alias_diffuse.size(),
 		" alias_hits=", _source_material_alias_hits,
-		" alias_conflicts=", _source_material_alias_conflicts.size()
+		" alias_conflicts=", _source_material_alias_conflicts.size(),
+		" textured_materials=", _source_material_textured_count,
+		" flat_fallbacks=", _source_material_flat_fallback_count
 	)
 
 func _source_path(relative: String) -> String:
@@ -177,6 +183,8 @@ func _prepare_material_authority() -> void:
 	_source_material_alias_diffuse.clear()
 	_source_material_alias_conflicts.clear()
 	_source_material_alias_hits = 0
+	_source_material_textured_count = 0
+	_source_material_flat_fallback_count = 0
 	_mesh_material_paths.clear()
 	_instance_overrides.clear()
 
@@ -481,10 +489,12 @@ func _material_for_path(material_path: String) -> Material:
 	var normal := _texture_for_source(normal_source)
 	var emissive := _texture_for_source(emissive_source)
 	if diffuse != null:
+		_source_material_textured_count += 1
 		material.albedo_texture = diffuse
 		if str(canonical.get("diffuse", "")).is_empty():
 			material.set_meta("source_noncanonical_diffuse_path", diffuse_source)
 	else:
+		_source_material_flat_fallback_count += 1
 		var colors: Array = record.get("colors", [])
 		if not colors.is_empty() and colors[0] is Dictionary:
 			var color_row := colors[0] as Dictionary
@@ -673,6 +683,16 @@ func _register_source_material_alias(key: String, diffuse_source: String) -> voi
 		_source_material_alias_conflicts[key] = true
 
 func _build_source_material_aliases() -> void:
+	# Cooked /nt/ material packages no longer retain Texture2D imports, but the
+	# source texture catalog itself still preserves the original semantic names.
+	# Register ONLY exact semantic keys from source sRGB color textures. Any key
+	# that maps to more than one source texture is discarded as a conflict.
+	for source_path: String in _source_srgb_texture_paths:
+		if not _source_texture_likely_color(source_path):
+			continue
+		for key: String in _source_semantic_keys(source_path):
+			_register_source_material_alias(key, source_path)
+
 	for material_path_var: Variant in _material_records.keys():
 		var material_path := str(material_path_var)
 		if not material_path.to_lower().contains("/text/"):
