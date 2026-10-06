@@ -1,0 +1,208 @@
+name: Xogot Nuketown 56 Blueprint Coverage Truth
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - "tools/maps/nuketown-blueprint-targets.txt"
+      - ".github/workflows/xogot-nuketown-blueprint-coverage-truth.yml"
+      - "tools/maps/UENuketownWallbuyBytecode/**"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-nuketown-blueprint-coverage-truth-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  decompile-all-blueprints:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install source package tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full xz-utils
+          mkdir -p "$RUNNER_TEMP/repak"
+          curl -fL --retry 5 \
+            https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz \
+            -o "$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" -C "$RUNNER_TEMP/repak"
+          REPAK=$(find "$RUNNER_TEMP/repak" -type f -name 'repak*' -perm -111 | head -1)
+          test -n "$REPAK"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
+
+      - name: Download pinned Nuketown source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p source-download source-outer source-unpacked
+          curl -fL --retry 8 --retry-delay 3 --retry-all-errors \
+            -o source-download/nuketown-v49-oculus.zip \
+            "https://g-3959.modapi.io/v1/games/3959/mods/5097941/files/7509509/download"
+          7z x -y source-download/nuketown-v49-oculus.zip -osource-outer >/dev/null
+          PAK=$(find source-outer -type f -name '*.pak' -print -quit)
+          test -n "$PAK"
+          "$REPAK" unpack "$PAK" -o source-unpacked
+
+          python3 - <<'PY'
+          from pathlib import Path
+          targets=[
+              line.strip()
+              for line in Path("tools/maps/nuketown-blueprint-targets.txt").read_text().splitlines()
+              if line.strip()
+          ]
+          assert len(targets)==56, len(targets)
+          missing=[p for p in targets if not (Path("source-unpacked")/p).is_file()]
+          assert not missing, missing
+          print("XZOGOT_NUKETOWN_56_BLUEPRINT_PREFLIGHT_GREEN targets=", len(targets))
+          PY
+
+      - name: Pin Pavlov UE5 mappings
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 --retry-delay 2 \
+            -o source-download/PavMappings.usmap \
+            "https://raw.githubusercontent.com/THW-Reaper/PavlovVRMappings/4976647b4f3a209042460bc55a7a3122662d05b7/PavMappings.usmap"
+          echo "6d19f9731cc3fbaba34ca8e0833e81e4ffdf1b407edf24de48b1ccb5c63b060c  source-download/PavMappings.usmap" \
+            | sha256sum -c -
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build exact Kismet extractor
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet restore tools/maps/UENuketownWallbuyBytecode/UENuketownWallbuyBytecode.csproj
+          dotnet build tools/maps/UENuketownWallbuyBytecode/UENuketownWallbuyBytecode.csproj \
+            --configuration Release --no-restore
+
+      - name: Decompile all 56 BlueprintGeneratedClass packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nuketown-blueprint-coverage
+          mapfile -t TARGETS < <(grep -v '^[[:space:]]*$' tools/maps/nuketown-blueprint-targets.txt)
+          ASSETS=()
+          for rel in "${TARGETS[@]}"; do
+            ASSETS+=("source-unpacked/$rel")
+          done
+
+          APP=tools/maps/UENuketownWallbuyBytecode/bin/Release/net10.0/UENuketownWallbuyBytecode.dll
+          dotnet "$APP" \
+            source-download/PavMappings.usmap \
+            build/nuketown-blueprint-coverage/blueprint-bytecode.json \
+            "${ASSETS[@]}" \
+            | tee build/nuketown-blueprint-coverage/extract.log
+
+          grep -q "XZOGOT_NUKETOWN_WALLBUY_BYTECODE_GREEN" \
+            build/nuketown-blueprint-coverage/extract.log
+
+      - name: Classify complete Blueprint coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from collections import Counter
+          from pathlib import Path
+
+          p=Path("build/nuketown-blueprint-coverage/blueprint-bytecode.json")
+          d=json.loads(p.read_text())
+          assert d["ready"] is True, d
+          assert d["assetCount"] == 56, d
+          assert d["packageSuccessCount"] == 56, d
+          assert d["failureCount"] == 0, d
+
+          counts=Counter()
+          rows=[]
+          for pkg in d["packages"]:
+              path=pkg["assetPath"].replace("\\","/")
+              if "/pulse/wallbuy" in path:
+                  category="wallbuy"
+              elif "/admin/skins/" in path:
+                  category="skin"
+              elif "/JoinSounds" in path:
+                  category="join_sound"
+              elif "/admin/" in path:
+                  category="admin"
+              elif "/box/" in path:
+                  category="box"
+              elif "/cam/" in path:
+                  category="camera"
+              elif "/mode/" in path:
+                  category="mode"
+              else:
+                  category="menu_or_other"
+              counts[category]+=1
+              calls=sorted({
+                  str(call["call"])
+                  for fn in pkg["functions"]
+                  for call in fn.get("calls",[])
+                  if str(call.get("call",""))
+              })
+              constants=sorted({
+                  str(row["value"])
+                  for fn in pkg["functions"]
+                  for row in fn.get("integerConstants",[])
+              })
+              rows.append({
+                  "fileName":pkg["fileName"],
+                  "assetPath":pkg["assetPath"],
+                  "category":category,
+                  "functionCount":pkg["functionCount"],
+                  "calls":calls,
+                  "integerConstants":constants,
+              })
+
+          expected={
+              "wallbuy":21,
+              "skin":19,
+              "admin":7,
+              "box":3,
+              "join_sound":3,
+              "camera":1,
+              "mode":1,
+              "menu_or_other":1,
+          }
+          assert dict(counts)==expected, (counts, expected)
+          summary={
+              "schemaVersion":1,
+              "sourceBlueprintGeneratedClassCount":56,
+              "packageSuccessCount":d["packageSuccessCount"],
+              "failureCount":d["failureCount"],
+              "parsedFunctions":d["parsedFunctions"],
+              "parsedExpressions":d["parsedExpressions"],
+              "integerConstants":d["integerConstants"],
+              "categoryCounts":dict(counts),
+              "packages":rows,
+              "ready":True,
+          }
+          Path("build/nuketown-blueprint-coverage/coverage-summary.json").write_text(
+              json.dumps(summary,indent=2)+"\n"
+          )
+          print("XZOGOT_NUKETOWN_56_BLUEPRINT_COVERAGE_GREEN", dict(counts))
+          PY
+
+      - name: Upload complete Blueprint truth
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nuketown-56-Blueprint-Coverage-Truth
+          path: |
+            build/nuketown-blueprint-coverage/blueprint-bytecode.json
+            build/nuketown-blueprint-coverage/coverage-summary.json
+            build/nuketown-blueprint-coverage/extract.log
+          if-no-files-found: error
+          retention-days: 14
