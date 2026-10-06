@@ -227,14 +227,47 @@ Dictionary<string, object?> DescribeNamedProperties(
             StringComparer.Ordinal);
 }
 
+object? ReadRuntimeMember(object target, string name)
+{
+    var flags =
+        System.Reflection.BindingFlags.Instance |
+        System.Reflection.BindingFlags.Public |
+        System.Reflection.BindingFlags.NonPublic;
+
+    var property = target.GetType().GetProperty(name, flags);
+    if (property is not null && property.GetIndexParameters().Length == 0)
+    {
+        try { return property.GetValue(target); }
+        catch { }
+    }
+
+    var field = target.GetType().GetField(name, flags);
+    if (field is not null)
+    {
+        try { return field.GetValue(target); }
+        catch { }
+    }
+
+    return null;
+}
+
 Dictionary<string, object?> DescribeExponentialHeightFog(
     UExponentialHeightFogComponent component)
 {
-    // Keep optional/advanced fields from serialized source properties, but
-    // overwrite the core UE fields with CUE4Parse's deserialized values. That
-    // preserves UE4.21 class defaults when Nacht omits a property instead of
-    // silently losing the value from runtime authority.
-    var values = DescribeNamedProperties(component, new[] {
+    // Preserve every serialized field first. For CUE4Parse builds that also
+    // materialize UE defaults as runtime members, reflection overlays those
+    // resolved values without binding the extractor to version-specific C#
+    // members. If a member is unavailable, the serialized source value stays
+    // authoritative; we never synthesize a map value.
+    var coreNames = new[] {
+        "FogDensity",
+        "FogHeightFalloff",
+        "FogMaxOpacity",
+        "StartDistance",
+        "FogInscatteringLuminance",
+        "DirectionalInscatteringLuminance",
+        "DirectionalInscatteringExponent",
+        "DirectionalInscatteringStartDistance",
         "SecondFogData",
         "FogCutoffDistance",
         "VolumetricFog",
@@ -244,28 +277,16 @@ Dictionary<string, object?> DescribeExponentialHeightFog(
         "VolumetricFogExtinctionScale",
         "VolumetricFogDistance",
         "VolumetricFogStaticLightingScatteringIntensity"
-    });
+    };
 
-    values["FogDensity"] = component.FogDensity;
-    values["FogHeightFalloff"] = component.FogHeightFalloff;
-    values["FogMaxOpacity"] = component.FogMaxOpacity;
-    values["StartDistance"] = component.StartDistance;
-    values["FogInscatteringLuminance"] = new {
-        R = component.FogInscatteringLuminance.R,
-        G = component.FogInscatteringLuminance.G,
-        B = component.FogInscatteringLuminance.B,
-        A = component.FogInscatteringLuminance.A
-    };
-    values["DirectionalInscatteringLuminance"] = new {
-        R = component.DirectionalInscatteringLuminance.R,
-        G = component.DirectionalInscatteringLuminance.G,
-        B = component.DirectionalInscatteringLuminance.B,
-        A = component.DirectionalInscatteringLuminance.A
-    };
-    values["DirectionalInscatteringExponent"] =
-        component.DirectionalInscatteringExponent;
-    values["DirectionalInscatteringStartDistance"] =
-        component.DirectionalInscatteringStartDistance;
+    var values = DescribeNamedProperties(component, coreNames);
+
+    foreach (var name in coreNames)
+    {
+        var resolved = ReadRuntimeMember(component, name);
+        if (resolved is not null)
+            values[name] = DescribeDiagnosticValue(resolved);
+    }
 
     return values;
 }
