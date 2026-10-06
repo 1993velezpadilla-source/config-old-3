@@ -82,6 +82,27 @@ func _run() -> void:
 	var particle_decoded_references := int(
 		scene.get_meta("source_particle_decoded_reference_count", -1)
 	)
+	var particle_semantic_ready := bool(
+		scene.get_meta("source_particle_semantic_runtime_ready", false)
+	)
+	var particle_semantic_systems := int(
+		scene.get_meta("source_particle_semantic_runtime_count", -1)
+	)
+	var particle_semantic_placements := int(
+		scene.get_meta("source_particle_semantic_placement_count", -1)
+	)
+	var particle_mystery_rate := float(
+		scene.get_meta("source_particle_mystery_spawn_rate", -1.0)
+	)
+	var particle_mystery_lifetime_min := float(
+		scene.get_meta("source_particle_mystery_lifetime_min", -1.0)
+	)
+	var particle_mystery_lifetime_max := float(
+		scene.get_meta("source_particle_mystery_lifetime_max", -1.0)
+	)
+	var particle_mystery_peak := int(
+		scene.get_meta("source_particle_mystery_peak_active", -1)
+	)
 	var source_particles := int(scene.get_meta("source_particle_component_count", -1))
 	var particle_authority := int(scene.get_meta("runtime_particle_authority_count", -1))
 	var source_particle_systems := int(scene.get_meta("source_particle_system_count", -1))
@@ -188,6 +209,36 @@ func _run() -> void:
 					particle_decoded_systems,
 					particle_decoded_nodes,
 					particle_decoded_references,
+				]
+			)
+			return
+		if not particle_semantic_ready:
+			_fail(34, "first source-complete Cascade semantic runtime is not ready")
+			return
+		if particle_semantic_systems != 1 or particle_semantic_placements != 3:
+			_fail(
+				34,
+				"Cascade semantic runtime coverage mismatch systems=%d placements=%d"
+				% [particle_semantic_systems, particle_semantic_placements]
+			)
+			return
+		if get_nodes_in_group("nacht_source_particle_semantic").size() != 3:
+			_fail(34, "Cascade semantic placement group mismatch")
+			return
+		if (
+			not is_equal_approx(particle_mystery_rate, 10.0)
+			or not is_equal_approx(particle_mystery_lifetime_min, 5.0)
+			or not is_equal_approx(particle_mystery_lifetime_max, 8.0)
+			or particle_mystery_peak != 82
+		):
+			_fail(
+				34,
+				"Cascade mystery beam values mismatch rate=%s lifetime=%s..%s peak=%d"
+				% [
+					particle_mystery_rate,
+					particle_mystery_lifetime_min,
+					particle_mystery_lifetime_max,
+					particle_mystery_peak,
 				]
 			)
 			return
@@ -392,6 +443,9 @@ func _run() -> void:
 		" cascade_systems=", particle_decoded_systems,
 		" cascade_nodes=", particle_decoded_nodes,
 		" cascade_refs=", particle_decoded_references,
+		" cascade_semantic_ready=", particle_semantic_ready,
+		" cascade_semantic_systems=", particle_semantic_systems,
+		" cascade_semantic_placements=", particle_semantic_placements,
 		" particles_authority=", particle_authority,
 		" particle_graphs_authority=", particle_graph_authority,
 		" environment_authority=", environment_authority,
