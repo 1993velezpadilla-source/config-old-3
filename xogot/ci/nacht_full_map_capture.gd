@@ -25,6 +25,64 @@ func _percentile(values: Array[float], fraction: float) -> float:
 	)
 	return values[index]
 
+func _luminance(color: Color) -> float:
+	return (
+		color.r * 0.2126
+		+ color.g * 0.7152
+		+ color.b * 0.0722
+	)
+
+func _validate_visual_detail(image: Image, label: String) -> bool:
+	var samples: Array[float] = []
+	var step_x := maxi(1, image.get_width() / 160)
+	var step_y := maxi(1, image.get_height() / 90)
+	for y in range(0, image.get_height(), step_y):
+		for x in range(0, image.get_width(), step_x):
+			samples.append(_luminance(image.get_pixel(x, y)))
+	if samples.size() < 100:
+		_fail(33, label + " visual sample set too small")
+		return false
+	var p05 := _percentile(samples.duplicate(), 0.05)
+	var p50 := _percentile(samples.duplicate(), 0.50)
+	var p95 := _percentile(samples.duplicate(), 0.95)
+	var spread := p95 - p05
+	print(
+		"XZOGOT_NACHT_CAPTURE_VISUAL_STATS ",
+		"label=", label,
+		" p05=", p05,
+		" p50=", p50,
+		" p95=", p95,
+		" spread=", spread,
+		" samples=", samples.size()
+	)
+	# A generated PNG is not visual proof when it is essentially a flat clear
+	# color or completely washed out by a non-exact environment fallback.
+	if spread < 0.03:
+		_fail(
+			34,
+			label + " frame is visually blank/washed out spread=" + str(spread)
+		)
+		return false
+	return true
+
+func _prepare_structural_visual_proof(scene: Node3D) -> void:
+	var exact_environment := bool(
+		scene.get_meta("source_environment_visual_exact", false)
+	)
+	var disabled_fog_nodes := 0
+	if not exact_environment:
+		for raw: Node in get_nodes_in_group("nacht_source_environment_runtime"):
+			if raw is WorldEnvironment:
+				var world := raw as WorldEnvironment
+				if world.environment != null and world.environment.fog_enabled:
+					world.environment.fog_enabled = false
+					disabled_fog_nodes += 1
+	print(
+		"XZOGOT_NACHT_CAPTURE_VISUAL_PROOF_MODE ",
+		"source_environment_visual_exact=", exact_environment,
+		" approximate_fog_disabled=", disabled_fog_nodes
+	)
+
 func _save_view(path: String, label: String) -> bool:
 	for _i in range(12):
 		await process_frame
@@ -34,6 +92,8 @@ func _save_view(path: String, label: String) -> bool:
 		return false
 	if image.get_width() <= image.get_height():
 		_fail(31, label + " frame not landscape")
+		return false
+	if not _validate_visual_detail(image, label):
 		return false
 	if image.save_png(path) != OK:
 		_fail(32, label + " save failed")
@@ -114,6 +174,11 @@ func _capture() -> void:
 	var hud := scene.get_node_or_null("HUD")
 	if hud is CanvasLayer:
 		(hud as CanvasLayer).visible = false
+
+	# Runtime environment mounting is validated separately. Until the dedicated
+	# UE4.21 fog/reflection bridge is visually exact, structural screenshots must
+	# not be hidden behind Godot's intentionally approximate fog fallback.
+	_prepare_structural_visual_proof(scene)
 
 	var player := scene.get_node_or_null("Player") as CharacterBody3D
 	var spawn_camera := scene.get_node_or_null("Player/Head/Camera3D") as Camera3D
