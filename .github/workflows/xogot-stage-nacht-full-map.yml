@@ -124,6 +124,13 @@ jobs:
           cp "$AUTH/nacht-audio-cues.json" "$root/"
           cp "$AUTH/nacht-materials.json" "$root/"
 
+          python3 tools/maps/compile_nacht_particle_runtime_authority.py \
+            --scene "$root/nacht-particles.json" \
+            --graphs "$root/nacht-particle-graphs.json" \
+            --output "$root/nacht-particle-runtime-authority.json"
+          echo "XZOGOT_NACHT_STAGE_PARTICLE_RUNTIME_AUTHORITY_GREEN"
+
+
           python3 tools/maps/compile_nacht_particle_runtime.py \
             --placements "$root/nacht-particles.json" \
             --graphs "$root/nacht-particle-graphs.json" \
@@ -225,6 +232,7 @@ jobs:
           scene=json.loads((root/"nacht-static-scene.json").read_text())
           lights=json.loads((root/"nacht-environment-report.json").read_text())
           particles=json.loads((root/"nacht-particles.json").read_text())
+          particle_runtime_authority=json.loads((root/"nacht-particle-runtime-authority.json").read_text())
           particle_graph=json.loads((root/"nacht-particle-graphs.json").read_text())
           particle_graphs=json.loads((root/"nacht-particle-graphs.json").read_text())
           particle_runtime=json.loads((root/"particle-runtime-manifest.json").read_text())
@@ -282,6 +290,8 @@ jobs:
               "sourceInstances":scene["summary"]["sceneInstanceCount"],
               "sourceMeshes":len(scene["meshes"]),
               "sourceLights":lights["lightCount"],
+              "sourceParticlePlacements":particle_runtime_authority["resolvedPlacementCount"],
+              "sourcePlacedParticleSystems":particle_runtime_authority["uniquePlacedSystemCount"],
               "sourceMaterials":mats["summary"]["usedMaterialCount"],
               "sourceTextures":xzml["textureAssetCount"],
               "sourceAudioWaves":audio_runtime["audioCount"],
