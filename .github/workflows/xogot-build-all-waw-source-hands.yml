@@ -112,13 +112,26 @@ jobs:
           print("XZOGOT_WAW_27_SOURCE_HANDS_VALIDATE_GREEN")
           PY
 
-      - name: Stage all source hands into Godot
+      - name: Stage all source hands and exact T4 materials into Godot
         shell: bash
         run: |
           set -euo pipefail
           dst=xogot/assets/weapons/aether_waw_hands/t4_marine
           rm -rf "$dst"
-          mkdir -p "$dst"
+          mkdir -p "$dst/common/textures" "$dst/common/materials"
+
+          content_root="source-first/source-first-export/ProjectAether/Content"
+          cp "$content_root/Assets/Materials/Textures/viewmodel_usa_marine_c.png" "$dst/common/textures/viewmodel_usa_marine_c.png"
+          cp "$content_root/Assets/Materials/Textures/viewmodel_usa_marine_n.png" "$dst/common/textures/viewmodel_usa_marine_n.png"
+          cp "$content_root/Assets/Materials/Textures/_viewmodel_usa_marine_s-rgb_v_2e6e56fe.png" "$dst/common/textures/viewmodel_usa_marine_specular.png"
+          cp "$content_root/Assets/Materials/mtl_viewmodel_marine_skin.json" "$dst/common/materials/mtl_viewmodel_marine_skin.json"
+          cp "$content_root/Assets/Materials/mtl_viewmodel_marine_cloth.json" "$dst/common/materials/mtl_viewmodel_marine_cloth.json"
+          cp "$content_root/Assets/Materials/mtl_viewmodel_marine_button.json" "$dst/common/materials/mtl_viewmodel_marine_button.json"
+
+          test -s "$dst/common/textures/viewmodel_usa_marine_c.png"
+          test -s "$dst/common/textures/viewmodel_usa_marine_n.png"
+          test -s "$dst/common/textures/viewmodel_usa_marine_specular.png"
+          echo "XZOGOT_T4_MARINE_SOURCE_MATERIALS_STAGED_GREEN"
 
           python3 - <<'PY'
           import json,shutil
