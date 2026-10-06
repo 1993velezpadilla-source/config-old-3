@@ -39,6 +39,10 @@ jobs:
           if(-not (Test-Path $pak)){throw 'Nacht WindowsNoEditor.pak missing'}
           "PAK=$pak" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "XZOGOT_CHRONICLES_NACHT_PAYLOAD_GREEN $((Get-Item $pak).Length)"
+          # steamcmd can leave a non-zero native LASTEXITCODE after a valid
+          # workshop download; the file assertions above are the authority.
+          $global:LASTEXITCODE=0
+          exit 0
 
       - name: Install repak and index full PAK
         shell: pwsh
