@@ -36,6 +36,8 @@ func _run() -> void:
 	var interactable_count := int(scene.get_meta("source_interactable_count", -1))
 	var covered_actor_count := int(scene.get_meta("source_covered_actor_count", -1))
 	var coverage_class_count := int(scene.get_meta("source_coverage_class_count", -1))
+	var navigation_polygon_count := int(scene.get_meta("navigation_polygon_count", -1))
+	var zombie_spawn_anchor_count := int(scene.get_meta("zombie_spawn_anchor_count", -1))
 
 	if mesh_count != 52:
 		_fail(4, "mesh count mismatch " + str(mesh_count))
@@ -79,6 +81,29 @@ func _run() -> void:
 	if get_nodes_in_group("nuketown_source_ladder_runtime").size() != 2:
 		_fail(31, "ladder runtime adapter mismatch")
 		return
+	if navigation_polygon_count <= 0:
+		_fail(46, "source-collision navigation bake produced no polygons")
+		return
+	if zombie_spawn_anchor_count < 4:
+		_fail(47, "insufficient zombie spawn anchors " + str(zombie_spawn_anchor_count))
+		return
+	if get_nodes_in_group("zombie_path_network").size() != 1:
+		_fail(48, "Nuketown zombie path network missing or duplicated")
+		return
+	if get_nodes_in_group("nuketown_zombie_spawn_anchor").size() != zombie_spawn_anchor_count:
+		_fail(49, "zombie spawn anchor group mismatch")
+		return
+	var nav_runtime: Node = get_nodes_in_group("zombie_path_network")[0]
+	var nav_spawns: Array[Node] = []
+	for nav_spawn: Node in get_nodes_in_group("nuketown_zombie_spawn_anchor"):
+		nav_spawns.append(nav_spawn)
+	if nav_spawns.size() >= 2:
+		var a := (nav_spawns[0] as Node3D).global_position
+		var b := (nav_spawns[1] as Node3D).global_position
+		var path: Array[Vector3] = nav_runtime.call("request_path", a, b) as Array[Vector3]
+		if path.size() < 2:
+			_fail(50, "navigation path query did not connect perimeter spawns")
+			return
 
 	var player := scene.get_node_or_null("Player") as CharacterBody3D
 	if player == null:
@@ -182,6 +207,23 @@ func _run() -> void:
 	if not bool(weapon.call("is_source_external_placeholder")):
 		_fail(45, "mystery external item placeholder was not explicit")
 		return
+
+	var round_manager := scene.get_node_or_null("RoundManager")
+	if round_manager == null:
+		_fail(51, "round manager missing from full map")
+		return
+	if not bool(scene.get_meta("round_manager_activated_from_source_nav", false)):
+		_fail(52, "round system did not wait for source navigation")
+		return
+	round_manager.call("start_next_round")
+	var probe_zombie: Node = round_manager.call("spawn_one") as Node
+	if probe_zombie == null:
+		_fail(53, "round manager could not spawn on Nuketown navigation anchors")
+		return
+	if str(probe_zombie.get_meta("spawn_entry_kind", "")) != "offscreen":
+		_fail(54, "Nuketown zombie did not use direct nav entry")
+		return
+	round_manager.call("dev_clear_zombies")
 
 	print(
 		"XZOGOT_NUKETOWN_FULL_MAP_PROBE_GREEN ",

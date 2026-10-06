@@ -18,6 +18,7 @@ extends Node3D
 
 const SOURCE_LOADER := preload("res://scripts/xziel_benchmark_loader.gd")
 const INTERACTABLE := preload("res://scripts/interactable.gd")
+const NUKETOWN_NAVIGATION := preload("res://scripts/nuketown_navigation_runtime.gd")
 const WeaponCatalog := preload("res://scripts/weapon_catalog.gd")
 const VISUAL_SCENE_FILE := "visual-scene.json"
 const SOURCE_GAMEPLAY_FILE := "res://data/nuketown_source_gameplay.json"
@@ -25,6 +26,7 @@ const SOURCE_ACTOR_COVERAGE_FILE := "res://data/nuketown_actor_coverage.json"
 
 var _source_loader: Node3D
 var _source_actor_root: Node3D
+var _navigation_runtime: Node3D
 var _source_gameplay_truth: Dictionary = {}
 var _source_actor_coverage: Dictionary = {}
 var _collision_count: int = 0
@@ -93,6 +95,9 @@ func _boot_full_map() -> void:
 
 	if place_player_at_source_spawn:
 		_place_player_from_source(scene)
+
+	if not await _build_navigation_runtime():
+		return
 
 	set_meta("source_mesh_count", int(_source_loader.get_meta("xziel_benchmark_mesh_count", -1)))
 	set_meta("source_instance_count", int(_source_loader.get_meta("xziel_benchmark_instance_count", -1)))
@@ -354,6 +359,52 @@ func _build_collision_recursive(node: Node) -> int:
 	for child: Node in node.get_children():
 		created += _build_collision_recursive(child)
 	return created
+
+func _build_navigation_runtime() -> bool:
+	_navigation_runtime = NUKETOWN_NAVIGATION.new() as Node3D
+	if _navigation_runtime == null:
+		push_error("NUKETOWN_FULL_MAP: navigation runtime instantiate failed")
+		return false
+	_navigation_runtime.name = "NuketownNavigationRuntime"
+	add_child(_navigation_runtime)
+
+	var finished := false
+	var succeeded := false
+	_navigation_runtime.navigation_ready.connect(
+		func(_polygons: int, _spawns: int) -> void:
+			succeeded = true
+			finished = true
+	)
+	_navigation_runtime.navigation_failed.connect(
+		func(_reason: String) -> void:
+			succeeded = false
+			finished = true
+	)
+	_navigation_runtime.call("begin_bake")
+
+	for _attempt in range(2400):
+		if finished:
+			break
+		await get_tree().create_timer(0.05).timeout
+	if not finished or not succeeded:
+		push_error(
+			"NUKETOWN_FULL_MAP: navigation bake failed " +
+			str(_navigation_runtime.get_meta("navigation_failure", "TIMEOUT"))
+		)
+		return false
+
+	var round_manager := get_node_or_null("RoundManager")
+	if round_manager != null:
+		round_manager.set("auto_start", true)
+		if round_manager.has_method("reset_network_match"):
+			round_manager.call("reset_network_match")
+		set_meta("round_manager_activated_from_source_nav", true)
+	print(
+		"XZOGOT_NUKETOWN_ROUNDS_READY nav_polygons=",
+		_navigation_runtime.call("get_polygon_count"),
+		" spawns=", _navigation_runtime.call("get_spawn_anchor_count")
+	)
+	return true
 
 func _place_player_from_source(scene: Dictionary) -> void:
 	var spawn_rows: Array[Dictionary] = []
