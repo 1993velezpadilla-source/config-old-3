@@ -102,11 +102,37 @@ jobs:
                   if base:
                       base_paths.add(base.lower())
 
-          for row in rows:
-              path=str(row.get("objectPath",""))
-              if path.lower() in base_paths and path.lower() not in selected_paths:
-                  selected.append(row)
-                  selected_paths.add(path.lower())
+          # Pull every exact-basename sibling plus every material whose
+          # semantic base points at a selected target. This can recover a
+          # MaterialInstanceConstant carrying explicit source parameters even
+          # when the cooked base Material graph is stripped.
+          target_leafs={
+              p.rsplit("/",1)[-1].split(".",1)[0].lower()
+              for p in selected_paths
+          }
+          changed=True
+          while changed:
+              changed=False
+              for row in rows:
+                  path=str(row.get("objectPath",""))
+                  path_l=path.lower()
+                  leaf=path.rsplit("/",1)[-1].split(".",1)[0].lower()
+                  base=str(row.get("semanticBaseMaterialPath","")).lower()
+                  if (
+                      path_l not in selected_paths
+                      and (
+                          leaf in target_leafs
+                          or base in selected_paths
+                          or path_l in base_paths
+                      )
+                  ):
+                      selected.append(row)
+                      selected_paths.add(path_l)
+                      if leaf:
+                          target_leafs.add(leaf)
+                      if base:
+                          base_paths.add(base)
+                      changed=True
 
           payload={
               "sourceRun":int(os.environ["SOURCE_RUN"]),
