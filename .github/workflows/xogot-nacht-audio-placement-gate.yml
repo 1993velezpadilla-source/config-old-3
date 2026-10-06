@@ -8,6 +8,7 @@ on:
     paths:
       - "tools/maps/UEAudioSceneExtract/**"
       - "tools/maps/UEAudioCueGraphExtract/**"
+      - "tools/maps/UEAudioTemplateCatalog/**"
       - ".github/workflows/xogot-nacht-audio-placement-gate.yml"
 
 permissions:
@@ -91,8 +92,10 @@ jobs:
         run: |
           $ErrorActionPreference='Stop'
           foreach($project in @(
+            'tools/maps/UEAssetClassCensus/UEAssetClassCensus.csproj',
             'tools/maps/UEAudioSceneExtract/UEAudioSceneExtract.csproj',
-            'tools/maps/UEAudioCueGraphExtract/UEAudioCueGraphExtract.csproj'
+            'tools/maps/UEAudioCueGraphExtract/UEAudioCueGraphExtract.csproj',
+            'tools/maps/UEAudioTemplateCatalog/UEAudioTemplateCatalog.csproj'
           )){
             dotnet restore $project
             if($LASTEXITCODE -ne 0){throw "restore failed $project"}
@@ -100,6 +103,34 @@ jobs:
             if($LASTEXITCODE -ne 0){throw "build failed $project"}
           }
           Write-Host "XZOGOT_NACHT_AUDIO_TOOLS_GREEN"
+
+      - name: Catalog cooked AudioComponent templates
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $census='tools/maps/UEAssetClassCensus/bin/Release/net10.0/UEAssetClassCensus.dll'
+          dotnet $census $env:NACHT_CONTENT_ROOT nacht-full-class-census.json ue4.21 |
+            Tee-Object nacht-full-class-census.log
+          if($LASTEXITCODE -ne 0){throw "full class census failed $LASTEXITCODE"}
+
+          $catalog='tools/maps/UEAudioTemplateCatalog/bin/Release/net10.0/UEAudioTemplateCatalog.dll'
+          dotnet $catalog $env:NACHT_CONTENT_ROOT PavMappings.usmap nacht-full-class-census.json nacht-audio-template-catalog.json ue4.21 |
+            Tee-Object nacht-audio-template-catalog.log
+          if($LASTEXITCODE -ne 0){throw "audio template catalog failed $LASTEXITCODE"}
+
+          @'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("nacht-audio-template-catalog.json").read_text())
+          print("XZOGOT_NACHT_AUDIO_TEMPLATE_CATALOG_PROOF",{
+              "candidatePackages":d["candidatePackageCount"],
+              "packagesLoaded":d["packagesLoaded"],
+              "audioComponentsSeen":d["audioComponentsSeen"],
+              "targetCounts":d["targetCounts"],
+              "matches":d["matches"],
+          })
+          assert d["ready"] is True,d
+          '@ | python -
 
       - name: Extract exact UMAP audio placement
         shell: pwsh
@@ -147,5 +178,9 @@ jobs:
           path: |
             nacht-audio-scene.json
             nacht-audio-scene.log
+            nacht-audio-template-catalog.json
+            nacht-audio-template-catalog.log
+            nacht-full-class-census.json
+            nacht-full-class-census.log
           if-no-files-found: error
           retention-days: 14
