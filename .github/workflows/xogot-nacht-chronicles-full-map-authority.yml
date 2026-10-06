@@ -262,13 +262,20 @@ jobs:
           import json
           from pathlib import Path
           d=json.loads(Path("nacht-static-scene.json").read_text())
-          assert d.get("packagesLoaded",0)==1,d
-          assert d.get("actorAnchorCount",0)>0,d
-          assert d.get("instanceCount",0)>0 or d.get("sceneCandidateCount",0)>0,d
+          s=d.get("summary",{})
+          assert s.get("mapPackageCount",0)==1,s
+          assert s.get("packagesLoaded",0)==1,s
+          assert s.get("actorAnchorCount",0)>0,s
+          assert s.get("sceneInstanceCount",0)>0,s
+          assert s.get("unresolvedMeshCount",1)==0,s
+          assert s.get("packageFailureCount",1)==0,s
+          assert s.get("componentFailureCount",1)==0,s
+          assert s.get("ready") is True,s
           print("XZOGOT_NACHT_EXACT_SCENE_GREEN",{
-              "actors":d.get("actorAnchorCount"),
-              "instances":d.get("instanceCount",d.get("sceneCandidateCount")),
-              "staticComponents":d.get("staticComponentCount"),
+              "actors":s.get("actorAnchorCount"),
+              "instances":s.get("sceneInstanceCount"),
+              "staticComponents":s.get("staticComponents"),
+              "meshes":s.get("referencedNativeMeshCount"),
           })
           '@ | python -
 
@@ -361,8 +368,9 @@ jobs:
                   "packageFailures":classes["packageLoadFailureCount"],
               },
               "scene":{
-                  "actorAnchors":scene.get("actorAnchorCount",0),
-                  "instances":scene.get("instanceCount",scene.get("sceneCandidateCount",0)),
+                  "actorAnchors":scene.get("summary",{}).get("actorAnchorCount",0),
+                  "instances":scene.get("summary",{}).get("sceneInstanceCount",0),
+                  "meshes":scene.get("summary",{}).get("referencedNativeMeshCount",0),
               },
               "lighting":{
                   "count":lights["lightCount"],
