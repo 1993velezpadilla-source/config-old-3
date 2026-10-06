@@ -69,6 +69,8 @@ func _run() -> void:
 	var runtime_environment_components := int(scene.get_meta("runtime_environment_component_count", 0))
 	var runtime_environment_visual_nodes := int(scene.get_meta("runtime_environment_visual_node_count", 0))
 	var source_environment_runtime := bool(scene.get_meta("source_environment_runtime_ready", false))
+	var source_environment_mounted := bool(scene.get_meta("source_environment_runtime_mounted", false))
+	var source_environment_exact := bool(scene.get_meta("source_environment_visual_exact", false))
 	var source_environment_fog_runtime := bool(scene.get_meta("source_environment_fog_runtime_ready", false))
 	var source_environment_reflection_runtime := bool(scene.get_meta("source_environment_reflection_runtime_ready", false))
 	var staged_runtime := FileAccess.file_exists(
@@ -169,24 +171,65 @@ func _run() -> void:
 			_fail(26, "staged source audio semantics are not runtime-ready")
 			return
 		if (
-			not source_environment_runtime
+			not source_environment_mounted
 			or not source_environment_fog_runtime
 			or not source_environment_reflection_runtime
 			or runtime_environment_visual_nodes != 2
 		):
 			_fail(
 				27,
-				"source environment runtime incomplete ready=%s fog=%s reflection=%s nodes=%d"
+				"source environment mount incomplete mounted=%s fog=%s reflection=%s nodes=%d"
 				% [
-					str(source_environment_runtime),
+					str(source_environment_mounted),
 					str(source_environment_fog_runtime),
 					str(source_environment_reflection_runtime),
 					runtime_environment_visual_nodes,
 				]
 			)
 			return
-		if get_nodes_in_group("nacht_source_environment_runtime").size() != 2:
-			_fail(28, "source environment runtime node coverage mismatch")
+		# Do not let a stock Godot fallback masquerade as exact UE4.21 parity.
+		if source_environment_runtime or source_environment_exact:
+			_fail(
+				28,
+				"environment exact-parity flag flipped before semantic gaps were closed"
+			)
+			return
+		var environment_nodes := get_nodes_in_group("nacht_source_environment_runtime")
+		if environment_nodes.size() != 2:
+			_fail(29, "source environment runtime node coverage mismatch")
+			return
+		var fog_node: WorldEnvironment = null
+		var reflection_node: ReflectionProbe = null
+		for runtime_node: Node in environment_nodes:
+			var component_type := str(
+				runtime_node.get_meta("source_environment_component_type", "")
+			)
+			if component_type == "exponential_height_fog" and runtime_node is WorldEnvironment:
+				fog_node = runtime_node as WorldEnvironment
+			elif component_type == "reflection_capture" and runtime_node is ReflectionProbe:
+				reflection_node = runtime_node as ReflectionProbe
+		if fog_node == null or reflection_node == null or fog_node.environment == null:
+			_fail(30, "source environment runtime node types incomplete")
+			return
+		var fog_environment := fog_node.environment
+		if (
+			absf(fog_environment.fog_density - 0.1) > 0.00001
+			or absf(float(fog_node.get_meta("source_fog_height_falloff", -1.0)) - 2.0) > 0.00001
+			or absf(float(fog_node.get_meta("source_fog_max_opacity", -1.0)) - 0.2) > 0.00001
+			or absf(float(fog_node.get_meta("source_fog_start_distance_m", -1.0)) - 3.0) > 0.00001
+			or absf(float(fog_node.get_meta("source_volumetric_fog_distance_m", -1.0)) - 10.0) > 0.00001
+		):
+			_fail(31, "source fog runtime inputs do not match authority")
+			return
+		var reflection_radius_m := float(
+			reflection_node.get_meta("source_influence_radius_m", -1.0)
+		)
+		if absf(reflection_radius_m - 51.83467) > 0.0001:
+			_fail(32, "source reflection radius runtime mismatch " + str(reflection_radius_m))
+			return
+		var expected_probe_size := Vector3.ONE * reflection_radius_m * 2.0
+		if reflection_node.size.distance_to(expected_probe_size) > 0.0001:
+			_fail(33, "source reflection probe diameter mismatch")
 			return
 
 	var player := scene.get_node_or_null("Player") as CharacterBody3D
@@ -226,6 +269,8 @@ func _run() -> void:
 		" runtime_environment_components=", runtime_environment_components,
 		" runtime_environment_visual_nodes=", runtime_environment_visual_nodes,
 		" source_environment_runtime=", source_environment_runtime,
+		" source_environment_mounted=", source_environment_mounted,
+		" source_environment_exact=", source_environment_exact,
 		" source_environment_fog_runtime=", source_environment_fog_runtime,
 		" source_environment_reflection_runtime=", source_environment_reflection_runtime,
 		" player=", player.global_position
