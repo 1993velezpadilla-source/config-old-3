@@ -63,6 +63,7 @@ jobs:
           test -s "$AUTH/nacht-lights.json"
           test -s "$AUTH/nacht-particles.json"
           test -s "$AUTH/nacht-particle-graphs.json"
+          test -s "$AUTH/nacht-particle-graphs.json"
           test -s "$AUTH/nacht-environment-scene.json"
           test -s "$AUTH/nacht-audio-scene.json"
           test -s "$AUTH/nacht-audio-cues.json"
@@ -96,6 +97,7 @@ jobs:
           cp "$AUTH/nacht-static-scene.json" "$root/"
           cp "$AUTH/nacht-lights.json" "$root/"
           cp "$AUTH/nacht-particles.json" "$root/"
+          cp "$AUTH/nacht-particle-graphs.json" "$root/"
           cp "$AUTH/nacht-particle-graphs.json" "$root/"
           cp "$AUTH/nacht-environment-scene.json" "$root/"
           cp "$AUTH/nacht-audio-scene.json" "$root/"
@@ -178,6 +180,7 @@ jobs:
           scene=json.loads((root/"nacht-static-scene.json").read_text())
           lights=json.loads((root/"nacht-environment-report.json").read_text())
           particles=json.loads((root/"nacht-particles.json").read_text())
+          particle_graph=json.loads((root/"nacht-particle-graphs.json").read_text())
           particle_graphs=json.loads((root/"nacht-particle-graphs.json").read_text())
           environment=json.loads((root/"nacht-environment-scene.json").read_text())
           audio_scene=json.loads((root/"nacht-audio-scene.json").read_text())
@@ -198,6 +201,7 @@ jobs:
           assert mats["summary"]["unresolvedTextureCount"] == 0, mats["summary"]
           assert lights["lightCount"] == 166, lights
           assert particles["particleComponentCount"] > 0 and particles["ready"] is True, particles
+          assert particle_graph["particleSystemCount"] == 39 and particle_graph["ready"] is True, particle_graph
           assert particle_graphs["particleSystemCount"] == 39 and particle_graphs["ready"] is True, particle_graphs
           assert environment["ready"] is True, environment
           assert audio_scene["audioComponentCount"] > 0 and audio_scene["ready"] is True, audio_scene
