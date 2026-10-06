@@ -2,6 +2,11 @@ name: Nacht Material Graph Slice
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows:
+      - "Xogot Nacht Chronicles Full Map Authority"
+    types:
+      - completed
   push:
     branches:
       - feature/godot-aaa-rebuild-v1
@@ -18,6 +23,7 @@ concurrency:
 
 jobs:
   slice:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -34,14 +40,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          SOURCE_RUN=""
-          for PAGE in 1 2 3 4 5; do
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            SOURCE_RUN="${{ github.event.workflow_run.id }}"
+          else
             SOURCE_RUN=$(gh api \
               -H "Accept: application/vnd.github+json" \
-              "/repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100&page=$PAGE" \
-              --jq '[.workflow_runs[] | select(.head_branch=="feature/godot-aaa-rebuild-v1" and .name=="Xogot Nacht Chronicles Full Map Authority" and .conclusion=="success")][0].id // empty')
-            if [ -n "$SOURCE_RUN" ]; then break; fi
-          done
+              "/repos/${GITHUB_REPOSITORY}/actions/workflows/xogot-nacht-chronicles-full-map-authority.yml/runs?branch=feature%2Fgodot-aaa-rebuild-v1&status=success&per_page=20" \
+              --jq '.workflow_runs[0].id // empty' || true)
+            if [ -z "$SOURCE_RUN" ]; then
+              for PAGE in 1 2 3 4 5 6 7 8 9 10; do
+                SOURCE_RUN=$(gh api \
+                  -H "Accept: application/vnd.github+json" \
+                  "/repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100&page=$PAGE" \
+                  --jq '[.workflow_runs[] | select(.head_branch=="feature/godot-aaa-rebuild-v1" and .name=="Xogot Nacht Chronicles Full Map Authority" and .conclusion=="success")][0].id // empty')
+                if [ -n "$SOURCE_RUN" ]; then break; fi
+              done
+            fi
+          fi
           test -n "$SOURCE_RUN"
           echo "SOURCE_RUN=$SOURCE_RUN" >> "$GITHUB_ENV"
           echo "XZOGOT_NACHT_MATERIAL_GRAPH_SLICE_SOURCE_GREEN run=$SOURCE_RUN"
@@ -324,7 +339,7 @@ jobs:
           payload={"systemCount":len(rows),"systems":rows}
           (out/"particle-candidate-matrix.json").write_text(json.dumps(payload,indent=2)+"\n")
 
-          ranked_keys={canonical(r["systemPath"]) for r in rows[:8]}
+          ranked_keys={canonical(r["systemPath"]) for r in rows}
           candidate_graphs=[
               g for g in graphs.get("systems",[])
               if canonical(g.get("objectPath","")) in ranked_keys
