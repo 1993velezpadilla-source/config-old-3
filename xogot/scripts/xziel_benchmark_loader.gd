@@ -19,6 +19,7 @@ extends Node3D
 const VISUAL_SCENE_FILE := "visual-scene.json"
 const MATERIAL_BINDINGS_FILE := "material-binding-manifest.json"
 const TEXTURE_REPORT_FILE := "xzml-report.json"
+const EFFECTIVE_MATERIAL_REPORT_FILE := "xzmi-report.json"
 const COMPLETE_TEXTURE_REPORT_FILE := "complete-xztx-report.json"
 const LIGHT_REPORT_FILE := "xzen-report.json"
 const SKELETAL_BINDINGS_FILE := "skeletal-runtime-bindings.json"
@@ -40,6 +41,7 @@ var _texture_cache: Dictionary = {}
 var _material_records: Dictionary = {}
 var _texture_runtime_files: Dictionary = {}
 var _source_srgb_texture_paths: Array[String] = []
+var _source_effective_material_paths: Dictionary = {}
 var _source_material_alias_diffuse: Dictionary = {}
 var _source_material_alias_conflicts: Dictionary = {}
 var _source_material_resolved_alias_diffuse: Dictionary = {}
@@ -47,6 +49,8 @@ var _source_material_alias_hits: int = 0
 var _source_material_exact_token_hits: int = 0
 var _source_material_textured_count: int = 0
 var _source_material_flat_fallback_count: int = 0
+var _source_effective_material_textured_count: int = 0
+var _source_effective_material_flat_fallback_count: int = 0
 var _mesh_material_paths: Dictionary = {}
 var _instance_overrides: Dictionary = {}
 var _runtime_root: Node3D
@@ -165,6 +169,9 @@ func _load_benchmark_world() -> void:
 	set_meta("xziel_benchmark_material_exact_token_hits", _source_material_exact_token_hits)
 	set_meta("xziel_benchmark_material_textured_count", _source_material_textured_count)
 	set_meta("xziel_benchmark_material_flat_fallback_count", _source_material_flat_fallback_count)
+	set_meta("xziel_benchmark_effective_material_count", _source_effective_material_paths.size())
+	set_meta("xziel_benchmark_effective_material_textured_count", _source_effective_material_textured_count)
+	set_meta("xziel_benchmark_effective_material_flat_fallback_count", _source_effective_material_flat_fallback_count)
 	print(
 		"XZOGOT_XZIEL_BENCHMARK_WORLD ",
 		"meshes=", meshes.size(),
@@ -184,7 +191,10 @@ func _load_benchmark_world() -> void:
 		" exact_token_hits=", _source_material_exact_token_hits,
 		" alias_conflicts=", _source_material_alias_conflicts.size(),
 		" textured_materials=", _source_material_textured_count,
-		" flat_fallbacks=", _source_material_flat_fallback_count
+		" flat_fallbacks=", _source_material_flat_fallback_count,
+		" effective_materials=", _source_effective_material_paths.size(),
+		" effective_textured=", _source_effective_material_textured_count,
+		" effective_flat_fallbacks=", _source_effective_material_flat_fallback_count
 	)
 
 func _build_source_skeletal_actors() -> void:
@@ -267,6 +277,7 @@ func _prepare_material_authority() -> void:
 	_material_records.clear()
 	_texture_runtime_files.clear()
 	_source_srgb_texture_paths.clear()
+	_source_effective_material_paths.clear()
 	_source_material_alias_diffuse.clear()
 	_source_material_alias_conflicts.clear()
 	_source_material_resolved_alias_diffuse.clear()
@@ -274,6 +285,8 @@ func _prepare_material_authority() -> void:
 	_source_material_exact_token_hits = 0
 	_source_material_textured_count = 0
 	_source_material_flat_fallback_count = 0
+	_source_effective_material_textured_count = 0
+	_source_effective_material_flat_fallback_count = 0
 	_mesh_material_paths.clear()
 	_instance_overrides.clear()
 
@@ -282,12 +295,19 @@ func _prepare_material_authority() -> void:
 
 	var bindings := _read_json(_source_path(MATERIAL_BINDINGS_FILE))
 	var texture_report := _read_json(_source_path(TEXTURE_REPORT_FILE))
+	var effective_material_report := _read_json(_source_path(EFFECTIVE_MATERIAL_REPORT_FILE))
 	var complete_texture_report := _read_json(_source_path(COMPLETE_TEXTURE_REPORT_FILE))
 
 	for raw: Variant in bindings.get("materials", []):
 		if raw is Dictionary:
 			var record := raw as Dictionary
 			_material_records[str(record.get("materialPath", ""))] = record
+
+	for material_path_raw: Variant in effective_material_report.get("materialPaths", []):
+		var effective_path := str(material_path_raw)
+		if not effective_path.is_empty():
+			_source_effective_material_paths[effective_path] = true
+	set_meta("xziel_benchmark_effective_material_authority_count", _source_effective_material_paths.size())
 
 	var texture_reports: Array[Dictionary] = [texture_report]
 	if not complete_texture_report.is_empty():
@@ -606,11 +626,15 @@ func _material_for_path(material_path: String) -> Material:
 	var emissive := _texture_for_source(emissive_source)
 	if diffuse != null:
 		_source_material_textured_count += 1
+		if _source_effective_material_paths.has(material_path):
+			_source_effective_material_textured_count += 1
 		material.albedo_texture = diffuse
 		if str(canonical.get("diffuse", "")).is_empty():
 			material.set_meta("source_noncanonical_diffuse_path", diffuse_source)
 	else:
 		_source_material_flat_fallback_count += 1
+		if _source_effective_material_paths.has(material_path):
+			_source_effective_material_flat_fallback_count += 1
 		var colors: Array = record.get("colors", [])
 		if not colors.is_empty() and colors[0] is Dictionary:
 			var color_row := colors[0] as Dictionary
