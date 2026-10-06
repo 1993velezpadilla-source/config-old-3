@@ -102,7 +102,9 @@ var rows = new List<object>();
 var failures = new List<object>();
 var unresolved = new List<object>();
 var packagesLoaded = 0;
+var allSkeletalComponents = 0;
 var skeletalComponents = 0;
+var embeddedSkeletalComponents = new List<object>();
 var worldCache = new Dictionary<string, FTransform>(StringComparer.Ordinal);
 var visiting = new HashSet<string>(StringComparer.Ordinal);
 
@@ -139,9 +141,38 @@ foreach (var logicalPackage in mapPackages)
 
         foreach (var component in components)
         {
-            skeletalComponents++;
+            allSkeletalComponents++;
             try
             {
+                var actor = FindOwningActor(component);
+                if (actor is null)
+                {
+                    unresolved.Add(new {
+                        packagePath = logicalPackage,
+                        componentPath = component.GetPathName(),
+                        reason = "owning actor unresolved"
+                    });
+                    continue;
+                }
+
+                if (!string.Equals(
+                        actor.ExportType,
+                        "SkeletalMeshActor",
+                        StringComparison.Ordinal))
+                {
+                    embeddedSkeletalComponents.Add(new {
+                        packagePath = logicalPackage,
+                        actorObjectPath = actor.GetPathName(),
+                        actorName = actor.Name,
+                        actorClassName = actor.ExportType,
+                        componentObjectPath = component.GetPathName(),
+                        disposition = "embedded_skeletal_component_preserved_for_actor_adapter"
+                    });
+                    continue;
+                }
+
+                skeletalComponents++;
+
                 var meshReference =
                     TryPackageIndex(component, "SkeletalMesh") ??
                     TryPackageIndex(component, "SkeletalMeshAsset");
@@ -175,18 +206,6 @@ foreach (var logicalPackage in mapPackages)
                         componentPath = component.GetPathName(),
                         sourceMeshObjectPath = meshPath,
                         reason = "loaded SkeletalMesh missing from XZSK report"
-                    });
-                    continue;
-                }
-
-                var actor = FindOwningActor(component);
-                if (actor is null)
-                {
-                    unresolved.Add(new {
-                        packagePath = logicalPackage,
-                        componentPath = component.GetPathName(),
-                        sourceMeshObjectPath = meshPath,
-                        reason = "owning actor unresolved"
                     });
                     continue;
                 }
@@ -247,8 +266,10 @@ var ready =
     packagesLoaded == mapPackages.Length &&
     failures.Count == 0 &&
     unresolved.Count == 0 &&
-    skeletalComponents == 3 &&
-    ordered.Length == 3 &&
+    allSkeletalComponents == 3 &&
+    skeletalComponents == 2 &&
+    embeddedSkeletalComponents.Count == 1 &&
+    ordered.Length == 2 &&
     ordered
         .Select(row => JsonSerializer.Serialize(row))
         .Distinct(StringComparer.Ordinal)
@@ -260,7 +281,10 @@ var output = new {
     mapPackageCount = mapPackages.Length,
     packagesLoaded,
     sourceRecoveredSkeletalMeshCount = nativeMeshes.Count,
+    allSkeletalComponentCount = allSkeletalComponents,
     skeletalComponentCount = skeletalComponents,
+    embeddedSkeletalComponentCount = embeddedSkeletalComponents.Count,
+    embeddedSkeletalComponents,
     resolvedActorCount = ordered.Length,
     unresolvedCount = unresolved.Count,
     failureCount = failures.Count,
@@ -288,7 +312,9 @@ Console.WriteLine(
     "XZOGOT_UE_SKELETAL_SCENE_EXTRACT " +
     JsonSerializer.Serialize(new {
         packagesLoaded,
+        allSkeletalComponents,
         skeletalComponents,
+        embeddedSkeletalComponents = embeddedSkeletalComponents.Count,
         resolved = ordered.Length,
         unresolved = unresolved.Count,
         failures = failures.Count,
