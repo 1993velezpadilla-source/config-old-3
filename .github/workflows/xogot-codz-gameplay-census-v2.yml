@@ -1,0 +1,83 @@
+name: CoDz Gameplay Census V2
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-codz-gameplay-census-v2.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      SOURCE_RUN_ID: "37470563200"
+      SOURCE_ARTIFACT: "xogot-codz-parity-wonder-weapon-census"
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Reuse full modkit inventory
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p source build/gameplay-census-v2
+          gh run download "$SOURCE_RUN_ID" -n "$SOURCE_ARTIFACT" -D source
+          SRC="$(find source -type f -name all-paths.txt -print -quit)"
+          test -n "$SRC"
+          cp "$SRC" build/gameplay-census-v2/all-paths.txt
+          echo "XZOGOT_GAMEPLAY_V2_PATHS $(wc -l < build/gameplay-census-v2/all-paths.txt)"
+
+      - name: Build gameplay census
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re
+          paths=[x.strip().replace("\\","/") for x in Path("build/gameplay-census-v2/all-paths.txt").read_text(errors="ignore").splitlines() if x.strip()]
+          groups={
+            "pack_a_punch":[r"killerjimspap",r"pack.?a.?punch",r"packapunch",r"/pap/",r"_pap",r"pap_"],
+            "perks":[r"/bps/perks/",r"perkmachine",r"perkbottle",r"perk_core",r"perk_list",r"wunderfizz"],
+            "gobblegum":[
+              r"gobble",r"gumball",r"gobble.?gum",r"gum.?machine",r"bubble.?gum",
+              r"perkaholic",r"alchemical",r"anywhere.?but.?here",r"arsenal.?acceler",
+              r"cache.?back",r"cash.?back",r"danger.?closest",r"disorderly.?combat",
+              r"ephemeral",r"extra.?credit",r"idle.?eyes",r"immolation",
+              r"in.?plain.?sight",r"kill.?joy",r"lucky.?crit",r"on.?the.?house",
+              r"phoenix.?up",r"power.?vacuum",r"reign.?drops",r"shopping.?free",
+              r"stock.?option",r"temporal.?gift",r"wall.?power"
+            ],
+            "player":[r"bp_cod[z]?_playerproxy",r"perk_core",r"proxiesandgamelogics"],
+            "weapons":[r"/bps/customitems/guns/",r"gun_base",r"customgunbase",r"weaponid"],
+            "interactions":[r"interact",r"drink",r"bottle",r"machine",r"lever",r"button",r"activate"]
+          }
+          out={"schema":1,"total_paths":len(paths),"groups":{}}
+          for name,patterns in groups.items():
+              rx=[re.compile(p,re.I) for p in patterns]
+              hits=sorted({p for p in paths if any(r.search(p) for r in rx)},key=str.lower)
+              out["groups"][name]={"count":len(hits),"paths":hits}
+              print("XZOGOT_GAMEPLAY_V2_GROUP",name,"count=",len(hits))
+              for p in hits[:100]:
+                  print(" ",p)
+          Path("build/gameplay-census-v2/census.json").write_text(json.dumps(out,indent=2)+"\n")
+          if out["groups"]["pack_a_punch"]["count"] == 0:
+              raise SystemExit("Pack-a-Punch source missing")
+          if out["groups"]["perks"]["count"] == 0:
+              raise SystemExit("Perk source missing")
+          print("XZOGOT_GAMEPLAY_V2_GREEN")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xogot-codz-gameplay-census-v2
+          path: build/gameplay-census-v2/census.json
+          if-no-files-found: error
+          retention-days: 30
