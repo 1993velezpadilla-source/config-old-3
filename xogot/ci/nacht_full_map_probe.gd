@@ -210,6 +210,36 @@ func _run() -> void:
 	var particle_pap_wheel_size_life_table_values := int(
 		scene.get_meta("source_particle_pap_wheel_size_life_table_value_count", -1)
 	)
+	var particle_mystery_fog_lifetime_min := float(
+		scene.get_meta("source_particle_mystery_fog_lifetime_min", -1.0)
+	)
+	var particle_mystery_fog_lifetime_max := float(
+		scene.get_meta("source_particle_mystery_fog_lifetime_max", -1.0)
+	)
+	var particle_mystery_fog_location_min := scene.get_meta(
+		"source_particle_mystery_fog_location_min_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_mystery_fog_location_max := scene.get_meta(
+		"source_particle_mystery_fog_location_max_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_mystery_fog_size_min := scene.get_meta(
+		"source_particle_mystery_fog_start_size_min_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_mystery_fog_size_max := scene.get_meta(
+		"source_particle_mystery_fog_start_size_max_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_mystery_fog_spawn_rate := float(
+		scene.get_meta("source_particle_mystery_fog_spawn_rate", -1.0)
+	)
+	var particle_mystery_fog_subuv_fps := float(
+		scene.get_meta("source_particle_mystery_fog_subuv_frame_rate", -1.0)
+	)
+	var particle_mystery_fog_alpha_values := int(
+		scene.get_meta("source_particle_mystery_fog_alpha_table_value_count", -1)
+	)
+	var particle_mystery_fog_peak := int(
+		scene.get_meta("source_particle_mystery_fog_peak_active", -1)
+	)
 	var source_particles := int(scene.get_meta("source_particle_component_count", -1))
 	var particle_authority := int(scene.get_meta("runtime_particle_authority_count", -1))
 	var source_particle_systems := int(scene.get_meta("source_particle_system_count", -1))
@@ -322,14 +352,14 @@ func _run() -> void:
 		if not particle_semantic_ready:
 			_fail(34, "source-complete Cascade semantic runtime is not ready")
 			return
-		if particle_semantic_systems != 5 or particle_semantic_placements != 10:
+		if particle_semantic_systems != 6 or particle_semantic_placements != 13:
 			_fail(
 				34,
 				"Cascade semantic runtime coverage mismatch systems=%d placements=%d"
 				% [particle_semantic_systems, particle_semantic_placements]
 			)
 			return
-		if get_nodes_in_group("nacht_source_particle_semantic").size() != 10:
+		if get_nodes_in_group("nacht_source_particle_semantic").size() != 13:
 			_fail(34, "Cascade semantic placement group mismatch")
 			return
 		if (
@@ -451,6 +481,35 @@ func _run() -> void:
 					particle_pap_wheel_velocity_life_min,
 					particle_pap_wheel_velocity_life_time_scale,
 					particle_pap_wheel_size_life_table_values,
+				]
+			)
+			return
+		if (
+			not is_equal_approx(particle_mystery_fog_lifetime_min, 3.0)
+			or not is_equal_approx(particle_mystery_fog_lifetime_max, 5.0)
+			or not particle_mystery_fog_location_min.is_equal_approx(Vector3(-95.0, -10.0, -5.0))
+			or not particle_mystery_fog_location_max.is_equal_approx(Vector3(95.0, 10.0, 5.0))
+			or not particle_mystery_fog_size_min.is_equal_approx(Vector3(3.0, 3.0, 3.0))
+			or not particle_mystery_fog_size_max.is_equal_approx(Vector3(5.0, 5.0, 5.0))
+			or not is_equal_approx(particle_mystery_fog_spawn_rate, 4.0)
+			or not is_equal_approx(particle_mystery_fog_subuv_fps, 16.0)
+			or particle_mystery_fog_alpha_values != 128
+			or particle_mystery_fog_peak != 22
+		):
+			_fail(
+				34,
+				"mystery box fog Cascade values mismatch lifetime=%s..%s location=%s..%s size=%s..%s rate=%s subuv_fps=%s alpha=%d peak=%d"
+				% [
+					particle_mystery_fog_lifetime_min,
+					particle_mystery_fog_lifetime_max,
+					particle_mystery_fog_location_min,
+					particle_mystery_fog_location_max,
+					particle_mystery_fog_size_min,
+					particle_mystery_fog_size_max,
+					particle_mystery_fog_spawn_rate,
+					particle_mystery_fog_subuv_fps,
+					particle_mystery_fog_alpha_values,
+					particle_mystery_fog_peak,
 				]
 			)
 			return
@@ -668,6 +727,8 @@ func _run() -> void:
 		" bonefire3_subuv_fps=", particle_bonefire3_subuv_fps,
 		" pap_wheel_rate=", particle_pap_wheel_spawn_rate,
 		" pap_wheel_burst=", particle_pap_wheel_burst_count,
+		" mystery_fog_rate=", particle_mystery_fog_spawn_rate,
+		" mystery_fog_subuv_fps=", particle_mystery_fog_subuv_fps,
 		" particles_authority=", particle_authority,
 		" particle_graphs_authority=", particle_graph_authority,
 		" environment_authority=", environment_authority,
