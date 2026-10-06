@@ -54,6 +54,8 @@ func _capture() -> void:
 	var instance_count := int(loader.get_meta("xziel_benchmark_instance_count", -1))
 	var missing_meshes := int(loader.get_meta("xziel_benchmark_missing_meshes", -1))
 	var light_count := int(loader.get_meta("xziel_benchmark_light_count", -1))
+	var native_glb_count := int(loader.get_meta("xziel_benchmark_native_glb_mesh_count", -1))
+	var xzms_fallback_count := int(loader.get_meta("xziel_benchmark_xzms_fallback_mesh_count", -1))
 	if mesh_count != EXPECTED_MESHES:
 		push_error("NUKETOWN_CAPTURE: mesh count mismatch " + str(mesh_count))
 		quit(5)
@@ -70,13 +72,24 @@ func _capture() -> void:
 		push_error("NUKETOWN_CAPTURE: light count mismatch " + str(light_count))
 		quit(8)
 		return
+	if native_glb_count != EXPECTED_MESHES or xzms_fallback_count != 0:
+		push_error(
+			"NUKETOWN_CAPTURE: native GLB authority mismatch native="
+			+ str(native_glb_count)
+			+ " fallback="
+			+ str(xzms_fallback_count)
+		)
+		quit(14)
+		return
 
 	print(
 		"XZOGOT_NUKETOWN_WORLD_RUNTIME_GREEN ",
 		"meshes=", mesh_count,
 		" instances=", instance_count,
 		" lights=", light_count,
-		" missing=", missing_meshes
+		" missing=", missing_meshes,
+		" native_glb=", native_glb_count,
+		" xzms_fallback=", xzms_fallback_count
 	)
 
 	var camera := Camera3D.new()
