@@ -56,6 +56,8 @@ jobs:
           for name in wallbuy wallbuy_2 wallbuy_3; do
             test -s "source-unpacked/Pavlov/Plugins/UGC5097941/Content/pulse/${name}.uasset"
           done
+          test -s source-unpacked/Pavlov/Plugins/UGC5097941/Content/box/NewBlueprint1_2.uasset
+          test -s source-unpacked/Pavlov/Plugins/UGC5097941/Content/admin/BuyWheelBox_2.uasset
 
       - name: Pin Pavlov UE5 mappings
         shell: bash
@@ -91,6 +93,8 @@ jobs:
             source-unpacked/Pavlov/Plugins/UGC5097941/Content/pulse/wallbuy.uasset \
             source-unpacked/Pavlov/Plugins/UGC5097941/Content/pulse/wallbuy_2.uasset \
             source-unpacked/Pavlov/Plugins/UGC5097941/Content/pulse/wallbuy_3.uasset \
+            source-unpacked/Pavlov/Plugins/UGC5097941/Content/box/NewBlueprint1_2.uasset \
+            source-unpacked/Pavlov/Plugins/UGC5097941/Content/admin/BuyWheelBox_2.uasset \
             | tee build/nuketown-wallbuy-bytecode/extract.log
 
           grep -q "XZOGOT_NUKETOWN_WALLBUY_BYTECODE_GREEN" \
