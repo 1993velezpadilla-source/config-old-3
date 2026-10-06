@@ -37,6 +37,9 @@ var _texture_cache: Dictionary = {}
 var _material_records: Dictionary = {}
 var _texture_runtime_files: Dictionary = {}
 var _source_srgb_texture_paths: Array[String] = []
+var _source_material_alias_diffuse: Dictionary = {}
+var _source_material_alias_conflicts: Dictionary = {}
+var _source_material_alias_hits: int = 0
 var _mesh_material_paths: Dictionary = {}
 var _instance_overrides: Dictionary = {}
 var _runtime_root: Node3D
@@ -136,6 +139,9 @@ func _load_benchmark_world() -> void:
 	set_meta("xziel_benchmark_native_glb_mesh_count", _native_glb_mesh_count)
 	set_meta("xziel_benchmark_native_glb_chunk_count", _native_glb_chunk_count)
 	set_meta("xziel_benchmark_xzms_fallback_mesh_count", _xzms_fallback_mesh_count)
+	set_meta("xziel_benchmark_material_alias_count", _source_material_alias_diffuse.size())
+	set_meta("xziel_benchmark_material_alias_conflict_count", _source_material_alias_conflicts.size())
+	set_meta("xziel_benchmark_material_alias_hits", _source_material_alias_hits)
 	print(
 		"XZOGOT_XZIEL_BENCHMARK_WORLD ",
 		"meshes=", meshes.size(),
@@ -146,7 +152,10 @@ func _load_benchmark_world() -> void:
 		" native_chunks=", _native_glb_chunk_count,
 		" xzms_fallback=", _xzms_fallback_mesh_count,
 		" materials=", _material_cache.size(),
-		" textures=", _texture_cache.size()
+		" textures=", _texture_cache.size(),
+		" aliases=", _source_material_alias_diffuse.size(),
+		" alias_hits=", _source_material_alias_hits,
+		" alias_conflicts=", _source_material_alias_conflicts.size()
 	)
 
 func _source_path(relative: String) -> String:
@@ -165,6 +174,9 @@ func _prepare_material_authority() -> void:
 	_material_records.clear()
 	_texture_runtime_files.clear()
 	_source_srgb_texture_paths.clear()
+	_source_material_alias_diffuse.clear()
+	_source_material_alias_conflicts.clear()
+	_source_material_alias_hits = 0
 	_mesh_material_paths.clear()
 	_instance_overrides.clear()
 
@@ -188,6 +200,8 @@ func _prepare_material_authority() -> void:
 			)
 			if bool(texture_row.get("srgb", false)) and not source_path.is_empty():
 				_source_srgb_texture_paths.append(source_path)
+
+	_build_source_material_aliases()
 
 	for raw: Variant in bindings.get("meshes", []):
 		if not (raw is Dictionary):
@@ -557,29 +571,165 @@ func _source_texture_likely_color(source_path: String) -> bool:
 		return false
 	return true
 
+func _is_hex_token(value: String) -> bool:
+	if value.is_empty():
+		return false
+	for i in range(value.length()):
+		var c := value.substr(i, 1).to_lower()
+		if "0123456789abcdef".find(c) < 0:
+			return false
+	return true
+
+func _trim_source_hash(token: String) -> String:
+	var parts := token.split("_", false)
+	if parts.size() > 1:
+		var tail := str(parts[parts.size() - 1])
+		if tail.length() == 8 and _is_hex_token(tail):
+			parts.remove_at(parts.size() - 1)
+			return "_".join(parts)
+	return token
+
+func _strip_source_suffix(token: String) -> String:
+	var result := token
+	var suffixes: Array[String] = [
+		"_c_rgb_r",
+		"_c_rgb",
+		"_c_rgba",
+		"_c_rga",
+		"_c_rg",
+		"_c_r",
+		"_col",
+		"_dec_col",
+		"_c",
+		"_d",
+		"_mat",
+	]
+	for suffix: String in suffixes:
+		if result.ends_with(suffix):
+			result = result.trim_suffix(suffix)
+			break
+	return result
+
+func _source_semantic_base(value: String) -> String:
+	var token := _trim_source_hash(_source_name_token(value))
+	token = _strip_source_suffix(token)
+	var generated_prefixes: Array[String] = [
+		"gzm_", "gjun_", "gpent_", "grus_", "gus_", "gcub_",
+		"gberlin_", "gafr_", "ghavana_", "gpb_", "geb_", "gny_",
+		"gt6_", "gconcrete_", "gdecal_", "gstone_", "gglobal_",
+	]
+	for prefix: String in generated_prefixes:
+		if token.begins_with(prefix):
+			token = token.trim_prefix("g")
+			break
+	token = token.replace("zm_nuked_", "zm_")
+	token = token.replace("vinylsidings", "vinylsiding")
+	var modifiers: Array[String] = [
+		"_lambert_blend",
+		"_lambert",
+		"_blend",
+		"_glossy",
+	]
+	for modifier: String in modifiers:
+		if token.ends_with(modifier):
+			token = token.trim_suffix(modifier)
+			break
+	return token.trim_prefix("_").trim_suffix("_")
+
+func _source_semantic_keys(value: String) -> Array[String]:
+	var base := _source_semantic_base(value)
+	var keys: Array[String] = []
+	if base.length() >= 4:
+		keys.append(base)
+	var contextual_prefixes: Array[String] = [
+		"zm_",
+		"jun_art_", "jun_ter_", "jun_dec_",
+		"pent_art_",
+		"rus_art_", "rus_metal_",
+		"us_art_",
+		"cub_art_", "cub_ter_",
+		"berlin_",
+		"mp_b_art_",
+		"mtl_p_glo_",
+		"ch_",
+	]
+	for prefix: String in contextual_prefixes:
+		if base.begins_with(prefix):
+			var stripped := base.trim_prefix(prefix)
+			if stripped.length() >= 4 and not keys.has(stripped):
+				keys.append(stripped)
+	return keys
+
+func _register_source_material_alias(key: String, diffuse_source: String) -> void:
+	if key.is_empty() or diffuse_source.is_empty():
+		return
+	if _source_material_alias_conflicts.has(key):
+		return
+	if not _source_material_alias_diffuse.has(key):
+		_source_material_alias_diffuse[key] = diffuse_source
+		return
+	if str(_source_material_alias_diffuse[key]) != diffuse_source:
+		_source_material_alias_diffuse.erase(key)
+		_source_material_alias_conflicts[key] = true
+
+func _build_source_material_aliases() -> void:
+	for material_path_var: Variant in _material_records.keys():
+		var material_path := str(material_path_var)
+		if not material_path.to_lower().contains("/text/"):
+			continue
+		var record: Dictionary = _material_records[material_path]
+		var canonical: Dictionary = record.get("canonicalTextures", {})
+		var diffuse_source := str(canonical.get("diffuse", ""))
+		if diffuse_source.is_empty():
+			diffuse_source = _unique_source_srgb_texture(record)
+		if diffuse_source.is_empty() or not _source_texture_likely_color(diffuse_source):
+			continue
+		for key: String in _source_semantic_keys(material_path):
+			_register_source_material_alias(key, diffuse_source)
+		for key: String in _source_semantic_keys(diffuse_source):
+			_register_source_material_alias(key, diffuse_source)
+	print(
+		"XZOGOT_NUKETOWN_MATERIAL_ALIASES aliases=",
+		_source_material_alias_diffuse.size(),
+		" conflicts=", _source_material_alias_conflicts.size()
+	)
+
 func _source_named_composite_diffuse(material_path: String) -> String:
-	# Nuketown contains hundreds of cooked "nt/" composite materials whose
-	# source graph was flattened into a generated material name. The original
-	# layer names survive exactly in that name (split by "__"). Resolve only
-	# when one layer token maps to exactly one source sRGB texture path.
-	# This is deterministic source recovery, never fuzzy nearest-name matching.
+	# Generated Nuketown composites encode the base material first and optional
+	# overlays after "__". Albedo authority must come only from the first/base
+	# layer: later layers are decals, burn/rubble blends, trim or masks and must
+	# never repaint the whole surface.
 	if not material_path.contains("/nt/"):
 		return ""
 	var material_name := material_path.get_file().get_basename()
 	var layers := material_name.split("__", false)
-	for layer_raw: String in layers:
-		var layer := _source_name_token(layer_raw)
-		if layer.length() < 5:
+	if layers.is_empty():
+		return ""
+	var base_layer := str(layers[0])
+
+	# First use aliases recovered from source /text/ materials that still retain
+	# a unique sRGB albedo binding. Ambiguous aliases are discarded at build.
+	for key: String in _source_semantic_keys(base_layer):
+		if _source_material_alias_diffuse.has(key):
+			var alias_source := str(_source_material_alias_diffuse[key])
+			if not alias_source.is_empty():
+				_source_material_alias_hits += 1
+				return alias_source
+
+	# Preserve the older exact-token path as a second, conservative authority,
+	# but restrict it to the base layer as well.
+	var layer := _source_name_token(base_layer)
+	if layer.length() < 5:
+		return ""
+	var matches: Array[String] = []
+	for source_path: String in _source_srgb_texture_paths:
+		if not _source_texture_likely_color(source_path):
 			continue
-		var matches: Array[String] = []
-		for source_path: String in _source_srgb_texture_paths:
-			if not _source_texture_likely_color(source_path):
-				continue
-			var source_name := _source_name_token(source_path)
-			if source_name.contains(layer):
-				matches.append(source_path)
-		if matches.size() == 1:
-			return matches[0]
+		var source_name := _source_name_token(source_path)
+		if source_name.contains(layer):
+			matches.append(source_path)
+	if matches.size() == 1:
+		return matches[0]
 	return ""
 
 func _unique_source_srgb_texture(record: Dictionary) -> String:
