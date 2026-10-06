@@ -2,6 +2,11 @@ name: Stage Nuketown Source World Benchmark
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-stage-nuketown-benchmark.yml"
   workflow_run:
     workflows:
       - "Xogot Nuketown Full Source Authority"
