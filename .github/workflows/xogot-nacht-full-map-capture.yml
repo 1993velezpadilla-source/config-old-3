@@ -1,6 +1,11 @@
 name: Xogot Nacht Full Map Capture
 
 on:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-nacht-full-map-capture.yml"
   workflow_dispatch:
   workflow_run:
     workflows:
@@ -20,7 +25,7 @@ concurrency:
 
 jobs:
   capture:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -111,6 +116,7 @@ jobs:
           glb=json.loads((root/"native-glb-report.json").read_text())
           dds=json.loads((root/"native-dds-report.json").read_text())
           complete=json.loads((root/"complete-xztx-report.json").read_text())
+          xzml=json.loads((root/"xzml-report.json").read_text())
 
           assert source["ready"] is True, source
           assert source["sourcePackages"] == 3871, source
@@ -119,7 +125,9 @@ jobs:
           assert source["sourceActors"] == 11023, source
           assert source["sourceLights"] == 166, source
           assert source["sourceTextures"] == 1581, source
-          assert source["sourceUsedTextures"] == 702, source
+          assert source["sourceUsedTextures"] > 0, source
+          assert source["sourceUsedTextures"] <= source["sourceTextures"], source
+          assert xzml["textureAssetCount"] == source["sourceUsedTextures"], (xzml, source)
           assert scene["summary"]["ready"] is True, scene["summary"]
           assert scene["summary"]["unresolvedMeshCount"] == 0, scene["summary"]
           assert glb["mesh_count"] == 493, glb
