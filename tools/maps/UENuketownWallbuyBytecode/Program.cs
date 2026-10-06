@@ -98,12 +98,12 @@ foreach (var assetPath in assetPaths)
                                 }
                             }
 
-                            foreach (var member in InterestingMembers(expression))
+                            foreach (var member in InterestingMembers(expression, asset))
                             {
                                 row[member.Key] = member.Value;
                             }
 
-                            var callName = CallName(expression);
+                            var callName = CallName(expression, asset);
                             if (!string.IsNullOrWhiteSpace(callName))
                             {
                                 calls.Add(new JObject
@@ -162,11 +162,31 @@ foreach (var assetPath in assetPaths)
             });
         }
 
+        var imports = new JArray();
+        for (var importIndex = 0; importIndex < asset.Imports.Count; importIndex++)
+        {
+            var import = asset.Imports[importIndex];
+            var rawIndex = -(importIndex + 1);
+            imports.Add(new JObject
+            {
+                ["rawIndex"] = rawIndex,
+                ["objectName"] = import.ObjectName.ToString(),
+                ["className"] = import.ClassName.ToString(),
+                ["classPackage"] = import.ClassPackage.ToString(),
+                ["outerIndex"] = import.OuterIndex.Index,
+                ["resolved"] = ResolveIndex(
+                    FPackageIndex.FromRawIndex(rawIndex),
+                    asset)
+            });
+        }
+
         packageRows.Add(new JObject
         {
             ["assetPath"] = assetPath,
             ["fileName"] = Path.GetFileName(assetPath),
             ["exportCount"] = asset.Exports.Count,
+            ["importCount"] = asset.Imports.Count,
+            ["imports"] = imports,
             ["functionCount"] = functionRows.Count,
             ["functions"] = functionRows
         });
@@ -245,7 +265,8 @@ static string ValueText(object value)
 }
 
 static IEnumerable<KeyValuePair<string, JToken>> InterestingMembers(
-    KismetExpression expression)
+    KismetExpression expression,
+    UAsset asset)
 {
     var names = new HashSet<string>(
         new[]
@@ -279,7 +300,7 @@ static IEnumerable<KeyValuePair<string, JToken>> InterestingMembers(
 
         yield return new KeyValuePair<string, JToken>(
             field.Name,
-            ValueText(value));
+            ResolveValue(value, asset));
     }
 
     foreach (var prop in expression.GetType().GetProperties(
@@ -299,11 +320,57 @@ static IEnumerable<KeyValuePair<string, JToken>> InterestingMembers(
 
         yield return new KeyValuePair<string, JToken>(
             prop.Name,
-            ValueText(value));
+            ResolveValue(value, asset));
     }
 }
 
-static string CallName(KismetExpression expression)
+static string ResolveIndex(FPackageIndex index, UAsset asset)
+{
+    if (index.IsNull())
+        return "null";
+
+    try
+    {
+        if (index.IsExport())
+        {
+            var export = index.ToExport(asset);
+            return $"export:{index.Index}:{export.ObjectName}";
+        }
+
+        if (index.IsImport())
+        {
+            var parts = new List<string>();
+            var current = index;
+            var guard = 0;
+
+            while (current.IsImport() && guard++ < 32)
+            {
+                var import = current.ToImport(asset);
+                parts.Add(import.ObjectName.ToString());
+                current = import.OuterIndex;
+            }
+
+            parts.Reverse();
+            return $"import:{index.Index}:" + string.Join(".", parts);
+        }
+    }
+    catch (Exception e)
+    {
+        return $"index:{index.Index}:resolve_error:{e.GetType().Name}";
+    }
+
+    return $"index:{index.Index}";
+}
+
+static JToken ResolveValue(object value, UAsset asset)
+{
+    if (value is FPackageIndex index)
+        return ResolveIndex(index, asset);
+
+    return ValueText(value);
+}
+
+static string CallName(KismetExpression expression, UAsset asset)
 {
     var type = expression.GetType();
     foreach (var name in new[]
@@ -320,7 +387,7 @@ static string CallName(KismetExpression expression)
         {
             var value = field.GetValue(expression);
             if (value is not null)
-                return ValueText(value);
+                return ResolveValue(value, asset).ToString();
         }
 
         var prop = type.GetProperty(
