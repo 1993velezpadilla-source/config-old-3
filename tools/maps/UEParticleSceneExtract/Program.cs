@@ -1,6 +1,5 @@
 using CUE4Parse.FileProvider;
 using CUE4Parse.MappingsProvider.Usmap;
-using CUE4Parse.UE4.Assets.Exports;
 using CUE4Parse.UE4.Assets.Exports.Component;
 using CUE4Parse.UE4.Objects.UObject;
 using CUE4Parse.UE4.Versions;
@@ -19,9 +18,6 @@ var mappingsPath = args[1];
 var censusPath = args[2];
 var outputPath = args[3];
 var sourceGameName = args[4];
-
-// Blueprint particle components can inherit Template and flags from cooked archetypes.
-PropertyUtil.SearchPropertyInTemplate = true;
 
 EGame sourceGame =
     sourceGameName.Trim().ToLowerInvariant() switch
