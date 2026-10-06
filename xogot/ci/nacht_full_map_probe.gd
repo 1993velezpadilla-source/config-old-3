@@ -50,6 +50,7 @@ func _run() -> void:
 	var source_cues := int(scene.get_meta("source_sound_cue_count", -1))
 	var cue_authority := int(scene.get_meta("runtime_sound_cue_authority_count", -1))
 	var source_audio_runtime := bool(scene.get_meta("source_audio_runtime_ready", false))
+	var source_audio_stream_mount := bool(scene.get_meta("source_audio_stream_mount_ready", false))
 	var source_audio_players := int(scene.get_meta("source_audio_runtime_player_count", -1))
 	var source_audio_streams := int(scene.get_meta("source_audio_runtime_stream_count", -1))
 
@@ -101,11 +102,11 @@ func _run() -> void:
 	if source_cues != 102 or cue_authority != source_cues:
 		_fail(20, "SoundCue authority coverage mismatch %d/%d expected=102" % [cue_authority, source_cues])
 		return
-	if not source_audio_runtime or source_audio_players != 3 or source_audio_streams != 3:
+	if not source_audio_stream_mount or source_audio_players != 3 or source_audio_streams != 3:
 		_fail(
 			22,
-			"source audio runtime mismatch ready=%s players=%d streams=%d"
-			% [str(source_audio_runtime), source_audio_players, source_audio_streams]
+			"source audio stream mount mismatch ready=%s players=%d streams=%d"
+			% [str(source_audio_stream_mount), source_audio_players, source_audio_streams]
 		)
 		return
 
@@ -135,6 +136,7 @@ func _run() -> void:
 		" audio_authority=", audio_authority,
 		" cues_authority=", cue_authority,
 		" particles_rendered=", bool(scene.get_meta("particle_visual_runtime_ready", false)),
+		" source_audio_stream_mount=", source_audio_stream_mount,
 		" source_audio_runtime=", source_audio_runtime,
 		" source_audio_players=", source_audio_players,
 		" source_audio_streams=", source_audio_streams,
