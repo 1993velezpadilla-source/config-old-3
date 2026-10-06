@@ -137,6 +137,10 @@ func _boot() -> void:
 	set_meta("runtime_sound_cue_index_count", _audio_cue_by_path.size())
 	set_meta("source_audio_runtime_player_count", _source_audio_player_count)
 	set_meta("source_audio_runtime_stream_count", _source_audio_stream_count)
+	set_meta(
+		"source_audio_stream_mount_ready",
+		_source_audio_player_count == 3 and _source_audio_stream_count == 3
+	)
 	# These flags intentionally distinguish parsed source authority from visual /
 	# audible runtime reproduction. They must only flip when those systems are
 	# actually mounted, never merely because the JSON exists.
