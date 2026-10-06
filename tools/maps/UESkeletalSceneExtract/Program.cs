@@ -178,13 +178,22 @@ foreach (var logicalPackage in mapPackages)
 
                 var meshReference =
                     TryPackageIndex(component, "SkeletalMesh") ??
-                    TryPackageIndex(component, "SkeletalMeshAsset");
+                    TryPackageIndex(component, "SkeletalMeshAsset") ??
+                    TryPackageIndex(component, "SkinnedAsset");
 
                 if (meshReference is null || meshReference.IsNull)
                 {
                     unresolved.Add(new {
                         packagePath = logicalPackage,
+                        actorObjectPath = actor.GetPathName(),
+                        actorName = actor.Name,
+                        actorClassName = actor.ExportType,
                         componentPath = component.GetPathName(),
+                        attemptedProperties = new[] {
+                            "SkeletalMesh",
+                            "SkeletalMeshAsset",
+                            "SkinnedAsset"
+                        },
                         reason = "SkeletalMesh reference null"
                     });
                     continue;
@@ -195,7 +204,11 @@ foreach (var logicalPackage in mapPackages)
                 {
                     unresolved.Add(new {
                         packagePath = logicalPackage,
+                        actorObjectPath = actor.GetPathName(),
+                        actorName = actor.Name,
+                        actorClassName = actor.ExportType,
                         componentPath = component.GetPathName(),
+                        dependencyIndex = meshReference.Index,
                         reason = "SkeletalMesh reference failed to load"
                     });
                     continue;
@@ -206,8 +219,14 @@ foreach (var logicalPackage in mapPackages)
                 {
                     unresolved.Add(new {
                         packagePath = logicalPackage,
+                        actorObjectPath = actor.GetPathName(),
+                        actorName = actor.Name,
+                        actorClassName = actor.ExportType,
                         componentPath = component.GetPathName(),
                         sourceMeshObjectPath = meshPath,
+                        recoveredXzskObjectPaths = nativeMeshes.Keys
+                            .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                            .ToArray(),
                         reason = "loaded SkeletalMesh missing from XZSK report"
                     });
                     continue;
@@ -327,6 +346,11 @@ Console.WriteLine(
 foreach (var row in ordered)
     Console.WriteLine(
         "XZOGOT_UE_SKELETAL_ACTOR " +
+        JsonSerializer.Serialize(row));
+
+foreach (var row in unresolved)
+    Console.WriteLine(
+        "XZOGOT_UE_SKELETAL_UNRESOLVED " +
         JsonSerializer.Serialize(row));
 
 if (!ready)
