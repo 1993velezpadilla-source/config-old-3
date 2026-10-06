@@ -326,7 +326,7 @@ static UObject? FindOwningActor(UObject source)
     var outer = source.Outer;
     var guard = 0;
 
-    while (outer is not null && !outer.IsNull && guard++ < 64)
+    while (outer is not null && guard++ < 64)
     {
         if (!outer.TryLoad(out var loaded) || loaded is null)
             return null;
