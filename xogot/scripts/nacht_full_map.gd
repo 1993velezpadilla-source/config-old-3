@@ -87,6 +87,7 @@ var _source_environment_visual_node_count := 0
 var _source_particle_semantic_runtime_count := 0
 var _source_particle_semantic_placement_count := 0
 var _source_particle_mystery_descriptor: Dictionary = {}
+var _source_particle_fire_descriptor: Dictionary = {}
 var _source_environment_fog_runtime_ready := false
 var _source_environment_reflection_runtime_ready := false
 var _source_spawn_candidates: Array[Node3D] = []
@@ -208,7 +209,7 @@ func _boot() -> void:
 	# audible runtime reproduction. They must only flip when those systems are
 	# actually mounted, never merely because the JSON exists.
 	set_meta("particle_visual_runtime_ready", false)
-	set_meta("source_particle_semantic_runtime_ready", _source_particle_semantic_runtime_count == 1 and _source_particle_semantic_placement_count == 3)
+	set_meta("source_particle_semantic_runtime_ready", _source_particle_semantic_runtime_count == 2 and _source_particle_semantic_placement_count == 5)
 	set_meta("source_particle_semantic_runtime_count", _source_particle_semantic_runtime_count)
 	set_meta("source_particle_semantic_placement_count", _source_particle_semantic_placement_count)
 	set_meta("source_audio_runtime_ready", _source_audio_semantics_ready())
@@ -1102,25 +1103,19 @@ func _set_audio_stream_loop(stream: AudioStream, enabled: bool) -> void:
 
 
 
-func _build_source_particle_semantic_runtime() -> bool:
-	_source_particle_semantic_runtime_count = 0
-	_source_particle_semantic_placement_count = 0
-	_source_particle_mystery_descriptor = NachtCascadeRuntime.mystery_vertical_descriptor(_particle_graphs)
-	if not bool(_source_particle_mystery_descriptor.get("ready", false)):
-		push_error(
-			"NACHT_FULL_MAP: mystery vertical Cascade semantics unresolved "
-			+ str(_source_particle_mystery_descriptor.get("error", "unknown"))
-		)
-		return false
-
+func _mount_source_particle_semantic_anchors(
+	descriptor: Dictionary,
+	expected_count: int,
+	label: String
+) -> bool:
 	var placements := NachtCascadeRuntime.placements_for_system(
 		_particle_runtime_authority,
-		str(_source_particle_mystery_descriptor.get("systemPath", ""))
+		str(descriptor.get("systemPath", ""))
 	)
-	if placements.size() != 3:
+	if placements.size() != expected_count:
 		push_error(
-			"NACHT_FULL_MAP: mystery vertical source placement coverage mismatch "
-			+ str(placements.size()) + "/3"
+			"NACHT_FULL_MAP: " + label + " source placement coverage mismatch "
+			+ str(placements.size()) + "/" + str(expected_count)
 		)
 		return false
 
@@ -1158,18 +1153,53 @@ func _build_source_particle_semantic_runtime() -> bool:
 		anchor.set_meta("source_component_path", str(raw.get("sourcePath", "")))
 		anchor.set_meta(
 			"source_particle_system_path",
-			str(_source_particle_mystery_descriptor.get("systemPath", ""))
+			str(descriptor.get("systemPath", ""))
 		)
 		anchor.set_meta(
 			"source_particle_material_path",
-			str(_source_particle_mystery_descriptor.get("materialPath", ""))
+			str(descriptor.get("materialPath", ""))
 		)
 		anchor.set_meta("source_root_rotation_ue", root.get("rotationUE", {}))
 		anchor.set_meta("source_root_scale", root.get("scale", {}))
 		_runtime_root.add_child(anchor)
 		_source_particle_semantic_placement_count += 1
+	return true
 
-	_source_particle_semantic_runtime_count = 1
+
+func _build_source_particle_semantic_runtime() -> bool:
+	_source_particle_semantic_runtime_count = 0
+	_source_particle_semantic_placement_count = 0
+
+	_source_particle_mystery_descriptor = NachtCascadeRuntime.mystery_vertical_descriptor(_particle_graphs)
+	if not bool(_source_particle_mystery_descriptor.get("ready", false)):
+		push_error(
+			"NACHT_FULL_MAP: mystery vertical Cascade semantics unresolved "
+			+ str(_source_particle_mystery_descriptor.get("error", "unknown"))
+		)
+		return false
+	if not _mount_source_particle_semantic_anchors(
+		_source_particle_mystery_descriptor,
+		3,
+		"mystery vertical"
+	):
+		return false
+	_source_particle_semantic_runtime_count += 1
+
+	_source_particle_fire_descriptor = NachtCascadeRuntime.big_fire_forward_descriptor(_particle_graphs)
+	if not bool(_source_particle_fire_descriptor.get("ready", false)):
+		push_error(
+			"NACHT_FULL_MAP: big fire Cascade semantics unresolved "
+			+ str(_source_particle_fire_descriptor.get("error", "unknown"))
+		)
+		return false
+	if not _mount_source_particle_semantic_anchors(
+		_source_particle_fire_descriptor,
+		2,
+		"big fire forward"
+	):
+		return false
+	_source_particle_semantic_runtime_count += 1
+
 	set_meta(
 		"source_particle_mystery_spawn_rate",
 		float(_source_particle_mystery_descriptor.get("spawnRateMin", -1.0))
@@ -1194,17 +1224,54 @@ func _build_source_particle_semantic_runtime() -> bool:
 		"source_particle_mystery_start_size_max_ue_cm",
 		_source_particle_mystery_descriptor.get("startSizeMaxUEcm", Vector3.INF)
 	)
+	set_meta(
+		"source_particle_fire_pivot_offset",
+		_source_particle_fire_descriptor.get("pivotOffset", Vector2.INF)
+	)
+	set_meta(
+		"source_particle_fire_speed_scale",
+		_source_particle_fire_descriptor.get("speedScale", Vector2.INF)
+	)
+	set_meta(
+		"source_particle_fire_max_scale",
+		_source_particle_fire_descriptor.get("maxScale", Vector2.INF)
+	)
+	set_meta(
+		"source_particle_fire_lifetime_min",
+		float(_source_particle_fire_descriptor.get("lifetimeMin", -1.0))
+	)
+	set_meta(
+		"source_particle_fire_lifetime_max",
+		float(_source_particle_fire_descriptor.get("lifetimeMax", -1.0))
+	)
+	set_meta(
+		"source_particle_fire_cylinder_radius_ue_cm",
+		float(_source_particle_fire_descriptor.get("cylinderRadiusUEcm", -1.0))
+	)
+	set_meta(
+		"source_particle_fire_subuv_max_index",
+		float(_source_particle_fire_descriptor.get("subUVMaxIndex", -1.0))
+	)
+
 	print(
-		"XZOGOT_NACHT_CASCADE_SEMANTIC_RUNTIME_GREEN systems=1 placements=",
+		"XZOGOT_NACHT_CASCADE_SEMANTIC_RUNTIME_GREEN systems=",
+		_source_particle_semantic_runtime_count,
+		" placements=",
 		_source_particle_semantic_placement_count,
-		" rate=",
+		" mystery_rate=",
 		_source_particle_mystery_descriptor.get("spawnRateMin"),
-		" lifetime=",
+		" mystery_lifetime=",
 		_source_particle_mystery_descriptor.get("lifetimeMin"),
 		"..",
 		_source_particle_mystery_descriptor.get("lifetimeMax"),
-		" peak=",
-		_source_particle_mystery_descriptor.get("peakActiveParticles")
+		" mystery_peak=",
+		_source_particle_mystery_descriptor.get("peakActiveParticles"),
+		" fire_pivot=",
+		_source_particle_fire_descriptor.get("pivotOffset"),
+		" fire_speed_scale=",
+		_source_particle_fire_descriptor.get("speedScale"),
+		" fire_max_scale=",
+		_source_particle_fire_descriptor.get("maxScale")
 	)
 	return true
 
