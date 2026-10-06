@@ -21,6 +21,8 @@ const BIG_FIRE_VG_SMK_SYSTEM := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Partic
 const BIG_FIRE_VG_SMK_MATERIAL := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Materials/Fireloop_Inst/bigfire_vg_smk_Inst.bigfire_vg_smk_Inst"
 const PAP_WHEEL_OUT_SYSTEM := "/Game/CustomMaps/UGC2755515831/Materials/KillerJim/PapEffects/PaPWheelParticlesOut.PaPWheelParticlesOut"
 const PAP_WHEEL_OUT_MATERIAL := "/Game/CustomMaps/UGC2755515831/Materials/KillerJim/PapEffects/PaPWheelMaterial1.PaPWheelMaterial1"
+const ELECTRIC_BEAM_SYSTEM := "/Game/CustomMaps/UGC2755515831/Materials/ElectricTrap/ElectricBeam.ElectricBeam"
+const ELECTRIC_BEAM_MATERIAL := "/Game/CustomMaps/UGC2755515831/Materials/KillerJim/DogSpawnEffects/lightning.lightning"
 
 
 static func _canonical(raw: String) -> String:
@@ -61,6 +63,19 @@ static func _one_node(system: Dictionary, export_type: String) -> Dictionary:
 
 static func _distribution(value: Variant) -> Dictionary:
 	return ParticleSource.distribution(value)
+
+
+static func _node_by_path(system: Dictionary, object_path: String) -> Dictionary:
+	var wanted := _canonical(object_path)
+	if wanted.is_empty():
+		return {}
+	for raw: Variant in system.get("nodes", []):
+		if not (raw is Dictionary):
+			continue
+		var node := raw as Dictionary
+		if _canonical(str(node.get("objectPath", ""))) == wanted:
+			return node
+	return {}
 
 
 static func _vector_from_distribution(
@@ -1600,6 +1615,233 @@ static func pap_wheel_out_descriptor(graphs: Dictionary) -> Dictionary:
 		"rotationRateMax": rotation_rate_max,
 		"spawnRate": spawn_rate,
 		"spawnRateScale": spawn_scale,
+		"peakActiveParticles": peak_active,
+		"sourceNodeCount": int(system.get("nodeCount", 0)),
+		"sourceReferenceCount": int(system.get("referenceCount", 0)),
+	}
+
+
+static func electric_beam_descriptor(graphs: Dictionary) -> Dictionary:
+	var system := _find_system(graphs, ELECTRIC_BEAM_SYSTEM)
+	if system.is_empty():
+		return {"ready": false, "error": "electric beam source system missing"}
+	if int(system.get("nodeCount", -1)) != 19:
+		return {"ready": false, "error": "electric beam node count mismatch %d" % int(system.get("nodeCount", -1))}
+	if int(system.get("referenceCount", -1)) != 12:
+		return {"ready": false, "error": "electric beam reference count mismatch %d" % int(system.get("referenceCount", -1))}
+
+	var required := _one_node(system, "ParticleModuleRequired")
+	var lifetime := _one_node(system, "ParticleModuleLifetime")
+	var size := _one_node(system, "ParticleModuleSize")
+	var start_color := _one_node(system, "ParticleModuleColor")
+	var spawn := _one_node(system, "ParticleModuleSpawn")
+	var beam_noise := _one_node(system, "ParticleModuleBeamNoise")
+	var beam_source := _one_node(system, "ParticleModuleBeamSource")
+	var beam_target := _one_node(system, "ParticleModuleBeamTarget")
+	var beam_type := _one_node(system, "ParticleModuleTypeDataBeam2")
+	var lod := _one_node(system, "ParticleLODLevel")
+	for pair: Array in [
+		["ParticleModuleRequired", required],
+		["ParticleModuleLifetime", lifetime],
+		["ParticleModuleSize", size],
+		["ParticleModuleColor", start_color],
+		["ParticleModuleSpawn", spawn],
+		["ParticleModuleBeamNoise", beam_noise],
+		["ParticleModuleBeamSource", beam_source],
+		["ParticleModuleBeamTarget", beam_target],
+		["ParticleModuleTypeDataBeam2", beam_type],
+		["ParticleLODLevel", lod],
+	]:
+		if (pair[1] as Dictionary).is_empty():
+			return {"ready": false, "error": "electric beam missing or duplicate " + str(pair[0])}
+
+	var required_props := ParticleSource.properties(required)
+	var lifetime_props := ParticleSource.properties(lifetime)
+	var size_props := ParticleSource.properties(size)
+	var start_color_props := ParticleSource.properties(start_color)
+	var spawn_props := ParticleSource.properties(spawn)
+	var noise_props := ParticleSource.properties(beam_noise)
+	var source_props := ParticleSource.properties(beam_source)
+	var target_props := ParticleSource.properties(beam_target)
+	var beam_props := ParticleSource.properties(beam_type)
+	var lod_props := ParticleSource.properties(lod)
+
+	var material_path := str(required_props.get("Material", ""))
+	var random_image_time := int(required_props.get("RandomImageTime", -1))
+	var legacy_emitter_time := bool(required_props.get("bUseLegacyEmitterTime", true))
+	var life := _distribution(lifetime_props.get("Lifetime"))
+	var start_size := _distribution(size_props.get("StartSize"))
+	var start_rgb := _distribution(start_color_props.get("StartColor"))
+	var start_alpha := _distribution(start_color_props.get("StartAlpha"))
+	var rate := _distribution(spawn_props.get("Rate"))
+	var rate_scale := _distribution(spawn_props.get("RateScale"))
+
+	var noise_range := _distribution(noise_props.get("NoiseRange"))
+	var noise_range_scale := _distribution(noise_props.get("NoiseRangeScale"))
+	var noise_scale := _distribution(noise_props.get("NoiseScale"))
+	var noise_speed := _distribution(noise_props.get("NoiseSpeed"))
+	var noise_tangent_strength := _distribution(noise_props.get("NoiseTangentStrength"))
+
+	var source_dist := _distribution(source_props.get("Source"))
+	var source_strength := _distribution(source_props.get("SourceStrength"))
+	var source_tangent_dist := _distribution(source_props.get("SourceTangent"))
+	var target_dist := _distribution(target_props.get("Target"))
+	var target_strength := _distribution(target_props.get("TargetStrength"))
+	var target_tangent_dist := _distribution(target_props.get("TargetTangent"))
+
+	var distance_dist := _distribution(beam_props.get("Distance"))
+	var taper_factor_dist := _distribution(beam_props.get("TaperFactor"))
+	var taper_scale_dist := _distribution(beam_props.get("TaperScale"))
+
+	var noise_scale_path := str(noise_scale.get("Distribution", ""))
+	var source_tangent_path := str(source_tangent_dist.get("Distribution", ""))
+	var target_tangent_path := str(target_tangent_dist.get("Distribution", ""))
+	var distance_path := str(distance_dist.get("Distribution", ""))
+	var taper_factor_path := str(taper_factor_dist.get("Distribution", ""))
+	var taper_scale_path := str(taper_scale_dist.get("Distribution", ""))
+
+	var noise_scale_node := _node_by_path(system, noise_scale_path)
+	var source_tangent_node := _node_by_path(system, source_tangent_path)
+	var target_tangent_node := _node_by_path(system, target_tangent_path)
+	var distance_node := _node_by_path(system, distance_path)
+	var taper_factor_node := _node_by_path(system, taper_factor_path)
+	var taper_scale_node := _node_by_path(system, taper_scale_path)
+	for pair: Array in [
+		["NoiseScale", noise_scale_node],
+		["SourceTangent", source_tangent_node],
+		["TargetTangent", target_tangent_node],
+		["Distance", distance_node],
+		["TaperFactor", taper_factor_node],
+		["TaperScale", taper_scale_node],
+	]:
+		if (pair[1] as Dictionary).is_empty():
+			return {"ready": false, "error": "electric beam distribution node missing " + str(pair[0])}
+
+	var source_tangent_props := ParticleSource.properties(source_tangent_node)
+	var target_tangent_props := ParticleSource.properties(target_tangent_node)
+	var distance_props := ParticleSource.properties(distance_node)
+	var taper_factor_props := ParticleSource.properties(taper_factor_node)
+	var taper_scale_props := ParticleSource.properties(taper_scale_node)
+
+	var life_min := float(life.get("MinValue", -1.0))
+	var life_max := float(life.get("MaxValue", -1.0))
+	var size_min := _vector_from_distribution(start_size, "MinValueVec", Vector3.INF)
+	var size_max := _vector_from_distribution(start_size, "MaxValueVec", Vector3.INF)
+	var color_min := _vector_from_distribution(start_rgb, "MinValueVec", Vector3.INF)
+	var color_max := _vector_from_distribution(start_rgb, "MaxValueVec", Vector3.INF)
+	var alpha_min := float(start_alpha.get("MinValue", -1.0))
+	var alpha_max := float(start_alpha.get("MaxValue", -1.0))
+	var spawn_rate := float(rate.get("MinValue", -1.0))
+	var spawn_rate_max := float(rate.get("MaxValue", -1.0))
+	var spawn_scale := float(rate_scale.get("MinValue", -1.0))
+	var spawn_scale_max := float(rate_scale.get("MaxValue", -1.0))
+
+	var noise_frequency := int(noise_props.get("Frequency", -1))
+	var noise_lock_time := float(noise_props.get("NoiseLockTime", -1.0))
+	var noise_range_max := _vector_from_distribution(noise_range, "MaxValueVec", Vector3.INF)
+	var noise_range_scale_min := float(noise_range_scale.get("MinValue", -1.0))
+	var noise_range_scale_max := float(noise_range_scale.get("MaxValue", -1.0))
+	var noise_speed_min := _vector_from_distribution(noise_speed, "MinValueVec", Vector3.INF)
+	var noise_speed_max := _vector_from_distribution(noise_speed, "MaxValueVec", Vector3.INF)
+	var noise_tangent_min := float(noise_tangent_strength.get("MinValue", -1.0))
+	var noise_tangent_max := float(noise_tangent_strength.get("MaxValue", -1.0))
+	var low_freq_enabled := bool(noise_props.get("bLowFreq_Enabled", false))
+
+	var source_values := ParticleSource.table_values(source_dist)
+	var source_strength_min := float(source_strength.get("MinValue", -1.0))
+	var source_strength_max := float(source_strength.get("MaxValue", -1.0))
+	var source_tangent := ParticleSource.vector3(source_tangent_props.get("Constant"), Vector3.INF)
+	var target_min := _vector_from_distribution(target_dist, "MinValueVec", Vector3.INF)
+	var target_max := _vector_from_distribution(target_dist, "MaxValueVec", Vector3.INF)
+	var target_strength_min := float(target_strength.get("MinValue", -1.0))
+	var target_strength_max := float(target_strength.get("MaxValue", -1.0))
+	var target_tangent := ParticleSource.vector3(target_tangent_props.get("Constant"), Vector3.INF)
+
+	var distance := float(distance_props.get("Constant", -1.0))
+	var taper_factor := float(taper_factor_props.get("Constant", -1.0))
+	var taper_scale := float(taper_scale_props.get("Constant", -1.0))
+	var interpolation_points := int(beam_props.get("InterpolationPoints", -1))
+	var max_beam_count := int(beam_props.get("MaxBeamCount", -1))
+	var beam_speed := float(beam_props.get("Speed", -1.0))
+	var peak_active := int(lod_props.get("PeakActiveParticles", -1))
+
+	if _canonical(material_path) != _canonical(ELECTRIC_BEAM_MATERIAL):
+		return {"ready": false, "error": "electric beam material mismatch " + material_path}
+	if random_image_time != 1 or legacy_emitter_time:
+		return {"ready": false, "error": "electric beam emitter timing flags mismatch"}
+	if not is_equal_approx(life_min, 1.0) or not is_equal_approx(life_max, 1.0):
+		return {"ready": false, "error": "electric beam lifetime mismatch"}
+	if not size_min.is_equal_approx(Vector3(25.0, 25.0, 25.0)) or not size_max.is_equal_approx(Vector3(25.0, 25.0, 25.0)):
+		return {"ready": false, "error": "electric beam size mismatch"}
+	if not color_min.is_equal_approx(Vector3(0.676412, 0.821064, 1.0)) or not color_max.is_equal_approx(Vector3(0.676412, 0.821064, 1.0)):
+		return {"ready": false, "error": "electric beam start color mismatch"}
+	if not is_equal_approx(alpha_min, 1.0) or not is_equal_approx(alpha_max, 1.0):
+		return {"ready": false, "error": "electric beam alpha mismatch"}
+	if not is_equal_approx(spawn_rate, 20.0) or not is_equal_approx(spawn_rate_max, 20.0):
+		return {"ready": false, "error": "electric beam spawn rate mismatch"}
+	if not is_equal_approx(spawn_scale, 1.0) or not is_equal_approx(spawn_scale_max, 1.0):
+		return {"ready": false, "error": "electric beam spawn scale mismatch"}
+
+	if noise_frequency != 5 or not is_equal_approx(noise_lock_time, 0.025) or not low_freq_enabled:
+		return {"ready": false, "error": "electric beam noise frequency/lock flags mismatch"}
+	if not noise_range_max.is_equal_approx(Vector3(30.0, 30.0, 20.0)):
+		return {"ready": false, "error": "electric beam noise range mismatch " + str(noise_range_max)}
+	if not is_equal_approx(noise_range_scale_min, 1.0) or not is_equal_approx(noise_range_scale_max, 1.0):
+		return {"ready": false, "error": "electric beam noise range scale mismatch"}
+	if not noise_speed_min.is_equal_approx(Vector3(50.0, 50.0, 50.0)) or not noise_speed_max.is_equal_approx(Vector3(50.0, 50.0, 50.0)):
+		return {"ready": false, "error": "electric beam noise speed mismatch"}
+	if not is_equal_approx(noise_tangent_min, 250.0) or not is_equal_approx(noise_tangent_max, 250.0):
+		return {"ready": false, "error": "electric beam noise tangent strength mismatch"}
+	# The cooked NoiseScale constant-curve export is present but contains no
+	# authored keys. Preserve that exact source limitation; do not synthesize
+	# curve values in Godot.
+	if not ParticleSource.properties(noise_scale_node).is_empty():
+		return {"ready": false, "error": "electric beam NoiseScale curve unexpectedly changed"}
+
+	if source_values.size() != 3:
+		return {"ready": false, "error": "electric beam source table value count mismatch %d" % source_values.size()}
+	if not is_equal_approx(source_strength_min, 25.0) or not is_equal_approx(source_strength_max, 25.0):
+		return {"ready": false, "error": "electric beam source strength mismatch"}
+	if not source_tangent.is_equal_approx(Vector3(1.0, 0.0, 0.0)):
+		return {"ready": false, "error": "electric beam source tangent mismatch " + str(source_tangent)}
+	if not target_min.is_equal_approx(Vector3(0.0, 0.0, 280.0)) or not target_max.is_equal_approx(Vector3(0.0, 0.0, 280.0)):
+		return {"ready": false, "error": "electric beam target mismatch"}
+	if not is_equal_approx(target_strength_min, 25.0) or not is_equal_approx(target_strength_max, 25.0):
+		return {"ready": false, "error": "electric beam target strength mismatch"}
+	if not target_tangent.is_equal_approx(Vector3(1.0, 0.0, 0.0)):
+		return {"ready": false, "error": "electric beam target tangent mismatch " + str(target_tangent)}
+
+	if not is_equal_approx(distance, 25.0) or not is_equal_approx(taper_factor, 1.0) or not is_equal_approx(taper_scale, 1.0):
+		return {"ready": false, "error": "electric beam Beam2 distribution constants mismatch"}
+	if interpolation_points != 20 or max_beam_count != 1 or not is_equal_approx(beam_speed, 0.0):
+		return {"ready": false, "error": "electric beam Beam2 settings mismatch"}
+	if peak_active != 3:
+		return {"ready": false, "error": "electric beam peak active mismatch %d" % peak_active}
+
+	return {
+		"ready": true,
+		"systemPath": ELECTRIC_BEAM_SYSTEM,
+		"materialPath": material_path,
+		"lifetimeSeconds": life_min,
+		"startSizeUEcm": size_min,
+		"spawnRate": spawn_rate,
+		"noiseFrequency": noise_frequency,
+		"noiseLockTime": noise_lock_time,
+		"noiseRangeMaxUEcm": noise_range_max,
+		"noiseSpeedUEcm": noise_speed_min,
+		"noiseTangentStrength": noise_tangent_min,
+		"noiseScaleCurvePath": noise_scale_path,
+		"sourceStrength": source_strength_min,
+		"sourceTangent": source_tangent,
+		"targetUEcm": target_min,
+		"targetStrength": target_strength_min,
+		"targetTangent": target_tangent,
+		"beamDistance": distance,
+		"interpolationPoints": interpolation_points,
+		"maxBeamCount": max_beam_count,
+		"beamSpeed": beam_speed,
+		"taperFactor": taper_factor,
+		"taperScale": taper_scale,
 		"peakActiveParticles": peak_active,
 		"sourceNodeCount": int(system.get("nodeCount", 0)),
 		"sourceReferenceCount": int(system.get("referenceCount", 0)),
