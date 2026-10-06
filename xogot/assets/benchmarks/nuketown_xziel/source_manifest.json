@@ -14,5 +14,13 @@
   "unresolved_meshes": 0,
   "unresolved_materials": 0,
   "unresolved_textures": 0,
-  "runtime_loader": "res://scripts/xziel_benchmark_loader.gd"
+  "runtime_loader": "res://scripts/xziel_benchmark_loader.gd",
+  "runtime_mesh_format": "GLB",
+  "runtime_mesh_directory": "vfs/xziel/maps/xziel_nuketown_zombies/meshes_glb",
+  "runtime_mesh_conversion": "lossless XZMS vertex/index/submesh bridge",
+  "source_xzms_authority": {
+    "source_run": 36613010234,
+    "source_artifact": "XZIEL-Nuketown-Zombies-Virgin-Package-Census",
+    "staged_directory": "vfs/xziel/maps/xziel_nuketown_zombies/meshes"
+  }
 }
