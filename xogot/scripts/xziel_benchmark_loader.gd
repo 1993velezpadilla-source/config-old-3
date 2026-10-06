@@ -39,6 +39,7 @@ var _mesh_material_paths: Dictionary = {}
 var _instance_overrides: Dictionary = {}
 var _runtime_root: Node3D
 var _native_glb_mesh_count: int = 0
+var _native_glb_chunk_count: int = 0
 var _xzms_fallback_mesh_count: int = 0
 
 func _ready() -> void:
@@ -60,6 +61,7 @@ func _load_benchmark_world() -> void:
 
 	_prepare_material_authority()
 	_native_glb_mesh_count = 0
+	_native_glb_chunk_count = 0
 	_xzms_fallback_mesh_count = 0
 
 	_runtime_root = Node3D.new()
@@ -89,25 +91,34 @@ func _load_benchmark_world() -> void:
 			continue
 		var mesh_row: Dictionary = meshes[mesh_index]
 		var runtime_file := str(mesh_row.get("runtimeFile", ""))
-		var mesh := _load_benchmark_mesh(runtime_file, mesh_index)
-		if mesh == null:
+		var mesh_chunks: Array[ArrayMesh] = _load_benchmark_mesh_chunks(runtime_file, mesh_index)
+		if mesh_chunks.is_empty():
 			missing_meshes += 1
 			continue
 
-		var node := MeshInstance3D.new()
-		node.name = str(instance.get("instanceId", "ue_instance_%06d" % instance_index))
-		node.mesh = mesh
-		node.cast_shadow = (
-			GeometryInstance3D.SHADOW_CASTING_SETTING_ON
-			if cast_geometry_shadows
-			else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		)
-		node.transform = _transform_from_row_major(instance.get("matrixRowMajor", []))
-		node.set_meta("source_component_path", str(instance.get("sourceComponentPath", "")))
-		node.set_meta("source_scene_mesh_index", mesh_index)
-		node.set_meta("source_instance_index", instance.get("sourceInstanceIndex", null))
-		_apply_instance_material_overrides(node, str(instance.get("instanceId", "")))
-		_runtime_root.add_child(node)
+		var instance_id := str(instance.get("instanceId", "ue_instance_%06d" % instance_index))
+		var instance_root := Node3D.new()
+		instance_root.name = instance_id
+		instance_root.transform = _transform_from_row_major(instance.get("matrixRowMajor", []))
+		instance_root.set_meta("source_component_path", str(instance.get("sourceComponentPath", "")))
+		instance_root.set_meta("source_scene_mesh_index", mesh_index)
+		instance_root.set_meta("source_instance_index", instance.get("sourceInstanceIndex", null))
+		_runtime_root.add_child(instance_root)
+
+		var surface_offset := 0
+		for chunk_index in range(mesh_chunks.size()):
+			var node := MeshInstance3D.new()
+			node.name = "MeshChunk_%03d" % chunk_index
+			node.mesh = mesh_chunks[chunk_index]
+			node.cast_shadow = (
+				GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+				if cast_geometry_shadows
+				else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			)
+			node.set_meta("source_surface_offset", surface_offset)
+			_apply_instance_material_overrides(node, instance_id, surface_offset)
+			instance_root.add_child(node)
+			surface_offset += node.mesh.get_surface_count()
 		created += 1
 
 	if build_lights:
@@ -121,6 +132,7 @@ func _load_benchmark_world() -> void:
 	set_meta("xziel_benchmark_missing_meshes", missing_meshes)
 	set_meta("xziel_benchmark_source_ready", bool(summary.get("ready", false)))
 	set_meta("xziel_benchmark_native_glb_mesh_count", _native_glb_mesh_count)
+	set_meta("xziel_benchmark_native_glb_chunk_count", _native_glb_chunk_count)
 	set_meta("xziel_benchmark_xzms_fallback_mesh_count", _xzms_fallback_mesh_count)
 	print(
 		"XZOGOT_XZIEL_BENCHMARK_WORLD ",
@@ -129,6 +141,7 @@ func _load_benchmark_world() -> void:
 		"/", instance_limit,
 		" missing=", missing_meshes,
 		" native_glb=", _native_glb_mesh_count,
+		" native_chunks=", _native_glb_chunk_count,
 		" xzms_fallback=", _xzms_fallback_mesh_count,
 		" materials=", _material_cache.size(),
 		" textures=", _texture_cache.size()
@@ -203,19 +216,29 @@ func _prepare_material_authority() -> void:
 				submesh_paths[submesh] = by_slot[submesh]
 		_instance_overrides[str(row.get("instanceId", ""))] = submesh_paths
 
-func _find_first_mesh_instance(node: Node) -> MeshInstance3D:
+func _collect_mesh_instances(node: Node, out: Array[MeshInstance3D]) -> void:
 	if node is MeshInstance3D:
-		return node as MeshInstance3D
+		out.append(node as MeshInstance3D)
 	for child: Node in node.get_children():
-		var found := _find_first_mesh_instance(child)
-		if found != null:
-			return found
-	return null
+		_collect_mesh_instances(child, out)
 
-func _load_benchmark_mesh(runtime_file: String, scene_mesh_index: int) -> ArrayMesh:
+func _cached_mesh_chunks(cache_key: String) -> Array[ArrayMesh]:
+	var result: Array[ArrayMesh] = []
+	if not _mesh_cache.has(cache_key):
+		return result
+	var cached: Variant = _mesh_cache[cache_key]
+	if cached is Array:
+		for raw: Variant in cached:
+			if raw is ArrayMesh:
+				result.append(raw as ArrayMesh)
+	elif cached is ArrayMesh:
+		result.append(cached as ArrayMesh)
+	return result
+
+func _load_benchmark_mesh_chunks(runtime_file: String, scene_mesh_index: int) -> Array[ArrayMesh]:
 	var cache_key := runtime_file.get_basename()
 	if _mesh_cache.has(cache_key):
-		return _mesh_cache[cache_key] as ArrayMesh
+		return _cached_mesh_chunks(cache_key)
 
 	var native_name := runtime_file.get_basename() + ".glb"
 	var native_path := _source_path(VFS_MAP_ROOT.path_join("meshes_glb").path_join(native_name))
@@ -224,28 +247,54 @@ func _load_benchmark_mesh(runtime_file: String, scene_mesh_index: int) -> ArrayM
 		if packed != null:
 			var instance := packed.instantiate()
 			if instance != null:
-				var mesh_node := _find_first_mesh_instance(instance)
-				if mesh_node != null and mesh_node.mesh is ArrayMesh:
+				var mesh_nodes: Array[MeshInstance3D] = []
+				_collect_mesh_instances(instance, mesh_nodes)
+				var chunks: Array[ArrayMesh] = []
+				var base_materials: Array = _mesh_material_paths.get(scene_mesh_index, [])
+				var surface_offset := 0
+				for mesh_node: MeshInstance3D in mesh_nodes:
+					if not (mesh_node.mesh is ArrayMesh):
+						continue
 					var mesh := (mesh_node.mesh as ArrayMesh).duplicate() as ArrayMesh
-					var base_materials: Array = _mesh_material_paths.get(scene_mesh_index, [])
+					if mesh == null:
+						continue
 					if build_materials:
-						for surface in range(mini(mesh.get_surface_count(), base_materials.size())):
-							var material := _material_for_path(str(base_materials[surface]))
+						for local_surface in range(mesh.get_surface_count()):
+							var source_surface := surface_offset + local_surface
+							if source_surface >= base_materials.size():
+								break
+							var material := _material_for_path(str(base_materials[source_surface]))
 							if material != null:
-								mesh.surface_set_material(surface, material)
-					instance.free()
-					_mesh_cache[cache_key] = mesh
-					_native_glb_mesh_count += 1
-					return mesh
+								mesh.surface_set_material(local_surface, material)
+					chunks.append(mesh)
+					surface_offset += mesh.get_surface_count()
+
 				instance.free()
+				if not chunks.is_empty():
+					if not base_materials.is_empty() and surface_offset != base_materials.size():
+						push_error(
+							"XZIEL benchmark native GLB surface mismatch "
+							+ runtime_file
+							+ " imported="
+							+ str(surface_offset)
+							+ " source="
+							+ str(base_materials.size())
+						)
+						return []
+					_mesh_cache[cache_key] = chunks
+					_native_glb_mesh_count += 1
+					_native_glb_chunk_count += chunks.size()
+					return chunks
 
 	# Truthful compatibility fallback for source artifacts staged before the
-	# native GLB conversion. Shipping/mobile benchmark paths should use GLB.
+	# native GLB conversion. Shipping/mobile benchmark paths must use GLB.
 	var fallback := _load_xzmesh(runtime_file, scene_mesh_index)
+	var fallback_chunks: Array[ArrayMesh] = []
 	if fallback != null:
-		_mesh_cache[cache_key] = fallback
+		fallback_chunks.append(fallback)
+		_mesh_cache[cache_key] = fallback_chunks
 		_xzms_fallback_mesh_count += 1
-	return fallback
+	return fallback_chunks
 
 func _load_xzmesh(runtime_file: String, scene_mesh_index: int) -> ArrayMesh:
 	if _mesh_cache.has(runtime_file):
@@ -502,17 +551,23 @@ func _load_xztexture(runtime_file: String) -> Texture2D:
 	texture.resource_name = runtime_file
 	return texture
 
-func _apply_instance_material_overrides(node: MeshInstance3D, instance_id: String) -> void:
+func _apply_instance_material_overrides(
+	node: MeshInstance3D,
+	instance_id: String,
+	surface_offset: int = 0
+) -> void:
 	if not build_materials or not _instance_overrides.has(instance_id):
 		return
 	var overrides: Dictionary = _instance_overrides[instance_id]
+	var surface_count := node.mesh.get_surface_count() if node.mesh != null else 0
 	for submesh_raw: Variant in overrides.keys():
-		var surface := int(submesh_raw)
-		if surface < 0 or surface >= node.get_surface_override_material_count():
+		var source_surface := int(submesh_raw)
+		var local_surface := source_surface - surface_offset
+		if local_surface < 0 or local_surface >= surface_count:
 			continue
 		var material := _material_for_path(str(overrides[submesh_raw]))
 		if material != null:
-			node.set_surface_override_material(surface, material)
+			node.set_surface_override_material(local_surface, material)
 
 func _transform_from_row_major(raw: Variant) -> Transform3D:
 	if not (raw is Array):

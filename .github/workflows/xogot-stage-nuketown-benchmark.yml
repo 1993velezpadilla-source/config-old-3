@@ -7,6 +7,7 @@ on:
       - feature/godot-aaa-rebuild-v1
     paths:
       - ".github/workflows/xogot-stage-nuketown-benchmark.yml"
+      - "tools/maps/xzms_to_glb.py"
       - "xogot/scripts/xziel_benchmark_loader.gd"
 
 permissions:
@@ -153,6 +154,8 @@ jobs:
           report=json.loads(report_path.read_text())
           files=sorted(glb_dir.glob("*.glb"))
           assert report["mesh_count"] == 52, report
+          assert report["mesh_chunks"] == 53, report
+          assert report["max_chunk_surfaces"] <= 240, report
           assert report["vertices"] == 671012, report
           assert report["indices"] == 859353, report
           assert report["submeshes"] == 563, report
@@ -162,7 +165,9 @@ jobs:
           manifest=json.loads(manifest_path.read_text())
           manifest["runtime_mesh_format"]="GLB"
           manifest["runtime_mesh_directory"]="vfs/xziel/maps/xziel_nuketown_zombies/meshes_glb"
-          manifest["runtime_mesh_conversion"]="lossless XZMS vertex/index/submesh bridge"
+          manifest["runtime_mesh_conversion"]="lossless XZMS vertex/index/submesh bridge; Godot-safe surface chunking only"
+          manifest["runtime_mesh_chunks"]=report["mesh_chunks"]
+          manifest["runtime_max_surfaces_per_mesh"]=report["max_chunk_surfaces"]
           manifest["source_xzms_authority"]={
               "source_run":36613010234,
               "source_artifact":"XZIEL-Nuketown-Zombies-Virgin-Package-Census",

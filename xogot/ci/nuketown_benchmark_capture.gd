@@ -1,6 +1,7 @@
 extends SceneTree
 
 const EXPECTED_MESHES := 52
+const EXPECTED_NATIVE_CHUNKS := 53
 const EXPECTED_INSTANCES := 124
 const EXPECTED_LIGHTS := 5
 
@@ -55,6 +56,7 @@ func _capture() -> void:
 	var missing_meshes := int(loader.get_meta("xziel_benchmark_missing_meshes", -1))
 	var light_count := int(loader.get_meta("xziel_benchmark_light_count", -1))
 	var native_glb_count := int(loader.get_meta("xziel_benchmark_native_glb_mesh_count", -1))
+	var native_glb_chunk_count := int(loader.get_meta("xziel_benchmark_native_glb_chunk_count", -1))
 	var xzms_fallback_count := int(loader.get_meta("xziel_benchmark_xzms_fallback_mesh_count", -1))
 	if mesh_count != EXPECTED_MESHES:
 		push_error("NUKETOWN_CAPTURE: mesh count mismatch " + str(mesh_count))
@@ -81,6 +83,13 @@ func _capture() -> void:
 		)
 		quit(14)
 		return
+	if native_glb_chunk_count != EXPECTED_NATIVE_CHUNKS:
+		push_error(
+			"NUKETOWN_CAPTURE: Godot-safe mesh chunk count mismatch "
+			+ str(native_glb_chunk_count)
+		)
+		quit(15)
+		return
 
 	print(
 		"XZOGOT_NUKETOWN_WORLD_RUNTIME_GREEN ",
@@ -89,6 +98,7 @@ func _capture() -> void:
 		" lights=", light_count,
 		" missing=", missing_meshes,
 		" native_glb=", native_glb_count,
+		" native_chunks=", native_glb_chunk_count,
 		" xzms_fallback=", xzms_fallback_count
 	)
 

@@ -2,12 +2,6 @@ name: Convert Nuketown Benchmark Meshes to Native GLB
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feature/godot-aaa-rebuild-v1
-    paths:
-      - "tools/maps/xzms_to_glb.py"
-      - ".github/workflows/xogot-convert-nuketown-native-glb.yml"
 
 permissions:
   contents: write
@@ -45,6 +39,8 @@ jobs:
           p=Path("benchmarks/nuketown_xziel/native-glb-report.json")
           d=json.loads(p.read_text())
           assert d["mesh_count"] == 52, d
+          assert d["mesh_chunks"] == 53, d
+          assert d["max_chunk_surfaces"] <= 240, d
           assert d["vertices"] == 671012, d
           assert d["indices"] == 859353, d
           assert d["submeshes"] == 563, d

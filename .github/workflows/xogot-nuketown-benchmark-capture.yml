@@ -63,7 +63,7 @@ jobs:
           timeout 300 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
             --headless --editor --path xogot --quit \
             2>&1 | tee build/nuketown-benchmark/import.log
-          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/nuketown-benchmark/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|MAX_MESH_SURFACES" build/nuketown-benchmark/import.log
 
       - name: Render source world benchmark
         shell: bash
@@ -80,6 +80,7 @@ jobs:
           grep -q "XZOGOT_NUKETOWN_WORLD_RUNTIME_GREEN" build/nuketown-benchmark/render.log
           grep -q "XZOGOT_NUKETOWN_SPAWN_SCREENSHOT_GREEN" build/nuketown-benchmark/render.log
           grep -q "XZOGOT_NUKETOWN_OVERVIEW_SCREENSHOT_GREEN" build/nuketown-benchmark/render.log
+          ! grep -E "MAX_MESH_SURFACES|NUKETOWN_CAPTURE:" build/nuketown-benchmark/render.log
           test -s /tmp/xogot-nuketown-spawn.png
           test -s /tmp/xogot-nuketown-overview.png
           cp /tmp/xogot-nuketown-spawn.png build/nuketown-benchmark/xogot-nuketown-spawn.png
