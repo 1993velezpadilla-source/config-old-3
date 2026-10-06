@@ -36,6 +36,8 @@ var failures = new JArray();
 var parsedFunctions = 0;
 var parsedExpressions = 0;
 var integerConstants = 0;
+var parsedDataTableRows = 0;
+var parsedExportDefaults = 0;
 
 foreach (var assetPath in assetPaths)
 {
@@ -47,6 +49,8 @@ foreach (var assetPath in assetPaths)
             mappings);
 
         var functionRows = new JArray();
+        var exportRows = new JArray();
+        var dataTableRows = new JArray();
 
         for (var exportIndex = 0; exportIndex < asset.Exports.Count; exportIndex++)
         {
@@ -169,6 +173,48 @@ foreach (var assetPath in assetPaths)
             });
         }
 
+        for (var exportIndex = 0; exportIndex < asset.Exports.Count; exportIndex++)
+        {
+            var export = asset.Exports[exportIndex];
+            var exportRow = new JObject
+            {
+                ["exportIndex"] = exportIndex,
+                ["name"] = export.ObjectName.ToString(),
+                ["type"] = export.GetType().Name
+            };
+
+            if (export is NormalExport normal)
+            {
+                exportRow["data"] = SafeObjectTree(normal.Data, asset, 0);
+                parsedExportDefaults += normal.Data?.Count ?? 0;
+            }
+
+            if (export is DataTableExport table &&
+                table.Table?.Data is { Count: > 0 })
+            {
+                var rows = new JArray();
+                foreach (var row in table.Table.Data)
+                {
+                    rows.Add(new JObject
+                    {
+                        ["name"] = row.Name.ToString(),
+                        ["structType"] = row.StructType.ToString(),
+                        ["data"] = SafeObjectTree(row.Value, asset, 0)
+                    });
+                    parsedDataTableRows++;
+                }
+                exportRow["dataTableRows"] = rows;
+                dataTableRows.Add(new JObject
+                {
+                    ["exportIndex"] = exportIndex,
+                    ["name"] = export.ObjectName.ToString(),
+                    ["rows"] = rows
+                });
+            }
+
+            exportRows.Add(exportRow);
+        }
+
         var imports = new JArray();
         for (var importIndex = 0; importIndex < asset.Imports.Count; importIndex++)
         {
@@ -195,7 +241,9 @@ foreach (var assetPath in assetPaths)
             ["importCount"] = asset.Imports.Count,
             ["imports"] = imports,
             ["functionCount"] = functionRows.Count,
-            ["functions"] = functionRows
+            ["functions"] = functionRows,
+            ["exports"] = exportRows,
+            ["dataTables"] = dataTableRows
         });
     }
     catch (Exception e)
@@ -212,9 +260,11 @@ foreach (var assetPath in assetPaths)
 var ready =
     failures.Count == 0 &&
     packageRows.Count == assetPaths.Length &&
-    parsedFunctions > 0 &&
-    parsedExpressions > 0 &&
-    integerConstants > 0;
+    (
+        (parsedFunctions > 0 && parsedExpressions > 0) ||
+        parsedDataTableRows > 0 ||
+        parsedExportDefaults > 0
+    );
 
 var report = new JObject
 {
@@ -226,6 +276,8 @@ var report = new JObject
     ["parsedFunctions"] = parsedFunctions,
     ["parsedExpressions"] = parsedExpressions,
     ["integerConstants"] = integerConstants,
+    ["parsedDataTableRows"] = parsedDataTableRows,
+    ["parsedExportDefaults"] = parsedExportDefaults,
     ["packages"] = packageRows,
     ["failures"] = failures,
     ["ready"] = ready
@@ -247,6 +299,8 @@ Console.WriteLine(
         ["functions"] = parsedFunctions,
         ["expressions"] = parsedExpressions,
         ["integerConstants"] = integerConstants,
+        ["dataTableRows"] = parsedDataTableRows,
+        ["exportDefaults"] = parsedExportDefaults,
         ["ready"] = ready
     }.ToString(Formatting.None));
 
