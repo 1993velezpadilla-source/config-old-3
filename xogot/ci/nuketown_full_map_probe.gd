@@ -96,14 +96,14 @@ func _run() -> void:
 	if get_nodes_in_group("nuketown_source_covered_actor").size() != 233:
 		_fail(27, "covered source actor group mismatch")
 		return
-	if source_skeletal_visual_count != 2:
+	if source_skeletal_visual_count != 3:
 		_fail(98, "source skeletal visual count mismatch " + str(source_skeletal_visual_count))
 		return
-	if source_skeletal_clip_count != 2:
+	if source_skeletal_clip_count != 9:
 		_fail(99, "source skeletal clip count mismatch " + str(source_skeletal_clip_count))
 		return
 	var skeletal_visuals := get_nodes_in_group("nuketown_source_skeletal_visual")
-	if skeletal_visuals.size() != 2:
+	if skeletal_visuals.size() != 3:
 		_fail(100, "source skeletal visual group mismatch " + str(skeletal_visuals.size()))
 		return
 	for skeletal_visual: Node in skeletal_visuals:
