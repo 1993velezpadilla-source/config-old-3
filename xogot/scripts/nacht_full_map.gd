@@ -89,6 +89,7 @@ var _source_particle_semantic_placement_count := 0
 var _source_particle_mystery_descriptor: Dictionary = {}
 var _source_particle_fire_descriptor: Dictionary = {}
 var _source_particle_bonefire_descriptor: Dictionary = {}
+var _source_particle_bonefire3_descriptor: Dictionary = {}
 var _source_environment_fog_runtime_ready := false
 var _source_environment_reflection_runtime_ready := false
 var _source_spawn_candidates: Array[Node3D] = []
@@ -210,7 +211,7 @@ func _boot() -> void:
 	# audible runtime reproduction. They must only flip when those systems are
 	# actually mounted, never merely because the JSON exists.
 	set_meta("particle_visual_runtime_ready", false)
-	set_meta("source_particle_semantic_runtime_ready", _source_particle_semantic_runtime_count == 3 and _source_particle_semantic_placement_count == 6)
+	set_meta("source_particle_semantic_runtime_ready", _source_particle_semantic_runtime_count == 4 and _source_particle_semantic_placement_count == 7)
 	set_meta("source_particle_semantic_runtime_count", _source_particle_semantic_runtime_count)
 	set_meta("source_particle_semantic_placement_count", _source_particle_semantic_placement_count)
 	set_meta("source_audio_runtime_ready", _source_audio_semantics_ready())
@@ -1216,6 +1217,21 @@ func _build_source_particle_semantic_runtime() -> bool:
 		return false
 	_source_particle_semantic_runtime_count += 1
 
+	_source_particle_bonefire3_descriptor = NachtCascadeRuntime.bone_fire_3_descriptor(_particle_graphs)
+	if not bool(_source_particle_bonefire3_descriptor.get("ready", false)):
+		push_error(
+			"NACHT_FULL_MAP: bone fire 3 Cascade semantics unresolved "
+			+ str(_source_particle_bonefire3_descriptor.get("error", "unknown"))
+		)
+		return false
+	if not _mount_source_particle_semantic_anchors(
+		_source_particle_bonefire3_descriptor,
+		1,
+		"bone fire 3"
+	):
+		return false
+	_source_particle_semantic_runtime_count += 1
+
 	set_meta(
 		"source_particle_mystery_spawn_rate",
 		float(_source_particle_mystery_descriptor.get("spawnRateMin", -1.0))
@@ -1292,6 +1308,46 @@ func _build_source_particle_semantic_runtime() -> bool:
 		"source_particle_bonefire_subuv_max_index",
 		float(_source_particle_bonefire_descriptor.get("subUVMaxIndex", -1.0))
 	)
+	set_meta(
+		"source_particle_bonefire3_start_size_min_ue_cm",
+		_source_particle_bonefire3_descriptor.get("startSizeMinUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_bonefire3_start_size_max_ue_cm",
+		_source_particle_bonefire3_descriptor.get("startSizeMaxUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_bonefire3_life_multiplier_min",
+		_source_particle_bonefire3_descriptor.get("lifeMultiplierMin", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_bonefire3_life_multiplier_max",
+		_source_particle_bonefire3_descriptor.get("lifeMultiplierMax", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_bonefire3_lifetime_min",
+		float(_source_particle_bonefire3_descriptor.get("lifetimeMin", -1.0))
+	)
+	set_meta(
+		"source_particle_bonefire3_lifetime_max",
+		float(_source_particle_bonefire3_descriptor.get("lifetimeMax", -1.0))
+	)
+	set_meta(
+		"source_particle_bonefire3_cylinder_radius_ue_cm",
+		float(_source_particle_bonefire3_descriptor.get("cylinderRadiusUEcm", -1.0))
+	)
+	set_meta(
+		"source_particle_bonefire3_subuv_frame_rate",
+		float(_source_particle_bonefire3_descriptor.get("subUVFrameRate", -1.0))
+	)
+	set_meta(
+		"source_particle_bonefire3_rgb_table_value_count",
+		int(_source_particle_bonefire3_descriptor.get("rgbTableValueCount", -1))
+	)
+	set_meta(
+		"source_particle_bonefire3_alpha_table_value_count",
+		int(_source_particle_bonefire3_descriptor.get("alphaTableValueCount", -1))
+	)
 
 	print(
 		"XZOGOT_NACHT_CASCADE_SEMANTIC_RUNTIME_GREEN systems=",
@@ -1315,7 +1371,13 @@ func _build_source_particle_semantic_runtime() -> bool:
 		" bonefire_size=",
 		_source_particle_bonefire_descriptor.get("startSizeMinUEcm"),
 		"..",
-		_source_particle_bonefire_descriptor.get("startSizeMaxUEcm")
+		_source_particle_bonefire_descriptor.get("startSizeMaxUEcm"),
+		" bonefire3_size=",
+		_source_particle_bonefire3_descriptor.get("startSizeMinUEcm"),
+		"..",
+		_source_particle_bonefire3_descriptor.get("startSizeMaxUEcm"),
+		" bonefire3_subuv_fps=",
+		_source_particle_bonefire3_descriptor.get("subUVFrameRate")
 	)
 	return true
 
