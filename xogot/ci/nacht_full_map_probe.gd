@@ -276,6 +276,66 @@ func _run() -> void:
 	var particle_mystery_fog_start_velocity_max := scene.get_meta(
 		"source_particle_mystery_fog_start_velocity_max_ue_cm", Vector3.INF
 	) as Vector3
+	var particle_mystery_inside_lifetime_min := float(
+		scene.get_meta("source_particle_mystery_inside_lifetime_min", -1.0)
+	)
+	var particle_mystery_inside_lifetime_max := float(
+		scene.get_meta("source_particle_mystery_inside_lifetime_max", -1.0)
+	)
+	var particle_mystery_inside_location_min := scene.get_meta(
+		"source_particle_mystery_inside_location_min_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_mystery_inside_location_max := scene.get_meta(
+		"source_particle_mystery_inside_location_max_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_mystery_inside_size_min := scene.get_meta(
+		"source_particle_mystery_inside_start_size_min_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_mystery_inside_size_max := scene.get_meta(
+		"source_particle_mystery_inside_start_size_max_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_mystery_inside_spawn_rate := float(
+		scene.get_meta("source_particle_mystery_inside_spawn_rate", -1.0)
+	)
+	var particle_mystery_inside_velocity_min := scene.get_meta(
+		"source_particle_mystery_inside_start_velocity_min_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_mystery_inside_velocity_max := scene.get_meta(
+		"source_particle_mystery_inside_start_velocity_max_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_mystery_inside_rgb_values := int(
+		scene.get_meta("source_particle_mystery_inside_rgb_table_value_count", -1)
+	)
+	var particle_mystery_inside_alpha_values := int(
+		scene.get_meta("source_particle_mystery_inside_alpha_table_value_count", -1)
+	)
+	var particle_mystery_inside_orbit_enabled := bool(
+		scene.get_meta("source_particle_mystery_inside_orbit_enabled", true)
+	)
+	var particle_mystery_inside_orbit_offset_min := scene.get_meta(
+		"source_particle_mystery_inside_orbit_offset_min", Vector3.INF
+	) as Vector3
+	var particle_mystery_inside_orbit_offset_max := scene.get_meta(
+		"source_particle_mystery_inside_orbit_offset_max", Vector3.INF
+	) as Vector3
+	var particle_mystery_inside_gpu_inv_max_size := scene.get_meta(
+		"source_particle_mystery_inside_gpu_inv_max_size", Vector2.INF
+	) as Vector2
+	var particle_mystery_inside_gpu_inv_rotation_scale := float(
+		scene.get_meta("source_particle_mystery_inside_gpu_inv_rotation_rate_scale", -1.0)
+	)
+	var particle_mystery_inside_gpu_max_lifetime := float(
+		scene.get_meta("source_particle_mystery_inside_gpu_max_lifetime", -1.0)
+	)
+	var particle_mystery_inside_gpu_max_particles := int(
+		scene.get_meta("source_particle_mystery_inside_gpu_max_particle_count", -1)
+	)
+	var particle_mystery_inside_gpu_rotation_scale := float(
+		scene.get_meta("source_particle_mystery_inside_gpu_rotation_rate_scale", -1.0)
+	)
+	var particle_mystery_inside_gpu_color_samples := int(
+		scene.get_meta("source_particle_mystery_inside_gpu_quantized_color_sample_count", -1)
+	)
 	var source_particles := int(scene.get_meta("source_particle_component_count", -1))
 	var particle_authority := int(scene.get_meta("runtime_particle_authority_count", -1))
 	var source_particle_systems := int(scene.get_meta("source_particle_system_count", -1))
@@ -388,14 +448,14 @@ func _run() -> void:
 		if not particle_semantic_ready:
 			_fail(34, "source-complete Cascade semantic runtime is not ready")
 			return
-		if particle_semantic_systems != 6 or particle_semantic_placements != 13:
+		if particle_semantic_systems != 7 or particle_semantic_placements != 16:
 			_fail(
 				34,
 				"Cascade semantic runtime coverage mismatch systems=%d placements=%d"
 				% [particle_semantic_systems, particle_semantic_placements]
 			)
 			return
-		if get_nodes_in_group("nacht_source_particle_semantic").size() != 13:
+		if get_nodes_in_group("nacht_source_particle_semantic").size() != 16:
 			_fail(34, "Cascade semantic placement group mismatch")
 			return
 		if (
@@ -570,6 +630,55 @@ func _run() -> void:
 					particle_mystery_fog_start_velocity_min,
 					particle_mystery_fog_start_velocity_max,
 					particle_mystery_fog_peak,
+				]
+			)
+			return
+		if (
+			not is_equal_approx(particle_mystery_inside_lifetime_min, 1.5)
+			or not is_equal_approx(particle_mystery_inside_lifetime_max, 3.0)
+			or not particle_mystery_inside_location_min.is_equal_approx(Vector3(-20.0, -95.0, -10.0))
+			or not particle_mystery_inside_location_max.is_equal_approx(Vector3(20.0, 95.0, 10.0))
+			or not particle_mystery_inside_size_min.is_equal_approx(Vector3(5.0, 5.0, 5.0))
+			or not particle_mystery_inside_size_max.is_equal_approx(Vector3(10.0, 10.0, 10.0))
+			or not is_equal_approx(particle_mystery_inside_spawn_rate, 175.0)
+			or not particle_mystery_inside_velocity_min.is_equal_approx(Vector3(0.0, 0.0, 45.0))
+			or not particle_mystery_inside_velocity_max.is_equal_approx(Vector3(0.0, 0.0, 50.0))
+			or particle_mystery_inside_rgb_values != 3
+			or particle_mystery_inside_alpha_values != 2
+			or particle_mystery_inside_orbit_enabled
+			or not particle_mystery_inside_orbit_offset_min.is_equal_approx(Vector3(0.0, 10.0, 0.0))
+			or not particle_mystery_inside_orbit_offset_max.is_equal_approx(Vector3(0.0, 25.0, 0.0))
+			or not particle_mystery_inside_gpu_inv_max_size.is_equal_approx(Vector2(0.1, 0.1))
+			or not is_equal_approx(particle_mystery_inside_gpu_inv_rotation_scale, 0.33333334)
+			or not is_equal_approx(particle_mystery_inside_gpu_max_lifetime, 3.0)
+			or particle_mystery_inside_gpu_max_particles != 531
+			or not is_equal_approx(particle_mystery_inside_gpu_rotation_scale, 3.0)
+			or particle_mystery_inside_gpu_color_samples != 16
+		):
+			_fail(
+				34,
+				"mystery inside Cascade values mismatch lifetime=%s..%s location=%s..%s size=%s..%s rate=%s velocity=%s..%s rgb=%d alpha=%d orbit=%s offset=%s..%s gpu_inv=%s gpu_inv_rot=%s gpu_life=%s gpu_max=%d gpu_rot=%s gpu_colors=%d"
+				% [
+					particle_mystery_inside_lifetime_min,
+					particle_mystery_inside_lifetime_max,
+					particle_mystery_inside_location_min,
+					particle_mystery_inside_location_max,
+					particle_mystery_inside_size_min,
+					particle_mystery_inside_size_max,
+					particle_mystery_inside_spawn_rate,
+					particle_mystery_inside_velocity_min,
+					particle_mystery_inside_velocity_max,
+					particle_mystery_inside_rgb_values,
+					particle_mystery_inside_alpha_values,
+					str(particle_mystery_inside_orbit_enabled),
+					particle_mystery_inside_orbit_offset_min,
+					particle_mystery_inside_orbit_offset_max,
+					particle_mystery_inside_gpu_inv_max_size,
+					particle_mystery_inside_gpu_inv_rotation_scale,
+					particle_mystery_inside_gpu_max_lifetime,
+					particle_mystery_inside_gpu_max_particles,
+					particle_mystery_inside_gpu_rotation_scale,
+					particle_mystery_inside_gpu_color_samples,
 				]
 			)
 			return
@@ -789,6 +898,8 @@ func _run() -> void:
 		" pap_wheel_burst=", particle_pap_wheel_burst_count,
 		" mystery_fog_rate=", particle_mystery_fog_spawn_rate,
 		" mystery_fog_subuv_fps=", particle_mystery_fog_subuv_fps,
+		" mystery_inside_rate=", particle_mystery_inside_spawn_rate,
+		" mystery_inside_gpu_max=", particle_mystery_inside_gpu_max_particles,
 		" particles_authority=", particle_authority,
 		" particle_graphs_authority=", particle_graph_authority,
 		" environment_authority=", environment_authority,
