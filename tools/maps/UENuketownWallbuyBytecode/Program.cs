@@ -4,6 +4,7 @@ using System.Reflection;
 using UAssetAPI;
 using UAssetAPI.ExportTypes;
 using UAssetAPI.Kismet.Bytecode;
+using UAssetAPI.PropertyTypes.Objects;
 using UAssetAPI.UnrealTypes;
 using UAssetAPI.Unversioned;
 
@@ -216,6 +217,7 @@ foreach (var assetPath in assetPaths)
         }
 
         var normalExportProperties = new JArray();
+        var objectReferences = new JArray();
         for (var exportIndex = 0; exportIndex < asset.Exports.Count; exportIndex++)
         {
             if (asset.Exports[exportIndex] is not NormalExport normal)
@@ -243,6 +245,24 @@ foreach (var assetPath in assetPaths)
                 ["objectName"] = normal.ObjectName.ToString(),
                 ["properties"] = dataJson
             });
+
+            if (normal.Data is not null)
+            {
+                foreach (var property in normal.Data)
+                {
+                    if (property is not ObjectPropertyData objectProperty)
+                        continue;
+
+                    objectReferences.Add(new JObject
+                    {
+                        ["exportIndex"] = exportIndex,
+                        ["objectName"] = normal.ObjectName.ToString(),
+                        ["propertyName"] = property.Name.ToString(),
+                        ["rawIndex"] = objectProperty.Value.Index,
+                        ["resolved"] = ResolveIndex(objectProperty.Value, asset)
+                    });
+                }
+            }
         }
 
         var imports = new JArray();
@@ -271,6 +291,7 @@ foreach (var assetPath in assetPaths)
             ["importCount"] = asset.Imports.Count,
             ["imports"] = imports,
             ["normalExportProperties"] = normalExportProperties,
+            ["objectReferences"] = objectReferences,
             ["functionCount"] = functionRows.Count,
             ["functions"] = functionRows,
             ["exports"] = exportRows,
