@@ -1,0 +1,3 @@
+# CI-only source-world benchmarks are mounted into the Godot project at runtime.
+# Keep them out of shipping APK/project assets.
+xogot/assets/benchmarks/nuketown_xziel/
