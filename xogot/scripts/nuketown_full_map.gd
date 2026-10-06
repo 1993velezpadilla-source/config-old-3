@@ -24,6 +24,7 @@ const WeaponCatalog := preload("res://scripts/weapon_catalog.gd")
 const VISUAL_SCENE_FILE := "visual-scene.json"
 const SOURCE_GAMEPLAY_FILE := "res://data/nuketown_source_gameplay.json"
 const SOURCE_ACTOR_COVERAGE_FILE := "res://data/nuketown_actor_coverage.json"
+const MYSTERY_SOURCE_VISUAL := "res://assets/benchmarks/nuketown_xziel/mystery_source/mystery_box_source.gltf"
 
 var _source_loader: Node3D
 var _source_actor_root: Node3D
@@ -207,6 +208,48 @@ func _make_source_interactable(
 	_source_interactable_count += 1
 	return node
 
+func _find_animation_player_recursive(node: Node) -> AnimationPlayer:
+	if node is AnimationPlayer:
+		return node as AnimationPlayer
+	for child: Node in node.get_children():
+		var found := _find_animation_player_recursive(child)
+		if found != null:
+			return found
+	return null
+
+func _attach_mystery_source_visual(runtime: Node3D) -> bool:
+	if not ResourceLoader.exists(MYSTERY_SOURCE_VISUAL):
+		push_error("NUKETOWN_FULL_MAP: Mystery source visual missing")
+		return false
+	var packed := load(MYSTERY_SOURCE_VISUAL) as PackedScene
+	if packed == null:
+		push_error("NUKETOWN_FULL_MAP: Mystery source visual failed to import")
+		return false
+	var visual := packed.instantiate() as Node3D
+	if visual == null:
+		push_error("NUKETOWN_FULL_MAP: Mystery source visual instantiate failed")
+		return false
+	visual.name = "MysterySourceVisual"
+	visual.add_to_group("nuketown_source_mystery_visual")
+	runtime.add_child(visual)
+	var animation_player := _find_animation_player_recursive(visual)
+	if animation_player == null:
+		push_error("NUKETOWN_FULL_MAP: Mystery source AnimationPlayer missing")
+		return false
+	var source_clips: Array[String] = []
+	for raw_name: StringName in animation_player.get_animation_list():
+		var clip := str(raw_name)
+		if clip != "RESET":
+			source_clips.append(clip)
+	source_clips.sort()
+	runtime.set_meta("source_mystery_visual_ready", true)
+	runtime.set_meta("source_mystery_animation_count", source_clips.size())
+	runtime.set_meta("source_mystery_animation_names", source_clips)
+	if runtime.has_method("refresh_source_animation_player"):
+		runtime.call("refresh_source_animation_player")
+	print("XZOGOT_MYSTERY_SOURCE_VISUAL_GREEN clips=", source_clips.size(), " names=", source_clips)
+	return source_clips.size() == 7
+
 func _source_basis() -> Basis:
 	# Same single coordinate conversion as XzielBenchmarkLoader.
 	# XZIEL +X -> Godot -Z, +Y -> -X, +Z -> +Y.
@@ -345,6 +388,8 @@ func _build_source_actor_anchors(scene: Dictionary) -> void:
 					typed_pool.append(str(item_raw))
 				mystery_runtime.set("source_item_pool", typed_pool)
 				mystery_runtime.set("source_item_authority", str(mystery.get("itemClass", "")))
+				if not _attach_mystery_source_visual(mystery_runtime):
+					push_error("NUKETOWN_FULL_MAP: Mystery source visual bridge failed")
 				mystery_runtime.add_to_group("nuketown_source_mystery_runtime")
 				_source_mystery_count += 1
 			_:
