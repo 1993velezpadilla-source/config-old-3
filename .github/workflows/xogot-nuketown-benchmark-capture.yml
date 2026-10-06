@@ -1,0 +1,87 @@
+name: Xogot Nuketown Benchmark Capture
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - "xogot/ci/nuketown_benchmark_capture.gd"
+      - "xogot/scripts/xziel_benchmark_loader.gd"
+      - "xogot/assets/benchmarks/nuketown_xziel/**"
+      - ".github/workflows/xogot-nuketown-benchmark-capture.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-nuketown-benchmark-capture-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install rendering tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq unzip curl xvfb libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+
+      - name: Install Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+
+      - name: Import benchmark project assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nuketown-benchmark
+          timeout 300 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit \
+            2>&1 | tee build/nuketown-benchmark/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/nuketown-benchmark/import.log
+
+      - name: Render source world benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --path xogot \
+            --rendering-method gl_compatibility \
+            --resolution 1280x720 \
+            --script res://ci/nuketown_benchmark_capture.gd \
+            2>&1 | tee build/nuketown-benchmark/render.log
+
+          grep -q "XZOGOT_NUKETOWN_WORLD_RUNTIME_GREEN" build/nuketown-benchmark/render.log
+          grep -q "XZOGOT_NUKETOWN_SPAWN_SCREENSHOT_GREEN" build/nuketown-benchmark/render.log
+          grep -q "XZOGOT_NUKETOWN_OVERVIEW_SCREENSHOT_GREEN" build/nuketown-benchmark/render.log
+          test -s /tmp/xogot-nuketown-spawn.png
+          test -s /tmp/xogot-nuketown-overview.png
+          cp /tmp/xogot-nuketown-spawn.png build/nuketown-benchmark/xogot-nuketown-spawn.png
+          cp /tmp/xogot-nuketown-overview.png build/nuketown-benchmark/xogot-nuketown-overview.png
+
+      - name: Upload benchmark screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nuketown-Source-World-Screenshots
+          path: |
+            build/nuketown-benchmark/xogot-nuketown-spawn.png
+            build/nuketown-benchmark/xogot-nuketown-overview.png
+            build/nuketown-benchmark/render.log
+          if-no-files-found: error
+          retention-days: 7
