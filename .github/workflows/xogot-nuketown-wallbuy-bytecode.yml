@@ -111,7 +111,7 @@ jobs:
           p=Path("build/nuketown-wallbuy-bytecode/wallbuy-bytecode.json")
           d=json.loads(p.read_text())
           assert d["ready"] is True, d
-          assert d["packageSuccessCount"] == 3, d
+          assert d["packageSuccessCount"] == 5, d
 
           for package in d["packages"]:
               values=[]
