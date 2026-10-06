@@ -1,0 +1,415 @@
+{
+  "schema": 2,
+  "mesh_count": 31,
+  "mesh_chunks": 31,
+  "max_chunk_surfaces": 3,
+  "surface_chunk_limit": 240,
+  "vertices": 49269,
+  "indices": 63936,
+  "submeshes": 59,
+  "meshes": [
+    {
+      "source": "m0010.xzm",
+      "output": "m0010.glb",
+      "vertices": 1119,
+      "indices": 1380,
+      "submeshes": 1,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 123308
+    },
+    {
+      "source": "m0011.xzm",
+      "output": "m0011.glb",
+      "vertices": 937,
+      "indices": 1212,
+      "submeshes": 1,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 103700
+    },
+    {
+      "source": "m0012.xzm",
+      "output": "m0012.glb",
+      "vertices": 48,
+      "indices": 60,
+      "submeshes": 1,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 6612
+    },
+    {
+      "source": "m0013.xzm",
+      "output": "m0013.glb",
+      "vertices": 48,
+      "indices": 60,
+      "submeshes": 1,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 6612
+    },
+    {
+      "source": "m0016.xzm",
+      "output": "m0016.glb",
+      "vertices": 3138,
+      "indices": 3600,
+      "submeshes": 1,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 342164
+    },
+    {
+      "source": "m0017.xzm",
+      "output": "m0017.glb",
+      "vertices": 3150,
+      "indices": 3600,
+      "submeshes": 1,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 343412
+    },
+    {
+      "source": "m0018.xzm",
+      "output": "m0018.glb",
+      "vertices": 2094,
+      "indices": 2304,
+      "submeshes": 1,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 228404
+    },
+    {
+      "source": "m0019.xzm",
+      "output": "m0019.glb",
+      "vertices": 2094,
+      "indices": 2304,
+      "submeshes": 1,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 228404
+    },
+    {
+      "source": "m0020.xzm",
+      "output": "m0020.glb",
+      "vertices": 1916,
+      "indices": 2154,
+      "submeshes": 1,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 209292
+    },
+    {
+      "source": "m0021.xzm",
+      "output": "m0021.glb",
+      "vertices": 1916,
+      "indices": 2154,
+      "submeshes": 1,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 209292
+    },
+    {
+      "source": "m0022.xzm",
+      "output": "m0022.glb",
+      "vertices": 1714,
+      "indices": 2034,
+      "submeshes": 1,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 187804
+    },
+    {
+      "source": "m0023.xzm",
+      "output": "m0023.glb",
+      "vertices": 1714,
+      "indices": 2034,
+      "submeshes": 1,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 187804
+    },
+    {
+      "source": "m0047.xzm",
+      "output": "m0047.glb",
+      "vertices": 866,
+      "indices": 1092,
+      "submeshes": 2,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 96132
+    },
+    {
+      "source": "m0048.xzm",
+      "output": "m0048.glb",
+      "vertices": 841,
+      "indices": 1092,
+      "submeshes": 2,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 93532
+    },
+    {
+      "source": "m0049.xzm",
+      "output": "m0049.glb",
+      "vertices": 1328,
+      "indices": 2142,
+      "submeshes": 3,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 3,
+      "chunk_surface_counts": [
+        3
+      ],
+      "bytes": 148668
+    },
+    {
+      "source": "m0050.xzm",
+      "output": "m0050.glb",
+      "vertices": 845,
+      "indices": 1098,
+      "submeshes": 2,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 93972
+    },
+    {
+      "source": "m0051.xzm",
+      "output": "m0051.glb",
+      "vertices": 1393,
+      "indices": 2166,
+      "submeshes": 3,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 3,
+      "chunk_surface_counts": [
+        3
+      ],
+      "bytes": 155520
+    },
+    {
+      "source": "m0052.xzm",
+      "output": "m0052.glb",
+      "vertices": 3752,
+      "indices": 5952,
+      "submeshes": 3,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 3,
+      "chunk_surface_counts": [
+        3
+      ],
+      "bytes": 416024
+    },
+    {
+      "source": "m0053.xzm",
+      "output": "m0053.glb",
+      "vertices": 1620,
+      "indices": 2466,
+      "submeshes": 3,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 3,
+      "chunk_surface_counts": [
+        3
+      ],
+      "bytes": 180316
+    },
+    {
+      "source": "m0054.xzm",
+      "output": "m0054.glb",
+      "vertices": 1487,
+      "indices": 2163,
+      "submeshes": 3,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 3,
+      "chunk_surface_counts": [
+        3
+      ],
+      "bytes": 165272
+    },
+    {
+      "source": "m0055.xzm",
+      "output": "m0055.glb",
+      "vertices": 835,
+      "indices": 1092,
+      "submeshes": 2,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 92908
+    },
+    {
+      "source": "m0056.xzm",
+      "output": "m0056.glb",
+      "vertices": 4795,
+      "indices": 6366,
+      "submeshes": 3,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 3,
+      "chunk_surface_counts": [
+        3
+      ],
+      "bytes": 526124
+    },
+    {
+      "source": "m0057.xzm",
+      "output": "m0057.glb",
+      "vertices": 508,
+      "indices": 558,
+      "submeshes": 2,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 56764
+    },
+    {
+      "source": "m0058.xzm",
+      "output": "m0058.glb",
+      "vertices": 512,
+      "indices": 558,
+      "submeshes": 2,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 57160
+    },
+    {
+      "source": "m0062.xzm",
+      "output": "m0062.glb",
+      "vertices": 1620,
+      "indices": 2466,
+      "submeshes": 3,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 3,
+      "chunk_surface_counts": [
+        3
+      ],
+      "bytes": 180316
+    },
+    {
+      "source": "m0063.xzm",
+      "output": "m0063.glb",
+      "vertices": 1487,
+      "indices": 2163,
+      "submeshes": 3,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 3,
+      "chunk_surface_counts": [
+        3
+      ],
+      "bytes": 165272
+    },
+    {
+      "source": "m0064.xzm",
+      "output": "m0064.glb",
+      "vertices": 835,
+      "indices": 1092,
+      "submeshes": 2,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 92908
+    },
+    {
+      "source": "m0065.xzm",
+      "output": "m0065.glb",
+      "vertices": 842,
+      "indices": 1092,
+      "submeshes": 2,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 93636
+    },
+    {
+      "source": "m0066.xzm",
+      "output": "m0066.glb",
+      "vertices": 4795,
+      "indices": 6366,
+      "submeshes": 3,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 3,
+      "chunk_surface_counts": [
+        3
+      ],
+      "bytes": 526124
+    },
+    {
+      "source": "m0067.xzm",
+      "output": "m0067.glb",
+      "vertices": 508,
+      "indices": 558,
+      "submeshes": 2,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 56764
+    },
+    {
+      "source": "m0068.xzm",
+      "output": "m0068.glb",
+      "vertices": 512,
+      "indices": 558,
+      "submeshes": 2,
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 57160
+    }
+  ]
+}

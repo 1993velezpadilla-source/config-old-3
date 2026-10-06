@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "sourceActorCount": 2,
+  "actors": [
+    {
+      "packagePath": "Pavlov/Plugins/UGC5097941/Content/nuketownz.umap",
+      "exportIndex": 155,
+      "objectPath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/nuketownz.nuketownz:PersistentLevel.SkeletalMeshActor_3",
+      "className": "SkeletalMeshActor",
+      "rootComponentPath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/nuketownz.nuketownz:PersistentLevel.SkeletalMeshActor_3.SkeletalMeshComponent0",
+      "anchorSource": "RootComponentProperty",
+      "matrixRowMajor": [
+        -0.25881898,
+        -0.9659258,
+        0,
+        13.946689,
+        0.9659258,
+        -0.25881898,
+        0,
+        2.1435616,
+        0,
+        0,
+        1,
+        6.5266266,
+        0,
+        0,
+        0,
+        1
+      ],
+      "positionMeters": [
+        13.946689,
+        2.1435616,
+        6.5266266
+      ]
+    },
+    {
+      "packagePath": "Pavlov/Plugins/UGC5097941/Content/nuketownz.umap",
+      "exportIndex": 156,
+      "objectPath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/nuketownz.nuketownz:PersistentLevel.SkeletalMeshActor_5",
+      "className": "SkeletalMeshActor",
+      "rootComponentPath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/nuketownz.nuketownz:PersistentLevel.SkeletalMeshActor_5.SkeletalMeshComponent0",
+      "anchorSource": "RootComponentProperty",
+      "matrixRowMajor": [
+        0.3420201,
+        -0.9396927,
+        0,
+        -12.551954,
+        0.9396927,
+        0.3420201,
+        0,
+        7.5040007,
+        0,
+        0,
+        1,
+        6.0489216,
+        0,
+        0,
+        0,
+        1
+      ],
+      "positionMeters": [
+        -12.551954,
+        7.5040007,
+        6.0489216
+      ]
+    }
+  ],
+  "ready": true
+}

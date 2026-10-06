@@ -528,5 +528,26 @@
     "source_run": 37425254373,
     "source_artifact": "Xogot-Nuketown-Full-Source-Authority",
     "staged_directory": "vfs/xziel/maps/xziel_nuketown_zombies/meshes"
+  },
+  "complete_static_mesh_runtime_library": {
+    "source_count": 83,
+    "map_referenced_count": 52,
+    "unplaced_library_count": 31,
+    "map_referenced_directory": "vfs/xziel/maps/xziel_nuketown_zombies/meshes_glb",
+    "unplaced_library_directory": "source_library/extra_static_glb",
+    "source_report": "complete-static-mesh-source-report.json",
+    "split_manifest": "complete-static-mesh-library.json"
+  },
+  "source_skeletal_actor_count": 2,
+  "complete_skeletal_runtime_library": {
+    "skeletons": 3,
+    "skeletal_meshes": 3,
+    "animations": 9,
+    "gltf_outputs": 3,
+    "directory": "source_library/skeletal_gltf",
+    "manifest": "source_library/skeletal_gltf/manifest.json",
+    "actor_anchors": "skeletal-actor-anchors.json",
+    "source_node_audit": "skeletal-actor-source-node-audit.json",
+    "source_node_matches": 2
   }
 }

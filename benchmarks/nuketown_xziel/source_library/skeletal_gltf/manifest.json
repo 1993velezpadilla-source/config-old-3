@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "sourceSkeletonCount": 3,
+  "sourceSkeletalMeshCount": 3,
+  "sourceAnimationCount": 9,
+  "outputCount": 3,
+  "meshes": [
+    {
+      "output": "skeletal_00_untitled.gltf",
+      "sourceGeometry": "Pavlov/Plugins/UGC5097941/Content/box/1/untitled.uasset",
+      "sourceSkeleton": "Pavlov/Plugins/UGC5097941/Content/box/1/untitled_Skeleton.uasset",
+      "skeletonHash": "40e5473fcfae14e8",
+      "bones": 5,
+      "vertices": 2876,
+      "indices": 8997,
+      "sections": 7,
+      "animations": [
+        {
+          "name": "arrive",
+          "packagePath": "Pavlov/Plugins/UGC5097941/Content/box/1/untitled_Anim_Armature_006_o_zombie_magic_box_arrive.uasset",
+          "frames": 149,
+          "fps": 30.202701568603516,
+          "duration": 4.933333396911621,
+          "additive": false
+        },
+        {
+          "name": "close",
+          "packagePath": "Pavlov/Plugins/UGC5097941/Content/box/1/untitled_Anim_Armature_006_o_zombie_magic_box_close.uasset",
+          "frames": 19,
+          "fps": 31.66666603088379,
+          "duration": 0.6000000238418579,
+          "additive": false
+        },
+        {
+          "name": "leave",
+          "packagePath": "Pavlov/Plugins/UGC5097941/Content/box/1/untitled_Anim_Armature_006_o_zombie_magic_box_leave.uasset",
+          "frames": 226,
+          "fps": 30.133333206176758,
+          "duration": 7.5,
+          "additive": false
+        },
+        {
+          "name": "open",
+          "packagePath": "Pavlov/Plugins/UGC5097941/Content/box/1/untitled_Anim_Armature_006_o_zombie_magic_box_open.uasset",
+          "frames": 26,
+          "fps": 31.200000762939453,
+          "duration": 0.8333333134651184,
+          "additive": false
+        },
+        {
+          "name": "teddy_rise",
+          "packagePath": "Pavlov/Plugins/UGC5097941/Content/box/1/untitled_Anim_Armature_006_o_zombie_magic_box_teddy_rise.uasset",
+          "frames": 271,
+          "fps": 30.11111068725586,
+          "duration": 9.0,
+          "additive": false
+        },
+        {
+          "name": "weapon_dual_rise",
+          "packagePath": "Pavlov/Plugins/UGC5097941/Content/box/1/untitled_Anim_Armature_006_o_zombie_magic_box_weapon_dual_rise.uasset",
+          "frames": 118,
+          "fps": 30.25640869140625,
+          "duration": 3.9000000953674316,
+          "additive": false
+        },
+        {
+          "name": "weapon_rise",
+          "packagePath": "Pavlov/Plugins/UGC5097941/Content/box/1/untitled_Anim_Armature_006_o_zombie_magic_box_weapon_rise.uasset",
+          "frames": 118,
+          "fps": 30.25640869140625,
+          "duration": 3.9000000953674316,
+          "additive": false
+        }
+      ]
+    },
+    {
+      "output": "skeletal_01_untitled.gltf",
+      "sourceGeometry": "Pavlov/Plugins/UGC5097941/Content/props/shades/1/untitled.uasset",
+      "sourceSkeleton": "Pavlov/Plugins/UGC5097941/Content/props/shades/1/untitled_Skeleton.uasset",
+      "skeletonHash": "70299695c85b0559",
+      "bones": 10,
+      "vertices": 2706,
+      "indices": 5088,
+      "sections": 4,
+      "animations": [
+        {
+          "name": "untitled_Anim",
+          "packagePath": "Pavlov/Plugins/UGC5097941/Content/props/shades/1/untitled_Anim.uasset",
+          "frames": 90,
+          "fps": 30.337078094482422,
+          "duration": 2.9666666984558105,
+          "additive": false
+        }
+      ]
+    },
+    {
+      "output": "skeletal_02_untitled.gltf",
+      "sourceGeometry": "Pavlov/Plugins/UGC5097941/Content/props/shades/2/untitled.uasset",
+      "sourceSkeleton": "Pavlov/Plugins/UGC5097941/Content/props/shades/2/untitled_Skeleton.uasset",
+      "skeletonHash": "09f7e917b6599364",
+      "bones": 8,
+      "vertices": 1412,
+      "indices": 2442,
+      "sections": 2,
+      "animations": [
+        {
+          "name": "untitled_Anim",
+          "packagePath": "Pavlov/Plugins/UGC5097941/Content/props/shades/2/untitled_Anim.uasset",
+          "frames": 90,
+          "fps": 30.337078094482422,
+          "duration": 2.9666666984558105,
+          "additive": false
+        }
+      ]
+    }
+  ],
+  "ready": true
+}

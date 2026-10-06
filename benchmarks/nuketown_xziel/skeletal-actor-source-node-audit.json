@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "actorNames": [
+    "SkeletalMeshActor_3",
+    "SkeletalMeshActor_5"
+  ],
+  "matchCount": 2,
+  "nodes": [
+    {
+      "contentKey": "1624b1320fd19e72",
+      "packagePath": "Pavlov/Plugins/UGC5097941/Content/nuketownz.umap",
+      "exportIndex": 155,
+      "objectName": "SkeletalMeshActor_3",
+      "className": "SkeletalMeshActor",
+      "sourceKind": "animation_rig",
+      "sourceDisposition": "runtime",
+      "ignoreReason": null,
+      "propertyCount": 2,
+      "serialSize": 38,
+      "localExportDependencies": [
+        81,
+        158
+      ],
+      "externalImports": [
+        "/Script/Engine|Default__SkeletalMeshActor|SkeletalMeshActor",
+        "/Script/Engine|SkeletalMeshActor|Class",
+        "/Script/Engine|SkeletalMeshComponent0|SkeletalMeshComponent"
+      ],
+      "preload": {
+        "FirstExportDependency": 945,
+        "SerializationBeforeSerializationDependencies": 0,
+        "CreateBeforeSerializationDependencies": 1,
+        "SerializationBeforeCreateDependencies": 3,
+        "CreateBeforeCreateDependencies": 1
+      }
+    },
+    {
+      "contentKey": "1624b0320fd19cbf",
+      "packagePath": "Pavlov/Plugins/UGC5097941/Content/nuketownz.umap",
+      "exportIndex": 156,
+      "objectName": "SkeletalMeshActor_5",
+      "className": "SkeletalMeshActor",
+      "sourceKind": "animation_rig",
+      "sourceDisposition": "runtime",
+      "ignoreReason": null,
+      "propertyCount": 2,
+      "serialSize": 39,
+      "localExportDependencies": [
+        81,
+        159
+      ],
+      "externalImports": [
+        "/Script/Engine|Default__SkeletalMeshActor|SkeletalMeshActor",
+        "/Script/Engine|SkeletalMeshActor|Class",
+        "/Script/Engine|SkeletalMeshComponent0|SkeletalMeshComponent"
+      ],
+      "preload": {
+        "FirstExportDependency": 950,
+        "SerializationBeforeSerializationDependencies": 0,
+        "CreateBeforeSerializationDependencies": 1,
+        "SerializationBeforeCreateDependencies": 3,
+        "CreateBeforeCreateDependencies": 1
+      }
+    }
+  ],
+  "ready": true
+}
