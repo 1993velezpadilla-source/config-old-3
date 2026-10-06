@@ -22,6 +22,8 @@ const NUKETOWN_NAVIGATION := preload("res://scripts/nuketown_navigation_runtime.
 const NUKETOWN_AUDIO := preload("res://scripts/nuketown_source_audio_runtime.gd")
 const WeaponCatalog := preload("res://scripts/weapon_catalog.gd")
 const VISUAL_SCENE_FILE := "visual-scene.json"
+const SOURCE_SKELETAL_BINDINGS_FILE := "skeletal-runtime-bindings.json"
+const SOURCE_SKELETAL_LIBRARY_DIR := "source_library/skeletal_gltf"
 const SOURCE_GAMEPLAY_FILE := "res://data/nuketown_source_gameplay.json"
 const SOURCE_ACTOR_COVERAGE_FILE := "res://data/nuketown_actor_coverage.json"
 const MYSTERY_SOURCE_VISUAL := "res://assets/benchmarks/nuketown_xziel/mystery_source/mystery_box_source.gltf"
@@ -40,6 +42,8 @@ var _source_mystery_count: int = 0
 var _source_ladder_count: int = 0
 var _source_interactable_count: int = 0
 var _source_covered_actor_count: int = 0
+var _source_skeletal_visual_count: int = 0
+var _source_skeletal_clip_count: int = 0
 
 func _ready() -> void:
 	get_tree().set_meta("active_map_id", "nuketown_xziel_full")
@@ -93,6 +97,9 @@ func _boot_full_map() -> void:
 	if preserve_all_actor_anchors:
 		_build_source_actor_anchors(scene)
 
+	if not _mount_source_skeletal_actor_visuals():
+		return
+
 	if not _build_source_audio_runtime():
 		return
 
@@ -115,6 +122,8 @@ func _boot_full_map() -> void:
 	set_meta("source_ladder_count", _source_ladder_count)
 	set_meta("source_interactable_count", _source_interactable_count)
 	set_meta("source_covered_actor_count", _source_covered_actor_count)
+	set_meta("source_skeletal_visual_count", _source_skeletal_visual_count)
+	set_meta("source_skeletal_clip_count", _source_skeletal_clip_count)
 	set_meta("source_coverage_class_count", int(_source_actor_coverage.get("sourceClassCount", 0)))
 	set_meta("source_gameplay_truth_schema", int(_source_gameplay_truth.get("schemaVersion", 0)))
 	set_meta("navigation_polygon_count", int(_navigation_runtime.call("get_polygon_count")))
@@ -139,7 +148,9 @@ func _boot_full_map() -> void:
 		" spawns=", _source_spawn_count,
 		" wallbuys=", _source_wallbuy_count,
 		" mystery=", _source_mystery_count,
-		" ladders=", _source_ladder_count
+		" ladders=", _source_ladder_count,
+		" skeletal_visuals=", _source_skeletal_visual_count,
+		" skeletal_clips=", _source_skeletal_clip_count
 	)
 
 func _read_json(path: String) -> Dictionary:
@@ -249,6 +260,134 @@ func _attach_mystery_source_visual(runtime: Node3D) -> bool:
 		runtime.call("refresh_source_animation_player")
 	print("XZOGOT_MYSTERY_SOURCE_VISUAL_GREEN clips=", source_clips.size(), " names=", source_clips)
 	return source_clips.size() == 7
+
+func _source_actor_marker_by_object_path(source_object_path: String) -> Marker3D:
+	for node: Node in get_tree().get_nodes_in_group("nuketown_source_covered_actor"):
+		if not (node is Marker3D):
+			continue
+		if str(node.get_meta("source_object_path", "")) == source_object_path:
+			return node as Marker3D
+	return null
+
+func _mount_source_skeletal_actor_visuals() -> bool:
+	if _source_actor_root == null:
+		push_error("NUKETOWN_FULL_MAP: source actor root missing before skeletal mount")
+		return false
+
+	var bindings_path := source_root.path_join(SOURCE_SKELETAL_BINDINGS_FILE)
+	var document := _read_json(bindings_path)
+	if document.is_empty():
+		push_error("NUKETOWN_FULL_MAP: exact source skeletal bindings missing")
+		return false
+	if int(document.get("schemaVersion", 0)) != 1:
+		push_error("NUKETOWN_FULL_MAP: unsupported skeletal binding schema")
+		return false
+	if not bool(document.get("ready", false)):
+		push_error("NUKETOWN_FULL_MAP: exact source skeletal bindings not ready")
+		return false
+
+	var rows: Array = document.get("bindings", [])
+	if rows.size() != int(document.get("bindingCount", -1)) or rows.size() != 2:
+		push_error("NUKETOWN_FULL_MAP: exact skeletal binding count mismatch " + str(rows.size()))
+		return false
+
+	var mounted_paths: Dictionary = {}
+	var mounted_gltfs: Dictionary = {}
+	var total_clips := 0
+
+	for raw: Variant in rows:
+		if not (raw is Dictionary):
+			push_error("NUKETOWN_FULL_MAP: malformed source skeletal binding")
+			return false
+		var row := raw as Dictionary
+		var actor_object_path := str(row.get("actorObjectPath", ""))
+		var marker := _source_actor_marker_by_object_path(actor_object_path)
+		if marker == null:
+			push_error("NUKETOWN_FULL_MAP: skeletal actor marker missing " + actor_object_path)
+			return false
+		if mounted_paths.has(actor_object_path):
+			push_error("NUKETOWN_FULL_MAP: duplicate skeletal actor binding " + actor_object_path)
+			return false
+
+		var gltf_name := str(row.get("gltf", ""))
+		var gltf_path := source_root.path_join(SOURCE_SKELETAL_LIBRARY_DIR).path_join(gltf_name)
+		if gltf_name.is_empty() or not ResourceLoader.exists(gltf_path):
+			push_error("NUKETOWN_FULL_MAP: skeletal glTF missing " + gltf_path)
+			return false
+		if mounted_gltfs.has(gltf_name):
+			push_error("NUKETOWN_FULL_MAP: duplicate skeletal glTF assignment " + gltf_name)
+			return false
+
+		var packed := load(gltf_path) as PackedScene
+		if packed == null:
+			push_error("NUKETOWN_FULL_MAP: skeletal glTF import failed " + gltf_name)
+			return false
+		var visual := packed.instantiate() as Node3D
+		if visual == null:
+			push_error("NUKETOWN_FULL_MAP: skeletal glTF instantiate failed " + gltf_name)
+			return false
+
+		visual.name = "SourceSkeletalVisual_" + str(row.get("actorName", "Actor"))
+		visual.transform = Transform3D.IDENTITY
+		visual.add_to_group("nuketown_source_skeletal_visual")
+		visual.set_meta("source_actor_object_path", actor_object_path)
+		visual.set_meta("source_skeletal_mesh_object_path", str(row.get("sourceSkeletalMeshObjectPath", "")))
+		visual.set_meta("source_skeletal_mesh_package_path", str(row.get("sourceSkeletalMeshPackagePath", "")))
+		visual.set_meta("source_xzsk_file", str(row.get("sourceXzskFile", "")))
+		visual.set_meta("source_skeleton_hash", str(row.get("skeletonHash", "")))
+		visual.set_meta("source_gltf", gltf_name)
+		visual.set_meta("source_transform_inherited_from_exact_actor_marker", true)
+		marker.add_child(visual)
+
+		var animation_player := _find_animation_player_recursive(visual)
+		if animation_player == null:
+			push_error("NUKETOWN_FULL_MAP: skeletal AnimationPlayer missing " + gltf_name)
+			return false
+
+		var actual_clips: Array[String] = []
+		for raw_name: StringName in animation_player.get_animation_list():
+			var clip := str(raw_name)
+			if clip != "RESET":
+				actual_clips.append(clip)
+		actual_clips.sort()
+
+		var expected_clips: Array[String] = []
+		for raw_clip: Variant in row.get("animations", []):
+			expected_clips.append(str(raw_clip))
+		expected_clips.sort()
+		if actual_clips != expected_clips:
+			push_error(
+				"NUKETOWN_FULL_MAP: skeletal source clip mismatch "
+				+ gltf_name + " actual=" + str(actual_clips)
+				+ " expected=" + str(expected_clips)
+			)
+			return false
+
+		# Keep source animation data intact but do not invent playback state.
+		# Whether these cooked actors auto-play is decoded separately from UE.
+		visual.set_meta("source_animation_names", actual_clips)
+		visual.set_meta("source_animation_playback_decoded", false)
+		total_clips += actual_clips.size()
+		mounted_paths[actor_object_path] = true
+		mounted_gltfs[gltf_name] = true
+
+	_source_skeletal_visual_count = mounted_paths.size()
+	_source_skeletal_clip_count = total_clips
+	if _source_skeletal_visual_count != 2 or _source_skeletal_clip_count != 2:
+		push_error(
+			"NUKETOWN_FULL_MAP: skeletal runtime coverage mismatch visuals="
+			+ str(_source_skeletal_visual_count)
+			+ " clips=" + str(_source_skeletal_clip_count)
+		)
+		return false
+
+	print(
+		"XZOGOT_NUKETOWN_SOURCE_SKELETAL_VISUALS_GREEN visuals=",
+		_source_skeletal_visual_count,
+		" clips=", _source_skeletal_clip_count,
+		" gltfs=", mounted_gltfs.keys()
+	)
+	return true
 
 func _source_basis() -> Basis:
 	# Same single coordinate conversion as XzielBenchmarkLoader.
