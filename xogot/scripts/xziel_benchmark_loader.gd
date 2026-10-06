@@ -46,7 +46,10 @@ var _source_effective_material_paths: Dictionary = {}
 var _source_material_alias_diffuse: Dictionary = {}
 var _source_material_alias_conflicts: Dictionary = {}
 var _source_material_resolved_alias_diffuse: Dictionary = {}
+var _source_duplicate_material_parameters: Dictionary = {}
+var _source_duplicate_material_conflicts: Dictionary = {}
 var _source_material_alias_hits: int = 0
+var _source_duplicate_material_hits: int = 0
 var _source_material_exact_token_hits: int = 0
 var _source_material_textured_count: int = 0
 var _source_material_flat_fallback_count: int = 0
@@ -183,6 +186,8 @@ func _load_benchmark_world() -> void:
 	set_meta("xziel_benchmark_material_alias_conflict_count", _source_material_alias_conflicts.size())
 	set_meta("xziel_benchmark_material_alias_resolved_count", _source_material_resolved_alias_diffuse.size())
 	set_meta("xziel_benchmark_material_alias_hits", _source_material_alias_hits)
+	set_meta("xziel_benchmark_material_duplicate_source_hits", _source_duplicate_material_hits)
+	set_meta("xziel_benchmark_material_duplicate_source_conflicts", _source_duplicate_material_conflicts.size())
 	set_meta("xziel_benchmark_material_exact_token_hits", _source_material_exact_token_hits)
 	set_meta("xziel_benchmark_material_textured_count", _source_material_textured_count)
 	set_meta("xziel_benchmark_material_flat_fallback_count", _source_material_flat_fallback_count)
@@ -212,6 +217,8 @@ func _load_benchmark_world() -> void:
 		" aliases=", _source_material_alias_diffuse.size(),
 		" alias_resolved=", _source_material_resolved_alias_diffuse.size(),
 		" alias_hits=", _source_material_alias_hits,
+		" duplicate_source_hits=", _source_duplicate_material_hits,
+		" duplicate_source_conflicts=", _source_duplicate_material_conflicts.size(),
 		" exact_token_hits=", _source_material_exact_token_hits,
 		" alias_conflicts=", _source_material_alias_conflicts.size(),
 		" textured_materials=", _source_material_textured_count,
@@ -313,7 +320,10 @@ func _prepare_material_authority() -> void:
 	_source_material_alias_diffuse.clear()
 	_source_material_alias_conflicts.clear()
 	_source_material_resolved_alias_diffuse.clear()
+	_source_duplicate_material_parameters.clear()
+	_source_duplicate_material_conflicts.clear()
 	_source_material_alias_hits = 0
+	_source_duplicate_material_hits = 0
 	_source_material_exact_token_hits = 0
 	_source_material_textured_count = 0
 	_source_material_flat_fallback_count = 0
@@ -648,9 +658,22 @@ func _material_for_path(material_path: String) -> Material:
 	if diffuse_source.is_empty():
 		diffuse_source = _unique_source_srgb_texture(record)
 	if diffuse_source.is_empty():
+		var duplicate_diffuse := _duplicate_source_material_parameter(
+			material_path,
+			"diffuse"
+		)
+		if not duplicate_diffuse.is_empty():
+			diffuse_source = duplicate_diffuse
+			_source_duplicate_material_hits += 1
+	if diffuse_source.is_empty():
 		diffuse_source = _source_named_composite_diffuse(material_path)
 	if normal_source.is_empty():
 		normal_source = _unique_source_normal_texture(record)
+	if normal_source.is_empty():
+		normal_source = _duplicate_source_material_parameter(
+			material_path,
+			"normal"
+		)
 
 	var diffuse := _texture_for_source(diffuse_source)
 	# A cooked material can preserve a non-empty source binding whose Texture2D
@@ -899,7 +922,64 @@ func _register_source_material_alias(key: String, diffuse_source: String) -> voi
 		_source_material_alias_diffuse.erase(key)
 		_source_material_alias_conflicts[key] = true
 
+func _register_source_duplicate_material_parameters(
+	material_path: String,
+	record: Dictionary
+) -> void:
+	# Some cooked maps contain a base Material override and a sibling
+	# MaterialInstanceConstant with the exact same source material basename.
+	# Only accept the sibling as authority when it exposes an explicit
+	# AlbedoTexture parameter. This is an exact source identity + parameter
+	# relationship, not filename similarity or a visual guess.
+	var diffuse_source := _exact_parameter_texture(record, "AlbedoTexture")
+	if diffuse_source.is_empty():
+		return
+	var key := material_path.get_file().get_basename().to_lower()
+	if key.is_empty() or _source_duplicate_material_conflicts.has(key):
+		return
+	var candidate := {
+		"sourceMaterialPath": material_path,
+		"diffuse": diffuse_source,
+		"normal": _exact_parameter_texture(record, "NormalTexture"),
+	}
+	if not _source_duplicate_material_parameters.has(key):
+		_source_duplicate_material_parameters[key] = candidate
+		return
+	var existing: Dictionary = _source_duplicate_material_parameters[key]
+	if (
+		str(existing.get("diffuse", "")) != diffuse_source
+		or str(existing.get("normal", "")) != str(candidate.get("normal", ""))
+	):
+		_source_duplicate_material_parameters.erase(key)
+		_source_duplicate_material_conflicts[key] = true
+
+
+func _duplicate_source_material_parameter(
+	material_path: String,
+	parameter_name: String
+) -> String:
+	var key := material_path.get_file().get_basename().to_lower()
+	if key.is_empty() or _source_duplicate_material_conflicts.has(key):
+		return ""
+	var candidate: Dictionary = _source_duplicate_material_parameters.get(key, {})
+	if candidate.is_empty():
+		return ""
+	var source_material_path := str(candidate.get("sourceMaterialPath", ""))
+	if source_material_path.is_empty() or source_material_path == material_path:
+		return ""
+	if parameter_name == "diffuse":
+		return str(candidate.get("diffuse", ""))
+	if parameter_name == "normal":
+		return str(candidate.get("normal", ""))
+	return ""
+
+
 func _build_source_material_aliases() -> void:
+	for material_path_var: Variant in _material_records.keys():
+		var material_path := str(material_path_var)
+		var record: Dictionary = _material_records[material_path]
+		_register_source_duplicate_material_parameters(material_path, record)
+
 	# Cooked /nt/ material packages no longer retain Texture2D imports, but the
 	# source texture catalog itself still preserves the original semantic names.
 	# Register ONLY exact semantic keys from source sRGB color textures. Any key
