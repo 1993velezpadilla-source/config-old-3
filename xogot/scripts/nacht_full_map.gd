@@ -1464,6 +1464,54 @@ func _build_source_particle_semantic_runtime() -> bool:
 		"source_particle_mystery_fog_peak_active",
 		int(_source_particle_mystery_fog_descriptor.get("peakActiveParticles", -1))
 	)
+	set_meta(
+		"source_particle_mystery_fog_life_multiplier_min",
+		_source_particle_mystery_fog_descriptor.get("lifeMultiplierMin", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_mystery_fog_life_multiplier_max",
+		_source_particle_mystery_fog_descriptor.get("lifeMultiplierMax", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_mystery_fog_life_multiplier_table_value_count",
+		int(_source_particle_mystery_fog_descriptor.get("lifeMultiplierTableValueCount", -1))
+	)
+	set_meta(
+		"source_particle_mystery_fog_color_min",
+		_source_particle_mystery_fog_descriptor.get("colorMin", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_mystery_fog_color_max",
+		_source_particle_mystery_fog_descriptor.get("colorMax", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_mystery_fog_rgb_table_value_count",
+		int(_source_particle_mystery_fog_descriptor.get("rgbTableValueCount", -1))
+	)
+	set_meta(
+		"source_particle_mystery_fog_alpha_max",
+		float(_source_particle_mystery_fog_descriptor.get("alphaMax", -1.0))
+	)
+	set_meta(
+		"source_particle_mystery_fog_velocity_life_min",
+		_source_particle_mystery_fog_descriptor.get("velocityOverLifeMin", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_mystery_fog_velocity_life_max",
+		_source_particle_mystery_fog_descriptor.get("velocityOverLifeMax", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_mystery_fog_velocity_life_time_scale",
+		float(_source_particle_mystery_fog_descriptor.get("velocityOverLifeTimeScale", -1.0))
+	)
+	set_meta(
+		"source_particle_mystery_fog_start_velocity_min_ue_cm",
+		_source_particle_mystery_fog_descriptor.get("startVelocityMinUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_mystery_fog_start_velocity_max_ue_cm",
+		_source_particle_mystery_fog_descriptor.get("startVelocityMaxUEcm", Vector3.INF)
+	)
 
 	print(
 		"XZOGOT_NACHT_CASCADE_SEMANTIC_RUNTIME_GREEN systems=",
