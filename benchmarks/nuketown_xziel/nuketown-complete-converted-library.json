@@ -1,36 +1,10 @@
 {
-  "schema": 2,
-  "id": "xogot_nuketown_complete_source_runtime",
-  "purpose": "Godot runtime derived from the literal complete Nuketown Content folder",
-  "source_run": 37425254373,
-  "source_artifact": "Xogot-Nuketown-Full-Source-Authority",
-  "source_authority": "Pavlov/Plugins/UGC5097941/Content (complete folder)",
-  "source_map": "Pavlov/Plugins/UGC5097941/Content/nuketownz.umap",
-  "coordinate_system": "XZIEL X,-Y,Z meters; Godot conversion happens once at XZIELSceneRoot",
-  "mesh_count": 52,
-  "instance_count": 124,
-  "material_count": 661,
-  "texture_count": 221,
-  "light_count": 5,
-  "unresolved_meshes": 0,
-  "unresolved_materials": 0,
-  "unresolved_textures": 0,
-  "runtime_loader": "res://scripts/xziel_benchmark_loader.gd",
-  "full_content_manifest": "nuketown-full-content-manifest.json",
-  "full_content_file_list": "nuketown-content-files.txt",
-  "full_dependency_manifest": "nuketown-source-export-manifest-summary.json",
-  "source_file_count": 2859,
-  "source_total_bytes": 181310836,
-  "source_package_count": 1266,
-  "source_export_count": 2499,
-  "source_dependency_edges": {
-    "structural": 6240,
-    "preload": 10744,
-    "local": 4107,
-    "external": 12877,
-    "script": 11290
-  },
-  "complete_converted_library": {
+  "schemaVersion": 1,
+  "authority": "literal_complete_nuketown_content_folder",
+  "sourceFileCount": 2859,
+  "sourceBytes": 181310836,
+  "convertedAssetCount": 445,
+  "assets": {
     "static_meshes": {
       "count": 83,
       "bytes": 78616980,
@@ -519,14 +493,5 @@
       ]
     }
   },
-  "runtime_mesh_format": "GLB",
-  "runtime_mesh_directory": "vfs/xziel/maps/xziel_nuketown_zombies/meshes_glb",
-  "runtime_mesh_conversion": "lossless XZMS vertex/index/submesh bridge; Godot-safe surface chunking only",
-  "runtime_mesh_chunks": 53,
-  "runtime_max_surfaces_per_mesh": 240,
-  "source_xzms_authority": {
-    "source_run": 37425254373,
-    "source_artifact": "Xogot-Nuketown-Full-Source-Authority",
-    "staged_directory": "vfs/xziel/maps/xziel_nuketown_zombies/meshes"
-  }
+  "ready": true
 }
