@@ -1,0 +1,63 @@
+{
+  "runtime_id": "springfield",
+  "source_dir": "Springfield",
+  "base_hands_source": "T4/Marine/viewmodel_usa_marine_arms",
+  "source_psa_count": 11,
+  "source_psas": [
+    "viewmodel_springfield_fire.psa",
+    "viewmodel_springfield_fire_Montage.psa",
+    "viewmodel_springfield_idle.psa",
+    "viewmodel_springfield_pullout.psa",
+    "viewmodel_springfield_pullout_Montage.psa",
+    "viewmodel_springfield_putaway.psa",
+    "viewmodel_springfield_putaway_Montage.psa",
+    "viewmodel_springfield_rechamber.psa",
+    "viewmodel_springfield_rechamber_Montage.psa",
+    "viewmodel_springfield_reload.psa",
+    "viewmodel_springfield_reload_Montage.psa"
+  ],
+  "actions_imported": [
+    "viewmodel_springfield_fire",
+    "viewmodel_springfield_fire.001",
+    "viewmodel_springfield_idle",
+    "viewmodel_springfield_pullout",
+    "viewmodel_springfield_pullout.001",
+    "viewmodel_springfield_putaway",
+    "viewmodel_springfield_putaway.001",
+    "viewmodel_springfield_rechamber",
+    "viewmodel_springfield_rechamber.001",
+    "viewmodel_springfield_reload",
+    "viewmodel_springfield_reload.001"
+  ],
+  "actions_exported": [
+    "PSA_viewmodel_springfield_fire",
+    "PSA_viewmodel_springfield_fire.001",
+    "PSA_viewmodel_springfield_idle",
+    "PSA_viewmodel_springfield_pullout",
+    "PSA_viewmodel_springfield_pullout.001",
+    "PSA_viewmodel_springfield_putaway",
+    "PSA_viewmodel_springfield_putaway.001",
+    "PSA_viewmodel_springfield_rechamber",
+    "PSA_viewmodel_springfield_rechamber.001",
+    "PSA_viewmodel_springfield_reload",
+    "PSA_viewmodel_springfield_reload.001"
+  ],
+  "core_roles": {
+    "idle": true,
+    "fire": true,
+    "reload": true,
+    "equip": true
+  },
+  "import_failures": [],
+  "armature_bones": 113,
+  "has_tag_view": true,
+  "has_tag_ads": true,
+  "has_tag_weapon": true,
+  "has_tag_camera": true,
+  "base_hands_kind": "actorx_psk",
+  "source_mesh_scale": 0.01,
+  "translation_scale": 1.0,
+  "translation_units": "ActorX mesh+PSA remain in matching UE centimeters; complete rig object scale=0.01",
+  "output": "/home/runner/work/config-old-3/config-old-3/build/waw-source-hands/springfield/viewhands.glb",
+  "output_bytes": 1303864
+}

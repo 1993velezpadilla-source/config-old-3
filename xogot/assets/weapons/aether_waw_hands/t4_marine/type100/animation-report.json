@@ -1,0 +1,63 @@
+{
+  "runtime_id": "type100",
+  "source_dir": "Type100",
+  "base_hands_source": "T4/Marine/viewmodel_usa_marine_arms",
+  "source_psa_count": 11,
+  "source_psas": [
+    "Type100Equip.psa",
+    "Type100Equip_Montage.psa",
+    "Type100Unequip.psa",
+    "Type100Unequip_Montage.psa",
+    "viewmodel_type100_smg_fire.psa",
+    "viewmodel_type100_smg_fire_Montage.psa",
+    "viewmodel_type100_smg_idle.psa",
+    "viewmodel_type100_smg_reload.psa",
+    "viewmodel_type100_smg_reload_Montage.psa",
+    "viewmodel_type100_smg_reload_empty.psa",
+    "viewmodel_type100_smg_reload_empty_Montage.psa"
+  ],
+  "actions_imported": [
+    "Type100Equip",
+    "Type100Equip.001",
+    "Type100Unequip",
+    "Type100Unequip.001",
+    "viewmodel_type100_smg_fire",
+    "viewmodel_type100_smg_fire.001",
+    "viewmodel_type100_smg_idle",
+    "viewmodel_type100_smg_reload",
+    "viewmodel_type100_smg_reload.001",
+    "viewmodel_type100_smg_reload_empty",
+    "viewmodel_type100_smg_reload_empty.001"
+  ],
+  "actions_exported": [
+    "PSA_Type100Equip",
+    "PSA_Type100Equip.001",
+    "PSA_Type100Unequip",
+    "PSA_Type100Unequip.001",
+    "PSA_viewmodel_type100_smg_fire",
+    "PSA_viewmodel_type100_smg_fire.001",
+    "PSA_viewmodel_type100_smg_idle",
+    "PSA_viewmodel_type100_smg_reload",
+    "PSA_viewmodel_type100_smg_reload.001",
+    "PSA_viewmodel_type100_smg_reload_empty",
+    "PSA_viewmodel_type100_smg_reload_empty.001"
+  ],
+  "core_roles": {
+    "idle": true,
+    "fire": true,
+    "reload": true,
+    "equip": true
+  },
+  "import_failures": [],
+  "armature_bones": 113,
+  "has_tag_view": true,
+  "has_tag_ads": true,
+  "has_tag_weapon": true,
+  "has_tag_camera": true,
+  "base_hands_kind": "actorx_psk",
+  "source_mesh_scale": 0.01,
+  "translation_scale": 1.0,
+  "translation_units": "ActorX mesh+PSA remain in matching UE centimeters; complete rig object scale=0.01",
+  "output": "/home/runner/work/config-old-3/config-old-3/build/waw-source-hands/type100/viewhands.glb",
+  "output_bytes": 1331424
+}

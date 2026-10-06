@@ -96,7 +96,8 @@
           "reload": "res://assets/audio/weapons/mapmod/357/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/357/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/357/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/357/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -163,6 +164,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "357",
+        "source_psa_count": 11,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "colt": {
@@ -176,7 +190,8 @@
           "reload": "res://assets/audio/weapons/mapmod/colt/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/colt/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/colt/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/colt/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -243,6 +258,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "1911",
+        "source_psa_count": 14,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "m1": {
@@ -256,7 +284,8 @@
           "reload": "res://assets/audio/weapons/mapmod/m1/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/m1/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/m1/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/m1/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -323,6 +352,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "M1Garand",
+        "source_psa_count": 15,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "mp40": {
@@ -337,7 +379,7 @@
           "mechanical": "res://assets/audio/weapons/mapmod/mp40/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/mp40/dry_fire.ogg"
         },
-        "hands": "res://assets/weapons/aether_waw_hands/legacy_richtofen/viewhands.glb"
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/mp40/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -405,6 +447,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "MP40",
+        "source_psa_count": 13,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "trench": {
@@ -418,7 +473,8 @@
           "reload": "res://assets/audio/weapons/mapmod/trench/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/trench/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/trench/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/trench/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -485,6 +541,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "TrenchGun",
+        "source_psa_count": 17,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "thompson": {
@@ -498,7 +567,8 @@
           "reload": "res://assets/audio/weapons/mapmod/thompson/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/thompson/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/thompson/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/thompson/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -601,6 +671,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "Thompson",
+        "source_psa_count": 13,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "bar": {
@@ -614,7 +697,8 @@
           "reload": "res://assets/audio/weapons/mapmod/bar/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/bar/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/bar/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/bar/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -681,6 +765,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "BAR",
+        "source_psa_count": 13,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "browning": {
@@ -694,7 +791,8 @@
           "reload": "res://assets/audio/weapons/mapmod/browning/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/browning/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/browning/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/browning/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -761,6 +859,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "Browning",
+        "source_psa_count": 15,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "doublebarrel": {
@@ -774,7 +885,8 @@
           "reload": "res://assets/audio/weapons/mapmod/doublebarrel/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/doublebarrel/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/doublebarrel/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/doublebarrel/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -841,6 +953,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "DoubleBarrel",
+        "source_psa_count": 11,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "sawnoff": {
@@ -921,6 +1046,10 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "source_pending",
+        "reason": "SawedOffDB has no recovered Hands PSA in the validated WaW artifact"
       }
     },
     "fg42": {
@@ -934,7 +1063,8 @@
           "reload": "res://assets/audio/weapons/mapmod/fg42/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/fg42/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/fg42/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/fg42/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -1001,6 +1131,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "FG42",
+        "source_psa_count": 13,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "gewehr": {
@@ -1014,7 +1157,8 @@
           "reload": "res://assets/audio/weapons/mapmod/gewehr/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/gewehr/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/gewehr/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/gewehr/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -1081,6 +1225,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "Gewehr",
+        "source_psa_count": 15,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "m1a1": {
@@ -1094,7 +1251,8 @@
           "reload": "res://assets/audio/weapons/mapmod/m1a1/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/m1a1/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/m1a1/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/m1a1/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -1161,6 +1319,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "M1Carbine",
+        "source_psa_count": 15,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "mg42": {
@@ -1175,7 +1346,8 @@
           "mechanical": "res://assets/audio/weapons/mapmod/mg42/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/mg42/dry_fire.ogg",
           "fire_source_id": "browning_fallback_until_mg42_source_recovered"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/mg42/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -1243,6 +1415,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "MG42",
+        "source_psa_count": 11,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "ppsh": {
@@ -1256,7 +1441,8 @@
           "reload": "res://assets/audio/weapons/mapmod/ppsh/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/ppsh/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/ppsh/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/ppsh/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -1323,6 +1509,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "PPSH",
+        "source_psa_count": 11,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "ptrs": {
@@ -1336,7 +1535,8 @@
           "reload": "res://assets/audio/weapons/mapmod/ptrs/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/ptrs/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/ptrs/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/ptrs/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -1403,6 +1603,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "PTRS",
+        "source_psa_count": 13,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "stg": {
@@ -1416,7 +1629,8 @@
           "reload": "res://assets/audio/weapons/mapmod/stg/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/stg/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/stg/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/stg/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -1483,6 +1697,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "STG44",
+        "source_psa_count": 15,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "type100": {
@@ -1496,7 +1723,8 @@
           "reload": "res://assets/audio/weapons/mapmod/type100/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/type100/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/type100/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/type100/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -1563,6 +1791,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "Type100",
+        "source_psa_count": 11,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "springfield": {
@@ -1576,7 +1817,8 @@
           "reload": "res://assets/audio/weapons/mapmod/springfield/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/springfield/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/springfield/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/springfield/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -1643,6 +1885,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "Springfield",
+        "source_psa_count": 11,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "ray": {
@@ -1815,7 +2070,8 @@
           "reload": "res://assets/audio/weapons/mapmod/arisaka/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/arisaka/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/arisaka/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/arisaka/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -1882,6 +2138,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "Arisaka",
+        "source_psa_count": 13,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "dp28": {
@@ -1895,7 +2164,8 @@
           "reload": "res://assets/audio/weapons/mapmod/dp28/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/dp28/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/dp28/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/dp28/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -1962,6 +2232,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "DP28",
+        "source_psa_count": 13,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "kar98k": {
@@ -1975,7 +2258,8 @@
           "reload": "res://assets/audio/weapons/mapmod/kar98k/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/kar98k/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/kar98k/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/kar98k/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -2042,6 +2326,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "Kar98k",
+        "source_psa_count": 15,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "mosin": {
@@ -2055,7 +2352,8 @@
           "reload": "res://assets/audio/weapons/mapmod/mosin/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/mosin/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/mosin/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/mosin/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -2122,6 +2420,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "MosinNagant",
+        "source_psa_count": 15,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "nambu": {
@@ -2135,7 +2446,8 @@
           "reload": "res://assets/audio/weapons/mapmod/nambu/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/nambu/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/nambu/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/nambu/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -2202,6 +2514,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "Nambu",
+        "source_psa_count": 13,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "svt40": {
@@ -2215,7 +2540,8 @@
           "reload": "res://assets/audio/weapons/mapmod/svt40/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/svt40/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/svt40/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/svt40/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -2282,6 +2608,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "SVT40",
+        "source_psa_count": 13,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "tt33": {
@@ -2295,7 +2634,8 @@
           "reload": "res://assets/audio/weapons/mapmod/tt33/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/tt33/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/tt33/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/tt33/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -2362,6 +2702,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "TT33",
+        "source_psa_count": 13,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "type99": {
@@ -2375,7 +2728,8 @@
           "reload": "res://assets/audio/weapons/mapmod/type99/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/type99/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/type99/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/type99/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -2442,6 +2796,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "Type99",
+        "source_psa_count": 13,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     },
     "walther": {
@@ -2455,7 +2822,8 @@
           "reload": "res://assets/audio/weapons/mapmod/walther/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/walther/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/walther/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/walther/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -2522,6 +2890,19 @@
           "lastshot",
           "lastfire"
         ]
+      },
+      "hands_source": {
+        "authority": "Project Aether UE5.7 T4 Marine viewhands + WaW Hands PSA",
+        "source_dir": "Walther",
+        "source_psa_count": 13,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1.0
       }
     }
   }

@@ -1,0 +1,63 @@
+{
+  "runtime_id": "ppsh",
+  "source_dir": "PPSH",
+  "base_hands_source": "T4/Marine/viewmodel_usa_marine_arms",
+  "source_psa_count": 11,
+  "source_psas": [
+    "viewmodel_ppsh_fire.psa",
+    "viewmodel_ppsh_fire_Montage.psa",
+    "viewmodel_ppsh_idle.psa",
+    "viewmodel_ppsh_pullout.psa",
+    "viewmodel_ppsh_pullout_Montage.psa",
+    "viewmodel_ppsh_putaway.psa",
+    "viewmodel_ppsh_putaway_Montage.psa",
+    "viewmodel_ppsh_reload.psa",
+    "viewmodel_ppsh_reload_Montage.psa",
+    "viewmodel_ppsh_reload_notempty.psa",
+    "viewmodel_ppsh_reload_notempty_Montage.psa"
+  ],
+  "actions_imported": [
+    "viewmodel_ppsh_fire",
+    "viewmodel_ppsh_fire.001",
+    "viewmodel_ppsh_idle",
+    "viewmodel_ppsh_pullout",
+    "viewmodel_ppsh_pullout.001",
+    "viewmodel_ppsh_putaway",
+    "viewmodel_ppsh_putaway.001",
+    "viewmodel_ppsh_reload",
+    "viewmodel_ppsh_reload.001",
+    "viewmodel_ppsh_reload_notempty",
+    "viewmodel_ppsh_reload_notempty.001"
+  ],
+  "actions_exported": [
+    "PSA_viewmodel_ppsh_fire",
+    "PSA_viewmodel_ppsh_fire.001",
+    "PSA_viewmodel_ppsh_idle",
+    "PSA_viewmodel_ppsh_pullout",
+    "PSA_viewmodel_ppsh_pullout.001",
+    "PSA_viewmodel_ppsh_putaway",
+    "PSA_viewmodel_ppsh_putaway.001",
+    "PSA_viewmodel_ppsh_reload",
+    "PSA_viewmodel_ppsh_reload.001",
+    "PSA_viewmodel_ppsh_reload_notempty",
+    "PSA_viewmodel_ppsh_reload_notempty.001"
+  ],
+  "core_roles": {
+    "idle": true,
+    "fire": true,
+    "reload": true,
+    "equip": true
+  },
+  "import_failures": [],
+  "armature_bones": 113,
+  "has_tag_view": true,
+  "has_tag_ads": true,
+  "has_tag_weapon": true,
+  "has_tag_camera": true,
+  "base_hands_kind": "actorx_psk",
+  "source_mesh_scale": 0.01,
+  "translation_scale": 1.0,
+  "translation_units": "ActorX mesh+PSA remain in matching UE centimeters; complete rig object scale=0.01",
+  "output": "/home/runner/work/config-old-3/config-old-3/build/waw-source-hands/ppsh/viewhands.glb",
+  "output_bytes": 1305148
+}
