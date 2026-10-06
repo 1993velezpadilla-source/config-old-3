@@ -1,0 +1,60 @@
+name: Xogot Nacht Toolchain Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - "tools/patches/patch_ue421_material_texture_refs.py"
+      - "tools/maps/UEAudioSceneExtract/**"
+      - ".github/workflows/xogot-nacht-toolchain-gate.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xogot-nacht-toolchain-gate
+  cancel-in-progress: true
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore pinned material audit and apply UE4.21 patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          OLD=055f0d0721eb212e3f4713e149d1e2ace5c53674
+          git fetch origin "$OLD" --depth=1
+          git checkout "$OLD" -- tools/maps/UEMaterialAudit
+          python3 tools/patches/patch_ue421_material_texture_refs.py
+          grep -q "ResolveAuthoritativeTextureReferences" tools/maps/UEMaterialAudit/Program.cs
+          echo "XZOGOT_NACHT_MATERIAL_PATCH_APPLIED_GREEN"
+
+      - name: Compile patched material authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet restore tools/maps/UEMaterialAudit/UEMaterialAudit.csproj
+          dotnet build tools/maps/UEMaterialAudit/UEMaterialAudit.csproj -c Release --no-restore             2>&1 | tee /tmp/nacht-material-build.log
+          ! grep -q " error CS" /tmp/nacht-material-build.log
+          echo "XZOGOT_NACHT_MATERIAL_TOOLCHAIN_GREEN"
+
+      - name: Compile generic audio scene authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet restore tools/maps/UEAudioSceneExtract/UEAudioSceneExtract.csproj
+          dotnet build tools/maps/UEAudioSceneExtract/UEAudioSceneExtract.csproj -c Release --no-restore             2>&1 | tee /tmp/nacht-audio-scene-build.log
+          ! grep -q " error CS" /tmp/nacht-audio-scene-build.log
+          echo "XZOGOT_NACHT_AUDIO_SCENE_TOOLCHAIN_GREEN"
