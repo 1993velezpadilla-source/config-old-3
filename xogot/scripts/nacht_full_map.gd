@@ -275,7 +275,8 @@ func _audit_source_particle_values() -> bool:
 	var decoded_properties := 0
 	var decoded_complex_values := 0
 	var decoded_distribution_nodes := 0
-	var counted_references := 0
+	var counted_system_references := 0
+	var counted_node_references := 0
 
 	for raw_system: Variant in systems:
 		if not (raw_system is Dictionary):
@@ -286,7 +287,7 @@ func _audit_source_particle_values() -> bool:
 
 		var system_references_raw: Variant = system.get("references", [])
 		if system_references_raw is Array:
-			counted_references += (system_references_raw as Array).size()
+			counted_system_references += (system_references_raw as Array).size()
 
 		var nodes_raw: Variant = system.get("nodes", [])
 		if not (nodes_raw is Array):
@@ -301,6 +302,9 @@ func _audit_source_particle_values() -> bool:
 				return false
 			var node := raw_node as Dictionary
 			decoded_nodes += 1
+			var node_references_raw: Variant = node.get("references", [])
+			if node_references_raw is Array:
+				counted_node_references += (node_references_raw as Array).size()
 			if str(node.get("exportType", "")).begins_with("Distribution"):
 				decoded_distribution_nodes += 1
 
@@ -323,10 +327,20 @@ func _audit_source_particle_values() -> bool:
 			% [decoded_nodes, expected_nodes]
 		)
 		return false
-	if counted_references != expected_references:
+	# Authority totalReferences is defined by UEParticleGraphExtract as the
+	# aggregate of every node's direct references. System.references is a
+	# deduplicated system-level catalog (547 for this source) and therefore
+	# must not be compared to the 643 node-reference authority total.
+	if counted_node_references != expected_references:
 		push_error(
-			"NACHT_FULL_MAP: Cascade reference coverage mismatch %d/%d"
-			% [counted_references, expected_references]
+			"NACHT_FULL_MAP: Cascade node reference coverage mismatch %d/%d"
+			% [counted_node_references, expected_references]
+		)
+		return false
+	if counted_system_references <= 0 or counted_system_references > counted_node_references:
+		push_error(
+			"NACHT_FULL_MAP: Cascade system reference catalog invalid %d node_refs=%d"
+			% [counted_system_references, counted_node_references]
 		)
 		return false
 	if decoded_distribution_nodes != expected_distribution_nodes:
@@ -344,7 +358,8 @@ func _audit_source_particle_values() -> bool:
 	set_meta("source_particle_decoder_ready", true)
 	set_meta("source_particle_decoded_system_count", decoded_systems)
 	set_meta("source_particle_decoded_node_count", decoded_nodes)
-	set_meta("source_particle_decoded_reference_count", counted_references)
+	set_meta("source_particle_decoded_reference_count", counted_node_references)
+	set_meta("source_particle_system_reference_catalog_count", counted_system_references)
 	set_meta("source_particle_decoded_property_count", decoded_properties)
 	set_meta("source_particle_decoded_complex_value_count", decoded_complex_values)
 	set_meta("source_particle_decoded_distribution_node_count", decoded_distribution_nodes)
@@ -353,7 +368,8 @@ func _audit_source_particle_values() -> bool:
 		"XZOGOT_NACHT_CASCADE_SOURCE_DECODER_GREEN ",
 		"systems=", decoded_systems,
 		" nodes=", decoded_nodes,
-		" refs=", counted_references,
+		" refs=", counted_node_references,
+		" system_ref_catalog=", counted_system_references,
 		" properties=", decoded_properties,
 		" complex_values=", decoded_complex_values,
 		" distribution_nodes=", decoded_distribution_nodes
