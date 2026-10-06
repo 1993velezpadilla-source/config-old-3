@@ -198,23 +198,21 @@ ResolveAuthoritativeTextureReferences(
                      constant.TextureParameterValues)
             {
                 var reference = parameter.ParameterValue;
-                if (reference is null || reference.IsNull)
+                if (reference is null)
                     continue;
 
-                UTexture? loaded = null;
-                reference.TryLoad<UTexture>(out loaded);
-
-                var objectPath =
-                    loaded?.GetPathName()
-                    ?? reference.ResolvedObject?.GetPathName();
+                // CUE4Parse 1.2.2.202609 resolves this field directly to
+                // UUnrealMaterial/UTexture rather than exposing FPackageIndex.
+                var loaded = reference as UTexture;
+                var objectPath = reference.GetPathName();
 
                 var name = parameter.Name;
                 result[name] = new TextureTruth(
                     name,
                     objectPath,
-                    loaded?.ExportType,
+                    reference.ExportType,
                     loaded is not null,
-                    reference.ToString(),
+                    objectPath,
                     reference.GetType().FullName);
             }
         }
