@@ -264,18 +264,48 @@ func _run() -> void:
 		"nacht_source_spawn_anchor_position",
 		null
 	)
-	if collision == null or not (raw_spawn_anchor is Vector3):
+	var placement_capsule_error := float(
+		player.get_meta(
+			"nacht_source_spawn_capsule_error_at_placement_m",
+			-1.0
+		)
+	)
+	var placement_up_dot := float(
+		player.get_meta(
+			"nacht_source_spawn_up_dot_at_placement",
+			-1.0
+		)
+	)
+	if (
+		collision == null
+		or not (raw_spawn_anchor is Vector3)
+		or placement_capsule_error < 0.0
+	):
 		_fail(27, "source spawn capsule alignment metadata missing")
 		return
 	var spawn_anchor := raw_spawn_anchor as Vector3
-	var capsule_error := collision.global_position.distance_to(spawn_anchor)
-	if capsule_error > 0.001:
+	if placement_capsule_error > 0.001:
 		_fail(
 			28,
-			"source spawn capsule center mismatch error_m=%f"
-			% capsule_error
+			"source spawn capsule placement mismatch error_m=%f"
+			% placement_capsule_error
 		)
 		return
+	if placement_up_dot < 0.999:
+		_fail(
+			28,
+			"source spawn character is not Godot Y-up dot=%f"
+			% placement_up_dot
+		)
+		return
+
+	# After placement, player physics is intentionally live. Gravity and
+	# move_and_slide() may settle the capsule onto source collision before this
+	# probe reaches it, so the current offset is diagnostic rather than a
+	# placement-authority failure.
+	var settled_capsule_delta := collision.global_position.distance_to(
+		spawn_anchor
+	)
 
 	print(
 		"XZOGOT_NACHT_FULL_MAP_PROBE_GREEN ",
@@ -309,7 +339,9 @@ func _run() -> void:
 		" source_environment_fog_runtime=", source_environment_fog_runtime,
 		" source_environment_reflection_runtime=", source_environment_reflection_runtime,
 		" spawn_candidates=", spawn_candidate_count,
-		" spawn_capsule_error_m=", capsule_error,
+		" spawn_capsule_error_at_placement_m=", placement_capsule_error,
+		" spawn_up_dot_at_placement=", placement_up_dot,
+		" spawn_settled_capsule_delta_m=", settled_capsule_delta,
 		" player=", player.global_position
 	)
 	scene.queue_free()
