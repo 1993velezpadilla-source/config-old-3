@@ -6,6 +6,7 @@ signal navigation_failed(reason: String)
 
 @export var source_collision_group: StringName = &"nuketown_world_collision"
 @export var desired_spawn_count: int = 10
+@export var source_runtime_id: String = "nuketown"
 
 var _region: NavigationRegion3D
 var _navigation_mesh: NavigationMesh
@@ -15,7 +16,7 @@ var _bake_started: bool = false
 
 func _ready() -> void:
 	add_to_group("zombie_path_network")
-	add_to_group("nuketown_navigation_runtime")
+	add_to_group(source_runtime_id + "_navigation_runtime")
 	set_meta("navigation_ready", false)
 	set_meta("source_geometry", "STATIC_COLLIDERS")
 	set_meta("source_collision_group", str(source_collision_group))
@@ -57,7 +58,7 @@ func begin_bake() -> void:
 		_region.bake_finished.connect(_on_bake_finished, CONNECT_ONE_SHOT)
 
 	print(
-		"XZOGOT_NUKETOWN_NAV_BAKE_START colliders=",
+		"XZOGOT_SOURCE_NAV_BAKE_START colliders=",
 		source_nodes.size(),
 		" cell=", _navigation_mesh.cell_size,
 		" agent_radius=", _navigation_mesh.agent_radius
@@ -98,7 +99,7 @@ func _on_bake_finished() -> void:
 	set_meta("navigation_vertex_count", vertices.size())
 	set_meta("zombie_spawn_anchor_count", _spawn_anchor_count)
 	print(
-		"XZOGOT_NUKETOWN_NAV_GREEN polygons=", polygons,
+		"XZOGOT_SOURCE_NAV_GREEN polygons=", polygons,
 		" vertices=", vertices.size(),
 		" spawns=", _spawn_anchor_count,
 		" iteration=", NavigationServer3D.map_get_iteration_id(nav_map)
@@ -109,7 +110,7 @@ func _fail(reason: String) -> void:
 	_navigation_ready_state = false
 	set_meta("navigation_ready", false)
 	set_meta("navigation_failure", reason)
-	push_error("XZOGOT_NUKETOWN_NAV_FAILURE " + reason)
+	push_error("XZOGOT_SOURCE_NAV_FAILURE " + reason)
 	navigation_failed.emit(reason)
 
 func _candidate_vertices(vertices: PackedVector3Array) -> Array[Vector3]:
@@ -181,14 +182,14 @@ func _build_perimeter_spawn_anchors(vertices: PackedVector3Array) -> int:
 
 	for i in range(chosen.size()):
 		var anchor := Marker3D.new()
-		anchor.name = "NuketownZombieSpawn_%02d" % i
+		anchor.name = source_runtime_id.capitalize() + "ZombieSpawn_%02d" % i
 		add_child(anchor)
 		anchor.global_position = chosen[i] + Vector3.UP * 0.08
 		anchor.add_to_group("zombie_spawn_anchor")
-		anchor.add_to_group("nuketown_zombie_spawn_anchor")
-		anchor.set_meta("spawn_id", "nuketown_nav_%02d" % i)
+		anchor.add_to_group(source_runtime_id + "_zombie_spawn_anchor")
+		anchor.set_meta("spawn_id", source_runtime_id + "_nav_%02d" % i)
 		anchor.set_meta("entry_kind", "offscreen")
-		anchor.set_meta("zone", "nuketown_perimeter")
+		anchor.set_meta("zone", source_runtime_id + "_perimeter")
 		anchor.set_meta("weight", 1.0 if i < 4 else 0.82)
 		anchor.set_meta("min_round", 1 if i < 6 else 3)
 		anchor.set_meta("source_authority", "BAKED_SOURCE_COLLISION_NAVMESH")
