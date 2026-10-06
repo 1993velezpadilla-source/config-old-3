@@ -20,7 +20,7 @@ on:
 
 permissions:
   contents: write
-  actions: read
+  actions: write
 
 concurrency:
   group: xogot-stage-nuketown-benchmark
@@ -226,6 +226,23 @@ jobs:
           git pull --rebase origin feature/godot-aaa-rebuild-v1
           git push origin HEAD:feature/godot-aaa-rebuild-v1
           echo "XZOGOT_NUKETOWN_WORLD_COMMIT_GREEN"
+
+      - name: Dispatch Godot validation from staged complete source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for workflow in \
+            xogot-nuketown-full-map-gate.yml \
+            xogot-nuketown-benchmark-capture.yml \
+            xogot-aaa-rebuild-gate.yml
+          do
+            gh workflow run "$workflow" \
+              --repo "$GITHUB_REPOSITORY" \
+              --ref feature/godot-aaa-rebuild-v1
+          done
+          echo "XZOGOT_COMPLETE_SOURCE_GODOT_GATES_DISPATCHED"
 
       - name: Upload stage proof
         uses: actions/upload-artifact@v4
