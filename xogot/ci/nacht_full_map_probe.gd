@@ -49,6 +49,9 @@ func _run() -> void:
 	var audio_authority := int(scene.get_meta("runtime_audio_authority_count", -1))
 	var source_cues := int(scene.get_meta("source_sound_cue_count", -1))
 	var cue_authority := int(scene.get_meta("runtime_sound_cue_authority_count", -1))
+	var source_audio_runtime := bool(scene.get_meta("source_audio_runtime_ready", false))
+	var source_audio_players := int(scene.get_meta("source_audio_runtime_player_count", -1))
+	var source_audio_streams := int(scene.get_meta("source_audio_runtime_stream_count", -1))
 
 	if packages != 3871:
 		_fail(4, "package authority mismatch " + str(packages))
@@ -98,6 +101,13 @@ func _run() -> void:
 	if source_cues != 102 or cue_authority != source_cues:
 		_fail(20, "SoundCue authority coverage mismatch %d/%d expected=102" % [cue_authority, source_cues])
 		return
+	if not source_audio_runtime or source_audio_players != 3 or source_audio_streams != 3:
+		_fail(
+			22,
+			"source audio runtime mismatch ready=%s players=%d streams=%d"
+			% [str(source_audio_runtime), source_audio_players, source_audio_streams]
+		)
+		return
 
 	var player := scene.get_node_or_null("Player") as CharacterBody3D
 	var weapon := scene.get_node_or_null("Player/Weapon")
@@ -125,7 +135,9 @@ func _run() -> void:
 		" audio_authority=", audio_authority,
 		" cues_authority=", cue_authority,
 		" particles_rendered=", bool(scene.get_meta("particle_visual_runtime_ready", false)),
-		" source_audio_runtime=", bool(scene.get_meta("source_audio_runtime_ready", false)),
+		" source_audio_runtime=", source_audio_runtime,
+		" source_audio_players=", source_audio_players,
+		" source_audio_streams=", source_audio_streams,
 		" source_environment_runtime=", bool(scene.get_meta("source_environment_runtime_ready", false)),
 		" player=", player.global_position
 	)
