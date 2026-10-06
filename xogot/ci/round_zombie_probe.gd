@@ -187,72 +187,63 @@ func _run_probe() -> void:
 	if int(round_manager.call("get_remaining_to_spawn")) != 5:
 		_fail(15, "remaining spawn count wrong")
 		return
-	if zombie.get_node_or_null("MonjaBasicaVisual") == null:
-		_fail(21, "Monja Basica visual was not instantiated")
-		return
 	if absf(float(zombie.call("get_health")) - 150.0) > 0.01:
 		_fail(49, "round 1 classic health was not applied")
 		return
-	var monja_model: String = str(zombie.get_meta("zombie_model", ""))
-	if monja_model not in [
-		"monja_cmu",
-		"monja_clean",
-		"monja_basica",
-		"monja_basica_rigged",
-		"monja_basica_rigged_dismember",
-		"monja_basica_rigid_rig",
-	]:
-		_fail(22, "Monja Basica model metadata missing: " + monja_model)
+
+	var source_model: String = str(zombie.get_meta("zombie_model", ""))
+	if source_model != "waw_honorgd":
+		_fail(22, "normal round zombie is not WaW source baseline: " + source_model)
 		return
-
-	# Runtime preference must match zombie_dummy.gd: clean V4 > CMU > legacy.
-	if ResourceLoader.exists("res://assets/zombies/monja_clean/clean_runtime/monja_basica_clean_rig.gltf"):
-		if monja_model != "monja_clean":
-			_fail(43, "clean V4 Monja exists but runtime did not select it: " + monja_model)
-			return
-	elif ResourceLoader.exists("res://assets/zombies/monja_clean/cmu_runtime/monja_basica_cmu_rig.gltf"):
-		if monja_model != "monja_cmu":
-			_fail(42, "CMU Monja exists but runtime did not select it: " + monja_model)
-			return
-	elif ResourceLoader.exists("res://assets/zombies/monja_rigid/monja_basica_rigid_rig.gltf"):
-		if monja_model != "monja_basica_rigid_rig":
-			_fail(44, "legacy rigid Monja exists but runtime did not select it")
-			return
-
-	if monja_model != "monja_basica" and not bool(zombie.get_meta("zombie_rigged_asset", false)):
-		_fail(45, "selected Monja rig was not marked rigged: " + monja_model)
+	if not bool(zombie.get_meta("zombie_source_waw", false)):
+		_fail(43, "WaW source authority metadata missing")
+		return
+	if not bool(zombie.get_meta("zombie_rigged_asset", false)):
+		_fail(45, "WaW source zombie was not marked rigged")
+		return
+	if not bool(zombie.get_meta("zombie_rig_ready", false)):
+		_fail(42, "WaW source AnimationPlayer missing")
+		return
+	if not bool(zombie.get_meta("zombie_source_scale_preserved", false)):
+		_fail(44, "WaW source visual was heuristically rescaled")
 		return
 	if str(zombie.get_meta("motion_profile", "")).is_empty():
-		_fail(41, "Monja Basica motion profile missing")
+		_fail(41, "WaW source zombie motion profile missing")
 		return
-	var fitted_height: float = float(zombie.get_meta("zombie_visual_height_m", 0.0))
-	var fitted_width: float = float(zombie.get_meta("zombie_visual_width_m", 0.0))
-	var fitted_depth: float = float(zombie.get_meta("zombie_visual_depth_m", 0.0))
-	if fitted_height < 1.79 or fitted_height > 1.81:
-		_fail(23, "Monja Basica fitted height out of range: %s" % fitted_height)
+
+	var source_height: float = float(zombie.get_meta("zombie_visual_height_m", 0.0))
+	var source_width: float = float(zombie.get_meta("zombie_visual_width_m", 0.0))
+	var source_depth: float = float(zombie.get_meta("zombie_visual_depth_m", 0.0))
+	if absf(source_height - 1.817253) > 0.015:
+		_fail(23, "WaW Honor Guard source height drifted: %s" % source_height)
 		return
-	if fitted_width < 0.89 or fitted_width > 0.91:
-		_fail(24, "Monja Basica fitted width out of range: %s" % fitted_width)
+	if absf(source_width - 0.606667) > 0.015:
+		_fail(24, "WaW Honor Guard source width drifted: %s" % source_width)
 		return
-	if fitted_depth < 0.71 or fitted_depth > 0.73:
-		_fail(25, "Monja Basica fitted depth out of range: %s" % fitted_depth)
+	if absf(source_depth - 1.057499) > 0.015:
+		_fail(25, "WaW Honor Guard source depth drifted: %s" % source_depth)
 		return
 	if not bool(zombie.get_meta("zombie_visual_centered_on_feet", false)):
-		_fail(26, "Monja Basica is not foot-centered")
+		_fail(26, "WaW source zombie is not foot-centered")
 		return
+	print(
+		"XZOGOT_ROUND_WAW_SOURCE_GREEN model=", source_model,
+		" size=", Vector3(source_width, source_height, source_depth)
+	)
+
 	var zombie_collider: CollisionShape3D = zombie.get_node_or_null("ZombieCollider") as CollisionShape3D
 	if zombie_collider == null:
-		_fail(27, "Monja Basica collider missing")
+		_fail(27, "WaW source zombie collider missing")
 		return
 	var zombie_capsule: CapsuleShape3D = zombie_collider.shape as CapsuleShape3D
 	if zombie_capsule == null:
-		_fail(28, "Monja Basica capsule missing")
+		_fail(28, "WaW source zombie capsule missing")
 		return
 	if absf(zombie_capsule.radius - 0.34) > 0.001 or absf(zombie_capsule.height - 1.78) > 0.001:
-		_fail(29, "Monja Basica collider dimensions wrong")
+		_fail(29, "WaW source zombie gameplay collider dimensions wrong")
 		return
 	if absf(float(zombie.get("headshot_height_ratio")) - 0.84) > 0.001:
-		_fail(38, "Monja Basica headshot height ratio wrong")
+		_fail(38, "WaW source zombie headshot height ratio wrong")
 		return
 
 	var spawn_position: Vector3 = (zombie as Node3D).global_position
