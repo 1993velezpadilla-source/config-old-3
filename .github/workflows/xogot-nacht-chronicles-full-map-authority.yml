@@ -124,6 +124,11 @@ jobs:
           print("XZOGOT_NACHT_LITERAL_FULL_SOURCE_GREEN",report)
           '@ | python -
 
+          $contentRoot=Join-Path $PWD 'nacht-source\Pavlov\Content'
+          if(-not (Test-Path $contentRoot)){throw "Nacht Pavlov Content root missing: $contentRoot"}
+          "NACHT_CONTENT_ROOT=$contentRoot" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "XZOGOT_NACHT_CONTENT_ROOT_GREEN $contentRoot"
+
       - name: Pin Pavlov mappings
         shell: pwsh
         run: |
@@ -169,7 +174,7 @@ jobs:
         run: |
           $ErrorActionPreference='Stop'
           $app='tools/maps/UEAssetClassCensus/bin/Release/net10.0/UEAssetClassCensus.dll'
-          dotnet $app nacht-source nacht-class-census.json ue4.21 | Tee-Object nacht-class-census.log
+          dotnet $app $env:NACHT_CONTENT_ROOT nacht-class-census.json ue4.21 | Tee-Object nacht-class-census.log
           if($LASTEXITCODE -ne 0){throw "class census exited $LASTEXITCODE"}
 
           @'
@@ -220,7 +225,7 @@ jobs:
             }
             $dll="tools/maps/$name/bin/Release/net10.0/$name.dll"
             Write-Host "XZOGOT_NACHT_NATIVE_CONVERT $name expected=$count"
-            dotnet $dll nacht-source PavMappings.usmap nacht-class-census.json $out $count ue4.21 |
+            dotnet $dll $env:NACHT_CONTENT_ROOT PavMappings.usmap nacht-class-census.json $out $count ue4.21 |
               Tee-Object "nacht-$name.log"
             if($LASTEXITCODE -ne 0){throw "$name failed $LASTEXITCODE"}
           }
@@ -254,11 +259,14 @@ jobs:
         run: |
           $ErrorActionPreference='Stop'
           $app='tools/maps/UEMaterialAudit/bin/Release/net10.0/UEMaterialAudit.dll'
-          dotnet $app nacht-source PavMappings.usmap nacht-class-census.json nacht-materials.json ue4.21 |
+          dotnet $app $env:NACHT_CONTENT_ROOT PavMappings.usmap nacht-class-census.json nacht-materials.json ue4.21 |
             Tee-Object nacht-materials.log
           if($LASTEXITCODE -ne 0){throw "material audit failed $LASTEXITCODE"}
           if(-not (Test-Path nacht-materials.json)){throw 'material report missing'}
-          Write-Host "XZOGOT_NACHT_MATERIAL_AUTHORITY_GREEN"
+          $material=Get-Content nacht-materials.json -Raw | ConvertFrom-Json
+          if([int]$material.textureReferenceCount -le 0){throw 'material graph resolved zero texture references'}
+          if([int]$material.packageFailureCount -ne 0 -or [int]$material.materialFailureCount -ne 0){throw 'material authority contains failures'}
+          Write-Host "XZOGOT_NACHT_MATERIAL_AUTHORITY_GREEN materials=$($material.materialExportsDecoded) textureRefs=$($material.textureReferenceCount)"
 
       - name: Extract exact UMAP scene transforms and all actor anchors
         shell: pwsh
@@ -267,7 +275,7 @@ jobs:
           $app='tools/maps/UEStaticSceneExtract/bin/Release/net10.0/UEStaticSceneExtract.dll'
           $xzms='nacht-native/static-meshes/report.json'
           if(-not (Test-Path $xzms)){throw 'static mesh report missing'}
-          dotnet $app nacht-source PavMappings.usmap nacht-class-census.json $xzms nacht-static-scene.json ue4.21 |
+          dotnet $app $env:NACHT_CONTENT_ROOT PavMappings.usmap nacht-class-census.json $xzms nacht-static-scene.json ue4.21 |
             Tee-Object nacht-static-scene.log
           if($LASTEXITCODE -ne 0){throw "static scene extraction failed $LASTEXITCODE"}
 
@@ -297,7 +305,7 @@ jobs:
         run: |
           $ErrorActionPreference='Stop'
           $app='tools/maps/UELightExtract/bin/Release/net10.0/UELightExtract.dll'
-          dotnet $app nacht-source PavMappings.usmap nacht-class-census.json nacht-lights.json ue4.21 |
+          dotnet $app $env:NACHT_CONTENT_ROOT PavMappings.usmap nacht-class-census.json nacht-lights.json ue4.21 |
             Tee-Object nacht-lights.log
           if($LASTEXITCODE -ne 0){throw "light extraction failed $LASTEXITCODE"}
 
@@ -423,7 +431,7 @@ jobs:
           Remove-Item nacht-portable -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Force -Path nacht-portable | Out-Null
 
-          & "$env:CUE4PARSE" -i "$PWD\nacht-source" -g GAME_UE4_21 -m "$PWD\PavMappings.usmap" -o nacht-portable -y -v --mesh-format Gltf2 --mesh-quality Highest --export-materials true 2>&1 |
+          & "$env:CUE4PARSE" -i "$env:NACHT_CONTENT_ROOT" -g GAME_UE4_21 -m "$PWD\PavMappings.usmap" -o nacht-portable -y -v --mesh-format Gltf2 --mesh-quality Highest --export-materials true 2>&1 |
             Tee-Object nacht-portable-export.log
 
           $files=@(Get-ChildItem nacht-portable -Recurse -File -ErrorAction SilentlyContinue)
