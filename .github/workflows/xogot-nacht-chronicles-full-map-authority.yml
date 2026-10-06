@@ -267,9 +267,11 @@ jobs:
           if($LASTEXITCODE -ne 0){throw "material audit failed $LASTEXITCODE"}
           if(-not (Test-Path nacht-materials.json)){throw 'material report missing'}
           $material=Get-Content nacht-materials.json -Raw | ConvertFrom-Json
-          if([int]$material.textureReferenceCount -le 0){throw 'material graph resolved zero texture references'}
-          if([int]$material.packageFailureCount -ne 0 -or [int]$material.materialFailureCount -ne 0){throw 'material authority contains failures'}
-          Write-Host "XZOGOT_NACHT_MATERIAL_AUTHORITY_GREEN materials=$($material.materialExportsDecoded) textureRefs=$($material.textureReferenceCount)"
+          $ms=$material.summary
+          if([int]$ms.textureReferenceCount -le 0){throw 'material graph resolved zero texture references'}
+          if([int]$ms.packageFailureCount -ne 0 -or [int]$ms.materialFailureCount -ne 0 -or [int]$ms.unresolvedTextureReferenceCount -ne 0){throw 'material authority contains failures'}
+          if(-not [bool]$ms.ready){throw 'material authority not ready'}
+          Write-Host "XZOGOT_NACHT_MATERIAL_AUTHORITY_GREEN materials=$($ms.materialExportsDecoded) textureRefs=$($ms.textureReferenceCount) textureLoads=$($ms.textureLoadCount)"
 
       - name: Extract exact UMAP scene transforms and all actor anchors
         shell: pwsh
