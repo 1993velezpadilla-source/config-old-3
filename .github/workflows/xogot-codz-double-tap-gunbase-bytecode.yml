@@ -1,0 +1,56 @@
+name: CoDz Double Tap GunBase Truth
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/godot-aaa-rebuild-v1]
+    paths: [".github/workflows/xogot-codz-double-tap-gunbase-bytecode.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  decompile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      XZOGOT_ENGINE_VERSION: VER_UE4_18
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+      - name: Download source pack and tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full
+          python3 -m pip install --quiet gdown
+          mkdir -p source source-targets build/double-tap-gunbase
+          python3 -m gdown "https://drive.google.com/uc?id=1BiThIcM5dEjeAcm9xlFQZF8bzk9MyfK1" -O source/codz.zip
+          curl -fL --retry 5 -o source/PavMappings.usmap "https://raw.githubusercontent.com/THW-Reaper/PavlovVRMappings/4976647b4f3a209042460bc55a7a3122662d05b7/PavMappings.usmap"
+      - name: Extract two source gun bases
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT='CoDz Parity modkit/Content/CustomMaps/UGC2554408402/BPs/CustomItems/Guns/Gavkips_waw/Base'
+          7z x -y source/codz.zip "$ROOT/Gun_Base_Rife_Gav.uasset" "$ROOT/Gun_Base_Pistol_Gav.uasset" -osource-targets >/dev/null
+          find source-targets -name '*.uasset' -type f -print
+          test "$(find source-targets -name '*.uasset' -type f | wc -l)" -eq 2
+      - name: Decompile exact source bytecode
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet restore tools/maps/UENuketownWallbuyBytecode/UENuketownWallbuyBytecode.csproj
+          dotnet build tools/maps/UENuketownWallbuyBytecode/UENuketownWallbuyBytecode.csproj -c Release --no-restore
+          APP=tools/maps/UENuketownWallbuyBytecode/bin/Release/net10.0/UENuketownWallbuyBytecode.dll
+          mapfile -t ASSETS < <(find source-targets -name '*.uasset' -type f | sort)
+          dotnet "$APP" source/PavMappings.usmap build/double-tap-gunbase/bytecode.json "${ASSETS[@]}"
+          echo XZOGOT_DOUBLE_TAP_GUNBASE_GREEN
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xogot-codz-double-tap-gunbase-truth
+          path: build/double-tap-gunbase/bytecode.json
+          if-no-files-found: error
+          retention-days: 14
