@@ -23,6 +23,10 @@ const PAP_WHEEL_OUT_SYSTEM := "/Game/CustomMaps/UGC2755515831/Materials/KillerJi
 const PAP_WHEEL_OUT_MATERIAL := "/Game/CustomMaps/UGC2755515831/Materials/KillerJim/PapEffects/PaPWheelMaterial1.PaPWheelMaterial1"
 const ELECTRIC_BEAM_SYSTEM := "/Game/CustomMaps/UGC2755515831/Materials/ElectricTrap/ElectricBeam.ElectricBeam"
 const ELECTRIC_BEAM_MATERIAL := "/Game/CustomMaps/UGC2755515831/Materials/KillerJim/DogSpawnEffects/lightning.lightning"
+const ACID_BALL_SYSTEM := "/Game/CustomMaps/UGC2755515831/Magnum/Particles/Acid/AcidBall.AcidBall"
+const ACID_BALL_SMOKE_MATERIAL := "/Game/CustomMaps/UGC2755515831/Magnum/Materials/Universal/SmokeyAcid.SmokeyAcid"
+const ACID_BALL_MATERIAL := "/Game/CustomMaps/UGC2755515831/Magnum/Materials/Universal/AcidBall.AcidBall"
+const ACID_BALL_MESH := "/Game/CustomMaps/UGC2755515831/Magnum/Meshes/Sphere.Sphere"
 
 
 static func _canonical(raw: String) -> String:
@@ -1843,6 +1847,255 @@ static func electric_beam_descriptor(graphs: Dictionary) -> Dictionary:
 		"taperFactor": taper_factor,
 		"taperScale": taper_scale,
 		"peakActiveParticles": peak_active,
+		"sourceNodeCount": int(system.get("nodeCount", 0)),
+		"sourceReferenceCount": int(system.get("referenceCount", 0)),
+	}
+
+
+static func acid_ball_descriptor(graphs: Dictionary) -> Dictionary:
+	var system := _find_system(graphs, ACID_BALL_SYSTEM)
+	if system.is_empty():
+		return {"ready": false, "error": "AcidBall source system missing"}
+	if int(system.get("nodeCount", -1)) != 20:
+		return {"ready": false, "error": "AcidBall node count mismatch %d" % int(system.get("nodeCount", -1))}
+	if int(system.get("referenceCount", -1)) != 11:
+		return {"ready": false, "error": "AcidBall reference count mismatch %d" % int(system.get("referenceCount", -1))}
+
+	var base := str(system.get("objectPath", ""))
+	var required_mesh := _node_by_path(system, base + ":ParticleModuleRequired_0")
+	var required_sprite := _node_by_path(system, base + ":ParticleModuleRequired_1")
+	var spawn_mesh := _node_by_path(system, base + ":ParticleModuleSpawn_0")
+	var spawn_sprite := _node_by_path(system, base + ":ParticleModuleSpawn_1")
+	var size_mesh := _node_by_path(system, base + ":ParticleModuleSize_0")
+	var size_sprite := _node_by_path(system, base + ":ParticleModuleSize_1")
+	var lifetime_sprite := _one_node(system, "ParticleModuleLifetime")
+	var size_life_sprite := _one_node(system, "ParticleModuleSizeMultiplyLife")
+	var dynamic_sprite := _one_node(system, "ParticleModuleParameterDynamic")
+	var rotation_sprite := _one_node(system, "ParticleModuleRotation")
+	var color_sprite := _one_node(system, "ParticleModuleColor")
+	var color_scale_sprite := _one_node(system, "ParticleModuleColorScaleOverLife")
+	var color_mesh := _one_node(system, "ParticleModuleColorOverLife")
+	var mesh_type := _one_node(system, "ParticleModuleTypeDataMesh")
+	var lod_nodes := ParticleSource.nodes_by_type(system, "ParticleLODLevel")
+
+	for pair: Array in [
+		["required mesh", required_mesh],
+		["required sprite", required_sprite],
+		["spawn mesh", spawn_mesh],
+		["spawn sprite", spawn_sprite],
+		["size mesh", size_mesh],
+		["size sprite", size_sprite],
+		["lifetime sprite", lifetime_sprite],
+		["size-life sprite", size_life_sprite],
+		["dynamic sprite", dynamic_sprite],
+		["rotation sprite", rotation_sprite],
+		["color sprite", color_sprite],
+		["color-scale sprite", color_scale_sprite],
+		["color mesh", color_mesh],
+		["mesh type", mesh_type],
+	]:
+		if (pair[1] as Dictionary).is_empty():
+			return {"ready": false, "error": "AcidBall missing " + str(pair[0])}
+	if lod_nodes.size() != 2:
+		return {"ready": false, "error": "AcidBall LOD emitter count mismatch %d" % lod_nodes.size()}
+
+	var mesh_required_props := ParticleSource.properties(required_mesh)
+	var sprite_required_props := ParticleSource.properties(required_sprite)
+	var mesh_spawn_props := ParticleSource.properties(spawn_mesh)
+	var sprite_spawn_props := ParticleSource.properties(spawn_sprite)
+	var mesh_size_props := ParticleSource.properties(size_mesh)
+	var sprite_size_props := ParticleSource.properties(size_sprite)
+	var lifetime_props := ParticleSource.properties(lifetime_sprite)
+	var size_life_props := ParticleSource.properties(size_life_sprite)
+	var dynamic_props := ParticleSource.properties(dynamic_sprite)
+	var rotation_props := ParticleSource.properties(rotation_sprite)
+	var color_props := ParticleSource.properties(color_sprite)
+	var color_scale_props := ParticleSource.properties(color_scale_sprite)
+	var mesh_color_props := ParticleSource.properties(color_mesh)
+	var mesh_type_props := ParticleSource.properties(mesh_type)
+
+	if _canonical(str(mesh_required_props.get("Material", ""))) != _canonical(ACID_BALL_SMOKE_MATERIAL):
+		return {"ready": false, "error": "AcidBall mesh material mismatch"}
+	if _canonical(str(sprite_required_props.get("Material", ""))) != _canonical(ACID_BALL_MATERIAL):
+		return {"ready": false, "error": "AcidBall sprite material mismatch"}
+	if not bool(mesh_required_props.get("bUseLocalSpace", false)):
+		return {"ready": false, "error": "AcidBall mesh local-space flag mismatch"}
+	if not bool(sprite_required_props.get("bUseLocalSpace", false)):
+		return {"ready": false, "error": "AcidBall sprite local-space flag mismatch"}
+	if bool(mesh_required_props.get("bUseLegacyEmitterTime", true)) or bool(sprite_required_props.get("bUseLegacyEmitterTime", true)):
+		return {"ready": false, "error": "AcidBall legacy emitter time unexpectedly enabled"}
+	if int(mesh_required_props.get("RandomImageTime", -1)) != 1 or int(sprite_required_props.get("RandomImageTime", -1)) != 1:
+		return {"ready": false, "error": "AcidBall random image timing mismatch"}
+	if int(mesh_required_props.get("EmitterLoops", -1)) != 1 or not bool(mesh_required_props.get("bKillOnDeactivate", false)):
+		return {"ready": false, "error": "AcidBall mesh emitter lifecycle mismatch"}
+	if not is_equal_approx(float(sprite_required_props.get("EmitterDelay", -1.0)), 0.5):
+		return {"ready": false, "error": "AcidBall sprite emitter delay mismatch"}
+	if not is_equal_approx(float(sprite_required_props.get("EmitterDuration", -1.0)), 0.5):
+		return {"ready": false, "error": "AcidBall sprite emitter duration mismatch"}
+	if not bool(sprite_required_props.get("bDelayFirstLoopOnly", false)):
+		return {"ready": false, "error": "AcidBall sprite first-loop delay flag mismatch"}
+
+	var mesh_spawn_rate := _distribution(mesh_spawn_props.get("Rate"))
+	var mesh_rate_scale := _distribution(mesh_spawn_props.get("RateScale"))
+	var sprite_spawn_rate := _distribution(sprite_spawn_props.get("Rate"))
+	var sprite_rate_scale := _distribution(sprite_spawn_props.get("RateScale"))
+	if ParticleSource.table_float_values(mesh_spawn_rate) != [0.0]:
+		return {"ready": false, "error": "AcidBall mesh continuous spawn must be zero"}
+	if not is_equal_approx(float(mesh_rate_scale.get("MinValue", -1.0)), 1.0):
+		return {"ready": false, "error": "AcidBall mesh rate scale mismatch"}
+	var mesh_bursts_raw: Variant = mesh_spawn_props.get("BurstList", [])
+	if not (mesh_bursts_raw is Array) or (mesh_bursts_raw as Array).size() != 1:
+		return {"ready": false, "error": "AcidBall mesh burst list mismatch"}
+	var mesh_burst := (mesh_bursts_raw as Array)[0] as Dictionary
+	if int(mesh_burst.get("Count", -1)) != 1 or int(mesh_burst.get("CountLow", 0)) != -1 or not is_equal_approx(float(mesh_burst.get("Time", -1.0)), 0.0):
+		return {"ready": false, "error": "AcidBall mesh burst values mismatch " + str(mesh_burst)}
+	if not is_equal_approx(float(sprite_spawn_rate.get("MinValue", -1.0)), 10.0) or not is_equal_approx(float(sprite_spawn_rate.get("MaxValue", -1.0)), 10.0):
+		return {"ready": false, "error": "AcidBall sprite spawn rate mismatch"}
+	if not is_equal_approx(float(sprite_rate_scale.get("MinValue", -1.0)), 1.0):
+		return {"ready": false, "error": "AcidBall sprite rate scale mismatch"}
+	if bool(sprite_spawn_props.get("bApplyGlobalSpawnRateScale", true)):
+		return {"ready": false, "error": "AcidBall sprite global spawn scaling unexpectedly enabled"}
+
+	var mesh_size := _distribution(mesh_size_props.get("StartSize"))
+	var mesh_size_min := _vector_from_distribution(mesh_size, "MinValueVec", Vector3.INF)
+	var mesh_size_max := _vector_from_distribution(mesh_size, "MaxValueVec", Vector3.INF)
+	if not mesh_size_min.is_equal_approx(Vector3(0.5, 0.6, 0.5)) or not mesh_size_max.is_equal_approx(Vector3(0.5, 0.6, 0.5)):
+		return {"ready": false, "error": "AcidBall mesh size mismatch"}
+
+	var sprite_size := _distribution(sprite_size_props.get("StartSize"))
+	var sprite_size_min := _vector_from_distribution(sprite_size, "MinValueVec", Vector3.INF)
+	var sprite_size_max := _vector_from_distribution(sprite_size, "MaxValueVec", Vector3.INF)
+	if not sprite_size_min.is_equal_approx(Vector3(5.0, 8.333333, 8.333333)) or not sprite_size_max.is_equal_approx(Vector3(6.666667, 8.333333, 8.333333)):
+		return {"ready": false, "error": "AcidBall sprite size mismatch"}
+
+	var lifetime := _distribution(lifetime_props.get("Lifetime"))
+	var lifetime_min := float(lifetime.get("MinValue", -1.0))
+	var lifetime_max := float(lifetime.get("MaxValue", -1.0))
+	if not is_equal_approx(lifetime_min, 1.0) or not is_equal_approx(lifetime_max, 2.0):
+		return {"ready": false, "error": "AcidBall sprite lifetime mismatch"}
+
+	var life_multiplier := _distribution(size_life_props.get("LifeMultiplier"))
+	var life_multiplier_min := _vector_from_distribution(life_multiplier, "MinValueVec", Vector3.INF)
+	var life_multiplier_max := _vector_from_distribution(life_multiplier, "MaxValueVec", Vector3.INF)
+	if not life_multiplier_min.is_equal_approx(Vector3(2.0, 1.0, 1.0)) or not life_multiplier_max.is_equal_approx(Vector3(4.0, 5.0, 1.0)):
+		return {"ready": false, "error": "AcidBall size-life range mismatch"}
+	if ParticleSource.table_float_values(life_multiplier) != [2.0, 1.0, 1.0, 4.0, 5.0, 1.0]:
+		return {"ready": false, "error": "AcidBall size-life samples mismatch"}
+
+	var rotation := _distribution(rotation_props.get("StartRotation"))
+	if not is_equal_approx(float(rotation.get("MaxValue", -1.0)), 1.0):
+		return {"ready": false, "error": "AcidBall sprite rotation max mismatch"}
+	if ParticleSource.table_float_values(rotation) != [0.0, 1.0]:
+		return {"ready": false, "error": "AcidBall sprite rotation samples mismatch"}
+
+	var start_color := _distribution(color_props.get("StartColor"))
+	var start_alpha := _distribution(color_props.get("StartAlpha"))
+	var start_color_max := _vector_from_distribution(start_color, "MaxValueVec", Vector3.INF)
+	if not start_color_max.is_equal_approx(Vector3(2.0, 0.787645, 0.0)):
+		return {"ready": false, "error": "AcidBall sprite start color max mismatch " + str(start_color_max)}
+	if not is_equal_approx(float(start_alpha.get("MinValue", -1.0)), 1.0) or not is_equal_approx(float(start_alpha.get("MaxValue", -1.0)), 1.0):
+		return {"ready": false, "error": "AcidBall sprite start alpha mismatch"}
+
+	var color_scale := _distribution(color_scale_props.get("ColorScaleOverLife"))
+	var alpha_scale := _distribution(color_scale_props.get("AlphaScaleOverLife"))
+	if _vector_from_distribution(color_scale, "MinValueVec", Vector3.INF) != Vector3.ONE or _vector_from_distribution(color_scale, "MaxValueVec", Vector3.INF) != Vector3.ONE:
+		return {"ready": false, "error": "AcidBall color-scale RGB mismatch"}
+	var alpha_scale_values := ParticleSource.table_float_values(alpha_scale)
+	if alpha_scale_values.size() != 32:
+		return {"ready": false, "error": "AcidBall alpha-scale sample count mismatch %d" % alpha_scale_values.size()}
+	if not is_equal_approx(alpha_scale_values[0], 0.0) or not is_equal_approx(alpha_scale_values[15], 0.9677419) or not is_equal_approx(alpha_scale_values[16], 0.96774197) or not is_equal_approx(alpha_scale_values[31], 0.0):
+		return {"ready": false, "error": "AcidBall alpha-scale curve samples mismatch"}
+
+	var mesh_rgb := _distribution(mesh_color_props.get("ColorOverLife"))
+	var mesh_alpha := _distribution(mesh_color_props.get("AlphaOverLife"))
+	if not _vector_from_distribution(mesh_rgb, "MinValueVec", Vector3.INF).is_equal_approx(Vector3(2.0, 0.0, 1.653337)):
+		return {"ready": false, "error": "AcidBall mesh color mismatch"}
+	var mesh_alpha_values := ParticleSource.table_float_values(mesh_alpha)
+	if mesh_alpha_values.size() != 32:
+		return {"ready": false, "error": "AcidBall mesh alpha curve count mismatch %d" % mesh_alpha_values.size()}
+	if not is_equal_approx(mesh_alpha_values[0], 1.0) or not is_equal_approx(mesh_alpha_values[1], 0.67741936) or not is_equal_approx(mesh_alpha_values[2], 0.35483873) or not is_equal_approx(mesh_alpha_values[3], 0.039116114):
+		return {"ready": false, "error": "AcidBall mesh alpha curve head mismatch"}
+
+	if _canonical(str(mesh_type_props.get("Mesh", ""))) != _canonical(ACID_BALL_MESH):
+		return {"ready": false, "error": "AcidBall mesh authority mismatch"}
+	if not bool(mesh_type_props.get("bOverrideMaterial", false)):
+		return {"ready": false, "error": "AcidBall mesh override-material flag mismatch"}
+
+	var dynamic_raw: Variant = dynamic_props.get("DynamicParams", [])
+	if not (dynamic_raw is Array) or (dynamic_raw as Array).size() != 4:
+		return {"ready": false, "error": "AcidBall dynamic parameter count mismatch"}
+	if int(dynamic_props.get("UpdateFlags", -1)) != 13:
+		return {"ready": false, "error": "AcidBall dynamic parameter update flags mismatch"}
+
+	var dynamic_ranges: Array[Vector2] = []
+	var dynamic_spawn_only: Array[bool] = []
+	var dynamic_samples: Array[Array] = []
+	var expected_mins := [0.0, 0.3, 0.0, 0.0]
+	var expected_maxs := [0.5, 0.6, 0.0, 0.0]
+	var expected_samples: Array[Array] = [
+		[0.0, 0.5],
+		[0.3, 0.6],
+		[0.0],
+		[0.0],
+	]
+	for index in range(4):
+		var row_raw: Variant = (dynamic_raw as Array)[index]
+		if not (row_raw is Dictionary):
+			return {"ready": false, "error": "AcidBall dynamic parameter row invalid"}
+		var row := row_raw as Dictionary
+		if str(row.get("ParamName", "")) != "None" or str(row.get("ValueMethod", "")) != "EDPV_UserSet":
+			return {"ready": false, "error": "AcidBall dynamic parameter identity mismatch index=%d" % index}
+		if bool(row.get("bScaleVelocityByParamValue", true)) or bool(row.get("bUseEmitterTime", true)):
+			return {"ready": false, "error": "AcidBall dynamic parameter flags mismatch index=%d" % index}
+		var expected_spawn_only := index == 1
+		if bool(row.get("bSpawnTimeOnly", false)) != expected_spawn_only:
+			return {"ready": false, "error": "AcidBall dynamic spawn-time flag mismatch index=%d" % index}
+		var param_value := _distribution(row.get("ParamValue"))
+		var param_min := float(param_value.get("MinValue", -999.0))
+		var param_max := float(param_value.get("MaxValue", -999.0))
+		if not is_equal_approx(param_min, float(expected_mins[index])) or not is_equal_approx(param_max, float(expected_maxs[index])):
+			return {"ready": false, "error": "AcidBall dynamic range mismatch index=%d %s..%s" % [index, param_min, param_max]}
+		var samples := ParticleSource.table_float_values(param_value)
+		var expected := expected_samples[index]
+		if samples.size() != expected.size():
+			return {"ready": false, "error": "AcidBall dynamic sample count mismatch index=%d" % index}
+		for sample_index in range(samples.size()):
+			if not is_equal_approx(float(samples[sample_index]), float(expected[sample_index])):
+				return {"ready": false, "error": "AcidBall dynamic sample mismatch index=%d sample=%d" % [index, sample_index]}
+		if index == 0:
+			var table0 := param_value.get("Table", {}) as Dictionary
+			if not is_equal_approx(float(table0.get("TimeBias", -1.0)), 0.3) or not is_equal_approx(float(table0.get("TimeScale", -1.0)), 1.4285715):
+				return {"ready": false, "error": "AcidBall dynamic curve timing mismatch index=0"}
+		dynamic_ranges.append(Vector2(param_min, param_max))
+		dynamic_spawn_only.append(expected_spawn_only)
+		dynamic_samples.append(samples)
+
+	var peaks: Array[int] = []
+	for lod: Dictionary in lod_nodes:
+		var lod_props := ParticleSource.properties(lod)
+		peaks.append(int(lod_props.get("PeakActiveParticles", -1)))
+	peaks.sort()
+	if peaks != [3, 20]:
+		return {"ready": false, "error": "AcidBall emitter peak counts mismatch " + str(peaks)}
+
+	return {
+		"ready": true,
+		"systemPath": ACID_BALL_SYSTEM,
+		"meshMaterialPath": ACID_BALL_SMOKE_MATERIAL,
+		"spriteMaterialPath": ACID_BALL_MATERIAL,
+		"meshPath": ACID_BALL_MESH,
+		"meshBurstCount": 1,
+		"spriteSpawnRate": 10.0,
+		"spriteLifetimeMin": lifetime_min,
+		"spriteLifetimeMax": lifetime_max,
+		"meshSizeUEcm": mesh_size_min,
+		"spriteSizeMinUEcm": sprite_size_min,
+		"spriteSizeMaxUEcm": sprite_size_max,
+		"dynamicParamCount": 4,
+		"dynamicRanges": dynamic_ranges,
+		"dynamicSpawnTimeOnly": dynamic_spawn_only,
+		"dynamicSamples": dynamic_samples,
+		"peakActiveByEmitter": peaks,
 		"sourceNodeCount": int(system.get("nodeCount", 0)),
 		"sourceReferenceCount": int(system.get("referenceCount", 0)),
 	}
