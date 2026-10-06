@@ -321,6 +321,65 @@ ResolveBlueprintSoundTemplate(UAudioComponent component)
     return (null, null, null);
 }
 
+
+object[] DescribeOwnerResolutionChain(UAudioComponent component)
+{
+    var rows = new List<object>();
+    UObject? current = component;
+    var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    for (var depth = 0; current is not null && depth < 16; ++depth)
+    {
+        var path = current.GetPathName();
+        if (!seen.Add(path))
+            break;
+
+        string? classPath = null;
+        string? classType = null;
+        string? templatePath = null;
+        string? templateType = null;
+
+        try
+        {
+            var cls = current.Class?.Object?.Value;
+            classPath = cls?.GetPathName();
+            classType = cls?.ExportType;
+        }
+        catch { }
+
+        try
+        {
+            var template = current.Template?.Object?.Value;
+            templatePath = template?.GetPathName();
+            templateType = template?.ExportType;
+        }
+        catch { }
+
+        rows.Add(new
+        {
+            depth,
+            objectPath = path,
+            exportType = current.ExportType,
+            objectType = current.GetType().FullName,
+            classPath,
+            classType,
+            templatePath,
+            templateType
+        });
+
+        try
+        {
+            current = current.Outer?.Object?.Value;
+        }
+        catch
+        {
+            current = null;
+        }
+    }
+
+    return rows.ToArray();
+}
+
 using var censusDoc =
     JsonDocument.Parse(
         File.ReadAllText(censusPath));
@@ -532,6 +591,7 @@ foreach (var logicalPackage in mapPackages)
                 componentName = component.Name,
                 sourcePath = path,
                 hierarchy = BuildHierarchy(component),
+                ownerResolutionChain = DescribeOwnerResolutionChain(component),
                 sound = new {
                     objectPath = soundObjectPath,
                     exportType = soundExportType,
@@ -604,6 +664,25 @@ var ready =
     packagesLoaded == mapPackages.Length &&
     packageFailures.Count == 0 &&
     componentFailures.Count == 0;
+
+
+foreach (var row in rows.Where(row =>
+             row.GetType().GetProperty("sound") is not null))
+{
+    // Structured per-row diagnostics are persisted in JSON. Console summary
+    // below is generated from the source components to make fast-gate triage
+    // possible without downloading the artifact.
+}
+
+foreach (var component in rows.Select((value, index) => new { value, index }))
+{
+    var json = JsonSerializer.Serialize(component.value);
+    if (json.Contains("\"objectPath\":null", StringComparison.Ordinal))
+    {
+        Console.WriteLine(
+            "XZIEL_UE_AUDIO_SCENE_NULL_SOUND_DIAG " + json);
+    }
+}
 
 var output = new {
     schemaVersion = 1,
