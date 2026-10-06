@@ -1,6 +1,7 @@
 extends Node3D
 
 const XzielBenchmarkLoaderScript = preload("res://scripts/xziel_benchmark_loader.gd")
+const NachtParticleSource = preload("res://scripts/nacht_particle_source.gd")
 
 ## Nacht der Untoten Chronicles full-map source runtime.
 ##
@@ -124,6 +125,9 @@ func _boot() -> void:
 	if not _validate_authority():
 		return
 
+	if not _audit_source_particle_values():
+		return
+
 	if not _build_shared_source_world():
 		return
 
@@ -227,6 +231,125 @@ func _boot() -> void:
 		" audio_authority=", get_meta("runtime_audio_authority_count"),
 		" cues_authority=", get_meta("runtime_sound_cue_authority_count")
 	)
+
+func _audit_source_particle_values() -> bool:
+	# Parse every source-authored Cascade node through the runtime decoder.
+	# This is deliberately a boot gate: having the authority JSON on disk is
+	# not enough. Godot must be able to unwrap the UE4.21 reflected values.
+	var systems_raw: Variant = _particle_graphs.get("systems", [])
+	if not (systems_raw is Array):
+		push_error("NACHT_FULL_MAP: particle systems array missing for source decode")
+		return false
+	var systems := systems_raw as Array
+
+	var expected_systems := int(_particle_graphs.get("particleSystemCount", -1))
+	var expected_nodes := int(_particle_graphs.get("totalNodes", -1))
+	var expected_references := int(_particle_graphs.get("totalReferences", -1))
+	if expected_systems != 39 or expected_nodes != 1327 or expected_references != 643:
+		push_error(
+			"NACHT_FULL_MAP: Cascade authority totals changed systems=%d nodes=%d refs=%d"
+			% [expected_systems, expected_nodes, expected_references]
+		)
+		return false
+
+	var expected_distribution_nodes := 0
+	var node_type_counts_raw: Variant = _particle_graphs.get("nodeTypeCounts", {})
+	if node_type_counts_raw is Dictionary:
+		var node_type_counts := node_type_counts_raw as Dictionary
+		for raw_type: Variant in node_type_counts.keys():
+			if str(raw_type).begins_with("Distribution"):
+				expected_distribution_nodes += int(node_type_counts[raw_type])
+
+	var decoded_systems := 0
+	var decoded_nodes := 0
+	var decoded_properties := 0
+	var decoded_complex_values := 0
+	var decoded_distribution_nodes := 0
+	var counted_references := 0
+
+	for raw_system: Variant in systems:
+		if not (raw_system is Dictionary):
+			push_error("NACHT_FULL_MAP: non-dictionary Cascade system row")
+			return false
+		var system := raw_system as Dictionary
+		decoded_systems += 1
+
+		var system_references_raw: Variant = system.get("references", [])
+		if system_references_raw is Array:
+			counted_references += (system_references_raw as Array).size()
+
+		var nodes_raw: Variant = system.get("nodes", [])
+		if not (nodes_raw is Array):
+			push_error(
+				"NACHT_FULL_MAP: Cascade system nodes missing " + str(system.get("objectPath", ""))
+			)
+			return false
+
+		for raw_node: Variant in nodes_raw as Array:
+			if not (raw_node is Dictionary):
+				push_error("NACHT_FULL_MAP: non-dictionary Cascade node row")
+				return false
+			var node := raw_node as Dictionary
+			decoded_nodes += 1
+			if str(node.get("exportType", "")).begins_with("Distribution"):
+				decoded_distribution_nodes += 1
+
+			var decoded := NachtParticleSource.properties(node)
+			decoded_properties += decoded.size()
+			for raw_key: Variant in decoded.keys():
+				var decoded_value: Variant = decoded[raw_key]
+				if decoded_value is Dictionary or decoded_value is Array:
+					decoded_complex_values += 1
+
+	if decoded_systems != expected_systems:
+		push_error(
+			"NACHT_FULL_MAP: Cascade decoded system coverage mismatch %d/%d"
+			% [decoded_systems, expected_systems]
+		)
+		return false
+	if decoded_nodes != expected_nodes:
+		push_error(
+			"NACHT_FULL_MAP: Cascade decoded node coverage mismatch %d/%d"
+			% [decoded_nodes, expected_nodes]
+		)
+		return false
+	if counted_references != expected_references:
+		push_error(
+			"NACHT_FULL_MAP: Cascade reference coverage mismatch %d/%d"
+			% [counted_references, expected_references]
+		)
+		return false
+	if decoded_distribution_nodes != expected_distribution_nodes:
+		push_error(
+			"NACHT_FULL_MAP: Cascade distribution coverage mismatch %d/%d"
+			% [decoded_distribution_nodes, expected_distribution_nodes]
+		)
+		return false
+	if decoded_properties <= 0 or decoded_complex_values <= 0:
+		push_error(
+			"NACHT_FULL_MAP: Cascade source-value decoder produced no reflected values"
+		)
+		return false
+
+	set_meta("source_particle_decoder_ready", true)
+	set_meta("source_particle_decoded_system_count", decoded_systems)
+	set_meta("source_particle_decoded_node_count", decoded_nodes)
+	set_meta("source_particle_decoded_reference_count", counted_references)
+	set_meta("source_particle_decoded_property_count", decoded_properties)
+	set_meta("source_particle_decoded_complex_value_count", decoded_complex_values)
+	set_meta("source_particle_decoded_distribution_node_count", decoded_distribution_nodes)
+
+	print(
+		"XZOGOT_NACHT_CASCADE_SOURCE_DECODER_GREEN ",
+		"systems=", decoded_systems,
+		" nodes=", decoded_nodes,
+		" refs=", counted_references,
+		" properties=", decoded_properties,
+		" complex_values=", decoded_complex_values,
+		" distribution_nodes=", decoded_distribution_nodes
+	)
+	return true
+
 
 func _validate_authority() -> bool:
 	if _handoff.is_empty():
