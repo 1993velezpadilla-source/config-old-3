@@ -13,6 +13,8 @@ const BONE_FIRE_3_MATERIAL := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Material
 const PAP_WHEEL_SYSTEM := "/Game/CustomMaps/UGC2755515831/Materials/KillerJim/PapEffects/PaPWheelParticles.PaPWheelParticles"
 const PAP_WHEEL_MATERIAL_1 := "/Game/CustomMaps/UGC2755515831/Materials/KillerJim/PapEffects/PaPWheelMaterial1.PaPWheelMaterial1"
 const PAP_WHEEL_MATERIAL_2 := "/Game/CustomMaps/UGC2755515831/Materials/KillerJim/PapEffects/PaPWheelMaterial2.PaPWheelMaterial2"
+const MYSTERY_BOX_FOG_SYSTEM := "/Game/CustomMaps/UGC2755515831/Materials/KillerJim/Smoke/mysteryBoxFog.mysteryBoxFog"
+const MYSTERY_BOX_FOG_MATERIAL := "/Game/CustomMaps/UGC2755515831/Materials/KillerJim/Smoke/unlit_smoke.unlit_smoke"
 
 
 static func _canonical(raw: String) -> String:
@@ -840,6 +842,186 @@ static func pap_wheel_descriptor(graphs: Dictionary) -> Dictionary:
 		"velocityOverLifeTimeScale": 5.0,
 		"sizeLifeTableValueCount": 384,
 		"peakActiveByEmitter": peak_active,
+		"sourceNodeCount": int(system.get("nodeCount", 0)),
+		"sourceReferenceCount": int(system.get("referenceCount", 0)),
+	}
+
+
+static func mystery_box_fog_descriptor(graphs: Dictionary) -> Dictionary:
+	var system := _find_system(graphs, MYSTERY_BOX_FOG_SYSTEM)
+	if system.is_empty():
+		return {"ready": false, "error": "mystery box fog source system missing"}
+	if int(system.get("nodeCount", -1)) != 14:
+		return {"ready": false, "error": "mystery box fog node count mismatch %d" % int(system.get("nodeCount", -1))}
+	if int(system.get("referenceCount", -1)) != 5:
+		return {"ready": false, "error": "mystery box fog reference count mismatch %d" % int(system.get("referenceCount", -1))}
+
+	var required := _one_node(system, "ParticleModuleRequired")
+	var lifetime := _one_node(system, "ParticleModuleLifetime")
+	var location := _one_node(system, "ParticleModuleLocation")
+	var size := _one_node(system, "ParticleModuleSize")
+	var size_life := _one_node(system, "ParticleModuleSizeMultiplyLife")
+	var color := _one_node(system, "ParticleModuleColorOverLife")
+	var spawn := _one_node(system, "ParticleModuleSpawn")
+	var subuv_movie := _one_node(system, "ParticleModuleSubUVMovie")
+	var subuv_curve := _one_node(system, "DistributionFloatConstantCurve")
+	var velocity_life := _one_node(system, "ParticleModuleVelocityOverLifetime")
+	var velocity := _one_node(system, "ParticleModuleVelocity")
+	var lod := _one_node(system, "ParticleLODLevel")
+	for pair: Array in [
+		["ParticleModuleRequired", required],
+		["ParticleModuleLifetime", lifetime],
+		["ParticleModuleLocation", location],
+		["ParticleModuleSize", size],
+		["ParticleModuleSizeMultiplyLife", size_life],
+		["ParticleModuleColorOverLife", color],
+		["ParticleModuleSpawn", spawn],
+		["ParticleModuleSubUVMovie", subuv_movie],
+		["DistributionFloatConstantCurve", subuv_curve],
+		["ParticleModuleVelocityOverLifetime", velocity_life],
+		["ParticleModuleVelocity", velocity],
+		["ParticleLODLevel", lod],
+	]:
+		if (pair[1] as Dictionary).is_empty():
+			return {"ready": false, "error": "mystery box fog missing or duplicate " + str(pair[0])}
+
+	var required_props := ParticleSource.properties(required)
+	var lifetime_props := ParticleSource.properties(lifetime)
+	var location_props := ParticleSource.properties(location)
+	var size_props := ParticleSource.properties(size)
+	var size_life_props := ParticleSource.properties(size_life)
+	var color_props := ParticleSource.properties(color)
+	var spawn_props := ParticleSource.properties(spawn)
+	var subuv_props := ParticleSource.properties(subuv_movie)
+	var velocity_life_props := ParticleSource.properties(velocity_life)
+	var velocity_props := ParticleSource.properties(velocity)
+	var lod_props := ParticleSource.properties(lod)
+
+	var material_path := str(required_props.get("Material", ""))
+	var interpolation := str(required_props.get("InterpolationMethod", ""))
+	var subimages_h := int(required_props.get("SubImages_Horizontal", -1))
+	var subimages_v := int(required_props.get("SubImages_Vertical", -1))
+	var life := _distribution(lifetime_props.get("Lifetime"))
+	var start_location := _distribution(location_props.get("StartLocation"))
+	var start_size := _distribution(size_props.get("StartSize"))
+	var life_multiplier := _distribution(size_life_props.get("LifeMultiplier"))
+	var rgb := _distribution(color_props.get("ColorOverLife"))
+	var alpha := _distribution(color_props.get("AlphaOverLife"))
+	var rate := _distribution(spawn_props.get("Rate"))
+	var rate_scale := _distribution(spawn_props.get("RateScale"))
+	var frame_rate := _distribution(subuv_props.get("FrameRate"))
+	var subimage_index := _distribution(subuv_props.get("SubImageIndex"))
+	var vel_over_life := _distribution(velocity_life_props.get("VelOverLife"))
+	var start_velocity := _distribution(velocity_props.get("StartVelocity"))
+
+	var life_min := float(life.get("MinValue", -1.0))
+	var life_max := float(life.get("MaxValue", -1.0))
+	var location_min := _vector_from_distribution(start_location, "MinValueVec", Vector3.INF)
+	var location_max := _vector_from_distribution(start_location, "MaxValueVec", Vector3.INF)
+	var size_min := _vector_from_distribution(start_size, "MinValueVec", Vector3.INF)
+	var size_max := _vector_from_distribution(start_size, "MaxValueVec", Vector3.INF)
+	var life_multiplier_min := _vector_from_distribution(life_multiplier, "MinValueVec", Vector3.INF)
+	var life_multiplier_max := _vector_from_distribution(life_multiplier, "MaxValueVec", Vector3.INF)
+	var color_min := _vector_from_distribution(rgb, "MinValueVec", Vector3.INF)
+	var color_max := _vector_from_distribution(rgb, "MaxValueVec", Vector3.INF)
+	var alpha_max := float(alpha.get("MaxValue", -1.0))
+	var spawn_rate := float(rate.get("MinValue", -1.0))
+	var spawn_rate_max := float(rate.get("MaxValue", -1.0))
+	var spawn_rate_scale := float(rate_scale.get("MinValue", -1.0))
+	var subuv_fps := float(frame_rate.get("MinValue", -1.0))
+	var subuv_fps_max := float(frame_rate.get("MaxValue", -1.0))
+	var subuv_curve_path := str(subimage_index.get("Distribution", ""))
+	var velocity_life_min := _vector_from_distribution(vel_over_life, "MinValueVec", Vector3.INF)
+	var velocity_life_max := _vector_from_distribution(vel_over_life, "MaxValueVec", Vector3.INF)
+	var velocity_min := _vector_from_distribution(start_velocity, "MinValueVec", Vector3.INF)
+	var velocity_max := _vector_from_distribution(start_velocity, "MaxValueVec", Vector3.INF)
+	var peak_active := int(lod_props.get("PeakActiveParticles", -1))
+
+	var life_multiplier_values := ParticleSource.table_values(life_multiplier)
+	var rgb_values := ParticleSource.table_values(rgb)
+	var alpha_values := ParticleSource.table_values(alpha)
+	var velocity_life_values := ParticleSource.table_values(vel_over_life)
+	var velocity_values := ParticleSource.table_values(start_velocity)
+	var velocity_life_table_raw: Variant = vel_over_life.get("Table", {})
+	var velocity_life_table := velocity_life_table_raw as Dictionary if velocity_life_table_raw is Dictionary else {}
+	var velocity_life_time_scale := float(velocity_life_table.get("TimeScale", -1.0))
+
+	if _canonical(material_path) != _canonical(MYSTERY_BOX_FOG_MATERIAL):
+		return {"ready": false, "error": "mystery box fog material mismatch " + material_path}
+	if interpolation != "PSUVIM_Linear_Blend":
+		return {"ready": false, "error": "mystery box fog interpolation mismatch " + interpolation}
+	if subimages_h != 6 or subimages_v != 6:
+		return {"ready": false, "error": "mystery box fog SubUV grid mismatch %dx%d" % [subimages_h, subimages_v]}
+	if not is_equal_approx(life_min, 3.0) or not is_equal_approx(life_max, 5.0):
+		return {"ready": false, "error": "mystery box fog lifetime mismatch %s..%s" % [life_min, life_max]}
+	if not location_min.is_equal_approx(Vector3(-95.0, -10.0, -5.0)) or not location_max.is_equal_approx(Vector3(95.0, 10.0, 5.0)):
+		return {"ready": false, "error": "mystery box fog location range mismatch"}
+	if not size_min.is_equal_approx(Vector3(3.0, 3.0, 3.0)) or not size_max.is_equal_approx(Vector3(5.0, 5.0, 5.0)):
+		return {"ready": false, "error": "mystery box fog start size mismatch"}
+	if not life_multiplier_min.is_equal_approx(Vector3(10.0, 0.0, 0.0)) or not life_multiplier_max.is_equal_approx(Vector3(50.0, 1.0, 1.0)):
+		return {"ready": false, "error": "mystery box fog size-life range mismatch"}
+	if life_multiplier_values.size() != 96:
+		return {"ready": false, "error": "mystery box fog size-life table mismatch %d" % life_multiplier_values.size()}
+	if not color_min.is_equal_approx(Vector3(0.49479154, 0.489095, 0.4591)):
+		return {"ready": false, "error": "mystery box fog color min mismatch " + str(color_min)}
+	if not color_max.is_equal_approx(Vector3(1.0, 1.0, 0.97423244)):
+		return {"ready": false, "error": "mystery box fog color max mismatch " + str(color_max)}
+	if rgb_values.size() != 12 or alpha_values.size() != 128 or not is_equal_approx(alpha_max, 1.0380507):
+		return {"ready": false, "error": "mystery box fog color/alpha curve mismatch"}
+	if not is_equal_approx(spawn_rate, 4.0) or not is_equal_approx(spawn_rate_max, 4.0) or not is_equal_approx(spawn_rate_scale, 1.0):
+		return {"ready": false, "error": "mystery box fog spawn rate mismatch"}
+	if bool(spawn_props.get("bApplyGlobalSpawnRateScale", true)):
+		return {"ready": false, "error": "mystery box fog global spawn rate scale unexpectedly enabled"}
+	var bursts_raw: Variant = spawn_props.get("BurstList", [])
+	if not (bursts_raw is Array) or (bursts_raw as Array).size() != 1:
+		return {"ready": false, "error": "mystery box fog burst list mismatch"}
+	var burst_raw: Variant = (bursts_raw as Array)[0]
+	if not (burst_raw is Dictionary):
+		return {"ready": false, "error": "mystery box fog burst entry invalid"}
+	var burst := burst_raw as Dictionary
+	if int(burst.get("Count", -1)) != 0 or int(burst.get("CountLow", 0)) != -1 or not is_equal_approx(float(burst.get("Time", -1.0)), 0.0):
+		return {"ready": false, "error": "mystery box fog burst values mismatch " + str(burst)}
+	if not is_equal_approx(subuv_fps, 16.0) or not is_equal_approx(subuv_fps_max, 16.0):
+		return {"ready": false, "error": "mystery box fog SubUV frame rate mismatch"}
+	if _canonical(subuv_curve_path) != _canonical(str(subuv_curve.get("objectPath", ""))):
+		return {"ready": false, "error": "mystery box fog SubUV curve reference mismatch " + subuv_curve_path}
+	if not velocity_life_min.is_equal_approx(Vector3(0.0, 0.0, -1.5)) or not velocity_life_max.is_equal_approx(Vector3(0.0, 0.2, 0.75)):
+		return {"ready": false, "error": "mystery box fog velocity-over-life range mismatch"}
+	if velocity_life_values.size() != 6 or not is_equal_approx(velocity_life_time_scale, 1.0):
+		return {"ready": false, "error": "mystery box fog velocity-over-life table mismatch"}
+	if not velocity_min.is_equal_approx(Vector3(0.0, 100.0, 0.0)) or not velocity_max.is_equal_approx(Vector3(0.0, 100.0, 40.0)):
+		return {"ready": false, "error": "mystery box fog start velocity range mismatch"}
+	if velocity_values.size() != 6:
+		return {"ready": false, "error": "mystery box fog start velocity table mismatch %d" % velocity_values.size()}
+	if peak_active != 22:
+		return {"ready": false, "error": "mystery box fog peak active mismatch %d" % peak_active}
+
+	return {
+		"ready": true,
+		"systemPath": MYSTERY_BOX_FOG_SYSTEM,
+		"materialPath": material_path,
+		"lifetimeMin": life_min,
+		"lifetimeMax": life_max,
+		"startLocationMinUEcm": location_min,
+		"startLocationMaxUEcm": location_max,
+		"startSizeMinUEcm": size_min,
+		"startSizeMaxUEcm": size_max,
+		"lifeMultiplierMin": life_multiplier_min,
+		"lifeMultiplierMax": life_multiplier_max,
+		"lifeMultiplierTableValueCount": life_multiplier_values.size(),
+		"colorMin": color_min,
+		"colorMax": color_max,
+		"rgbTableValueCount": rgb_values.size(),
+		"alphaTableValueCount": alpha_values.size(),
+		"alphaMax": alpha_max,
+		"spawnRate": spawn_rate,
+		"subUVFrameRate": subuv_fps,
+		"velocityOverLifeMin": velocity_life_min,
+		"velocityOverLifeMax": velocity_life_max,
+		"velocityOverLifeTimeScale": velocity_life_time_scale,
+		"startVelocityMinUEcm": velocity_min,
+		"startVelocityMaxUEcm": velocity_max,
+		"peakActiveParticles": peak_active,
 		"sourceNodeCount": int(system.get("nodeCount", 0)),
 		"sourceReferenceCount": int(system.get("referenceCount", 0)),
 	}
