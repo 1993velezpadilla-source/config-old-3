@@ -201,13 +201,33 @@ func _run() -> void:
 	var nav_spawns: Array[Node] = []
 	for nav_spawn: Node in get_nodes_in_group("nuketown_zombie_spawn_anchor"):
 		nav_spawns.append(nav_spawn)
-	if nav_spawns.size() >= 2:
-		var a := (nav_spawns[0] as Node3D).global_position
-		var b := (nav_spawns[1] as Node3D).global_position
-		var path: Array[Vector3] = nav_runtime.call("request_path", a, b) as Array[Vector3]
-		if path.size() < 2:
-			_fail(50, "navigation path query did not connect perimeter spawns")
+	if nav_spawns.size() != 10:
+		_fail(78, "expected exactly 10 nav-generated zombie spawns, got " + str(nav_spawns.size()))
+		return
+	var proven_spawn_routes := 0
+	for spawn_node: Node in nav_spawns:
+		if not (spawn_node is Node3D):
+			_fail(79, "zombie spawn anchor is not Node3D")
 			return
+		var spawn_pos := (spawn_node as Node3D).global_position
+		var path_to_player: Array[Vector3] = nav_runtime.call(
+			"request_path",
+			spawn_pos,
+			player.global_position
+		) as Array[Vector3]
+		if path_to_player.size() < 2:
+			_fail(
+				80,
+				"nav spawn cannot route to player " +
+				str(spawn_node.get_meta("spawn_id", spawn_node.name)) +
+				" path=" + str(path_to_player.size())
+			)
+			return
+		proven_spawn_routes += 1
+	if proven_spawn_routes != 10:
+		_fail(81, "not all nav spawn routes were proven " + str(proven_spawn_routes))
+		return
+	print("XZOGOT_NUKETOWN_NAV_ALL_SPAWNS_GREEN routes=", proven_spawn_routes)
 
 	var player := scene.get_node_or_null("Player") as CharacterBody3D
 	if player == null:
@@ -332,7 +352,20 @@ func _run() -> void:
 	if not bool(scene.get_meta("round_manager_activated_from_source_nav", false)):
 		_fail(52, "round system did not wait for source navigation")
 		return
+	# Keep CI deterministic: disable first-round auto timer, then manually start
+	# R1. Once started, RoundManager continues processing even with auto_start
+	# false, so clearing R1 must naturally advance to R2.
+	round_manager.set("auto_start", false)
+	round_manager.set("round_break", 0.15)
+	round_manager.call("reset_network_match")
 	round_manager.call("start_next_round")
+	if int(round_manager.call("get_round")) != 1:
+		_fail(82, "manual Nuketown round 1 did not start")
+		return
+	var round_one_total := int(round_manager.call("get_round_total"))
+	if round_one_total <= 0:
+		_fail(83, "Nuketown round 1 population is empty")
+		return
 	var probe_zombie: Node = round_manager.call("spawn_one") as Node
 	if probe_zombie == null:
 		_fail(53, "round manager could not spawn on Nuketown navigation anchors")
@@ -340,7 +373,35 @@ func _run() -> void:
 	if str(probe_zombie.get_meta("spawn_entry_kind", "")) != "offscreen":
 		_fail(54, "Nuketown zombie did not use direct nav entry")
 		return
+	if int(round_manager.call("get_alive")) != 1:
+		_fail(84, "round manager alive count did not register Nuketown zombie")
+		return
 	round_manager.call("dev_clear_zombies")
+	var round_two_started := false
+	for _round_wait in range(80):
+		await create_timer(0.05).timeout
+		if int(round_manager.call("get_round")) >= 2:
+			round_two_started = true
+			break
+	if not round_two_started:
+		_fail(
+			85,
+			"Nuketown round transition stalled at round " +
+			str(round_manager.call("get_round"))
+		)
+		return
+	if int(round_manager.call("get_round")) != 2:
+		_fail(86, "unexpected Nuketown next round " + str(round_manager.call("get_round")))
+		return
+	if int(round_manager.call("get_round_total")) <= round_one_total:
+		_fail(87, "round 2 population did not grow from round 1")
+		return
+	print(
+		"XZOGOT_NUKETOWN_ROUND_TRANSITION_GREEN ",
+		"round1_total=", round_one_total,
+		" round2_total=", round_manager.call("get_round_total")
+	)
+	round_manager.call("set_dev_no_zombies", true)
 
 	print(
 		"XZOGOT_NUKETOWN_FULL_MAP_PROBE_GREEN ",
