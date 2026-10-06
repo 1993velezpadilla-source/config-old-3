@@ -60,11 +60,10 @@ string? ResolveProviderPackagePath(
 
 string? RefPath(FPackageIndex? index)
 {
-    if (index is null || index.Value.IsNull)
+    if (index is null || index.IsNull)
         return null;
-    var value = index.Value;
-    return value.ResolvedObject?.GetPathName()
-        ?? value.Name;
+    return index.ResolvedObject?.GetPathName()
+        ?? index.Name;
 }
 
 using var censusDoc =
