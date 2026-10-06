@@ -326,7 +326,7 @@ func _prepare_material_authority() -> void:
 	var bindings := _read_json(_source_path(material_bindings_file))
 	var texture_report := _read_json(_source_path(texture_report_file))
 	var effective_material_report := _read_json(_source_path(effective_material_report_file))
-	var complete_texture_report := _read_json(_source_path(COMPLETE_texture_report_file))
+	var complete_texture_report := _read_json(_source_path(complete_texture_report_file))
 
 	for raw: Variant in bindings.get("materials", []):
 		if raw is Dictionary:
@@ -1053,27 +1053,36 @@ func _texture_for_source(source_path: String) -> Texture2D:
 	return texture
 
 func _load_decoded_texture(runtime_file: String) -> Texture2D:
-	var decoded_name := runtime_file.get_basename() + ".png"
-	var decoded_path := _source_path(
-		vfs_map_root.path_join("textures_png").path_join(decoded_name)
-	)
-	if ResourceLoader.exists(decoded_path):
-		var resource := load(decoded_path)
-		if resource is Texture2D:
-			_source_texture_resource_hits += 1
-			return resource as Texture2D
+	var basename := runtime_file.get_basename()
 
-	# The complete-source catalog contains textures outside the minimal XZML
-	# runtime subset. Their PNG sidecars are generated from the exact XZTX source
-	# before the Godot import step. If the importer has no ResourceLoader entry,
-	# read that exact source-derived PNG directly instead of declaring a false
-	# material fallback.
-	if FileAccess.file_exists(decoded_path):
+	# PNG sidecars remain the compatibility path for ASTC/mobile source.
+	var png_path := _source_path(
+		vfs_map_root.path_join("textures_png").path_join(basename + ".png")
+	)
+	if ResourceLoader.exists(png_path):
+		var png_resource := load(png_path)
+		if png_resource is Texture2D:
+			_source_texture_resource_hits += 1
+			return png_resource as Texture2D
+	if FileAccess.file_exists(png_path):
 		var image := Image.new()
-		var image_error := image.load(decoded_path)
+		var image_error := image.load(png_path)
 		if image_error == OK and not image.is_empty():
 			_source_texture_image_hits += 1
 			return ImageTexture.create_from_image(image)
+
+	# Nacht/UE4.21 cooks BC1/BC3/BC5/BGRA8/G8. The stage bridge writes DDS
+	# without re-encoding the source mip payloads, so normals/color blocks stay
+	# source-authoritative instead of being flattened into guessed PNGs.
+	var dds_path := _source_path(
+		vfs_map_root.path_join("textures_dds").path_join(basename + ".dds")
+	)
+	if ResourceLoader.exists(dds_path):
+		var dds_resource := load(dds_path)
+		if dds_resource is Texture2D:
+			_source_texture_resource_hits += 1
+			return dds_resource as Texture2D
+
 	_source_texture_load_failures += 1
 	return null
 
