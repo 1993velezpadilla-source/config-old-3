@@ -7,6 +7,7 @@ on:
       - feature/godot-aaa-rebuild-v1
     paths:
       - ".github/workflows/xogot-nacht-chronicles-full-map-authority.yml"
+      - "tools/maps/UEStaticSceneExtract/Program.cs"
 
 permissions:
   contents: read
@@ -42,7 +43,9 @@ jobs:
           if($LASTEXITCODE -ne 0){throw 'converter commit fetch failed'}
           git cat-file -e "$old^{commit}"
           git checkout $old -- engine/xz tools/maps tests
-          Write-Host "XZOGOT_NACHT_CONVERTER_STACK_GREEN source=$old"
+          git checkout $env:GITHUB_SHA -- tools/maps/UEStaticSceneExtract/Program.cs
+          if($LASTEXITCODE -ne 0){throw 'patched UEStaticSceneExtract restore failed'}
+          Write-Host "XZOGOT_NACHT_CONVERTER_STACK_GREEN source=$old patched_scene_extractor=$env:GITHUB_SHA"
 
       - name: Download exact validated Nacht package
         shell: pwsh
