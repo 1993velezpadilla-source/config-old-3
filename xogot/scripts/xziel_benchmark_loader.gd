@@ -490,6 +490,17 @@ func _material_for_path(material_path: String) -> Material:
 		normal_source = _unique_source_normal_texture(record)
 
 	var diffuse := _texture_for_source(diffuse_source)
+	# A cooked material can preserve a non-empty source binding whose Texture2D
+	# payload is not part of this UGC PAK. Only after that exact binding fails,
+	# fall back to the unique source alias recovered from the texture catalog.
+	if diffuse == null:
+		var resolved_alias := str(_source_material_resolved_alias_diffuse.get(material_path, ""))
+		if not resolved_alias.is_empty() and resolved_alias != diffuse_source:
+			var alias_texture := _texture_for_source(resolved_alias)
+			if alias_texture != null:
+				diffuse_source = resolved_alias
+				diffuse = alias_texture
+				_source_material_alias_hits += 1
 	var normal := _texture_for_source(normal_source)
 	var emissive := _texture_for_source(emissive_source)
 	if diffuse != null:
