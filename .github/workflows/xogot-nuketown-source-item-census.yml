@@ -1,0 +1,128 @@
+name: Xogot Nuketown Source Item Census
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-nuketown-source-item-census.yml"
+      - "xogot/data/nuketown_source_gameplay.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xogot-nuketown-source-item-census-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install source package tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full xz-utils
+          mkdir -p "$RUNNER_TEMP/repak"
+          curl -fL --retry 5 \
+            https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz \
+            -o "$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" -C "$RUNNER_TEMP/repak"
+          REPAK=$(find "$RUNNER_TEMP/repak" -type f -name 'repak*' -perm -111 | head -1)
+          test -n "$REPAK"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
+
+      - name: Download pinned public Nuketown source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p source-download source-outer source-unpacked
+          curl -fL --retry 8 --retry-delay 3 --retry-all-errors \
+            -o source-download/nuketown-v49-oculus.zip \
+            "https://g-3959.modapi.io/v1/games/3959/mods/5097941/files/7509509/download"
+          test -s source-download/nuketown-v49-oculus.zip
+          7z x -y source-download/nuketown-v49-oculus.zip -osource-outer >/dev/null
+          PAK=$(find source-outer -type f -name '*.pak' -print -quit)
+          test -n "$PAK"
+          "$REPAK" unpack "$PAK" -o source-unpacked
+          test -s source-unpacked/Pavlov/Plugins/UGC5097941/Content/nuketownz.umap
+
+      - name: Census Mystery and wallbuy item assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nuketown-source-item-census
+          python3 - <<'PY'
+          import json, re
+          from pathlib import Path
+
+          truth=json.loads(Path("xogot/data/nuketown_source_gameplay.json").read_text())
+          ids=set(str(x) for x in truth["mysteryBox"]["pool"])
+          ids.update(str(v["itemId"]) for v in truth["wallbuys"].values())
+          root=Path("source-unpacked")
+          files=[p for p in root.rglob("*") if p.is_file()]
+          asset_ext={".uasset",".uexp",".ubulk",".umap"}
+
+          def norm(s):
+              return re.sub(r"[^a-z0-9]+","",s.lower())
+
+          rows=[]
+          for item in sorted(ids):
+              token=norm(item)
+              direct=[]
+              refs=[]
+              raw=item.lower().encode()
+              raw16=item.lower().encode("utf-16le")
+              for p in files:
+                  rel=p.relative_to(root).as_posix()
+                  stem=norm(p.stem)
+                  if token and (token == stem or token in stem):
+                      direct.append(rel)
+                  if p.suffix.lower() not in asset_ext:
+                      continue
+                  try:
+                      b=p.read_bytes().lower()
+                  except OSError:
+                      continue
+                  if raw in b or raw16 in b:
+                      refs.append(rel)
+              rows.append({
+                  "itemId":item,
+                  "directPackageHits":sorted(set(direct)),
+                  "serializedReferenceHits":sorted(set(refs)),
+                  "directAssetPresent":bool(direct),
+              })
+
+          report={
+              "schemaVersion":1,
+              "source":"Nuketown v49 Oculus pinned ModAPI file 7509509",
+              "itemCount":len(rows),
+              "directAssetCount":sum(1 for r in rows if r["directAssetPresent"]),
+              "items":rows,
+              "ready":True,
+          }
+          out=Path("build/nuketown-source-item-census/report.json")
+          out.write_text(json.dumps(report,indent=2)+"\n")
+          print("XZOGOT_NUKETOWN_SOURCE_ITEM_CENSUS_GREEN",
+                "items=",report["itemCount"],
+                "direct_assets=",report["directAssetCount"])
+          for row in rows:
+              if row["directPackageHits"]:
+                  print("XZOGOT_SOURCE_ITEM_DIRECT", row["itemId"], row["directPackageHits"])
+          PY
+          test -s build/nuketown-source-item-census/report.json
+
+      - name: Upload source item census
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nuketown-Source-Item-Census
+          path: build/nuketown-source-item-census/report.json
+          if-no-files-found: error
+          retention-days: 14
