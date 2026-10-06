@@ -67,6 +67,9 @@ func _run() -> void:
 	var effective_engine_defaults := int(
 		scene.get_meta("source_effective_engine_default_count", -1)
 	)
+	var effective_sibling_semantic_hits := int(
+		scene.get_meta("source_effective_sibling_semantic_hits", -1)
+	)
 	var particle_decoder_ready := bool(
 		scene.get_meta("source_particle_decoder_ready", false)
 	)
@@ -195,8 +198,8 @@ func _run() -> void:
 				% effective_unresolved_fallbacks
 			)
 			return
-		if effective_engine_defaults <= 0:
-			_fail(33, "UE4.21 engine-default material semantics were not applied")
+		if effective_sibling_semantic_hits <= 0:
+			_fail(33, "source sibling material semantic recovery produced no effective bindings")
 			return
 		if not source_audio_stream_mount or source_audio_players != 3 or source_audio_streams != 3:
 			_fail(
@@ -383,6 +386,7 @@ func _run() -> void:
 		" effective_source_color=", effective_source_color,
 		" effective_default_surface=", effective_default_surface,
 		" effective_engine_defaults=", effective_engine_defaults,
+		" effective_sibling_semantic_hits=", effective_sibling_semantic_hits,
 		" effective_unresolved_fallbacks=", effective_unresolved_fallbacks,
 		" cascade_decoder=", particle_decoder_ready,
 		" cascade_systems=", particle_decoded_systems,
