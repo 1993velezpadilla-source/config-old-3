@@ -23,7 +23,7 @@ permissions:
 
 concurrency:
   group: xogot-nacht-chronicles-full-map-authority
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   full-authority:
