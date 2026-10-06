@@ -1,0 +1,2899 @@
+{
+  "schemaVersion": 1,
+  "authority": "literal_complete_nuketown_content_folder",
+  "textureAssetCount": 321,
+  "astc6Count": 312,
+  "bgra8Count": 9,
+  "textureAssets": [
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/admin/skins/96366b03512c03c7087dfda2d2fbe1a7.96366b03512c03c7087dfda2d2fbe1a7",
+      "runtimeFile": "t0000.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 736,
+      "height": 736,
+      "mipCount": 1,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/admin/skins/dezo87l-83ba8db9-ad96-4e49-a27f-fc300280476b.dezo87l-83ba8db9-ad96-4e49-a27f-fc300280476b",
+      "runtimeFile": "t0001.xzt",
+      "format": "PF_B8G8R8A8",
+      "width": 919,
+      "height": 1229,
+      "mipCount": 1,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/admin/skins/Gordon-Freeman-about-to-swing-a-crowbar-gordon-freeman-25675994-681-900.Gordon-Freeman-about-to-swing-a-crowbar-gordon-freeman-25675994-681-900",
+      "runtimeFile": "t0002.xzt",
+      "format": "PF_B8G8R8A8",
+      "width": 681,
+      "height": 900,
+      "mipCount": 1,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/admin/skins/id0_c58817_u4994.id0_c58817_u4994",
+      "runtimeFile": "t0003.xzt",
+      "format": "PF_B8G8R8A8",
+      "width": 979,
+      "height": 1024,
+      "mipCount": 1,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/admin/skins/kiryu_by_sssiwy_ddu68sb-fullview.kiryu_by_sssiwy_ddu68sb-fullview",
+      "runtimeFile": "t0004.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 1280,
+      "height": 720,
+      "mipCount": 1,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/admin/skins/p38f2dkb.p38f2dkb",
+      "runtimeFile": "t0005.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 1200,
+      "height": 1200,
+      "mipCount": 1,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/admin/skins/Screenshot_2025-07-02_141447.Screenshot_2025-07-02_141447",
+      "runtimeFile": "t0006.xzt",
+      "format": "PF_B8G8R8A8",
+      "width": 192,
+      "height": 1070,
+      "mipCount": 1,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/admin/skins/Screenshot_2025-07-02_141452.Screenshot_2025-07-02_141452",
+      "runtimeFile": "t0007.xzt",
+      "format": "PF_B8G8R8A8",
+      "width": 202,
+      "height": 1068,
+      "mipCount": 1,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/admin/skins/Screenshot_2025-07-02_141458.Screenshot_2025-07-02_141458",
+      "runtimeFile": "t0008.xzt",
+      "format": "PF_B8G8R8A8",
+      "width": 196,
+      "height": 1066,
+      "mipCount": 1,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/admin/skins/Screenshot_2025-07-02_141503.Screenshot_2025-07-02_141503",
+      "runtimeFile": "t0009.xzt",
+      "format": "PF_B8G8R8A8",
+      "width": 195,
+      "height": 1068,
+      "mipCount": 1,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/admin/skins/Screenshot_2025-07-02_141510.Screenshot_2025-07-02_141510",
+      "runtimeFile": "t0010.xzt",
+      "format": "PF_B8G8R8A8",
+      "width": 196,
+      "height": 1070,
+      "mipCount": 1,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/admin/skins/Screenshot_2025-07-02_141519.Screenshot_2025-07-02_141519",
+      "runtimeFile": "t0011.xzt",
+      "format": "PF_B8G8R8A8",
+      "width": 191,
+      "height": 1066,
+      "mipCount": 1,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/box/1/i_mtl_p7_zm_der_magic_box_lid_wood_c.i_mtl_p7_zm_der_magic_box_lid_wood_c",
+      "runtimeFile": "t0012.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/box/1/i_mtl_p7_zm_der_magic_box_wood_01_c.i_mtl_p7_zm_der_magic_box_wood_01_c",
+      "runtimeFile": "t0013.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/box/1/i_mtl_p7_zm_der_magic_box_wood_02_c.i_mtl_p7_zm_der_magic_box_wood_02_c",
+      "runtimeFile": "t0014.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 128,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/box/1/i_mtl_p7_zm_shi_magic_box_qmark_bg_c.i_mtl_p7_zm_shi_magic_box_qmark_bg_c",
+      "runtimeFile": "t0015.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/box/1/i_t7_metal_worn_iron_dark_c.i_t7_metal_worn_iron_dark_c",
+      "runtimeFile": "t0016.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/box/1/i_t7_rope_nylon_02_c.i_t7_rope_nylon_02_c",
+      "runtimeFile": "t0017.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 64,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/box/_-gp6_zm_magic_box_c._-gp6_zm_magic_box_c",
+      "runtimeFile": "t0018.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/box/__-gzm_bu_dirt_mud_s-rgb__-rz_2116312d.__-gzm_bu_dirt_mud_s-rgb__-rz_2116312d",
+      "runtimeFile": "t0019.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/box/__-gzm_bu_wood_floor_hardwood_26a2991a.__-gzm_bu_wood_floor_hardwood_26a2991a",
+      "runtimeFile": "t0020.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/box/__-gzm_bu_wood_trim_b_c-rgb___11fdb563.__-gzm_bu_wood_trim_b_c-rgb___11fdb563",
+      "runtimeFile": "t0021.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 256,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/nuketownz_BuiltData.nuketownz_BuiltData:LQ_Lightmap_0_2",
+      "runtimeFile": "t0022.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/perks/dt/global_normal_flat_16x16.global_normal_flat_16x16",
+      "runtimeFile": "t0023.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 16,
+      "height": 16,
+      "mipCount": 5,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/perks/dt/zombie_vending_doubletap_c.zombie_vending_doubletap_c",
+      "runtimeFile": "t0024.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/perks/dt/_-gzombie_vending_doubletap_c._-gzombie_vending_doubletap_c",
+      "runtimeFile": "t0025.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/perks/revive/zombie_vending_revive_n.zombie_vending_revive_n",
+      "runtimeFile": "t0026.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/perks/revive/zombie_vending_revsign_c.zombie_vending_revsign_c",
+      "runtimeFile": "t0027.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/perks/revive/zombie_vending_revsign_n.zombie_vending_revsign_n",
+      "runtimeFile": "t0028.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/perks/revive/_-gzombie_vending_revive_c._-gzombie_vending_revive_c",
+      "runtimeFile": "t0029.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/perks/revive/_-gzombie_vending_revsign_c._-gzombie_vending_revsign_c",
+      "runtimeFile": "t0030.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/brickwall/_-gbuilding_edge_01_c._-gbuilding_edge_01_c",
+      "runtimeFile": "t0031.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/brickwall/__-gzm_nuked_wall_weatheredge_7efa303d.__-gzm_nuked_wall_weatheredge_7efa303d",
+      "runtimeFile": "t0032.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/brickwall/__-gzm_nuked_wall_weatheredge_7efa303d1.__-gzm_nuked_wall_weatheredge_7efa303d1",
+      "runtimeFile": "t0033.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/bunker/door/__-gbunker_door01_col-rgb__-r_07cb1363.__-gbunker_door01_col-rgb__-r_07cb1363",
+      "runtimeFile": "t0034.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/bunker/door/__-gbunker_door01_col-rgb__-r_07cb13631.__-gbunker_door01_col-rgb__-r_07cb13631",
+      "runtimeFile": "t0035.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/bunker/p6_zm_nuked_bunker_n.p6_zm_nuked_bunker_n",
+      "runtimeFile": "t0036.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/bunker/_-gp6_zm_nuked_shelter_logo_c._-gp6_zm_nuked_shelter_logo_c",
+      "runtimeFile": "t0037.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 64,
+      "height": 128,
+      "mipCount": 8,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/bunker/__-gp6_zm_nuked_bunker_c-rgb__2a13eb6c.__-gp6_zm_nuked_bunker_c-rgb__2a13eb6c",
+      "runtimeFile": "t0038.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/bus/veh_t6_dlc_schoolbus_n.veh_t6_dlc_schoolbus_n",
+      "runtimeFile": "t0039.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 256,
+      "mipCount": 10,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/bus/veh_t6_dlc_schoolbus_tires_n.veh_t6_dlc_schoolbus_tires_n",
+      "runtimeFile": "t0040.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/bus/__-gveh_t6_dlc_schoolbus_c-rg_80a25062.__-gveh_t6_dlc_schoolbus_c-rg_80a25062",
+      "runtimeFile": "t0041.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 256,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/bus/__-gveh_t6_dlc_schoolbus_tire_ffaa69a5.__-gveh_t6_dlc_schoolbus_tire_ffaa69a5",
+      "runtimeFile": "t0042.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/fences/1/_-gp6_zm_white_fence_c1._-gp6_zm_white_fence_c1",
+      "runtimeFile": "t0043.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/fences/1/_-gp6_zm_wood_fence_burnt_c12._-gp6_zm_wood_fence_burnt_c12",
+      "runtimeFile": "t0044.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/fences/1/_-gp6_zm_wood_fence_c123._-gp6_zm_wood_fence_c123",
+      "runtimeFile": "t0045.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/fences/_-grus_metal_grey_c._-grus_metal_grey_c",
+      "runtimeFile": "t0046.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/fences/_-grus_metal_wire_fence_c._-grus_metal_wire_fence_c",
+      "runtimeFile": "t0047.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/fences/__-grus_metal_grey_q-rgb__-rr_ea214f61.__-grus_metal_grey_q-rgb__-rr_ea214f61",
+      "runtimeFile": "t0048.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/fences/__-grus_metal_wire_fence_q-rg_b2151c1f.__-grus_metal_wire_fence_q-rg_b2151c1f",
+      "runtimeFile": "t0049.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house1/all/_-gp6_zm_wood_fence_burnt_c._-gp6_zm_wood_fence_burnt_c",
+      "runtimeFile": "t0050.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house1/all/_-gp6_zm_wood_plank_burnt_c._-gp6_zm_wood_plank_burnt_c",
+      "runtimeFile": "t0051.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house1/all/_-gp6_zm_wood_plank_burnt_c1._-gp6_zm_wood_plank_burnt_c1",
+      "runtimeFile": "t0052.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house1/all/_-gp6_zm_wood_plank_burnt_c12._-gp6_zm_wood_plank_burnt_c12",
+      "runtimeFile": "t0053.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house1/all/_-gp6_zm_wood_plank_burnt_c123._-gp6_zm_wood_plank_burnt_c123",
+      "runtimeFile": "t0054.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house1/all/_-gp6_zm_wood_plank_burnt_c1234._-gp6_zm_wood_plank_burnt_c1234",
+      "runtimeFile": "t0055.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house1/all/_-gp6_zm_wood_plank_burnt_c12345._-gp6_zm_wood_plank_burnt_c12345",
+      "runtimeFile": "t0056.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house1/all/_-gp6_zm_wood_plank_burnt_c123456._-gp6_zm_wood_plank_burnt_c123456",
+      "runtimeFile": "t0057.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house1/all/_-gzm_roof_slate_01_c._-gzm_roof_slate_01_c",
+      "runtimeFile": "t0058.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house1/all/_-gzm_wood_planks_burnt_c._-gzm_wood_planks_burnt_c",
+      "runtimeFile": "t0059.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house1/all/__-gp6_zm_deck_bolts_c-rgb__-_f3571b53.__-gp6_zm_deck_bolts_c-rgb__-_f3571b53",
+      "runtimeFile": "t0060.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 128,
+      "height": 128,
+      "mipCount": 8,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house1/all/__-gp6_zm_wood_plank_burnt_c-_fe42d0ec.__-gp6_zm_wood_plank_burnt_c-_fe42d0ec",
+      "runtimeFile": "t0061.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house1/all/__-gp6_zm_wood_plank_burnt_c-_fe42d0ec1.__-gp6_zm_wood_plank_burnt_c-_fe42d0ec1",
+      "runtimeFile": "t0062.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house1/all/__-gp6_zm_wood_plank_burnt_c-_fe42d0ec12.__-gp6_zm_wood_plank_burnt_c-_fe42d0ec12",
+      "runtimeFile": "t0063.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house1/all/__-gp6_zm_wood_plank_burnt_c-_fe42d0ec123.__-gp6_zm_wood_plank_burnt_c-_fe42d0ec123",
+      "runtimeFile": "t0064.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house1/all/__-gp6_zm_wood_plank_burnt_c-_fe42d0ec1234.__-gp6_zm_wood_plank_burnt_c-_fe42d0ec1234",
+      "runtimeFile": "t0065.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house1/all/__-gp6_zm_wood_plank_burnt_c-_fe42d0ec12345.__-gp6_zm_wood_plank_burnt_c-_fe42d0ec12345",
+      "runtimeFile": "t0066.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house1/all/__-gp6_zm_wood_plank_burnt_c-_fe42d0ec123456.__-gp6_zm_wood_plank_burnt_c-_fe42d0ec123456",
+      "runtimeFile": "t0067.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house1/garage/_-gp6_zm_wood_plank_burnt_c._-gp6_zm_wood_plank_burnt_c",
+      "runtimeFile": "t0068.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house1/garage/__-gp6_zm_wood_plank_burnt_c-_fe42d0ec.__-gp6_zm_wood_plank_burnt_c-_fe42d0ec",
+      "runtimeFile": "t0069.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house2/_-ggrey._-ggrey",
+      "runtimeFile": "t0070.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 16,
+      "height": 16,
+      "mipCount": 5,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house2/_-ggrey1._-ggrey1",
+      "runtimeFile": "t0071.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 16,
+      "height": 16,
+      "mipCount": 5,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house2/_-gjun_ter_wood_burnt_c._-gjun_ter_wood_burnt_c",
+      "runtimeFile": "t0072.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house2/_-gjun_ter_wood_burnt_piece_c._-gjun_ter_wood_burnt_piece_c",
+      "runtimeFile": "t0073.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house2/_-gp6_zm_wood_fence_burnt_c._-gp6_zm_wood_fence_burnt_c",
+      "runtimeFile": "t0074.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house2/_-gp6_zm_wood_fence_burnt_c1._-gp6_zm_wood_fence_burnt_c1",
+      "runtimeFile": "t0075.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house2/_-gp6_zm_wood_plank_burnt_c._-gp6_zm_wood_plank_burnt_c",
+      "runtimeFile": "t0076.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house2/_-gp6_zm_wood_plank_burnt_c1._-gp6_zm_wood_plank_burnt_c1",
+      "runtimeFile": "t0077.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house2/_-gp6_zm_wood_plank_burnt_c12._-gp6_zm_wood_plank_burnt_c12",
+      "runtimeFile": "t0078.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house2/_-gp6_zm_wood_plank_burnt_c123._-gp6_zm_wood_plank_burnt_c123",
+      "runtimeFile": "t0079.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house2/_-gp6_zm_wood_plank_burnt_c1234._-gp6_zm_wood_plank_burnt_c1234",
+      "runtimeFile": "t0080.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house2/_-gp6_zm_wood_plank_burnt_c12345._-gp6_zm_wood_plank_burnt_c12345",
+      "runtimeFile": "t0081.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house2/_-gp6_zm_wood_plank_burnt_c123456._-gp6_zm_wood_plank_burnt_c123456",
+      "runtimeFile": "t0082.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house2/_-gzm_roof_slate_01_c._-gzm_roof_slate_01_c",
+      "runtimeFile": "t0083.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house2/_-gzm_roof_slate_01_c1._-gzm_roof_slate_01_c1",
+      "runtimeFile": "t0084.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house2/_-gzm_roof_slate_01_c12._-gzm_roof_slate_01_c12",
+      "runtimeFile": "t0085.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house2/_-gzm_wood_planks_burnt_c._-gzm_wood_planks_burnt_c",
+      "runtimeFile": "t0086.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house2/__-gp6_zm_wood_plank_burnt_c-_fe42d0ec.__-gp6_zm_wood_plank_burnt_c-_fe42d0ec",
+      "runtimeFile": "t0087.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house2/__-gp6_zm_wood_plank_burnt_c-_fe42d0ec1.__-gp6_zm_wood_plank_burnt_c-_fe42d0ec1",
+      "runtimeFile": "t0088.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house2/__-gp6_zm_wood_plank_burnt_c-_fe42d0ec12.__-gp6_zm_wood_plank_burnt_c-_fe42d0ec12",
+      "runtimeFile": "t0089.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house2/__-gp6_zm_wood_plank_burnt_c-_fe42d0ec123.__-gp6_zm_wood_plank_burnt_c-_fe42d0ec123",
+      "runtimeFile": "t0090.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house2/__-gp6_zm_wood_plank_burnt_c-_fe42d0ec1234.__-gp6_zm_wood_plank_burnt_c-_fe42d0ec1234",
+      "runtimeFile": "t0091.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house2/__-gp6_zm_wood_plank_burnt_c-_fe42d0ec12345.__-gp6_zm_wood_plank_burnt_c-_fe42d0ec12345",
+      "runtimeFile": "t0092.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/house2/__-gp6_zm_wood_plank_burnt_c-_fe42d0ec123456.__-gp6_zm_wood_plank_burnt_c-_fe42d0ec123456",
+      "runtimeFile": "t0093.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/_-gpent_art_floor_tile06_c._-gpent_art_floor_tile06_c",
+      "runtimeFile": "t0094.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/_-gpent_art_floor_tile06_c1._-gpent_art_floor_tile06_c1",
+      "runtimeFile": "t0095.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/_-gpent_art_floor_tile06_c12._-gpent_art_floor_tile06_c12",
+      "runtimeFile": "t0096.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/_-gpent_art_floor_tile06_c123._-gpent_art_floor_tile06_c123",
+      "runtimeFile": "t0097.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/_-gpent_art_floor_tile06_c1234._-gpent_art_floor_tile06_c1234",
+      "runtimeFile": "t0098.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_chrom_4dae98f5.__-gp6_zm_nuked_kitchen_chrom_4dae98f5",
+      "runtimeFile": "t0099.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_chrom_4dae98f51.__-gp6_zm_nuked_kitchen_chrom_4dae98f51",
+      "runtimeFile": "t0100.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_chrom_4dae98f512.__-gp6_zm_nuked_kitchen_chrom_4dae98f512",
+      "runtimeFile": "t0101.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_chrom_4dae98f5123.__-gp6_zm_nuked_kitchen_chrom_4dae98f5123",
+      "runtimeFile": "t0102.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_chrom_4dae98f51234.__-gp6_zm_nuked_kitchen_chrom_4dae98f51234",
+      "runtimeFile": "t0103.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_chrom_4dae98f512345.__-gp6_zm_nuked_kitchen_chrom_4dae98f512345",
+      "runtimeFile": "t0104.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_chrom_4dae98f5123456.__-gp6_zm_nuked_kitchen_chrom_4dae98f5123456",
+      "runtimeFile": "t0105.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_chrom_4dae98f51234567.__-gp6_zm_nuked_kitchen_chrom_4dae98f51234567",
+      "runtimeFile": "t0106.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_chrom_4dae98f512345678.__-gp6_zm_nuked_kitchen_chrom_4dae98f512345678",
+      "runtimeFile": "t0107.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_chrom_4dae98f5123456789.__-gp6_zm_nuked_kitchen_chrom_4dae98f5123456789",
+      "runtimeFile": "t0108.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_chrom_4dae98f512345678910.__-gp6_zm_nuked_kitchen_chrom_4dae98f512345678910",
+      "runtimeFile": "t0109.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_chrom_4dae98f51234567891011.__-gp6_zm_nuked_kitchen_chrom_4dae98f51234567891011",
+      "runtimeFile": "t0110.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_count_e520a3c5.__-gp6_zm_nuked_kitchen_count_e520a3c5",
+      "runtimeFile": "t0111.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_wood__0c09eff1.__-gp6_zm_nuked_kitchen_wood__0c09eff1",
+      "runtimeFile": "t0112.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_wood__0c09eff11.__-gp6_zm_nuked_kitchen_wood__0c09eff11",
+      "runtimeFile": "t0113.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_wood__0c09eff112.__-gp6_zm_nuked_kitchen_wood__0c09eff112",
+      "runtimeFile": "t0114.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_wood__0c09eff1123.__-gp6_zm_nuked_kitchen_wood__0c09eff1123",
+      "runtimeFile": "t0115.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_wood__0c09eff11234.__-gp6_zm_nuked_kitchen_wood__0c09eff11234",
+      "runtimeFile": "t0116.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_wood__0c09eff112345.__-gp6_zm_nuked_kitchen_wood__0c09eff112345",
+      "runtimeFile": "t0117.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_wood__0c09eff1123456.__-gp6_zm_nuked_kitchen_wood__0c09eff1123456",
+      "runtimeFile": "t0118.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_wood__0c09eff11234567.__-gp6_zm_nuked_kitchen_wood__0c09eff11234567",
+      "runtimeFile": "t0119.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_wood__0c09eff112345678.__-gp6_zm_nuked_kitchen_wood__0c09eff112345678",
+      "runtimeFile": "t0120.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_wood__0c09eff1123456789.__-gp6_zm_nuked_kitchen_wood__0c09eff1123456789",
+      "runtimeFile": "t0121.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_wood__0c09eff112345678910.__-gp6_zm_nuked_kitchen_wood__0c09eff112345678910",
+      "runtimeFile": "t0122.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gp6_zm_nuked_kitchen_wood__0c09eff11234567891011.__-gp6_zm_nuked_kitchen_wood__0c09eff11234567891011",
+      "runtimeFile": "t0123.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gpent_art_floor_tile05_glo_df0b2e9a.__-gpent_art_floor_tile05_glo_df0b2e9a",
+      "runtimeFile": "t0124.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gpent_art_floor_tile05_glo_df0b2e9a1.__-gpent_art_floor_tile05_glo_df0b2e9a1",
+      "runtimeFile": "t0125.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gpent_art_floor_tile05_glo_df0b2e9a12.__-gpent_art_floor_tile05_glo_df0b2e9a12",
+      "runtimeFile": "t0126.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gpent_art_floor_tile05_glo_df0b2e9a123.__-gpent_art_floor_tile05_glo_df0b2e9a123",
+      "runtimeFile": "t0127.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/normal/__-gpent_art_floor_tile05_glo_df0b2e9a1234.__-gpent_art_floor_tile05_glo_df0b2e9a1234",
+      "runtimeFile": "t0128.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/_-gpent_art_floor_tile06_c._-gpent_art_floor_tile06_c",
+      "runtimeFile": "t0129.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/_-gpent_art_floor_tile06_c1._-gpent_art_floor_tile06_c1",
+      "runtimeFile": "t0130.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/_-gpent_art_floor_tile06_c12._-gpent_art_floor_tile06_c12",
+      "runtimeFile": "t0131.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_chrom_4dae98f5.__-gp6_zm_nuked_kitchen_chrom_4dae98f5",
+      "runtimeFile": "t0132.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_chrom_4dae98f51.__-gp6_zm_nuked_kitchen_chrom_4dae98f51",
+      "runtimeFile": "t0133.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_chrom_4dae98f512.__-gp6_zm_nuked_kitchen_chrom_4dae98f512",
+      "runtimeFile": "t0134.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_chrom_4dae98f5123.__-gp6_zm_nuked_kitchen_chrom_4dae98f5123",
+      "runtimeFile": "t0135.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_chrom_4dae98f51234.__-gp6_zm_nuked_kitchen_chrom_4dae98f51234",
+      "runtimeFile": "t0136.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_chrom_4dae98f512345.__-gp6_zm_nuked_kitchen_chrom_4dae98f512345",
+      "runtimeFile": "t0137.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_chrom_4dae98f5123456.__-gp6_zm_nuked_kitchen_chrom_4dae98f5123456",
+      "runtimeFile": "t0138.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_chrom_4dae98f51234567.__-gp6_zm_nuked_kitchen_chrom_4dae98f51234567",
+      "runtimeFile": "t0139.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_chrom_4dae98f512345678.__-gp6_zm_nuked_kitchen_chrom_4dae98f512345678",
+      "runtimeFile": "t0140.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_chrom_4dae98f5123456789.__-gp6_zm_nuked_kitchen_chrom_4dae98f5123456789",
+      "runtimeFile": "t0141.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_chrom_4dae98f512345678910.__-gp6_zm_nuked_kitchen_chrom_4dae98f512345678910",
+      "runtimeFile": "t0142.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_chrom_4dae98f51234567891011.__-gp6_zm_nuked_kitchen_chrom_4dae98f51234567891011",
+      "runtimeFile": "t0143.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_count_e520a3c5.__-gp6_zm_nuked_kitchen_count_e520a3c5",
+      "runtimeFile": "t0144.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_wood__2e179a73.__-gp6_zm_nuked_kitchen_wood__2e179a73",
+      "runtimeFile": "t0145.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_wood__2e179a731.__-gp6_zm_nuked_kitchen_wood__2e179a731",
+      "runtimeFile": "t0146.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_wood__2e179a7312.__-gp6_zm_nuked_kitchen_wood__2e179a7312",
+      "runtimeFile": "t0147.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_wood__2e179a73123.__-gp6_zm_nuked_kitchen_wood__2e179a73123",
+      "runtimeFile": "t0148.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_wood__2e179a731234.__-gp6_zm_nuked_kitchen_wood__2e179a731234",
+      "runtimeFile": "t0149.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_wood__2e179a7312345.__-gp6_zm_nuked_kitchen_wood__2e179a7312345",
+      "runtimeFile": "t0150.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_wood__2e179a73123456.__-gp6_zm_nuked_kitchen_wood__2e179a73123456",
+      "runtimeFile": "t0151.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_wood__2e179a731234567.__-gp6_zm_nuked_kitchen_wood__2e179a731234567",
+      "runtimeFile": "t0152.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_wood__2e179a7312345678.__-gp6_zm_nuked_kitchen_wood__2e179a7312345678",
+      "runtimeFile": "t0153.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_wood__2e179a73123456789.__-gp6_zm_nuked_kitchen_wood__2e179a73123456789",
+      "runtimeFile": "t0154.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_wood__2e179a7312345678910.__-gp6_zm_nuked_kitchen_wood__2e179a7312345678910",
+      "runtimeFile": "t0155.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gp6_zm_nuked_kitchen_wood__2e179a731234567891011.__-gp6_zm_nuked_kitchen_wood__2e179a731234567891011",
+      "runtimeFile": "t0156.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gpent_art_floor_tile05_glo_df0b2e9a.__-gpent_art_floor_tile05_glo_df0b2e9a",
+      "runtimeFile": "t0157.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gpent_art_floor_tile05_glo_df0b2e9a1.__-gpent_art_floor_tile05_glo_df0b2e9a1",
+      "runtimeFile": "t0158.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/kitchens/red/__-gpent_art_floor_tile05_glo_df0b2e9a12.__-gpent_art_floor_tile05_glo_df0b2e9a12",
+      "runtimeFile": "t0159.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/lamp/_-gp_us_street_light_bulb_off_c._-gp_us_street_light_bulb_off_c",
+      "runtimeFile": "t0160.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 16,
+      "height": 16,
+      "mipCount": 5,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/lamp/__-gstreet_light_col-rgb__-rs_7e219256.__-gstreet_light_col-rgb__-rs_7e219256",
+      "runtimeFile": "t0161.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/pole/_-gp_us_powerpole_c._-gp_us_powerpole_c",
+      "runtimeFile": "t0162.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/rockramp/_-grock_detail_c._-grock_detail_c",
+      "runtimeFile": "t0163.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/rockramp/_-grock_detail_c1._-grock_detail_c1",
+      "runtimeFile": "t0164.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/shades/1/p_rus_door_white_n.p_rus_door_white_n",
+      "runtimeFile": "t0165.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/shades/1/t6_wood_planks_old_white_n.t6_wood_planks_old_white_n",
+      "runtimeFile": "t0166.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/shades/1/wood_trim_burned01_n.wood_trim_burned01_n",
+      "runtimeFile": "t0167.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/shades/1/wood_trim_burned01_n_ncl1_1.wood_trim_burned01_n_ncl1_1",
+      "runtimeFile": "t0168.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/shades/1/_-gt6_wood_planks_old_white_c._-gt6_wood_planks_old_white_c",
+      "runtimeFile": "t0169.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/shades/1/__-gp_rus_door_white_c-rgb__-_2335d38b.__-gp_rus_door_white_c-rgb__-_2335d38b",
+      "runtimeFile": "t0170.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/shades/1/__-gwood_trim_burned01_c-rgb__bf025295.__-gwood_trim_burned01_c-rgb__bf025295",
+      "runtimeFile": "t0171.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/shades/1/__-gwood_trim_burned01_c-rgb__bf025295_ncl1_1.__-gwood_trim_burned01_c-rgb__bf025295_ncl1_1",
+      "runtimeFile": "t0172.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/sign/counter/mp_nuked_townsign_n.mp_nuked_townsign_n",
+      "runtimeFile": "t0173.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/sign/counter/__-gmp_nuked_townsign_c-rgb___83e28c1c.__-gmp_nuked_townsign_c-rgb___83e28c1c",
+      "runtimeFile": "t0174.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/sign/mtl_p6_zm_nuked_townsign_n.mtl_p6_zm_nuked_townsign_n",
+      "runtimeFile": "t0175.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/sign/zm_wood_planks_burnt_n.zm_wood_planks_burnt_n",
+      "runtimeFile": "t0176.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/sign/_-gmtl_p6_zm_nuked_townsign_c._-gmtl_p6_zm_nuked_townsign_c",
+      "runtimeFile": "t0177.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/sign/_-gzm_wood_planks_burnt_c._-gzm_wood_planks_burnt_c",
+      "runtimeFile": "t0178.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/tower/_-gzm_nuked_metal_black_trim_c._-gzm_nuked_metal_black_trim_c",
+      "runtimeFile": "t0179.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 256,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/tower/__-gconcrete_base02_dark-rgb__02fd38fe.__-gconcrete_base02_dark-rgb__02fd38fe",
+      "runtimeFile": "t0180.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/tower/__-gp6_zm_nuked_clocktower_cl_840350f9.__-gp6_zm_nuked_clocktower_cl_840350f9",
+      "runtimeFile": "t0181.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/tower/__-gp6_zm_nuked_clocktower_cl_840350f91.__-gp6_zm_nuked_clocktower_cl_840350f91",
+      "runtimeFile": "t0182.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/tower/__-gp6_zm_nuked_clocktower_cl_840350f912.__-gp6_zm_nuked_clocktower_cl_840350f912",
+      "runtimeFile": "t0183.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/tower/__-gzm_nuked_metal_black_trim_e345db45.__-gzm_nuked_metal_black_trim_e345db45",
+      "runtimeFile": "t0184.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 256,
+      "mipCount": 10,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/truck/veh_t6_dlc_moving_cab_dead_n.veh_t6_dlc_moving_cab_dead_n",
+      "runtimeFile": "t0185.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/truck/veh_t6_dlc_moving_trailer_dead_n.veh_t6_dlc_moving_trailer_dead_n",
+      "runtimeFile": "t0186.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 256,
+      "mipCount": 10,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/truck/__-gveh_t6_dlc_movingtruck_ca_146014bc.__-gveh_t6_dlc_movingtruck_ca_146014bc",
+      "runtimeFile": "t0187.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/truck/__-gveh_t6_dlc_movingtruck_tr_25a86f71.__-gveh_t6_dlc_movingtruck_tr_25a86f71",
+      "runtimeFile": "t0188.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 256,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/veh/_-gmtl_veh_t6_civ_tiara_destr_e2971a52._-gmtl_veh_t6_civ_tiara_destr_e2971a52",
+      "runtimeFile": "t0189.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/veh/_-gmtl_veh_t6_civ_tiara_engine_c._-gmtl_veh_t6_civ_tiara_engine_c",
+      "runtimeFile": "t0190.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 128,
+      "height": 128,
+      "mipCount": 8,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/veh/_-grock_detail_c._-grock_detail_c",
+      "runtimeFile": "t0191.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/veh/_-gveh_t6_dlc_m35_body_front_color._-gveh_t6_dlc_m35_body_front_color",
+      "runtimeFile": "t0192.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 256,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/veh/_-gveh_t6_dlc_uaz_dsr_int_col._-gveh_t6_dlc_uaz_dsr_int_col",
+      "runtimeFile": "t0193.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/veh/_-gveh_t6_uaz_dsr_col._-gveh_t6_uaz_dsr_col",
+      "runtimeFile": "t0194.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/veh/_-gveh_tiara_damaged_parts_color._-gveh_tiara_damaged_parts_color",
+      "runtimeFile": "t0195.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/veh/__-gmtl_veh_t6_civ_tiara_dest_eb52a71e.__-gmtl_veh_t6_civ_tiara_dest_eb52a71e",
+      "runtimeFile": "t0196.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/veh/__-gp_zm_nuked_background_roc_705922a6.__-gp_zm_nuked_background_roc_705922a6",
+      "runtimeFile": "t0197.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 64,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/veh/__-gp_zm_nuked_background_roc_e0b92129.__-gp_zm_nuked_background_roc_e0b92129",
+      "runtimeFile": "t0198.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/veh/__-gveh_t6_dlc_m35_body_front_ba6741f7.__-gveh_t6_dlc_m35_body_front_ba6741f7",
+      "runtimeFile": "t0199.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 256,
+      "mipCount": 10,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/veh/__-gveh_t6_dlc_m35_tires_back_692a306e.__-gveh_t6_dlc_m35_tires_back_692a306e",
+      "runtimeFile": "t0200.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 256,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/veh/__-gveh_t6_dlc_uaz_int_spc-rg_f3b710e1.__-gveh_t6_dlc_uaz_int_spc-rg_f3b710e1",
+      "runtimeFile": "t0201.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/veh/__-gveh_t6_uaz_dsr_spc-rgb__-_981486c3.__-gveh_t6_uaz_dsr_spc-rgb__-_981486c3",
+      "runtimeFile": "t0202.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/veh/__-gveh_tiara_damaged_parts_s_91901b7f.__-gveh_tiara_damaged_parts_s_91901b7f",
+      "runtimeFile": "t0203.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/berlin_carpet_torn_trim_nml.berlin_carpet_torn_trim_nml",
+      "runtimeFile": "t0204.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 64,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/caulk_shadow_primary.caulk_shadow_primary",
+      "runtimeFile": "t0205.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/cub_art_trim_metal_gold_n.cub_art_trim_metal_gold_n",
+      "runtimeFile": "t0206.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 32,
+      "mipCount": 9,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/decal_blast_crater01_c.decal_blast_crater01_c",
+      "runtimeFile": "t0207.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/decal_concrete_clean_line_c.decal_concrete_clean_line_c",
+      "runtimeFile": "t0208.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 64,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/decal_wall_fillet_c.decal_wall_fillet_c",
+      "runtimeFile": "t0209.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 128,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/jun_ter_dirt_tracks_n.jun_ter_dirt_tracks_n",
+      "runtimeFile": "t0210.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/p6_zm_roof_brick_slate01_r.p6_zm_roof_brick_slate01_r",
+      "runtimeFile": "t0211.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/pb_glo_dirt_cracked_mud_nml.pb_glo_dirt_cracked_mud_nml",
+      "runtimeFile": "t0212.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/rus_dec_numbers_red_c.rus_dec_numbers_red_c",
+      "runtimeFile": "t0213.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/rus_metal_wire_fence_n.rus_metal_wire_fence_n",
+      "runtimeFile": "t0214.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/skybox_zm_nuked_ft.skybox_zm_nuked_ft",
+      "runtimeFile": "t0215.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 256,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/zm_nuked_grass_burnt_n.zm_nuked_grass_burnt_n",
+      "runtimeFile": "t0216.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": false
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gafr_burned_woodpanels_01_col._-gafr_burned_woodpanels_01_col",
+      "runtimeFile": "t0217.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gafr_floor_burnt_02_dec_col._-gafr_floor_burnt_02_dec_col",
+      "runtimeFile": "t0218.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gberlin_carpet_torn_trim_col._-gberlin_carpet_torn_trim_col",
+      "runtimeFile": "t0219.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 128,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gconcrete_cracks_large_col._-gconcrete_cracks_large_col",
+      "runtimeFile": "t0220.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gcub_ter_sand01_c._-gcub_ter_sand01_c",
+      "runtimeFile": "t0221.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gdecal_damage_asphalt_crack02_c._-gdecal_damage_asphalt_crack02_c",
+      "runtimeFile": "t0222.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 128,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gdecal_damage_metal_manhole01_c._-gdecal_damage_metal_manhole01_c",
+      "runtimeFile": "t0223.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-geb_art_wall_redbrick_c._-geb_art_wall_redbrick_c",
+      "runtimeFile": "t0224.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-geb_dec_paper_debris_c._-geb_dec_paper_debris_c",
+      "runtimeFile": "t0225.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gglobal_color_black._-gglobal_color_black",
+      "runtimeFile": "t0226.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 64,
+      "height": 64,
+      "mipCount": 7,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gglobal_wire_black_c._-gglobal_wire_black_c",
+      "runtimeFile": "t0227.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 16,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-ghavana_plaster_green02_d._-ghavana_plaster_green02_d",
+      "runtimeFile": "t0228.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gjun_ter_dirt_packed_c._-gjun_ter_dirt_packed_c",
+      "runtimeFile": "t0229.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gjun_ter_rubble_ash_01_c._-gjun_ter_rubble_ash_01_c",
+      "runtimeFile": "t0230.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gjun_ter_sand_bank_c._-gjun_ter_sand_bank_c",
+      "runtimeFile": "t0231.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gjun_ter_wood_burnt_c._-gjun_ter_wood_burnt_c",
+      "runtimeFile": "t0232.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gjun_ter_wood_burnt_piece_c._-gjun_ter_wood_burnt_piece_c",
+      "runtimeFile": "t0233.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gjun_ter_wood_burnt_s._-gjun_ter_wood_burnt_s",
+      "runtimeFile": "t0234.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gny_cracked_building_dec_col._-gny_cracked_building_dec_col",
+      "runtimeFile": "t0235.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gpb_glo_dirt_cracked_mud_col._-gpb_glo_dirt_cracked_mud_col",
+      "runtimeFile": "t0236.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gpent_art_door_wood04_c._-gpent_art_door_wood04_c",
+      "runtimeFile": "t0237.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gpent_art_exterior_curtains02_c._-gpent_art_exterior_curtains02_c",
+      "runtimeFile": "t0238.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gpent_art_wall_wood01_c._-gpent_art_wall_wood01_c",
+      "runtimeFile": "t0239.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-grus_art_window_metal02_trans._-grus_art_window_metal02_trans",
+      "runtimeFile": "t0240.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-grus_metal_grate_clean_long_c._-grus_metal_grate_clean_long_c",
+      "runtimeFile": "t0241.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-grus_metal_raised_vert_c._-grus_metal_raised_vert_c",
+      "runtimeFile": "t0242.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-grus_metal_wire_fence_c._-grus_metal_wire_fence_c",
+      "runtimeFile": "t0243.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gt6_wood_planks_old_white_c._-gt6_wood_planks_old_white_c",
+      "runtimeFile": "t0244.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gus_art_color_red_c._-gus_art_color_red_c",
+      "runtimeFile": "t0245.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 32,
+      "height": 32,
+      "mipCount": 6,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gzm_nuked_dec_burntstain_01_col._-gzm_nuked_dec_burntstain_01_col",
+      "runtimeFile": "t0246.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gzm_nuked_floor_burnt_02_dec_col._-gzm_nuked_floor_burnt_02_dec_col",
+      "runtimeFile": "t0247.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gzm_nuked_grass_burnt_c._-gzm_nuked_grass_burnt_c",
+      "runtimeFile": "t0248.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gzm_nuked_green_radiation_puddle_3_c._-gzm_nuked_green_radiation_puddle_3_c",
+      "runtimeFile": "t0249.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gzm_nuked_green_radiation_puddle_4_c._-gzm_nuked_green_radiation_puddle_4_c",
+      "runtimeFile": "t0250.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gzm_nuked_green_radiation_walls_c._-gzm_nuked_green_radiation_walls_c",
+      "runtimeFile": "t0251.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gzm_nuked_metal_black_c._-gzm_nuked_metal_black_c",
+      "runtimeFile": "t0252.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gzm_nuked_rock_cliffwall_04_c._-gzm_nuked_rock_cliffwall_04_c",
+      "runtimeFile": "t0253.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 256,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gzm_nuked_rubble_ash_02_c._-gzm_nuked_rubble_ash_02_c",
+      "runtimeFile": "t0254.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gzm_nuked_wall_weatheredge_c._-gzm_nuked_wall_weatheredge_c",
+      "runtimeFile": "t0255.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gzm_vinylsiding_blue_c._-gzm_vinylsiding_blue_c",
+      "runtimeFile": "t0256.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gzm_vinylsiding_green_c._-gzm_vinylsiding_green_c",
+      "runtimeFile": "t0257.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gzm_vinylsiding_green_embers_c._-gzm_vinylsiding_green_embers_c",
+      "runtimeFile": "t0258.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gzm_vinylsiding_pink_c._-gzm_vinylsiding_pink_c",
+      "runtimeFile": "t0259.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gzm_vinylsiding_pink_embers_c._-gzm_vinylsiding_pink_embers_c",
+      "runtimeFile": "t0260.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gzm_vinylsiding_white_c._-gzm_vinylsiding_white_c",
+      "runtimeFile": "t0261.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gzm_vinylsiding_white_embers_c._-gzm_vinylsiding_white_embers_c",
+      "runtimeFile": "t0262.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gzm_vinylsiding_yellow_c._-gzm_vinylsiding_yellow_c",
+      "runtimeFile": "t0263.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gzm_vinylsiding_yellow_embers_c._-gzm_vinylsiding_yellow_embers_c",
+      "runtimeFile": "t0264.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/_-gzm_wood_planks_burnt_c._-gzm_wood_planks_burnt_c",
+      "runtimeFile": "t0265.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gch_countertop_sidetrim_co_cb2fba7c.__-gch_countertop_sidetrim_co_cb2fba7c",
+      "runtimeFile": "t0266.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 32,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gconcrete_base02_c-rgb__-r_c514ddf2.__-gconcrete_base02_c-rgb__-r_c514ddf2",
+      "runtimeFile": "t0267.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gconcrete_base02_dark-rgb__02fd38fe.__-gconcrete_base02_dark-rgb__02fd38fe",
+      "runtimeFile": "t0268.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gconcrete_curb_set_02_c-rg_2b667b3f.__-gconcrete_curb_set_02_c-rg_2b667b3f",
+      "runtimeFile": "t0269.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 128,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gconcrete_exposed_c-rgb__-_37f52b29.__-gconcrete_exposed_c-rgb__-_37f52b29",
+      "runtimeFile": "t0270.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gcub_art_trim_metal_gold_s_9d6ac9d2.__-gcub_art_trim_metal_gold_s_9d6ac9d2",
+      "runtimeFile": "t0271.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 64,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-geb_art_ceiling_wood_dirty_1ec426d9.__-geb_art_ceiling_wood_dirty_1ec426d9",
+      "runtimeFile": "t0272.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-geb_art_floor_stone_tile_c_80fe9036.__-geb_art_floor_stone_tile_c_80fe9036",
+      "runtimeFile": "t0273.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-geb_art_trim_wood_molding__28bcfea6.__-geb_art_trim_wood_molding__28bcfea6",
+      "runtimeFile": "t0274.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gglobal_spec_32x1024_gray5_60e46a58.__-gglobal_spec_32x1024_gray5_60e46a58",
+      "runtimeFile": "t0275.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 16,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gintro_terrain_rocks_small_2365ee99.__-gintro_terrain_rocks_small_2365ee99",
+      "runtimeFile": "t0276.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gjun_art_metal_brushed_c-r_e7f4f905.__-gjun_art_metal_brushed_c-r_e7f4f905",
+      "runtimeFile": "t0277.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gjun_art_rock_wall01_c-rgb_b308f924.__-gjun_art_rock_wall01_c-rgb_b308f924",
+      "runtimeFile": "t0278.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gjun_art_roof_wood_c-rgb___95166ad5.__-gjun_art_roof_wood_c-rgb___95166ad5",
+      "runtimeFile": "t0279.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gjun_art_woodgrainprint_c-_86bbbb08.__-gjun_art_woodgrainprint_c-_86bbbb08",
+      "runtimeFile": "t0280.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gjun_dec_mud_splatter_s-rg_2818c7b5.__-gjun_dec_mud_splatter_s-rg_2818c7b5",
+      "runtimeFile": "t0281.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gjun_ter_dirt_tracks_c-rgb_961f21a0.__-gjun_ter_dirt_tracks_c-rgb_961f21a0",
+      "runtimeFile": "t0282.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-goffice_wall_blue01b_c-rgb_7daaa143.__-goffice_wall_blue01b_c-rgb_7daaa143",
+      "runtimeFile": "t0283.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gparticle_board_02_c-rgb___b81dc9ec.__-gparticle_board_02_c-rgb___b81dc9ec",
+      "runtimeFile": "t0284.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gpent_art_carpet_blue01_c-_956494cd.__-gpent_art_carpet_blue01_c-_956494cd",
+      "runtimeFile": "t0285.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gpent_art_filing_cabinet_b_f81a6e50.__-gpent_art_filing_cabinet_b_f81a6e50",
+      "runtimeFile": "t0286.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gpent_art_floor_tile05_glo_df0b2e9a.__-gpent_art_floor_tile05_glo_df0b2e9a",
+      "runtimeFile": "t0287.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gpent_art_floor_tile06_c-r_39c9de49.__-gpent_art_floor_tile06_c-r_39c9de49",
+      "runtimeFile": "t0288.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gpent_art_wall_creampaint0_e57342c8.__-gpent_art_wall_creampaint0_e57342c8",
+      "runtimeFile": "t0289.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gplaster_crackedpaint01_co_b329092a.__-gplaster_crackedpaint01_co_b329092a",
+      "runtimeFile": "t0290.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gp_glo_rock_cliff_c-rgb__-_4a18ad93.__-gp_glo_rock_cliff_c-rgb__-_4a18ad93",
+      "runtimeFile": "t0291.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 256,
+      "mipCount": 9,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-grus_art_plywood_light_02__86d814d0.__-grus_art_plywood_light_02__86d814d0",
+      "runtimeFile": "t0292.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-grus_concrete_wall_c-rgb___730e229d.__-grus_concrete_wall_c-rgb___730e229d",
+      "runtimeFile": "t0293.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-grus_dec_rug01_c-rgb__-rpe_ee2808cb.__-grus_dec_rug01_c-rgb__-rpe_ee2808cb",
+      "runtimeFile": "t0294.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 256,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-grus_ground_sand_c-rgb__-r_acdc3928.__-grus_ground_sand_c-rgb__-r_acdc3928",
+      "runtimeFile": "t0295.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-grus_metal_plate_white_c-r_79913dab.__-grus_metal_plate_white_c-r_79913dab",
+      "runtimeFile": "t0296.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-grus_wall_brick_red_c-rgb__469eeb48.__-grus_wall_brick_red_c-rgb__469eeb48",
+      "runtimeFile": "t0297.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gstone_stucco01_white_c-rg_a0fd2c32.__-gstone_stucco01_white_c-rg_a0fd2c32",
+      "runtimeFile": "t0298.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gus_art_garage_door_01_c-r_70172e1e.__-gus_art_garage_door_01_c-r_70172e1e",
+      "runtimeFile": "t0299.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gus_art_officecarpet1_pea__939e8108.__-gus_art_officecarpet1_pea__939e8108",
+      "runtimeFile": "t0300.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gus_art_wall_woodplank_cle_1b722b33.__-gus_art_wall_woodplank_cle_1b722b33",
+      "runtimeFile": "t0301.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gzm_nuked_art_wallpaper01__9e92b562.__-gzm_nuked_art_wallpaper01__9e92b562",
+      "runtimeFile": "t0302.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gzm_nuked_art_wallpaper02__9e92b562.__-gzm_nuked_art_wallpaper02__9e92b562",
+      "runtimeFile": "t0303.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gzm_nuked_art_wallpaper08__15e98d65.__-gzm_nuked_art_wallpaper08__15e98d65",
+      "runtimeFile": "t0304.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gzm_nuked_asphalt_cracked__ef0fed50.__-gzm_nuked_asphalt_cracked__ef0fed50",
+      "runtimeFile": "t0305.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gzm_nuked_carpet_grey_01_c_96b34abd.__-gzm_nuked_carpet_grey_01_c_96b34abd",
+      "runtimeFile": "t0306.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gzm_nuked_carpet_grey_01_e_8036a79a.__-gzm_nuked_carpet_grey_01_e_8036a79a",
+      "runtimeFile": "t0307.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gzm_nuked_carpet_red_01_em_9614919e.__-gzm_nuked_carpet_red_01_em_9614919e",
+      "runtimeFile": "t0308.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gzm_nuked_carpet_yellow_01_77a94c40.__-gzm_nuked_carpet_yellow_01_77a94c40",
+      "runtimeFile": "t0309.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gzm_nuked_carpet_yellow_01_b6887891.__-gzm_nuked_carpet_yellow_01_b6887891",
+      "runtimeFile": "t0310.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gzm_nuked_concrete_sidewal_6334a7dd.__-gzm_nuked_concrete_sidewal_6334a7dd",
+      "runtimeFile": "t0311.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gzm_nuked_dirty_concrete_b_b78e4262.__-gzm_nuked_dirty_concrete_b_b78e4262",
+      "runtimeFile": "t0312.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gzm_nuked_floor_tile_blue__dde93717.__-gzm_nuked_floor_tile_blue__dde93717",
+      "runtimeFile": "t0313.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gzm_nuked_floor_tile_red_c_6433617a.__-gzm_nuked_floor_tile_red_c_6433617a",
+      "runtimeFile": "t0314.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gzm_nuked_wallpaper_flower_2770e888.__-gzm_nuked_wallpaper_flower_2770e888",
+      "runtimeFile": "t0315.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gzm_nuked_wallpaper_kitche_04641d76.__-gzm_nuked_wallpaper_kitche_04641d76",
+      "runtimeFile": "t0316.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gzm_nuked_wall_creampaint__1c402eaf.__-gzm_nuked_wall_creampaint__1c402eaf",
+      "runtimeFile": "t0317.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gzm_nuked_wall_weatheredge_1a0feb98.__-gzm_nuked_wall_weatheredge_1a0feb98",
+      "runtimeFile": "t0318.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gzm_nuked_wall_weatheredge_7efa303d.__-gzm_nuked_wall_weatheredge_7efa303d",
+      "runtimeFile": "t0319.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    },
+    {
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/text/__-gzm_nuked_wood_panels_c-rg_297680b2.__-gzm_nuked_wood_panels_c-rg_297680b2",
+      "runtimeFile": "t0320.xzt",
+      "format": "PF_ASTC_6x6",
+      "width": 512,
+      "height": 512,
+      "mipCount": 10,
+      "srgb": true
+    }
+  ],
+  "ready": true
+}
