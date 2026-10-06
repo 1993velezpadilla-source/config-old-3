@@ -27,7 +27,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: xogot-stage-nacht-full-map
+  group: xogot-stage-nacht-full-map-v2
   cancel-in-progress: true
 
 jobs:
