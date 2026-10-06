@@ -1,0 +1,91 @@
+name: Probe CoDz Parity Cooked Weapon Payload
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-codz-cooked-payload-probe.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      CODZ_PARITY_DRIVE_ID: "1BiThIcM5dEjeAcm9xlFQZF8bzk9MyfK1"
+    steps:
+      - uses: actions/checkout@v5
+      - name: Download public modkit
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full
+          python3 -m pip install --disable-pip-version-check --quiet gdown
+          python3 -m gdown "https://drive.google.com/uc?id=$CODZ_PARITY_DRIVE_ID" -O "$RUNNER_TEMP/codz.zip"
+          test -s "$RUNNER_TEMP/codz.zip"
+
+      - name: Find cooked archives staged builds and duplicate wonder assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/codz-cooked-probe
+          7z l -slt "$RUNNER_TEMP/codz.zip" > build/codz-cooked-probe/list.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re
+          text=Path("build/codz-cooked-probe/list.txt").read_text(errors="ignore")
+          paths=[]
+          sizes={}
+          cur=None
+          for line in text.splitlines():
+              if line.startswith("Path = "):
+                  cur=line[7:].strip().replace("\\","/")
+                  paths.append(cur)
+              elif cur and line.startswith("Size = "):
+                  try:sizes[cur]=int(line[7:].strip())
+                  except:pass
+          archives=[p for p in paths if Path(p).suffix.lower() in {".pak",".utoc",".ucas",".sig",".zip",".7z",".rar"}]
+          staged=[p for p in paths if re.search(r"(saved/stagedbuilds|windowsnoeditor|paks/|cooked|shipping|packaged)",p,re.I)]
+          targets={}
+          for key,rx in {
+              "raygun":r"ray.?gun",
+              "raygun_body":r"raygun_body",
+              "raygun_mk2":r"ray.?gun.*(?:mk|mark).?2|mk2bo3",
+              "thundergun":r"thunder.?gun|thunderbody",
+          }.items():
+              hits=[p for p in paths if re.search(rx,p,re.I)]
+              targets[key]=[{"path":p,"size":sizes.get(p,-1)} for p in hits]
+          exts={}
+          for p in paths:
+              ext=Path(p).suffix.lower()
+              if ext:
+                  exts[ext]=exts.get(ext,0)+1
+          report={
+              "path_count":len(paths),
+              "extensions":dict(sorted(exts.items(),key=lambda kv:(-kv[1],kv[0]))),
+              "archives":[{"path":p,"size":sizes.get(p,-1)} for p in archives],
+              "staged":[{"path":p,"size":sizes.get(p,-1)} for p in staged],
+              "targets":targets,
+          }
+          Path("build/codz-cooked-probe/report.json").write_text(json.dumps(report,indent=2)+"\n")
+          print("XZOGOT_CODZ_ARCHIVES",len(archives))
+          for x in report["archives"][:100]: print("ARCHIVE",x["size"],x["path"])
+          print("XZOGOT_CODZ_STAGED",len(staged))
+          for x in report["staged"][:100]: print("STAGED",x["size"],x["path"])
+          print("XZOGOT_CODZ_EXTENSIONS_TOP",list(report["extensions"].items())[:50])
+          for key,rows in targets.items():
+              print("XZOGOT_CODZ_DUPLICATES",key,len(rows))
+              for x in rows[:120]: print("TARGET",key,x["size"],x["path"])
+          PY
+
+      - name: Upload lean report
+        uses: actions/upload-artifact@v4
+        with:
+          name: xogot-codz-cooked-payload-probe
+          path: build/codz-cooked-probe/report.json
+          retention-days: 14
