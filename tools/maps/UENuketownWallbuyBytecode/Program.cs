@@ -120,28 +120,17 @@ foreach (var assetPath in assetPaths)
                 }
             }
 
-            JToken rawJson;
-            try
+            var expressionTree = new JArray();
+            if (function.ScriptBytecode is { Length: > 0 })
             {
-                rawJson = function.ScriptBytecode is null
-                    ? JValue.CreateNull()
-                    : JToken.Parse(JsonConvert.SerializeObject(
-                        function.ScriptBytecode,
-                        Formatting.None,
-                        new JsonSerializerSettings
-                        {
-                            NullValueHandling = NullValueHandling.Ignore,
-                            ReferenceLoopHandling = ReferenceLoopHandling.Ignore
-                        }));
-            }
-            catch (Exception e)
-            {
-                rawJson = new JObject
+                foreach (var rootExpression in function.ScriptBytecode)
                 {
-                    ["serializationError"] =
-                        e.GetType().Name + ": " + e.Message
-                };
+                    expressionTree.Add(
+                        SafeObjectTree(rootExpression, asset, 0));
+                }
             }
+
+            JToken rawJson = expressionTree;
 
             functionRows.Add(new JObject
             {
@@ -322,6 +311,132 @@ static IEnumerable<KeyValuePair<string, JToken>> InterestingMembers(
             prop.Name,
             ResolveValue(value, asset));
     }
+}
+
+static JToken SafeObjectTree(object? value, UAsset asset, int depth)
+{
+    if (value is null)
+        return JValue.CreateNull();
+
+    if (depth > 10)
+        return new JValue("<max-depth>");
+
+    if (value is FPackageIndex packageIndex)
+        return new JValue(ResolveIndex(packageIndex, asset));
+
+    if (value is FName fname)
+        return new JValue(fname.ToString());
+
+    var type = value.GetType();
+
+    if (value is string ||
+        value is bool ||
+        value is byte ||
+        value is sbyte ||
+        value is short ||
+        value is ushort ||
+        value is int ||
+        value is uint ||
+        value is long ||
+        value is ulong ||
+        value is float ||
+        value is double ||
+        value is decimal ||
+        value is char)
+        return JToken.FromObject(value);
+
+    if (type.IsEnum)
+        return new JValue(value.ToString());
+
+    if (value is System.Collections.IEnumerable enumerable &&
+        value is not string)
+    {
+        var array = new JArray();
+        var count = 0;
+        foreach (var item in enumerable)
+        {
+            if (count++ >= 512)
+            {
+                array.Add("<truncated>");
+                break;
+            }
+            array.Add(SafeObjectTree(item, asset, depth + 1));
+        }
+        return array;
+    }
+
+    if (value is KismetExpression expression)
+    {
+        var row = new JObject
+        {
+            ["$type"] = type.Name,
+            ["token"] = expression.Token.ToString()
+        };
+
+        foreach (var field in type.GetFields(
+            BindingFlags.Public | BindingFlags.Instance))
+        {
+            if (field.Name is "Tag" or "RawValue")
+                continue;
+            object? fieldValue = null;
+            try { fieldValue = field.GetValue(value); }
+            catch { }
+            if (fieldValue is null)
+                continue;
+            row[field.Name] = SafeObjectTree(
+                fieldValue,
+                asset,
+                depth + 1);
+        }
+
+        var valueProperty = type.GetProperty(
+            "Value",
+            BindingFlags.Public | BindingFlags.Instance);
+        if (valueProperty is not null &&
+            valueProperty.GetIndexParameters().Length == 0)
+        {
+            try
+            {
+                var constantValue = valueProperty.GetValue(value);
+                if (constantValue is not null)
+                    row["Value"] = SafeObjectTree(
+                        constantValue,
+                        asset,
+                        depth + 1);
+            }
+            catch { }
+        }
+
+        return row;
+    }
+
+    if (type.Namespace?.StartsWith("UAssetAPI", StringComparison.Ordinal) == true)
+    {
+        var row = new JObject
+        {
+            ["$type"] = type.Name
+        };
+
+        foreach (var field in type.GetFields(
+            BindingFlags.Public | BindingFlags.Instance))
+        {
+            if (field.Name is "Asset" or "Owner" or "Tag" or "RawValue")
+                continue;
+            object? fieldValue = null;
+            try { fieldValue = field.GetValue(value); }
+            catch { }
+            if (fieldValue is null)
+                continue;
+            row[field.Name] = SafeObjectTree(
+                fieldValue,
+                asset,
+                depth + 1);
+        }
+
+        return row;
+    }
+
+    return new JValue(ValueText(value));
 }
 
 static string ResolveIndex(FPackageIndex index, UAsset asset)
