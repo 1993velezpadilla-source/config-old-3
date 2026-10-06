@@ -9,6 +9,7 @@ on:
       - ".github/workflows/xogot-nacht-chronicles-full-map-authority.yml"
       - "tools/maps/UEStaticSceneExtract/Program.cs"
       - "tools/maps/UELightExtract/Program.cs"
+      - "tools/maps/UEAudioSceneExtract/**"
       - "tools/maps/UEAudioCueGraphExtract/**"
       - "tools/patches/patch_ue421_material_texture_refs.py"
       - "tools/patches/synthesize_ue_basic_cube_xzms.py"
