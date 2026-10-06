@@ -47,6 +47,85 @@ string? ResolveProviderPackagePath(DefaultFileProvider provider, string logicalP
     return null;
 }
 
+var scriptStructCount = 0;
+var scriptStructExpandedCount = 0;
+var scriptStructOpaqueCount = 0;
+
+bool IsReflectableSourceValue(object? value)
+{
+    if (value is null) return false;
+    var fullName = value.GetType().FullName ?? "";
+    return fullName.StartsWith(
+        "CUE4Parse.UE4.Objects.",
+        StringComparison.Ordinal);
+}
+
+object? DescribeReflectedSourceValue(object value, int depth)
+{
+    if (depth >= 6)
+        return new {
+            kind = value.GetType().FullName,
+            truncated = true,
+            text = value.ToString()
+        };
+
+    var flags =
+        System.Reflection.BindingFlags.Instance |
+        System.Reflection.BindingFlags.Public;
+    var members = new SortedDictionary<string, object?>(
+        StringComparer.Ordinal);
+    var skip = new HashSet<string>(
+        new[] {
+            "Owner", "Outer", "Package", "Provider", "ResolvedObject",
+            "Class", "Super", "Template", "Archetype"
+        },
+        StringComparer.OrdinalIgnoreCase);
+
+    foreach (var field in value.GetType()
+                 .GetFields(flags)
+                 .OrderBy(x => x.Name, StringComparer.Ordinal))
+    {
+        if (field.IsStatic || skip.Contains(field.Name))
+            continue;
+        if (members.Count >= 96) break;
+        try
+        {
+            members[field.Name] = DescribeValue(
+                field.GetValue(value),
+                depth + 1);
+        }
+        catch
+        {
+        }
+    }
+
+    foreach (var property in value.GetType()
+                 .GetProperties(flags)
+                 .OrderBy(x => x.Name, StringComparer.Ordinal))
+    {
+        if (!property.CanRead ||
+            property.GetIndexParameters().Length != 0 ||
+            skip.Contains(property.Name) ||
+            members.ContainsKey(property.Name))
+            continue;
+        if (members.Count >= 96) break;
+        try
+        {
+            members[property.Name] = DescribeValue(
+                property.GetValue(value),
+                depth + 1);
+        }
+        catch
+        {
+        }
+    }
+
+    return new {
+        kind = value.GetType().FullName,
+        members
+    };
+}
+
 object? DescribeValue(object? value, int depth = 0)
 {
     if (value is null) return null;
@@ -64,10 +143,21 @@ object? DescribeValue(object? value, int depth = 0)
 
     if (value is FScriptStruct scriptStruct)
     {
+        scriptStructCount++;
+        var payload = scriptStruct.StructType;
+        var expandable =
+            payload is FStructFallback ||
+            IsReflectableSourceValue(payload);
+        if (expandable)
+            scriptStructExpandedCount++;
+        else
+            scriptStructOpaqueCount++;
+
         return new {
             kind = "FScriptStruct",
-            structType = scriptStruct.StructType?.GetType().FullName,
-            value = DescribeValue(scriptStruct.StructType, depth + 1)
+            structType = payload?.GetType().FullName,
+            expanded = expandable,
+            value = DescribeValue(payload, depth + 1)
         };
     }
 
@@ -101,6 +191,9 @@ object? DescribeValue(object? value, int depth = 0)
         }
         return rows.ToArray();
     }
+
+    if (IsReflectableSourceValue(value))
+        return DescribeReflectedSourceValue(value, depth);
 
     return new {
         kind = value.GetType().FullName,
@@ -282,6 +375,9 @@ var output = new {
     totalNodes,
     totalReferences,
     distributionNodeCount,
+    scriptStructCount,
+    scriptStructExpandedCount,
+    scriptStructOpaqueCount,
     nodeTypeCounts,
     systems,
     packageFailures,
@@ -299,6 +395,9 @@ Console.WriteLine("XZIEL_UE_PARTICLE_GRAPH " + JsonSerializer.Serialize(new {
     output.particleSystemCount,
     output.totalNodes,
     output.totalReferences,
+    output.scriptStructCount,
+    output.scriptStructExpandedCount,
+    output.scriptStructOpaqueCount,
     output.nodeTypeCounts,
     failureCount = packageFailures.Count,
     output.ready
