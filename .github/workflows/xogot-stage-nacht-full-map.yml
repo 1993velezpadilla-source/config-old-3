@@ -10,6 +10,7 @@ on:
       - "tools/maps/compile_ue_material_bindings.py"
       - "tools/maps/xzaw_to_ogg.py"
       - "xogot/scripts/nacht_full_map.gd"
+      - "xogot/scripts/xziel_benchmark_loader.gd"
       - "xogot/ci/nacht_full_map_probe.gd"
   workflow_dispatch:
     inputs:
