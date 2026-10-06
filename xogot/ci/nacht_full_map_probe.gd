@@ -7,6 +7,15 @@ func _fail(code: int, message: String) -> void:
 	push_error("NACHT_FULL_MAP_PROBE: " + message)
 	quit(code)
 
+func _read_json(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {}
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return {}
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	return parsed as Dictionary if parsed is Dictionary else {}
+
 func _run() -> void:
 	var packed := load("res://nacht_full_map.tscn") as PackedScene
 	if packed == null:
@@ -61,6 +70,12 @@ func _run() -> void:
 	var staged_runtime := FileAccess.file_exists(
 		"res://assets/benchmarks/nacht_chronicles/nacht-audio-runtime-authority.json"
 	)
+	var staged_manifest := _read_json(
+		"res://assets/benchmarks/nacht_chronicles/source_manifest.json"
+	)
+	var expected_texture_count := 1581
+	if staged_runtime:
+		expected_texture_count = int(staged_manifest.get("sourceTextures", -1))
 
 	if packages != 3871:
 		_fail(4, "package authority mismatch " + str(packages))
@@ -86,8 +101,15 @@ func _run() -> void:
 	if source_lights <= 0 or runtime_lights != source_lights:
 		_fail(11, "light coverage mismatch %d/%d" % [runtime_lights, source_lights])
 		return
-	if complete_textures != 1581:
-		_fail(14, "complete texture catalog mismatch " + str(complete_textures))
+	if expected_texture_count <= 0:
+		_fail(14, "staged source texture authority missing")
+		return
+	if complete_textures != expected_texture_count:
+		_fail(
+			14,
+			"complete texture catalog mismatch %d/%d"
+			% [complete_textures, expected_texture_count]
+		)
 		return
 	if texture_failures != 0:
 		_fail(15, "source texture load failures " + str(texture_failures))
@@ -159,6 +181,7 @@ func _run() -> void:
 		" collisions=", collisions,
 		" lights=", runtime_lights,
 		" textures=", complete_textures,
+		" expected_textures=", expected_texture_count,
 		" textured_materials=", textured_materials,
 		" particles_authority=", particle_authority,
 		" particle_graphs_authority=", particle_graph_authority,
