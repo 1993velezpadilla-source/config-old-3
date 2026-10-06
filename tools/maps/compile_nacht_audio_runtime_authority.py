@@ -207,6 +207,66 @@ def expression_asset(
     return None, None
 
 
+def describe_parameter(expr: Any, info: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(expr, dict):
+        return {"type": type(expr).__name__, "value": expr}
+
+    expr_type = str(expr.get("$type", ""))
+    row: dict[str, Any] = {"type": expr_type}
+
+    if expr_type in {
+        "EX_FloatConst",
+        "EX_IntConst",
+        "EX_Int64Const",
+        "EX_UInt64Const",
+        "EX_ByteConst",
+        "EX_StringConst",
+        "EX_UnicodeStringConst",
+        "EX_NameConst",
+    }:
+        row["value"] = expr.get("Value")
+        return row
+
+    if expr_type == "EX_True":
+        row["value"] = True
+        return row
+    if expr_type == "EX_False":
+        row["value"] = False
+        return row
+    if expr_type == "EX_NoObject":
+        row["value"] = None
+        return row
+    if expr_type == "EX_Self":
+        row["self"] = True
+        return row
+    if expr_type == "EX_ObjectConst":
+        row["objectPath"] = canonical(expr.get("Value"))
+        return row
+
+    if expr_type in {"EX_VectorConst", "EX_RotationConst"}:
+        row["value"] = expr.get("Value")
+        return row
+
+    if expr_type in {"EX_InstanceVariable", "EX_LocalVariable", "EX_DefaultVariable"}:
+        ref = pointer_ref(expr)
+        row["reference"] = ref
+        prop_name = property_name_from_ref(ref)
+        if prop_name:
+            row["property"] = prop_name
+            default_value = info["cdo"].get(prop_name)
+            if default_value is not None:
+                row["defaultValue"] = default_value
+        return row
+
+    if "Value" in expr and isinstance(
+        expr.get("Value"),
+        (str, int, float, bool, type(None), dict, list),
+    ):
+        row["value"] = expr.get("Value")
+
+    return row
+
+
 def extract_blueprint_events(info: dict[str, Any]) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
 
@@ -248,6 +308,10 @@ def extract_blueprint_events(info: dict[str, Any]) -> list[dict[str, Any]]:
                                 "assetProperty": property_name,
                                 "targetReference": target_ref,
                                 "targetComponent": property_name_from_ref(target_ref),
+                                "parameters": [
+                                    describe_parameter(parameter, info)
+                                    for parameter in node.get("Parameters", [])
+                                ],
                             }
                         )
 
