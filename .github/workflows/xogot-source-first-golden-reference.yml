@@ -1,0 +1,220 @@
+name: Xogot Source-First Golden Reference Export
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-source-first-golden-reference.yml"
+      - "xogot/data/source_first_golden_reference.json"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-source-first-golden-reference
+  cancel-in-progress: true
+
+jobs:
+  export:
+    runs-on: windows-latest
+    timeout-minutes: 180
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_MAPPING_RUN: "37244741312"
+
+    steps:
+      - name: Checkout gameplay branch
+        uses: actions/checkout@v5
+        with:
+          ref: feature/godot-aaa-rebuild-v1
+
+      - name: Reuse proven UE5.7 mappings
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir="$env:RUNNER_TEMP\mapping-artifact"
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          gh run download "$env:SOURCE_MAPPING_RUN" -n aether-waw-usmap-real-weapons -D $dir
+          $map=Get-ChildItem $dir -Filter 'Mappings.usmap' -Recurse | Select-Object -First 1
+          if (-not $map) { throw 'Mappings.usmap missing from proven Aether export artifact' }
+          Copy-Item $map.FullName "$PWD\Mappings.usmap"
+          if ((Get-Item "$PWD\Mappings.usmap").Length -lt 4096) { throw 'Mappings.usmap too small' }
+          Write-Host "XZOGOT_SOURCE_FIRST_USMAP_GREEN $((Get-Item "$PWD\Mappings.usmap").Length)"
+
+      - name: Download Project Aether source runtime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $downloadDir="$env:RUNNER_TEMP\aether-download"
+          New-Item -ItemType Directory -Force -Path $downloadDir | Out-Null
+          $zip=$null
+          for ($attempt=1; $attempt -le 6; $attempt++) {
+            Write-Host "XZOGOT_SOURCE_FIRST_DOWNLOAD_ATTEMPT $attempt"
+            npx --yes itchio-downloader --url "https://verrial.itch.io/projectaether" --downloadDirectory $downloadDir
+            $rc=$LASTEXITCODE
+            $zip=Get-ChildItem $downloadDir -Filter '*.zip' -Recurse |
+              Sort-Object Length -Descending | Select-Object -First 1
+            if ($rc -eq 0 -and $zip) { break }
+            if ($attempt -lt 6) { Start-Sleep -Seconds (45 + ($attempt * 30)) }
+          }
+          if (-not $zip) { throw 'Aether ZIP missing after retry/backoff' }
+
+          $pakRoot="$env:RUNNER_TEMP\aether-paks"
+          New-Item -ItemType Directory -Force -Path $pakRoot | Out-Null
+          7z x -y $zip.FullName 'ProjectAether/Content/Paks/*' "-o$pakRoot" | Out-Host
+          $pakDir=Get-ChildItem $pakRoot -Directory -Recurse |
+            Where-Object { $_.Name -eq 'Paks' -and (Get-ChildItem $_.FullName -Filter '*.utoc' -ErrorAction SilentlyContinue) } |
+            Select-Object -First 1
+          if (-not $pakDir) { throw 'Aether IoStore Paks missing' }
+          "AETHER_PAKDIR=$($pakDir.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "XZOGOT_SOURCE_FIRST_PAKS_GREEN $($pakDir.FullName)"
+
+      - name: Install .NET 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build current CUE4Parse CLI
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $src="$env:RUNNER_TEMP\CUE4Parse.CLI"
+          $out="$env:RUNNER_TEMP\cue4parse-publish"
+          git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/joric/CUE4Parse.CLI.git $src
+          git -C $src submodule update --init --recursive --depth 1
+          dotnet publish "$src\CUE4Parse.CLI\CUE4Parse.CLI.csproj" -c Release -r win-x64 --self-contained true -p:PublishTrimmed=false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o $out
+          $exe=Get-ChildItem $out -Filter '*.exe' | Sort-Object Length -Descending | Select-Object -First 1
+          if (-not $exe) { throw 'CUE4Parse CLI missing' }
+          "CUE4PARSE=$($exe.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "XZOGOT_SOURCE_FIRST_CUE4PARSE_GREEN"
+
+      - name: Build exact source package set
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          @'
+          *Assets/Data/DataTables/DT_Weapons.uasset
+          *Assets/Viewmodels/Viewhands/T4/Marine/viewmodel_usa_marine_arms.uasset
+          *Assets/Viewmodels/Viewhands/T4/Marine/viewmodel_usa_marine_arms_PhysicsAsset.uasset
+          *Assets/Viewmodels/Viewhands/T4/Marine/viewmodel_usa_marine_arms_T7.uasset
+          *FirstPerson/Blueprints/Zombies/Blueprint/BP_Zombie.uasset
+          *FirstPerson/Blueprints/Zombies/Blueprint/BPI_Enemy.uasset
+          *FirstPerson/Blueprints/Zombies/Resources/Anims/waw/*.uasset
+          *FirstPerson/Blueprints/Zombies/Resources/Models/Bodies/waw/*.uasset
+          *FirstPerson/Blueprints/Zombies/Other/zombie_wolf/*.uasset
+          '@ | Set-Content source-first-patterns.txt -Encoding ascii
+
+          $stdout = & "$env:CUE4PARSE" -i "$env:AETHER_PAKDIR" -g GAME_UE5_7 -m "$PWD\Mappings.usmap" -l -c source-first-patterns.txt 2> source-first-list-stderr.log
+          $paths=@($stdout | Where-Object { $_ -match '(?i)\.uasset$' } | Sort-Object -Unique)
+          $paths | Set-Content source-first-provider-paths.txt -Encoding ascii
+          Write-Host "XZOGOT_SOURCE_FIRST_PROVIDER_PATHS count=$($paths.Count)"
+          if ($paths.Count -lt 50) { throw "Source-first package set unexpectedly small: $($paths.Count)" }
+
+      - name: Export source meshes materials data and audio
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Remove-Item source-first-export -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path source-first-export | Out-Null
+          & "$env:CUE4PARSE" -i "$env:AETHER_PAKDIR" -g GAME_UE5_7 -m "$PWD\Mappings.usmap" -c source-first-patterns.txt -o source-first-export -y -v --mesh-format Gltf2 --mesh-quality Highest --export-materials true 2>&1 |
+            Tee-Object -FilePath source-first-gltf.log
+
+          $files=@(Get-ChildItem source-first-export -Recurse -File)
+          $hands=@($files | Where-Object { $_.Name -match '(?i)viewmodel_usa_marine_arms' -and $_.Extension -in '.glb','.gltf' })
+          $dt=@($files | Where-Object { $_.Name -eq 'DT_Weapons.json' })
+          $zombieMeshes=@($files | Where-Object { $_.FullName -match '(?i)[\\/]Zombies[\\/].*[\\/]Models[\\/].*[\\/]waw[\\/]' -and $_.Extension -in '.glb','.gltf' })
+          $dogMeshes=@($files | Where-Object { $_.FullName -match '(?i)zombie_wolf' -and $_.Extension -in '.glb','.gltf' })
+          $audio=@($files | Where-Object { $_.Extension -in '.wav','.ogg' })
+
+          Write-Host "XZOGOT_SOURCE_FIRST_GLTF files=$($files.Count) hands=$($hands.Count) zombie_meshes=$($zombieMeshes.Count) dog_meshes=$($dogMeshes.Count) audio=$($audio.Count)"
+          if ($hands.Count -lt 1) { throw 'Exact T4 Marine viewhands mesh did not export' }
+          if ($dt.Count -lt 1) { throw 'DT_Weapons.json did not export' }
+          if ($zombieMeshes.Count -lt 1) { throw 'WaW zombie body mesh did not export' }
+          if ($dogMeshes.Count -lt 1) { throw 'zombie_wolf mesh did not export' }
+          Write-Host 'XZOGOT_SOURCE_FIRST_MESH_DATA_GREEN'
+
+      - name: Export source animation trees as ActorX
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          @'
+          *Assets/Viewmodels/Viewhands/T4/Marine/viewmodel_usa_marine_arms.uasset
+          *FirstPerson/Blueprints/Zombies/Resources/Anims/waw/*.uasset
+          *FirstPerson/Blueprints/Zombies/Resources/Models/Bodies/waw/*.uasset
+          *FirstPerson/Blueprints/Zombies/Other/zombie_wolf/*.uasset
+          '@ | Set-Content source-first-actorx-patterns.txt -Encoding ascii
+
+          Remove-Item source-first-actorx -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path source-first-actorx | Out-Null
+          & "$env:CUE4PARSE" -i "$env:AETHER_PAKDIR" -g GAME_UE5_7 -m "$PWD\Mappings.usmap" -c source-first-actorx-patterns.txt -o source-first-actorx -y -v --mesh-format ActorX --mesh-quality Highest --export-materials true 2>&1 |
+            Tee-Object -FilePath source-first-actorx.log
+
+          $psa=@(Get-ChildItem source-first-actorx -Recurse -File -Filter '*.psa')
+          $psk=@(Get-ChildItem source-first-actorx -Recurse -File | Where-Object { $_.Extension -in '.psk','.pskx' })
+          $zombiePsa=@($psa | Where-Object { $_.FullName -match '(?i)[\\/]Zombies[\\/].*[\\/]Anims[\\/]waw[\\/]' })
+          $dogPsa=@($psa | Where-Object { $_.FullName -match '(?i)zombie_wolf' })
+          $handsPsk=@($psk | Where-Object { $_.Name -match '(?i)viewmodel_usa_marine_arms' })
+
+          Write-Host "XZOGOT_SOURCE_FIRST_ACTORX psa=$($psa.Count) psk=$($psk.Count) zombie_psa=$($zombiePsa.Count) dog_psa=$($dogPsa.Count) hands_psk=$($handsPsk.Count)"
+          if ($zombiePsa.Count -lt 20) { throw "Expected broad WaW zombie animation coverage; got $($zombiePsa.Count)" }
+          if ($dogPsa.Count -lt 5) { throw "Expected hellhound animation set; got $($dogPsa.Count)" }
+          if ($handsPsk.Count -lt 1) { throw 'Exact T4 Marine hands ActorX skeleton did not export' }
+          Write-Host 'XZOGOT_SOURCE_FIRST_ANIMATIONS_GREEN'
+
+      - name: Build source-first inventory report
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          @'
+          from pathlib import Path
+          import json,re
+
+          g=Path("source-first-export")
+          a=Path("source-first-actorx")
+          all_files=[p for root in (g,a) for p in root.rglob("*") if p.is_file()]
+          hand_mesh=[p.as_posix() for p in all_files if re.search(r"viewmodel_usa_marine_arms",p.name,re.I) and p.suffix.lower() in {".glb",".gltf",".psk",".pskx"}]
+          zombie_psa=[p.as_posix() for p in all_files if p.suffix.lower()==".psa" and re.search(r"/Zombies/.*/Anims/waw/",p.as_posix(),re.I)]
+          dog_psa=[p.as_posix() for p in all_files if p.suffix.lower()==".psa" and "zombie_wolf" in p.as_posix().lower()]
+          zombie_mesh=[p.as_posix() for p in all_files if p.suffix.lower() in {".glb",".gltf",".psk",".pskx"} and re.search(r"/Zombies/.*/Models/.*/waw/",p.as_posix(),re.I)]
+          dog_mesh=[p.as_posix() for p in all_files if p.suffix.lower() in {".glb",".gltf",".psk",".pskx"} and "zombie_wolf" in p.as_posix().lower()]
+          audio=[p.as_posix() for p in all_files if p.suffix.lower() in {".wav",".ogg"}]
+
+          report={
+            "schema":1,
+            "source":"Project Aether UE5.7 source-first golden reference",
+            "policy_file":"xogot/data/source_first_golden_reference.json",
+            "t4_marine_hand_meshes":hand_mesh,
+            "waw_zombie_animation_count":len(zombie_psa),
+            "waw_zombie_animations":zombie_psa,
+            "waw_zombie_mesh_count":len(zombie_mesh),
+            "waw_zombie_meshes":zombie_mesh,
+            "hellhound_animation_count":len(dog_psa),
+            "hellhound_animations":dog_psa,
+            "hellhound_meshes":dog_mesh,
+            "audio_count":len(audio),
+            "audio":audio,
+          }
+          Path("source-first-inventory.json").write_text(json.dumps(report,indent=2)+"\n",encoding="utf-8")
+          print("XZOGOT_SOURCE_FIRST_INVENTORY_GREEN",len(hand_mesh),len(zombie_psa),len(zombie_mesh),len(dog_psa),len(dog_mesh),len(audio))
+          '@ | python -
+
+      - name: Upload complete source-first reference
+        uses: actions/upload-artifact@v4
+        with:
+          name: xogot-source-first-golden-reference
+          path: |
+            source-first-inventory.json
+            source-first-patterns.txt
+            source-first-actorx-patterns.txt
+            source-first-provider-paths.txt
+            source-first-list-stderr.log
+            source-first-gltf.log
+            source-first-actorx.log
+            source-first-export/**
+            source-first-actorx/**
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 6
