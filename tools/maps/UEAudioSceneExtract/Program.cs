@@ -159,6 +159,22 @@ string? ReferencePath(FPackageIndex index)
 }
 
 
+bool ComponentAuthorityNameMatches(string authorityName, string instanceName)
+{
+    if (authorityName.Equals(instanceName, StringComparison.OrdinalIgnoreCase))
+        return true;
+
+    const string suffix = "_GEN_VARIABLE";
+    if (authorityName.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+    {
+        var baseName = authorityName[..^suffix.Length];
+        if (baseName.Equals(instanceName, StringComparison.OrdinalIgnoreCase))
+            return true;
+    }
+
+    return false;
+}
+
 UBlueprintGeneratedClass? ResolveGeneratedClassByResolvedClassPath(
     DefaultFileProvider provider,
     string? classPath,
@@ -347,9 +363,9 @@ ResolveBlueprintSoundTemplate(
                                 out var template) ||
                             template is null)
                             continue;
-                        if (!template.Name.Equals(
-                                component.Name,
-                                StringComparison.OrdinalIgnoreCase))
+                        if (!ComponentAuthorityNameMatches(
+                                template.Name,
+                                component.Name))
                             continue;
 
                         var resolved = TryResolveSound(
