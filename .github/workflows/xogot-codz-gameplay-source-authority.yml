@@ -1,0 +1,249 @@
+name: CoDz Gameplay Source Authority
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/godot-aaa-rebuild-v1]
+    paths:
+      - ".github/workflows/xogot-codz-gameplay-source-authority.yml"
+      - "tools/maps/UENuketownWallbuyBytecode/**"
+
+permissions:
+  contents: read
+
+jobs:
+  authority:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      XZOGOT_ENGINE_VERSION: VER_UE4_18
+      CODZ_DRIVE_ID: "1BiThIcM5dEjeAcm9xlFQZF8bzk9MyfK1"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Download CoDz source pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full
+          python3 -m pip install --disable-pip-version-check --quiet gdown
+          mkdir -p source build/gameplay-authority/extracted
+          python3 -m gdown "https://drive.google.com/uc?id=$CODZ_DRIVE_ID" -O source/codz.zip
+          test -s source/codz.zip
+          echo "XZOGOT_GAMEPLAY_SOURCE_PACK_GREEN"
+
+      - name: Inventory PaP perks and GobbleGum candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          7z l -slt source/codz.zip > build/gameplay-authority/archive-slt.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re
+          raw=Path("build/gameplay-authority/archive-slt.txt").read_text(errors="ignore")
+          paths=[]
+          for line in raw.splitlines():
+              if line.startswith("Path = "):
+                  p=line[7:].strip().replace("\\","/")
+                  if p:
+                      paths.append(p)
+          paths=sorted(set(paths),key=str.lower)
+          root="CoDz Parity modkit/Content/CustomMaps/UGC2554408402/"
+          groups={
+              "pap":[p for p in paths if root+"BPs/KillerJimsPaP/" in p],
+              "perks":[p for p in paths if root+"BPs/Perks/" in p],
+              "core":[p for p in paths if root+"BPs/ProxiesAndGameLogics/" in p],
+              "gunbases":[p for p in paths if any(x in p for x in (
+                  root+"BPs/CustomItems/Guns/Gavkips_waw/Base/Gun_Base_",
+                  root+"BPs/CustomItems/Guns/TreshyBoi/Brown/Base/Gun_Base_",
+                  root+"BPs/CustomItems/Guns/gavs_Wonderweaps/Base/Gun_Base_",
+              ))],
+          }
+          gum_terms=[
+              "gobble","gobblegum","gumball","gobble gum","gum machine",
+              "alchemical","anywherebut","anywhere_but","armsgrace","arms_grace",
+              "perkaholic","shoppingfree","shopping_free","inplainsight","in_plain_sight",
+              "wallpower","wall_power","sodafountain","soda_fountain","power_vacuum",
+              "phoenixup","phoenix_up","immolation","reign_drops","reigndrops",
+              "temporal_gift","temporalgift","stock_option","stockoption",
+              "cache_back","cacheback","near_death","neardeath","self_medication",
+              "secret_shopper","profit_sharing","aftertaste","coagulant","pop_shocks",
+              "fatal_contraption","danger_closest","kill_joy","killjoy","unbearable",
+              "respin_cycle","respin","head_drama","head drama","flavor_hexed",
+              "burned_out","burnedout","eye_candy","eyecandy","crawl_space","crawlspace",
+              "fear_in_headlights","undead_man_walking","newtonian","licensed_contractor",
+              "dead_of_nuclear_winter","disorderly_combat","ephemeral_enhancement"
+          ]
+          gums=[]
+          for p in paths:
+              low=p.lower().replace("-","_")
+              if any(t in low for t in gum_terms):
+                  gums.append(p)
+          groups["gums"]=gums
+          out={
+              "schema":1,
+              "totalArchivePaths":len(paths),
+              "groups":{k:{"count":len(v),"paths":v} for k,v in groups.items()},
+          }
+          Path("build/gameplay-authority/inventory.json").write_text(json.dumps(out,indent=2)+"\n")
+          for k,v in groups.items():
+              print("XZOGOT_GAMEPLAY_INVENTORY",k,"count=",len(v))
+              for p in v[:120]:
+                  print(" ",p)
+          if not groups["pap"] or not groups["perks"] or not groups["core"]:
+              raise SystemExit("Required gameplay source group missing")
+          PY
+
+      - name: Extract gameplay source candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          d=json.loads(Path("build/gameplay-authority/inventory.json").read_text())
+          wanted=set()
+          for group in ("pap","perks","core","gunbases","gums"):
+              for p in d["groups"][group]["paths"]:
+                  if p.lower().endswith(".uasset"):
+                      wanted.add(p)
+          Path("build/gameplay-authority/wanted-uassets.txt").write_text(
+              "\n".join(sorted(wanted,key=str.lower))+"\n"
+          )
+          print("XZOGOT_GAMEPLAY_WANTED_UASSETS",len(wanted))
+          PY
+          while IFS= read -r asset; do
+            [ -n "$asset" ] || continue
+            7z x -y source/codz.zip "$asset" -obuild/gameplay-authority/extracted >/dev/null
+          done < build/gameplay-authority/wanted-uassets.txt
+          find build/gameplay-authority/extracted -type f -name '*.uasset' -printf '%p\n' | sort             > build/gameplay-authority/extracted-uassets.txt
+          echo "XZOGOT_GAMEPLAY_EXTRACTED $(wc -l < build/gameplay-authority/extracted-uassets.txt)"
+
+      - name: Select executable Blueprints and authoritative tables
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          inv=json.loads(Path("build/gameplay-authority/inventory.json").read_text())
+          root=Path("build/gameplay-authority/extracted")
+          rows=[]
+          for p in root.rglob("*.uasset"):
+              data=p.read_bytes()
+              rel=p.relative_to(root).as_posix()
+              low=rel.lower()
+              kind=""
+              if b"BlueprintGeneratedClass" in data:
+                  kind="blueprint"
+              elif any(x in p.name.lower() for x in ("datatable","perk_list","struct")):
+                  kind="table_or_struct"
+              if not kind:
+                  continue
+              group="other"
+              if "/killerjimspap/" in low: group="pap"
+              elif "/bps/perks/" in low: group="perks"
+              elif "/proxiesandgamelogics/" in low: group="core"
+              elif "gun_base_" in low: group="gunbases"
+              elif any(x in low for x in ("gobble","gumball","gum")): group="gums"
+              rows.append({"path":str(p),"relative":rel,"group":group,"kind":kind,"bytes":len(data)})
+          rows.sort(key=lambda r:(r["group"],r["relative"].lower()))
+          Path("build/gameplay-authority/selected.json").write_text(json.dumps(rows,indent=2)+"\n")
+          for g in ("pap","perks","core","gunbases","gums"):
+              arr=[r for r in rows if r["group"]==g]
+              Path(f"build/gameplay-authority/{g}-assets.txt").write_text(
+                  "\n".join(r["path"] for r in arr)+"\n"
+              )
+              print("XZOGOT_GAMEPLAY_SELECTED",g,"count=",len(arr))
+          if not any(r["group"]=="pap" for r in rows):
+              raise SystemExit("No PaP executable/table assets selected")
+          if not any(r["group"]=="perks" for r in rows):
+              raise SystemExit("No perk executable/table assets selected")
+          PY
+
+      - name: Pin Pavlov mappings and build extractor
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 --retry-delay 2 -o source/PavMappings.usmap             "https://raw.githubusercontent.com/THW-Reaper/PavlovVRMappings/4976647b4f3a209042460bc55a7a3122662d05b7/PavMappings.usmap"
+          echo "6d19f9731cc3fbaba34ca8e0833e81e4ffdf1b407edf24de48b1ccb5c63b060c  source/PavMappings.usmap"             | sha256sum -c -
+          dotnet restore tools/maps/UENuketownWallbuyBytecode/UENuketownWallbuyBytecode.csproj
+          dotnet build tools/maps/UENuketownWallbuyBytecode/UENuketownWallbuyBytecode.csproj -c Release --no-restore
+          echo "XZOGOT_GAMEPLAY_EXTRACTOR_GREEN"
+
+      - name: Decompile source groups
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=tools/maps/UENuketownWallbuyBytecode/bin/Release/net10.0/UENuketownWallbuyBytecode.dll
+          for group in pap perks core gunbases gums; do
+            mapfile -t ASSETS < <(grep -v '^$' "build/gameplay-authority/$group-assets.txt" || true)
+            if [ "${#ASSETS[@]}" -eq 0 ]; then
+              echo "XZOGOT_GAMEPLAY_GROUP_EMPTY $group"
+              continue
+            fi
+            echo "XZOGOT_GAMEPLAY_DECOMPILE $group count=${#ASSETS[@]}"
+            dotnet "$APP" source/PavMappings.usmap               "build/gameplay-authority/$group-bytecode.json" "${ASSETS[@]}"
+          done
+
+      - name: Build source-authority manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          base=Path("build/gameplay-authority")
+          inv=json.loads((base/"inventory.json").read_text())
+          selected=json.loads((base/"selected.json").read_text())
+          groups={}
+          for g in ("pap","perks","core","gunbases","gums"):
+              p=base/f"{g}-bytecode.json"
+              if not p.exists():
+                  groups[g]={"present":False,"assetCount":0}
+                  continue
+              d=json.loads(p.read_text())
+              groups[g]={
+                  "present":True,
+                  "assetCount":d.get("assetCount",0),
+                  "packageSuccessCount":d.get("packageSuccessCount",0),
+                  "failureCount":d.get("failureCount",0),
+                  "parsedFunctions":d.get("parsedFunctions",0),
+                  "parsedExpressions":d.get("parsedExpressions",0),
+                  "integerConstants":d.get("integerConstants",0),
+                  "parsedDataTableRows":d.get("parsedDataTableRows",0),
+                  "parsedExportDefaults":d.get("parsedExportDefaults",0),
+                  "ready":d.get("ready",False),
+              }
+          manifest={
+              "schema":1,
+              "engineVersion":"VER_UE4_18",
+              "archivePathCount":inv["totalArchivePaths"],
+              "inventory":inv["groups"],
+              "selectedAssetCount":len(selected),
+              "groups":groups,
+              "gobbleGumSourcePresentInCoDzParity":inv["groups"]["gums"]["count"]>0,
+          }
+          (base/"source-authority-manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")
+          print("XZOGOT_GAMEPLAY_SOURCE_AUTHORITY",json.dumps(manifest["groups"],sort_keys=True))
+          for required in ("pap","perks","core","gunbases"):
+              row=groups[required]
+              if not row.get("present") or not row.get("ready") or row.get("failureCount")!=0:
+                  raise SystemExit(f"Source group failed authority gate: {required} {row}")
+          print("XZOGOT_GAMEPLAY_SOURCE_AUTHORITY_GREEN")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xogot-codz-gameplay-source-authority
+          path: |
+            build/gameplay-authority/inventory.json
+            build/gameplay-authority/selected.json
+            build/gameplay-authority/source-authority-manifest.json
+            build/gameplay-authority/*-bytecode.json
+          if-no-files-found: error
+          retention-days: 14
