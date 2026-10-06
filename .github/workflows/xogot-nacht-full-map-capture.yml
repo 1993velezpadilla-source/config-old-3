@@ -48,14 +48,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf xogot/assets/benchmarks/nacht_chronicles
-          mkdir -p xogot/assets/benchmarks/nacht_chronicles
+          tmp="$RUNNER_TEMP/nacht-capture-artifact"
+          root=xogot/assets/benchmarks/nacht_chronicles
+          rm -rf "$tmp" "$root"
+          mkdir -p "$tmp" "$root"
+
           gh run download "$SOURCE_RUN" \
             --repo "$GITHUB_REPOSITORY" \
             --name "$SOURCE_ARTIFACT" \
-            --dir xogot/assets/benchmarks/nacht_chronicles
+            --dir "$tmp"
 
-          root=xogot/assets/benchmarks/nacht_chronicles
+          manifest=$(find "$tmp" -type f -name source_manifest.json -print -quit)
+          test -n "$manifest"
+          artifact_root=$(dirname "$manifest")
+          cp -a "$artifact_root/." "$root/"
+
           test -s "$root/source_manifest.json"
           test -s "$root/nacht-static-scene.json"
           test -s "$root/native-glb-report.json"
@@ -63,7 +70,7 @@ jobs:
           test -s "$root/complete-xztx-report.json"
           test -s "$root/nacht-environment-report.json"
           test -s "$root/nacht-audio-runtime-authority.json"
-          echo "XZOGOT_NACHT_CAPTURE_STAGE_DOWNLOAD_GREEN run=$SOURCE_RUN"
+          echo "XZOGOT_NACHT_CAPTURE_STAGE_DOWNLOAD_GREEN run=$SOURCE_RUN root=$artifact_root"
 
       - name: Gate capture source authority
         shell: bash
