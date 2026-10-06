@@ -1,0 +1,246 @@
+name: Stage Nacht Chronicles Full Map
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: "Exact Nacht Full Map Authority run id"
+        required: false
+        type: string
+  workflow_run:
+    workflows:
+      - "Xogot Nacht Chronicles Full Map Authority"
+    types:
+      - completed
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-stage-nacht-full-map
+  cancel-in-progress: false
+
+jobs:
+  stage:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_ARTIFACT: "Xogot-Nacht-Chronicles-Full-Map-Authority"
+      MAP_REL: "vfs/xziel/maps/xziel_nacht_chronicles"
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/godot-aaa-rebuild-v1
+          fetch-depth: 1
+
+      - name: Resolve and download exact full-map authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            SOURCE_RUN="${{ github.event.workflow_run.id }}"
+          elif [ -n "${{ inputs.source_run }}" ]; then
+            SOURCE_RUN="${{ inputs.source_run }}"
+          else
+            SOURCE_RUN=$(gh api               -H "Accept: application/vnd.github+json"               "/repos/${GITHUB_REPOSITORY}/actions/runs?branch=feature%2Fgodot-aaa-rebuild-v1&status=success&per_page=100"               --jq '.workflow_runs[] | select(.name=="Xogot Nacht Chronicles Full Map Authority") | .id'               | head -1)
+          fi
+          test -n "$SOURCE_RUN"
+          echo "SOURCE_RUN=$SOURCE_RUN" >> "$GITHUB_ENV"
+
+          rm -rf "$RUNNER_TEMP/nacht-authority"
+          mkdir -p "$RUNNER_TEMP/nacht-authority"
+          gh run download "$SOURCE_RUN" -n "$SOURCE_ARTIFACT" -D "$RUNNER_TEMP/nacht-authority"
+
+          AUTH="$RUNNER_TEMP/nacht-authority"
+          test -s "$AUTH/nacht-full-map-handoff.json"
+          test -s "$AUTH/nacht-full-map-authority.json"
+          test -s "$AUTH/nacht-static-scene.json"
+          test -s "$AUTH/nacht-lights.json"
+          test -s "$AUTH/nacht-materials.json"
+          test -s "$AUTH/nacht-native/static-meshes/report.json"
+          test -s "$AUTH/nacht-native/textures/report.json"
+          echo "AUTH=$AUTH" >> "$GITHUB_ENV"
+          echo "XZOGOT_NACHT_STAGE_AUTHORITY_GREEN run=$SOURCE_RUN"
+
+      - name: Restore proven runtime compilers
+        shell: bash
+        run: |
+          set -euo pipefail
+          old=055f0d0721eb212e3f4713e149d1e2ace5c53674
+          git fetch origin "$old" --depth=1
+          git checkout "$old" --             tools/maps/compile_ue_material_bindings.py             tools/maps/compile_xziel_material_instance_bindings.py             tools/maps/compile_xziel_material_library.py
+          test -s tools/maps/compile_xziel_environment.py
+          test -s tools/maps/xzms_to_glb.py
+          test -s tools/maps/xztx_to_dds.py
+          echo "XZOGOT_NACHT_STAGE_COMPILERS_GREEN"
+
+      - name: Build exact visible static-world runtime subset
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nacht-stage"
+          rm -rf "$root"
+          mkdir -p "$root/$MAP_REL/meshes" "$root/$MAP_REL/textures"
+          cp "$AUTH/nacht-full-map-handoff.json" "$root/"
+          cp "$AUTH/nacht-full-map-authority.json" "$root/"
+          cp "$AUTH/nacht-static-scene.json" "$root/"
+          cp "$AUTH/nacht-lights.json" "$root/"
+          cp "$AUTH/nacht-materials.json" "$root/"
+
+          python3 tools/maps/compile_ue_material_bindings.py             --scene "$root/nacht-static-scene.json"             --xzms "$AUTH/nacht-native/static-meshes/report.json"             --materials "$root/nacht-materials.json"             --xztx "$AUTH/nacht-native/textures/report.json"             --output "$root/material-binding-manifest.json"
+
+          python3 tools/maps/compile_xziel_material_instance_bindings.py             --scene "$root/nacht-static-scene.json"             --manifest "$root/material-binding-manifest.json"             --output "$root/materials.xzmi"             --report "$root/xzmi-report.json"
+
+          python3 tools/maps/compile_xziel_material_library.py             --manifest "$root/material-binding-manifest.json"             --xzmi-report "$root/xzmi-report.json"             --output "$root/materials.xzml"             --report "$root/xzml-report.json"
+
+          python3 - <<'PY'
+          import json, os, shutil
+          from pathlib import Path
+
+          root=Path(os.environ["RUNNER_TEMP"])/"nacht-stage"
+          auth=Path(os.environ["AUTH"])
+          map_rel=Path(os.environ["MAP_REL"])
+          scene=json.loads((root/"nacht-static-scene.json").read_text())
+          xzml=json.loads((root/"xzml-report.json").read_text())
+
+          mesh_source=auth/"nacht-native/static-meshes"
+          mesh_dst=root/map_rel/"meshes"
+          referenced={str(row["runtimeFile"]) for row in scene["meshes"]}
+          for name in sorted(referenced):
+              src=mesh_source/name
+              assert src.is_file(), src
+              shutil.copy2(src,mesh_dst/name)
+
+          texture_source=auth/"nacht-native/textures"
+          texture_dst=root/map_rel/"textures"
+          rows=xzml["textureAssets"]
+          referenced_textures={str(row["runtimeFile"]) for row in rows}
+          for name in sorted(referenced_textures):
+              src=texture_source/name
+              assert src.is_file(), src
+              shutil.copy2(src,texture_dst/name)
+
+          assert len(list(mesh_dst.glob("*.xzm")))==len(referenced)
+          assert len(list(texture_dst.glob("*.xzt")))==len(referenced_textures)
+
+          complete={
+              "schemaVersion":1,
+              "authority":"Nacht UMAP effective material texture set",
+              "textureAssetCount":len(rows),
+              "textureAssets":rows,
+              "ready":True,
+          }
+          (root/"complete-xztx-report.json").write_text(json.dumps(complete,indent=2)+"\n")
+          print(
+              "XZOGOT_NACHT_VISIBLE_SUBSET_GREEN",
+              {"meshes":len(referenced),"textures":len(referenced_textures)}
+          )
+          PY
+
+          python3 tools/maps/xzms_to_glb.py             "$root/$MAP_REL/meshes"             "$root/$MAP_REL/meshes_glb"             --report "$root/native-glb-report.json"
+
+          python3 tools/maps/xztx_to_dds.py             "$root/$MAP_REL/textures"             "$root/$MAP_REL/textures_dds"             --report "$root/native-dds-report.json"
+
+          python3 tools/maps/compile_xziel_environment.py             --source "$root/nacht-lights.json"             --output "$root/$MAP_REL/environment.xzen"             --report "$root/nacht-environment-report.json"
+
+          cp "$root/materials.xzmi" "$root/$MAP_REL/materials.xzmi"
+          cp "$root/materials.xzml" "$root/$MAP_REL/materials.xzml"
+
+          echo "STAGE_ROOT=$root" >> "$GITHUB_ENV"
+          echo "XZOGOT_NACHT_GODOT_RUNTIME_SUBSET_GREEN"
+
+      - name: Gate stage against authority counts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+
+          root=Path(os.environ["STAGE_ROOT"])
+          handoff=json.loads((root/"nacht-full-map-handoff.json").read_text())
+          authority=json.loads((root/"nacht-full-map-authority.json").read_text())
+          scene=json.loads((root/"nacht-static-scene.json").read_text())
+          lights=json.loads((root/"nacht-environment-report.json").read_text())
+          mats=json.loads((root/"material-binding-manifest.json").read_text())
+          glb=json.loads((root/"native-glb-report.json").read_text())
+          dds=json.loads((root/"native-dds-report.json").read_text())
+          xzml=json.loads((root/"xzml-report.json").read_text())
+
+          assert handoff["sourcePackageCount"] == 3871, handoff
+          assert scene["summary"]["ready"] is True, scene["summary"]
+          assert scene["summary"]["sceneInstanceCount"] > 0, scene["summary"]
+          assert scene["summary"]["unresolvedMeshCount"] == 0, scene["summary"]
+          assert mats["summary"]["ready"] is True, mats["summary"]
+          assert mats["summary"]["unresolvedMaterialCount"] == 0, mats["summary"]
+          assert mats["summary"]["unresolvedTextureCount"] == 0, mats["summary"]
+          assert lights["lightCount"] == authority["lighting"]["count"], (lights,authority["lighting"])
+          assert glb["mesh_count"] == len(scene["meshes"]), (glb["mesh_count"],len(scene["meshes"]))
+          assert dds["ready"] is True and dds["failure_count"] == 0, dds
+          assert dds["texture_count"] == xzml["textureAssetCount"], (dds,xzml["textureAssetCount"])
+
+          manifest={
+              "schemaVersion":1,
+              "id":"nacht_chronicles_godot_runtime_stage_v1",
+              "sourceRun":int(os.environ["SOURCE_RUN"]),
+              "sourcePackages":handoff["sourcePackageCount"],
+              "sourceActors":scene["summary"]["actorAnchorCount"],
+              "sourceInstances":scene["summary"]["sceneInstanceCount"],
+              "sourceMeshes":len(scene["meshes"]),
+              "sourceLights":lights["lightCount"],
+              "sourceMaterials":mats["summary"]["usedMaterialCount"],
+              "sourceTextures":xzml["textureAssetCount"],
+              "ddsFormats":dds["format_counts"],
+              "ready":True,
+          }
+          (root/"source_manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")
+          print("XZOGOT_NACHT_STAGE_COUNTS_GREEN",manifest)
+          PY
+
+      - name: Mount staged runtime into Godot
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf xogot/assets/benchmarks/nacht_chronicles
+          mkdir -p xogot/assets/benchmarks
+          cp -a "$STAGE_ROOT" xogot/assets/benchmarks/nacht_chronicles
+          echo "XZOGOT_NACHT_STAGE_MOUNT_GREEN"
+
+      - name: Install Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq unzip curl xvfb libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2             https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip             -o /tmp/godot.zip
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+
+      - name: Import and probe complete Nacht runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-stage
+          timeout 600 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64             --headless --editor --path xogot --quit             2>&1 | tee build/nacht-stage/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|MAX_MESH_SURFACES" build/nacht-stage/import.log
+
+          timeout 600 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64             --headless --path xogot             --script res://ci/nacht_full_map_probe.gd             2>&1 | tee build/nacht-stage/probe.log
+          grep -q "XZOGOT_NACHT_FULL_MAP_PROBE_GREEN" build/nacht-stage/probe.log
+          echo "XZOGOT_NACHT_GODOT_STAGE_GREEN"
+
+      - name: Upload staged Nacht runtime and proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nacht-Chronicles-Godot-Runtime
+          path: |
+            ${{ env.STAGE_ROOT }}/
+            build/nacht-stage/import.log
+            build/nacht-stage/probe.log
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 3
