@@ -15,6 +15,7 @@ from pathlib import Path
 SUPPORTED_NODE_TYPES = {
     "SoundNodeWavePlayer",
     "SoundNodeLooping",
+    "SoundNodeRandom",
 }
 
 # Structural/root-ish node types that carry no independent runtime transform.
