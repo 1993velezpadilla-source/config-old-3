@@ -1,0 +1,136 @@
+name: Xogot Nuketown Wallbuy Bytecode Truth
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - "tools/maps/UENuketownWallbuyBytecode/**"
+      - ".github/workflows/xogot-nuketown-wallbuy-bytecode.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-nuketown-wallbuy-bytecode-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install source package tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full xz-utils
+          mkdir -p "$RUNNER_TEMP/repak"
+          curl -fL --retry 5 \
+            https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz \
+            -o "$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" -C "$RUNNER_TEMP/repak"
+          REPAK=$(find "$RUNNER_TEMP/repak" -type f -name 'repak*' -perm -111 | head -1)
+          test -n "$REPAK"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
+
+      - name: Download pinned Nuketown source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p source-download source-outer source-unpacked
+          curl -fL --retry 8 --retry-delay 3 --retry-all-errors \
+            -o source-download/nuketown-v49-oculus.zip \
+            "https://g-3959.modapi.io/v1/games/3959/mods/5097941/files/7509509/download"
+          7z x -y source-download/nuketown-v49-oculus.zip -osource-outer >/dev/null
+          PAK=$(find source-outer -type f -name '*.pak' -print -quit)
+          test -n "$PAK"
+          "$REPAK" unpack "$PAK" -o source-unpacked
+
+          for name in wallbuy wallbuy_2 wallbuy_3; do
+            test -s "source-unpacked/Pavlov/Plugins/UGC5097941/Content/pulse/${name}.uasset"
+          done
+
+      - name: Pin Pavlov UE5 mappings
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 --retry-delay 2 \
+            -o source-download/PavMappings.usmap \
+            "https://raw.githubusercontent.com/THW-Reaper/PavlovVRMappings/4976647b4f3a209042460bc55a7a3122662d05b7/PavMappings.usmap"
+          echo "6d19f9731cc3fbaba34ca8e0833e81e4ffdf1b407edf24de48b1ccb5c63b060c  source-download/PavMappings.usmap" \
+            | sha256sum -c -
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build UAssetAPI bytecode extractor
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet restore tools/maps/UENuketownWallbuyBytecode/UENuketownWallbuyBytecode.csproj
+          dotnet build tools/maps/UENuketownWallbuyBytecode/UENuketownWallbuyBytecode.csproj \
+            --configuration Release --no-restore
+
+      - name: Extract exact wallbuy Kismet bytecode
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nuketown-wallbuy-bytecode
+          APP=tools/maps/UENuketownWallbuyBytecode/bin/Release/net10.0/UENuketownWallbuyBytecode.dll
+          dotnet "$APP" \
+            source-download/PavMappings.usmap \
+            build/nuketown-wallbuy-bytecode/wallbuy-bytecode.json \
+            source-unpacked/Pavlov/Plugins/UGC5097941/Content/pulse/wallbuy.uasset \
+            source-unpacked/Pavlov/Plugins/UGC5097941/Content/pulse/wallbuy_2.uasset \
+            source-unpacked/Pavlov/Plugins/UGC5097941/Content/pulse/wallbuy_3.uasset \
+            | tee build/nuketown-wallbuy-bytecode/extract.log
+
+          grep -q "XZOGOT_NUKETOWN_WALLBUY_BYTECODE_GREEN" \
+            build/nuketown-wallbuy-bytecode/extract.log
+
+      - name: Compare wallbuy integer constants
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          p=Path("build/nuketown-wallbuy-bytecode/wallbuy-bytecode.json")
+          d=json.loads(p.read_text())
+          assert d["ready"] is True, d
+          assert d["packageSuccessCount"] == 3, d
+
+          for package in d["packages"]:
+              values=[]
+              calls=[]
+              for fn in package["functions"]:
+                  values += [
+                      int(row["value"])
+                      for row in fn["integerConstants"]
+                      if str(row["value"]).lstrip("-").isdigit()
+                  ]
+                  calls += [row["call"] for row in fn["calls"]]
+              print("XZOGOT_WALLBUY_CONSTANTS", package["fileName"], sorted(set(values)))
+              print("XZOGOT_WALLBUY_CALLS", package["fileName"], sorted(set(calls))[:100])
+
+          print("XZOGOT_NUKETOWN_WALLBUY_COMPARE_GREEN")
+          PY
+
+      - name: Upload wallbuy bytecode truth
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nuketown-Wallbuy-Bytecode-Truth
+          path: |
+            build/nuketown-wallbuy-bytecode/wallbuy-bytecode.json
+            build/nuketown-wallbuy-bytecode/extract.log
+          if-no-files-found: error
+          retention-days: 14
