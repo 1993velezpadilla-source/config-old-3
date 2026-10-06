@@ -30,6 +30,21 @@ const AUDIO_CUES_FILE := "nacht-audio-cues.json"
 const AUDIO_RUNTIME_REPORT_FILE := "audio-runtime-report.json"
 const AUDIO_RUNTIME_AUTHORITY_FILE := "nacht-audio-runtime-authority.json"
 
+const SUPPORTED_SOURCE_AUDIO_EVENT_CALLS := {
+	"play": true,
+	"stop": true,
+	"playsound2d": true,
+	"playsoundatlocation": true,
+	"spawnsoundatlocation": true,
+	"spawnsoundattached": true,
+	"playsoundattached": true,
+}
+const SUPPORTED_SOURCE_SOUND_CUE_NODE_TYPES := {
+	"SoundNode": true,
+	"SoundNodeWavePlayer": true,
+	"SoundNodeLooping": true,
+}
+
 var _runtime_root: Node3D
 var _benchmark_loader: Node3D
 var _scene: Dictionary = {}
@@ -152,6 +167,10 @@ func _boot() -> void:
 	set_meta("runtime_sound_cue_index_count", _audio_cue_by_path.size())
 	set_meta("source_audio_event_authority_count", int(_audio_runtime_authority.get("actorAudioEventCount", 0)))
 	set_meta("source_audio_event_index_count", _source_audio_events_by_key.size())
+	set_meta(
+		"source_audio_used_cue_node_type_count",
+		(_audio_runtime_authority.get("usedSoundCueNodeTypeCounts", {}) as Dictionary).size()
+	)
 	set_meta("source_audio_runtime_player_count", _source_audio_player_count)
 	set_meta("source_audio_runtime_stream_count", _source_audio_stream_count)
 	set_meta(
@@ -162,7 +181,7 @@ func _boot() -> void:
 	# audible runtime reproduction. They must only flip when those systems are
 	# actually mounted, never merely because the JSON exists.
 	set_meta("particle_visual_runtime_ready", false)
-	set_meta("source_audio_runtime_ready", false)
+	set_meta("source_audio_runtime_ready", _source_audio_semantics_ready())
 	set_meta("source_environment_runtime_ready", false)
 	set_meta("source_class_count", int((_handoff.get("fullMapAuthority", {}) as Dictionary).get("classCensus", {}).get("uniqueClasses", -1)))
 	set_meta("nacht_full_map_ready", true)
@@ -383,6 +402,39 @@ func _source_audio_actor_position(actor_name: String) -> Vector3:
 		if str(row.get("actorName", "")) == actor_name:
 			return _audio_component_position(row.get("hierarchy", []))
 	return Vector3.ZERO
+
+
+func _source_audio_semantics_ready() -> bool:
+	if _audio_runtime_authority.is_empty():
+		return false
+	if not bool(_audio_runtime_authority.get("ready", false)):
+		return false
+	if _source_audio_player_count != 3 or _source_audio_stream_count != 3:
+		return false
+
+	var node_counts := (
+		_audio_runtime_authority.get("usedSoundCueNodeTypeCounts", {})
+		as Dictionary
+	)
+	for raw_type: Variant in node_counts.keys():
+		var node_type := str(raw_type)
+		if not SUPPORTED_SOURCE_SOUND_CUE_NODE_TYPES.has(node_type):
+			return false
+
+	for raw: Variant in _audio_runtime_authority.get("actorEventBindings", []):
+		if not (raw is Dictionary):
+			continue
+		var event := raw as Dictionary
+		var call := str(event.get("call", "")).to_lower()
+		if not SUPPORTED_SOURCE_AUDIO_EVENT_CALLS.has(call):
+			return false
+		# A Play/Stop on a generated temporary AudioComponent cannot yet be
+		# addressed independently. SpawnSound* itself is supported, but until
+		# that temporary return object is indexed, full bytecode semantics are
+		# intentionally not GREEN.
+		if call in ["play", "stop"] and str(event.get("resolvedComponentId", "")).is_empty():
+			return false
+	return true
 
 
 func _audio_event_number(
