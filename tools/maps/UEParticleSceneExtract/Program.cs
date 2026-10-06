@@ -164,12 +164,20 @@ foreach (var logicalPackage in mapPackages)
         {
             try
             {
-            var templateIndex = component.GetOrDefault<FPackageIndex>("Template");
+            FPackageIndex? templateIndex = null;
+            try
+            {
+                templateIndex = component.GetOrDefault<FPackageIndex?>("Template");
+            }
+            catch
+            {
+                templateIndex = null;
+            }
             string? templatePath = null;
             string? templateType = null;
             var templateLoaded = false;
 
-            if (!templateIndex.IsNull)
+            if (templateIndex is { IsNull: false })
             {
                 referencedTemplateCount++;
                 templatePath = ReferencePath(templateIndex);
@@ -235,7 +243,7 @@ foreach (var logicalPackage in mapPackages)
                     objectPath = templatePath,
                     exportType = templateType,
                     loaded = templateLoaded,
-                    reference = templateIndex.IsNull ? null : templateIndex.ToString()
+                    reference = templateIndex is { IsNull: false } ? templateIndex.ToString() : null
                 },
                 properties = new
                 {
