@@ -36,6 +36,8 @@ func _run() -> void:
 	var interactable_count := int(scene.get_meta("source_interactable_count", -1))
 	var covered_actor_count := int(scene.get_meta("source_covered_actor_count", -1))
 	var coverage_class_count := int(scene.get_meta("source_coverage_class_count", -1))
+	var source_skeletal_visual_count := int(scene.get_meta("source_skeletal_visual_count", -1))
+	var source_skeletal_clip_count := int(scene.get_meta("source_skeletal_clip_count", -1))
 	var navigation_polygon_count := int(scene.get_meta("navigation_polygon_count", -1))
 	var zombie_spawn_anchor_count := int(scene.get_meta("zombie_spawn_anchor_count", -1))
 	var source_audio_ambient_count := int(scene.get_meta("source_audio_ambient_count", -1))
@@ -94,6 +96,34 @@ func _run() -> void:
 	if get_nodes_in_group("nuketown_source_covered_actor").size() != 233:
 		_fail(27, "covered source actor group mismatch")
 		return
+	if source_skeletal_visual_count != 2:
+		_fail(98, "source skeletal visual count mismatch " + str(source_skeletal_visual_count))
+		return
+	if source_skeletal_clip_count != 2:
+		_fail(99, "source skeletal clip count mismatch " + str(source_skeletal_clip_count))
+		return
+	var skeletal_visuals := get_nodes_in_group("nuketown_source_skeletal_visual")
+	if skeletal_visuals.size() != 2:
+		_fail(100, "source skeletal visual group mismatch " + str(skeletal_visuals.size()))
+		return
+	for skeletal_visual: Node in skeletal_visuals:
+		if str(skeletal_visual.get_meta("source_xzsk_file", "")).is_empty():
+			_fail(101, "source skeletal visual missing exact XZSK identity")
+			return
+		if str(skeletal_visual.get_meta("source_skeleton_hash", "")).is_empty():
+			_fail(102, "source skeletal visual missing skeleton hash")
+			return
+		if not bool(skeletal_visual.get_meta("source_transform_inherited_from_exact_actor_marker", false)):
+			_fail(103, "source skeletal visual lost exact actor transform authority")
+			return
+		if bool(skeletal_visual.get_meta("source_animation_playback_decoded", true)):
+			_fail(104, "source skeletal visual invented animation playback state")
+			return
+	print(
+		"XZOGOT_NUKETOWN_SKELETAL_RUNTIME_GREEN visuals=",
+		source_skeletal_visual_count,
+		" clips=", source_skeletal_clip_count
+	)
 	var expected_dispositions := {
 		"Enter_your_key_C": "PAVLOV_MENU_KEY_FLOW_EXCLUDED_FROM_XOGOT_SHIPPING",
 		"OldFashionedGod_C": "PAVLOV_ADMIN_GOD_DAMAGE_FLOW_EXCLUDED_FROM_XOGOT_SHIPPING",
@@ -450,6 +480,8 @@ func _run() -> void:
 		" wallbuys=", wallbuy_count,
 		" mystery=", mystery_count,
 		" ladders=", ladder_count,
+		" skeletal_visuals=", source_skeletal_visual_count,
+		" skeletal_clips=", source_skeletal_clip_count,
 		" player=", player.global_position
 	)
 	scene.queue_free()
