@@ -307,6 +307,15 @@ func _run() -> void:
 		return
 
 	var mystery_runtime: Node = get_nodes_in_group("nuketown_source_mystery_runtime")[0]
+	if not bool(mystery_runtime.get_meta("source_mystery_visual_ready", false)):
+		_fail(88, "Mystery Box source skinned visual not ready")
+		return
+	if int(mystery_runtime.get_meta("source_mystery_animation_count", -1)) != 7:
+		_fail(89, "Mystery Box source animation count mismatch " + str(mystery_runtime.get_meta("source_mystery_animation_count", -1)))
+		return
+	if get_nodes_in_group("nuketown_source_mystery_visual").size() != 1:
+		_fail(90, "Mystery Box source visual group mismatch")
+		return
 	if str(mystery_runtime.get("source_sfx_path")).get_file() != "music_box_00.wav":
 		_fail(60, "mystery source audio path not wired")
 		return
@@ -329,6 +338,13 @@ func _run() -> void:
 		return
 	if int(player.call("get_points")) != 0:
 		_fail(43, "mystery did not subtract exact source price")
+		return
+	if not bool(mystery_runtime.get_meta("mystery_source_anim_active", false)):
+		_fail(91, "Mystery Box did not start the recovered source animation sequence")
+		return
+	var mystery_sequence: Array = mystery_runtime.get_meta("mystery_source_anim_sequence", [])
+	if mystery_sequence.size() != 3:
+		_fail(92, "Mystery Box source animation sequence incomplete " + str(mystery_sequence))
 		return
 	var mystery_source_id := str(weapon.call("get_source_external_item_id"))
 	var source_pool: Array = mystery_node.get_meta("source_item_pool", [])
