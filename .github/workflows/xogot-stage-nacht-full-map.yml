@@ -106,6 +106,15 @@ jobs:
           cp "$AUTH/nacht-audio-cues.json" "$root/"
           cp "$AUTH/nacht-materials.json" "$root/"
 
+          python3 tools/maps/xzaw_to_ogg.py \
+            "$AUTH/nacht-native/audio" \
+            "$root/audio" \
+            --report "$AUTH/nacht-native/audio/report.json" \
+            --output-report "$root/audio-runtime-report.json"
+
+          cp "$AUTH/nacht-native/audio/report.json" "$root/nacht-native-audio-report.json"
+          echo "XZOGOT_NACHT_AUDIO_RUNTIME_PREP_GREEN"
+
           python3 tools/maps/compile_ue_material_bindings.py             --scene "$root/nacht-static-scene.json"             --xzms "$AUTH/nacht-static-runtime-meshes.json"             --materials "$root/nacht-materials.json"             --xztx "$AUTH/nacht-native/textures/report.json"             --output "$root/material-binding-manifest.json"
 
           python3 tools/maps/compile_xziel_material_instance_bindings.py             --scene "$root/nacht-static-scene.json"             --manifest "$root/material-binding-manifest.json"             --output "$root/materials.xzmi"             --report "$root/xzmi-report.json"
@@ -162,10 +171,6 @@ jobs:
           python3 tools/maps/xztx_to_dds.py             "$root/$MAP_REL/textures"             "$root/$MAP_REL/textures_dds"             --report "$root/native-dds-report.json"
 
           python3 tools/maps/compile_xziel_environment.py             --source "$root/nacht-lights.json"             --output "$root/$MAP_REL/environment.xzen"             --report "$root/nacht-environment-report.json"
-
-          python3 tools/maps/xzaw_to_ogg.py             "$AUTH/nacht-native/audio"             "$root/audio"             --report "$AUTH/nacht-native/audio/report.json"             --output-report "$root/audio-runtime-report.json"
-
-          cp "$AUTH/nacht-native/audio/report.json" "$root/nacht-native-audio-report.json"
 
           cp "$root/materials.xzmi" "$root/$MAP_REL/materials.xzmi"
           cp "$root/materials.xzml" "$root/$MAP_REL/materials.xzml"
