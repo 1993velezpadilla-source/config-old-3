@@ -282,15 +282,31 @@ def build_one(
     }
 
 
+def find_probe_report(root: Path, folder: str) -> tuple[Path, dict]:
+    hits = list(root.glob(f"**/{folder}/report.json"))
+    if len(hits) != 1:
+        raise SystemExit(
+            f"expected one {folder}/report.json, got {hits}"
+        )
+    path = hits[0]
+    return path, json.loads(path.read_text())
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("artifact_root", type=Path)
     parser.add_argument("output_dir", type=Path)
     args = parser.parse_args()
 
-    rig_report_path, rig_report = core.find_report(args.artifact_root, "xzrg")
-    mesh_report_path, mesh_report = core.find_report(args.artifact_root, "xzsk")
-    anim_report_path, anim_report = core.find_report(args.artifact_root, "xzan")
+    rig_report_path, rig_report = find_probe_report(
+        args.artifact_root, "ue-xzrg-probe"
+    )
+    mesh_report_path, mesh_report = find_probe_report(
+        args.artifact_root, "ue-xzsk-probe"
+    )
+    anim_report_path, anim_report = find_probe_report(
+        args.artifact_root, "ue-xzan-probe"
+    )
 
     rigs = list(rig_report.get("skeletons", []))
     meshes = list(mesh_report.get("meshes", []))
