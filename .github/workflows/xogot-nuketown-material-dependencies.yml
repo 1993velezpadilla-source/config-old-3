@@ -1,0 +1,119 @@
+name: Xogot Nuketown Material Dependency Truth
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - "tools/maps/UENuketownMaterialDependencies/**"
+      - ".github/workflows/xogot-nuketown-material-dependencies.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-nuketown-material-dependencies-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  material-dependencies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install source package tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full xz-utils
+          mkdir -p "$RUNNER_TEMP/repak"
+          curl -fL --retry 5 \
+            https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz \
+            -o "$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" -C "$RUNNER_TEMP/repak"
+          REPAK=$(find "$RUNNER_TEMP/repak" -type f -name 'repak*' -perm -111 | head -1)
+          test -n "$REPAK"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
+
+      - name: Download pinned Nuketown source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p source-download source-outer source-unpacked
+          curl -fL --retry 8 --retry-delay 3 --retry-all-errors \
+            -o source-download/nuketown-v49-oculus.zip \
+            "https://g-3959.modapi.io/v1/games/3959/mods/5097941/files/7509509/download"
+          7z x -y source-download/nuketown-v49-oculus.zip -osource-outer >/dev/null
+          PAK=$(find source-outer -type f -name '*.pak' -print -quit)
+          test -n "$PAK"
+          "$REPAK" unpack "$PAK" -o source-unpacked
+
+      - name: Pin Pavlov UE5 mappings
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 --retry-delay 2 \
+            -o source-download/PavMappings.usmap \
+            "https://raw.githubusercontent.com/THW-Reaper/PavlovVRMappings/4976647b4f3a209042460bc55a7a3122662d05b7/PavMappings.usmap"
+          echo "6d19f9731cc3fbaba34ca8e0833e81e4ffdf1b407edf24de48b1ccb5c63b060c  source-download/PavMappings.usmap" \
+            | sha256sum -c -
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build material dependency extractor
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet restore tools/maps/UENuketownMaterialDependencies/UENuketownMaterialDependencies.csproj
+          dotnet build tools/maps/UENuketownMaterialDependencies/UENuketownMaterialDependencies.csproj \
+            --configuration Release --no-restore
+
+      - name: Extract exact material package dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nuketown-material-dependencies
+          APP=tools/maps/UENuketownMaterialDependencies/bin/Release/net10.0/UENuketownMaterialDependencies.dll
+          dotnet "$APP" \
+            source-unpacked \
+            source-download/PavMappings.usmap \
+            benchmarks/nuketown_xziel/material-binding-manifest.json \
+            benchmarks/nuketown_xziel/xzml-report.json \
+            build/nuketown-material-dependencies/material-dependencies.json \
+            | tee build/nuketown-material-dependencies/extract.log
+          grep -q "XZOGOT_NUKETOWN_MATERIAL_DEPENDENCIES_GREEN" \
+            build/nuketown-material-dependencies/extract.log
+
+      - name: Summarize exact recoverable bindings
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("build/nuketown-material-dependencies/material-dependencies.json")
+          d=json.loads(p.read_text())
+          assert d["ready"] is True, d
+          print("XZOGOT_NUKETOWN_MATERIAL_DEPENDENCY_SUMMARY", {
+              "targets": d["targetMaterialCount"],
+              "textureImports": d["textureImportTotal"],
+              "uniqueImports": d["uniqueTextureImportMaterials"],
+              "uniqueNameMap": d["nameMapUniqueMaterials"],
+          })
+          PY
+
+      - name: Upload dependency truth
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nuketown-Material-Dependency-Truth
+          path: |
+            build/nuketown-material-dependencies/material-dependencies.json
+            build/nuketown-material-dependencies/extract.log
+          if-no-files-found: error
+          retention-days: 14
