@@ -55,7 +55,10 @@ jobs:
           elif [ -n "${{ inputs.source_run }}" ]; then
             SOURCE_RUN="${{ inputs.source_run }}"
           else
-            SOURCE_RUN=$(gh api               -H "Accept: application/vnd.github+json"               "/repos/${GITHUB_REPOSITORY}/actions/runs?branch=feature%2Fgodot-aaa-rebuild-v1&per_page=100"               --jq '.workflow_runs[] | select(.name=="Xogot Nacht Chronicles Full Map Authority" and .conclusion=="success") | .id'               | head -1)
+            SOURCE_RUN=$(gh api \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${GITHUB_REPOSITORY}/actions/runs?branch=feature%2Fgodot-aaa-rebuild-v1&per_page=100" \
+              --jq '[.workflow_runs[] | select(.name=="Xogot Nacht Chronicles Full Map Authority" and .conclusion=="success")][0].id // empty')
           fi
           test -n "$SOURCE_RUN"
           echo "SOURCE_RUN=$SOURCE_RUN" >> "$GITHUB_ENV"
@@ -67,8 +70,7 @@ jobs:
           AUDIO_BYTECODE_RUN=$(gh api \
             -H "Accept: application/vnd.github+json" \
             "/repos/${GITHUB_REPOSITORY}/actions/runs?branch=feature%2Fgodot-aaa-rebuild-v1&per_page=100" \
-            --jq '.workflow_runs[] | select(.name=="Xogot Nacht Blueprint Audio Bytecode Truth" and .conclusion=="success") | .id' \
-            | head -1)
+            --jq '[.workflow_runs[] | select(.name=="Xogot Nacht Blueprint Audio Bytecode Truth" and .conclusion=="success")][0].id // empty')
           test -n "$AUDIO_BYTECODE_RUN"
           echo "NACHT_AUDIO_BYTECODE_RUN=$AUDIO_BYTECODE_RUN" >> "$GITHUB_ENV"
 
