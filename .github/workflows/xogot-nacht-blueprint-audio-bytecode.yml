@@ -206,6 +206,57 @@ jobs:
 
           assert len(proof)==4
           assert any(row["audioTrees"] for row in exact),exact
+
+          refs=[]
+          for package in d["packages"]:
+              for ref in package.get("objectReferences",[]):
+                  row={"file":package["fileName"],**ref}
+                  blob=json.dumps(row,sort_keys=True)
+                  if re.search(r"(SoundMix_GEN_VARIABLE|PerkMachineHum_GEN_VARIABLE|PackaLoop_GEN_VARIABLE|JingleSoundCue|StingSoundCue)",blob,re.I):
+                      refs.append(row)
+          print("XZOGOT_NACHT_AUDIO_OBJECT_REFS",json.dumps(refs,separators=(",",":")))
+
+          def has_ref(file_name,obj,prop,needle):
+              for row in refs:
+                  if row["file"]!=file_name: continue
+                  if row.get("objectName")!=obj: continue
+                  if row.get("propertyName")!=prop: continue
+                  if needle in str(row.get("resolved","")):
+                      return True
+              return False
+
+          assert has_ref(
+              "Box5.uasset",
+              "SoundMix_GEN_VARIABLE",
+              "Sound",
+              "/Blueprints/Objects/Egg_sound/SoundMix.SoundMix"
+          ),refs
+          assert has_ref(
+              "PerkMachine_Base.uasset",
+              "PerkMachineHum_GEN_VARIABLE",
+              "Sound",
+              "/Sounds/PerkMachines/PerkMachineHum.PerkMachineHum"
+          ),refs
+          assert has_ref(
+              "PunchAPackMachine.uasset",
+              "PackaLoop_GEN_VARIABLE",
+              "Sound",
+              "/Sounds/PapSounds/PackaLoop.PackaLoop"
+          ),refs
+          assert has_ref(
+              "PerkMachine_QuickRevive.uasset",
+              "Default__PerkMachine_QuickRevive_C",
+              "JingleSoundCue",
+              "/Sounds/PerkMachines/Jingle/QuickReviveJingle.QuickReviveJingle"
+          ),refs
+          assert has_ref(
+              "PerkMachine_QuickRevive.uasset",
+              "Default__PerkMachine_QuickRevive_C",
+              "StingSoundCue",
+              "/Sounds/PerkMachines/Sting/QuickReviveSting.QuickReviveSting"
+          ),refs
+
+          print("XZOGOT_NACHT_AUDIO_OBJECT_REFS_GREEN")
           print("XZOGOT_NACHT_BLUEPRINT_AUDIO_BYTECODE_GREEN")
           '@ | python -
 
