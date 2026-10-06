@@ -15,6 +15,8 @@ const PAP_WHEEL_MATERIAL_1 := "/Game/CustomMaps/UGC2755515831/Materials/KillerJi
 const PAP_WHEEL_MATERIAL_2 := "/Game/CustomMaps/UGC2755515831/Materials/KillerJim/PapEffects/PaPWheelMaterial2.PaPWheelMaterial2"
 const MYSTERY_BOX_FOG_SYSTEM := "/Game/CustomMaps/UGC2755515831/Materials/KillerJim/Smoke/mysteryBoxFog.mysteryBoxFog"
 const MYSTERY_BOX_FOG_MATERIAL := "/Game/CustomMaps/UGC2755515831/Materials/KillerJim/Smoke/unlit_smoke.unlit_smoke"
+const MYSTERY_INSIDE_SYSTEM := "/Game/CustomMaps/UGC2755515831/CoD/Particles/mysteryBox/inside/mysteryParticles.mysteryParticles"
+const MYSTERY_INSIDE_MATERIAL := "/Game/CustomMaps/UGC2755515831/CoD/Particles/mysteryBox/inside/mysteryParticle.mysteryParticle"
 
 
 static func _canonical(raw: String) -> String:
@@ -1022,6 +1024,192 @@ static func mystery_box_fog_descriptor(graphs: Dictionary) -> Dictionary:
 		"startVelocityMinUEcm": velocity_min,
 		"startVelocityMaxUEcm": velocity_max,
 		"peakActiveParticles": peak_active,
+		"sourceNodeCount": int(system.get("nodeCount", 0)),
+		"sourceReferenceCount": int(system.get("referenceCount", 0)),
+	}
+
+
+static func mystery_inside_descriptor(graphs: Dictionary) -> Dictionary:
+	var system := _find_system(graphs, MYSTERY_INSIDE_SYSTEM)
+	if system.is_empty():
+		return {"ready": false, "error": "mystery inside source system missing"}
+	if int(system.get("nodeCount", -1)) != 17:
+		return {"ready": false, "error": "mystery inside node count mismatch %d" % int(system.get("nodeCount", -1))}
+	if int(system.get("referenceCount", -1)) != 9:
+		return {"ready": false, "error": "mystery inside reference count mismatch %d" % int(system.get("referenceCount", -1))}
+
+	var required := _one_node(system, "ParticleModuleRequired")
+	var lifetime := _one_node(system, "ParticleModuleLifetime")
+	var location := _one_node(system, "ParticleModuleLocation")
+	var orbit := _one_node(system, "ParticleModuleOrbit")
+	var size := _one_node(system, "ParticleModuleSize")
+	var spawn := _one_node(system, "ParticleModuleSpawn")
+	var type_gpu := _one_node(system, "ParticleModuleTypeDataGpu")
+	var velocity := _one_node(system, "ParticleModuleVelocity")
+	var color := _one_node(system, "ParticleModuleColorOverLife")
+	var lod_nodes := ParticleSource.nodes_by_type(system, "ParticleLODLevel")
+	for pair: Array in [
+		["ParticleModuleRequired", required],
+		["ParticleModuleLifetime", lifetime],
+		["ParticleModuleLocation", location],
+		["ParticleModuleOrbit", orbit],
+		["ParticleModuleSize", size],
+		["ParticleModuleSpawn", spawn],
+		["ParticleModuleTypeDataGpu", type_gpu],
+		["ParticleModuleVelocity", velocity],
+		["ParticleModuleColorOverLife", color],
+	]:
+		if (pair[1] as Dictionary).is_empty():
+			return {"ready": false, "error": "mystery inside missing or duplicate " + str(pair[0])}
+	if lod_nodes.size() != 2:
+		return {"ready": false, "error": "mystery inside LOD count mismatch %d" % lod_nodes.size()}
+
+	var required_props := ParticleSource.properties(required)
+	var lifetime_props := ParticleSource.properties(lifetime)
+	var location_props := ParticleSource.properties(location)
+	var orbit_props := ParticleSource.properties(orbit)
+	var size_props := ParticleSource.properties(size)
+	var spawn_props := ParticleSource.properties(spawn)
+	var gpu_props := ParticleSource.properties(type_gpu)
+	var velocity_props := ParticleSource.properties(velocity)
+	var color_props := ParticleSource.properties(color)
+
+	var material_path := str(required_props.get("Material", ""))
+	var screen_alignment := str(required_props.get("ScreenAlignment", ""))
+	var random_image_time := int(required_props.get("RandomImageTime", -1))
+	var legacy_emitter_time := bool(required_props.get("bUseLegacyEmitterTime", true))
+	var life := _distribution(lifetime_props.get("Lifetime"))
+	var start_location := _distribution(location_props.get("StartLocation"))
+	var start_size := _distribution(size_props.get("StartSize"))
+	var rate := _distribution(spawn_props.get("Rate"))
+	var rate_scale := _distribution(spawn_props.get("RateScale"))
+	var start_velocity := _distribution(velocity_props.get("StartVelocity"))
+	var rgb := _distribution(color_props.get("ColorOverLife"))
+	var alpha := _distribution(color_props.get("AlphaOverLife"))
+
+	var life_min := float(life.get("MinValue", -1.0))
+	var life_max := float(life.get("MaxValue", -1.0))
+	var location_min := _vector_from_distribution(start_location, "MinValueVec", Vector3.INF)
+	var location_max := _vector_from_distribution(start_location, "MaxValueVec", Vector3.INF)
+	var size_min := _vector_from_distribution(start_size, "MinValueVec", Vector3.INF)
+	var size_max := _vector_from_distribution(start_size, "MaxValueVec", Vector3.INF)
+	var spawn_rate := float(rate.get("MinValue", -1.0))
+	var spawn_rate_max := float(rate.get("MaxValue", -1.0))
+	var spawn_scale := float(rate_scale.get("MinValue", -1.0))
+	var spawn_scale_max := float(rate_scale.get("MaxValue", -1.0))
+	var velocity_min := _vector_from_distribution(start_velocity, "MinValueVec", Vector3.INF)
+	var velocity_max := _vector_from_distribution(start_velocity, "MaxValueVec", Vector3.INF)
+	var rgb_min := _vector_from_distribution(rgb, "MinValueVec", Vector3.INF)
+	var rgb_max := _vector_from_distribution(rgb, "MaxValueVec", Vector3.INF)
+	var rgb_values := ParticleSource.table_values(rgb)
+	var alpha_values := ParticleSource.table_values(alpha)
+
+	var orbit_enabled := bool(orbit_props.get("bEnabled", true))
+	var offset_distribution := str((_distribution(orbit_props.get("OffsetAmount"))).get("Distribution", ""))
+	var rotation_distribution := str((_distribution(orbit_props.get("RotationAmount"))).get("Distribution", ""))
+	var rotation_rate_distribution := str((_distribution(orbit_props.get("RotationRateAmount"))).get("Distribution", ""))
+	var orbit_offset_min := Vector3.INF
+	var orbit_offset_max := Vector3.INF
+	var orbit_rotation_max := Vector3.INF
+	var orbit_rotation_rate_max := Vector3.INF
+	for raw: Variant in system.get("nodes", []):
+		if not (raw is Dictionary):
+			continue
+		var node := raw as Dictionary
+		var node_path := str(node.get("objectPath", ""))
+		var node_props := ParticleSource.properties(node)
+		if _canonical(node_path) == _canonical(offset_distribution):
+			orbit_offset_min = ParticleSource.vector3(node_props.get("Min"), Vector3.INF)
+			orbit_offset_max = ParticleSource.vector3(node_props.get("Max"), Vector3.INF)
+		elif _canonical(node_path) == _canonical(rotation_distribution):
+			orbit_rotation_max = ParticleSource.vector3(node_props.get("Max"), Vector3.INF)
+		elif _canonical(node_path) == _canonical(rotation_rate_distribution):
+			orbit_rotation_rate_max = ParticleSource.vector3(node_props.get("Max"), Vector3.INF)
+
+	var emitter_info_raw: Variant = gpu_props.get("EmitterInfo", {})
+	var emitter_info := emitter_info_raw as Dictionary if emitter_info_raw is Dictionary else {}
+	var resource_data_raw: Variant = gpu_props.get("ResourceData", {})
+	var resource_data := resource_data_raw as Dictionary if resource_data_raw is Dictionary else {}
+	var gpu_inv_max_size := ParticleSource.vector2(emitter_info.get("InvMaxSize"), Vector2.INF)
+	var gpu_inv_rotation_rate_scale := float(emitter_info.get("InvRotationRateScale", -1.0))
+	var gpu_max_lifetime := float(emitter_info.get("MaxLifetime", -1.0))
+	var gpu_max_particles := int(emitter_info.get("MaxParticleCount", -1))
+	var gpu_screen_alignment := str(emitter_info.get("ScreenAlignment", ""))
+	var gpu_rotation_rate_scale := float(resource_data.get("RotationRateScale", -1.0))
+	var quantized_raw: Variant = resource_data.get("QuantizedColorSamples", [])
+	var quantized_count := (quantized_raw as Array).size() if quantized_raw is Array else -1
+
+	var peaks: Array[int] = []
+	for node: Dictionary in lod_nodes:
+		var lod_props := ParticleSource.properties(node)
+		peaks.append(int(lod_props.get("PeakActiveParticles", -1)))
+	peaks.sort()
+
+	if _canonical(material_path) != _canonical(MYSTERY_INSIDE_MATERIAL):
+		return {"ready": false, "error": "mystery inside material mismatch " + material_path}
+	if screen_alignment != "PSA_Rectangle" or gpu_screen_alignment != "PSA_Rectangle":
+		return {"ready": false, "error": "mystery inside screen alignment mismatch"}
+	if random_image_time != 1 or legacy_emitter_time:
+		return {"ready": false, "error": "mystery inside emitter timing flags mismatch"}
+	if not is_equal_approx(life_min, 1.5) or not is_equal_approx(life_max, 3.0):
+		return {"ready": false, "error": "mystery inside lifetime mismatch %s..%s" % [life_min, life_max]}
+	if not location_min.is_equal_approx(Vector3(-20.0, -95.0, -10.0)) or not location_max.is_equal_approx(Vector3(20.0, 95.0, 10.0)):
+		return {"ready": false, "error": "mystery inside location range mismatch"}
+	if not size_min.is_equal_approx(Vector3(5.0, 5.0, 5.0)) or not size_max.is_equal_approx(Vector3(10.0, 10.0, 10.0)):
+		return {"ready": false, "error": "mystery inside start size mismatch"}
+	if not is_equal_approx(spawn_rate, 175.0) or not is_equal_approx(spawn_rate_max, 175.0):
+		return {"ready": false, "error": "mystery inside spawn rate mismatch"}
+	if not is_equal_approx(spawn_scale, 1.0) or not is_equal_approx(spawn_scale_max, 1.0):
+		return {"ready": false, "error": "mystery inside spawn scale mismatch"}
+	if not velocity_min.is_equal_approx(Vector3(0.0, 0.0, 45.0)) or not velocity_max.is_equal_approx(Vector3(0.0, 0.0, 50.0)):
+		return {"ready": false, "error": "mystery inside velocity range mismatch"}
+	if not rgb_min.is_equal_approx(Vector3.ONE) or not rgb_max.is_equal_approx(Vector3.ONE):
+		return {"ready": false, "error": "mystery inside color range mismatch"}
+	if rgb_values.size() != 3 or alpha_values.size() != 2:
+		return {"ready": false, "error": "mystery inside color table mismatch rgb=%d alpha=%d" % [rgb_values.size(), alpha_values.size()]}
+	if orbit_enabled:
+		return {"ready": false, "error": "mystery inside orbit unexpectedly enabled"}
+	if not orbit_offset_min.is_equal_approx(Vector3(0.0, 10.0, 0.0)) or not orbit_offset_max.is_equal_approx(Vector3(0.0, 25.0, 0.0)):
+		return {"ready": false, "error": "mystery inside orbit offset authority mismatch"}
+	if not orbit_rotation_max.is_equal_approx(Vector3.ONE) or not orbit_rotation_rate_max.is_equal_approx(Vector3.ONE):
+		return {"ready": false, "error": "mystery inside orbit rotation authority mismatch"}
+	if not gpu_inv_max_size.is_equal_approx(Vector2(0.1, 0.1)):
+		return {"ready": false, "error": "mystery inside GPU inv max size mismatch"}
+	if not is_equal_approx(gpu_inv_rotation_rate_scale, 0.33333334):
+		return {"ready": false, "error": "mystery inside GPU rotation scale mismatch"}
+	if not is_equal_approx(gpu_max_lifetime, 3.0) or gpu_max_particles != 531:
+		return {"ready": false, "error": "mystery inside GPU lifetime/particle count mismatch"}
+	if not is_equal_approx(gpu_rotation_rate_scale, 3.0) or quantized_count != 16:
+		return {"ready": false, "error": "mystery inside GPU resource data mismatch"}
+	if peaks != [531, 531]:
+		return {"ready": false, "error": "mystery inside LOD peaks mismatch " + str(peaks)}
+
+	return {
+		"ready": true,
+		"systemPath": MYSTERY_INSIDE_SYSTEM,
+		"materialPath": material_path,
+		"screenAlignment": screen_alignment,
+		"lifetimeMin": life_min,
+		"lifetimeMax": life_max,
+		"startLocationMinUEcm": location_min,
+		"startLocationMaxUEcm": location_max,
+		"startSizeMinUEcm": size_min,
+		"startSizeMaxUEcm": size_max,
+		"spawnRate": spawn_rate,
+		"startVelocityMinUEcm": velocity_min,
+		"startVelocityMaxUEcm": velocity_max,
+		"rgbTableValueCount": rgb_values.size(),
+		"alphaTableValueCount": alpha_values.size(),
+		"orbitEnabled": orbit_enabled,
+		"orbitOffsetMin": orbit_offset_min,
+		"orbitOffsetMax": orbit_offset_max,
+		"gpuInvMaxSize": gpu_inv_max_size,
+		"gpuInvRotationRateScale": gpu_inv_rotation_rate_scale,
+		"gpuMaxLifetime": gpu_max_lifetime,
+		"gpuMaxParticleCount": gpu_max_particles,
+		"gpuRotationRateScale": gpu_rotation_rate_scale,
+		"gpuQuantizedColorSampleCount": quantized_count,
+		"peakActiveByLOD": peaks,
 		"sourceNodeCount": int(system.get("nodeCount", 0)),
 		"sourceReferenceCount": int(system.get("referenceCount", 0)),
 	}
