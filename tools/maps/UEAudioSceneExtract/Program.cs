@@ -3,6 +3,8 @@ using CUE4Parse.UE4.Assets.Exports;
 using CUE4Parse.MappingsProvider.Usmap;
 using CUE4Parse.UE4.Assets.Exports.Component;
 using CUE4Parse.UE4.Assets.Exports.Sound;
+using CUE4Parse.UE4.Objects.Engine;
+using CUE4Parse.UE4.Assets.Exports.Engine;
 using CUE4Parse.UE4.Objects.UObject;
 using CUE4Parse.UE4.Versions;
 using System.Text.Json;
@@ -134,6 +136,191 @@ string? ReferencePath(FPackageIndex index)
         ?? index.Name;
 }
 
+
+(USoundBase? loaded, FPackageIndex? index, string? provenance) TryResolveSound(
+    UAudioComponent candidate,
+    string provenance)
+{
+    if (candidate.Sound is not null)
+        return (candidate.Sound, null, provenance + ":typed");
+
+    try
+    {
+        var index = candidate.GetOrDefault<FPackageIndex?>("Sound");
+        if (index is { IsNull: false })
+            return (null, index, provenance + ":property");
+    }
+    catch
+    {
+        // Keep walking cooked Blueprint templates.
+    }
+
+    return (null, null, null);
+}
+
+(USoundBase? loaded, FPackageIndex? index, string? provenance)
+ResolveBlueprintSoundTemplate(UAudioComponent component)
+{
+    var directTemplate =
+        component.Template?.Object?.Value as UAudioComponent;
+    if (directTemplate is not null)
+    {
+        var direct = TryResolveSound(
+            directTemplate,
+            "component_template:" + directTemplate.GetPathName());
+        if (direct.loaded is not null || direct.index is not null)
+            return direct;
+    }
+
+    UObject? owner = null;
+    try
+    {
+        owner = component.Outer?.Object?.Value;
+    }
+    catch
+    {
+        owner = null;
+    }
+
+    while (owner is not null)
+    {
+        var generated =
+            owner.Class?.Object?.Value as UBlueprintGeneratedClass;
+        if (generated is not null)
+        {
+            var seenClasses =
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            for (var current = generated;
+                 current is not null &&
+                 seenClasses.Add(current.GetPathName());
+                 current =
+                    current.Super?.Object?.Value
+                        as UBlueprintGeneratedClass)
+            {
+                foreach (var templateIndex in current.ComponentTemplates)
+                {
+                    try
+                    {
+                        if (templateIndex is not { IsNull: false })
+                            continue;
+                        if (!templateIndex.TryLoad<UAudioComponent>(
+                                out var template) ||
+                            template is null)
+                            continue;
+                        if (!template.Name.Equals(
+                                component.Name,
+                                StringComparison.OrdinalIgnoreCase))
+                            continue;
+
+                        var resolved = TryResolveSound(
+                            template,
+                            "generated_class_component_template:" +
+                            template.GetPathName());
+                        if (resolved.loaded is not null ||
+                            resolved.index is not null)
+                            return resolved;
+                    }
+                    catch
+                    {
+                        // Keep searching other template authorities.
+                    }
+                }
+
+                try
+                {
+                    if (current.SimpleConstructionScript
+                        is { IsNull: false } scsIndex &&
+                        scsIndex.TryLoad<USimpleConstructionScript>(
+                            out var scs) &&
+                        scs is not null)
+                    {
+                        foreach (var node in
+                                 scs.GetAllNodesRecursive())
+                        {
+                            if (!node.InternalVariableName.Text.Equals(
+                                    component.Name,
+                                    StringComparison.OrdinalIgnoreCase))
+                                continue;
+
+                            var template =
+                                node.GetComponentTemplate()
+                                    as UAudioComponent;
+                            if (template is null)
+                                continue;
+
+                            var resolved = TryResolveSound(
+                                template,
+                                "scs_component_template:" +
+                                template.GetPathName());
+                            if (resolved.loaded is not null ||
+                                resolved.index is not null)
+                                return resolved;
+                        }
+                    }
+                }
+                catch
+                {
+                    // Cooked SCS can be partial; continue to overrides.
+                }
+
+                try
+                {
+                    if (current.InheritableComponentHandler
+                        is { IsNull: false } handlerIndex &&
+                        handlerIndex.TryLoad<
+                            UInheritableComponentHandler>(
+                                out var handler) &&
+                        handler is not null)
+                    {
+                        foreach (var record in handler.GetRecords())
+                        {
+                            if (!record.ComponentKey
+                                .SCSVariableName.Text.Equals(
+                                    component.Name,
+                                    StringComparison.OrdinalIgnoreCase))
+                                continue;
+                            var templateIndex =
+                                record.ComponentTemplate;
+                            if (templateIndex
+                                is not { IsNull: false })
+                                continue;
+                            if (!templateIndex.TryLoad<
+                                    UAudioComponent>(
+                                        out var template) ||
+                                template is null)
+                                continue;
+
+                            var resolved = TryResolveSound(
+                                template,
+                                "inheritable_component_template:" +
+                                template.GetPathName());
+                            if (resolved.loaded is not null ||
+                                resolved.index is not null)
+                                return resolved;
+                        }
+                    }
+                }
+                catch
+                {
+                    // No usable cooked override in this class.
+                }
+            }
+        }
+
+        try
+        {
+            owner = owner.Outer?.Object?.Value;
+        }
+        catch
+        {
+            owner = null;
+        }
+    }
+
+    return (null, null, null);
+}
+
 using var censusDoc =
     JsonDocument.Parse(
         File.ReadAllText(censusPath));
@@ -228,6 +415,7 @@ foreach (var logicalPackage in mapPackages)
             string? soundObjectPath = null;
             string? soundExportType = null;
             string? rawSoundReference = null;
+            string? soundProvenance = null;
             var soundLoaded = false;
 
             if (sound is not null)
@@ -235,6 +423,7 @@ foreach (var logicalPackage in mapPackages)
                 soundObjectPath = sound.GetPathName();
                 soundExportType = sound.ExportType;
                 rawSoundReference = soundObjectPath;
+                soundProvenance = "instance:typed";
                 soundLoaded = true;
                 loadedSoundCount++;
                 referencedSoundCount++;
@@ -258,11 +447,44 @@ foreach (var logicalPackage in mapPackages)
                     soundExportType =
                         soundIndex.ResolvedObject?.Object?.Value
                             ?.ExportType;
+                    soundProvenance = "instance:property";
                     referencedSoundCount++;
                 }
                 else
                 {
-                    nullSoundCount++;
+                    var inherited =
+                        ResolveBlueprintSoundTemplate(component);
+                    if (inherited.loaded is not null)
+                    {
+                        soundObjectPath =
+                            inherited.loaded.GetPathName();
+                        soundExportType =
+                            inherited.loaded.ExportType;
+                        rawSoundReference = soundObjectPath;
+                        soundProvenance =
+                            inherited.provenance;
+                        soundLoaded = true;
+                        loadedSoundCount++;
+                        referencedSoundCount++;
+                    }
+                    else if (inherited.index
+                             is { IsNull: false })
+                    {
+                        rawSoundReference =
+                            inherited.index.ToString();
+                        soundObjectPath =
+                            ReferencePath(inherited.index);
+                        soundExportType =
+                            inherited.index.ResolvedObject
+                                ?.Object?.Value?.ExportType;
+                        soundProvenance =
+                            inherited.provenance;
+                        referencedSoundCount++;
+                    }
+                    else
+                    {
+                        nullSoundCount++;
+                    }
                 }
             }
 
@@ -314,7 +536,8 @@ foreach (var logicalPackage in mapPackages)
                     objectPath = soundObjectPath,
                     exportType = soundExportType,
                     loaded = soundLoaded,
-                    reference = rawSoundReference
+                    reference = rawSoundReference,
+                    provenance = soundProvenance
                 },
                 properties = new {
                     volumeMultiplier =
