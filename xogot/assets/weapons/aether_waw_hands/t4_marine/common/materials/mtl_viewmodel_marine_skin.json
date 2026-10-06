@@ -1,0 +1,60 @@
+{
+  "Textures": {
+    "PM_SpecularMasks": "/Game/Assets/Materials/Textures/viewmodel_usa_marine_c.viewmodel_usa_marine_c",
+    "specularMap": "/Game/Assets/Materials/Textures/_viewmodel_usa_marine_s-rgb_v_2e6e56fe._viewmodel_usa_marine_s-rgb_v_2e6e56fe",
+    "PM_Normals": "/Game/Assets/Materials/Textures/viewmodel_usa_marine_n.viewmodel_usa_marine_n",
+    "normalMap": "/Game/Assets/Materials/Textures/viewmodel_usa_marine_n.viewmodel_usa_marine_n",
+    "colorMap": "/Game/Assets/Materials/Textures/viewmodel_usa_marine_c.viewmodel_usa_marine_c",
+    "detailMap": "/UECast/Shading/Base/Textures/detail/skin_pore_detail.skin_pore_detail",
+    "skin_pore_detail": "/UECast/Shading/Base/Textures/detail/skin_pore_detail.skin_pore_detail"
+  },
+  "Parameters": {
+    "BlendMode": 0,
+    "ShadingModel": 0,
+    "Colors": {
+      "detailScale": {
+        "R": 24.0,
+        "G": 12.0,
+        "B": 1.0,
+        "A": 0.0,
+        "Hex": "FFFFFF"
+      },
+      "envMapParms": {
+        "R": 0.4,
+        "G": 11.6,
+        "B": -3.4,
+        "A": 0.625,
+        "Hex": "9FAAFF00"
+      },
+      "dynamicFoliageSunDiffuseMinMax": {
+        "R": 0.0,
+        "G": 1.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "00FF00"
+      },
+      "colorTint": {
+        "R": 1.0,
+        "G": 1.0,
+        "B": 1.0,
+        "A": 1.0,
+        "Hex": "FFFFFF"
+      }
+    },
+    "Scalars": {},
+    "Switches": {},
+    "Properties": {
+      "BasePropertyOverrides": {
+        "ShadingModel": "EMaterialShadingModel::MSM_NativeSpecularSubsurface",
+        "OpacityMaskClipValue": 0.3333
+      },
+      "bIncludedInBaseGame": true
+    },
+    "HasTopDiffuse": false,
+    "HasTopNormals": false,
+    "HasTopSpecularMasks": false,
+    "HasTopEmissive": false,
+    "IsTranslucent": false,
+    "IsNull": false
+  }
+}
