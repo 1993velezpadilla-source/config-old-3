@@ -50,7 +50,7 @@ jobs:
           gh run download "$HAND_SOURCE_RUN" -n "$HAND_SOURCE_ARTIFACT" -D source-first
           gh run download "$WEAPON_PSA_RUN" -n "$WEAPON_PSA_ARTIFACT" -D weapon-source
 
-          HANDS=$(find source-first/source-first-export -type f \( -iname 'viewmodel_usa_marine_arms.glb' -o -iname 'viewmodel_usa_marine_arms.gltf' \) | head -1)
+          HANDS=$(find source-first/source-first-actorx -type f \( -iname 'viewmodel_usa_marine_arms.psk' -o -iname 'viewmodel_usa_marine_arms.pskx' \) | head -1)
           test -n "$HANDS"
           test -s "$HANDS"
           test -d weapon-source/recovered-actorx
@@ -104,7 +104,9 @@ jobs:
           assert d["source_pending"] == {"sawnoff":"SawedOffDB"}
           for rec in d["weapons"]:
               assert all(rec["core_roles"].values()), rec
-              assert rec["translation_scale"] == 0.01, rec
+              assert rec["base_hands_kind"] == "actorx_psk", rec
+              assert rec["source_mesh_scale"] == 0.01, rec
+              assert rec["translation_scale"] == 1.0, rec
               assert rec["has_tag_weapon"], rec
               assert Path(rec["output"]).is_file(), rec["output"]
           print("XZOGOT_WAW_27_SOURCE_HANDS_VALIDATE_GREEN")
@@ -165,6 +167,7 @@ jobs:
                   "source_dir":rec["source_dir"],
                   "source_psa_count":rec["source_psa_count"],
                   "core_roles":rec["core_roles"],
+                  "source_mesh_scale":rec["source_mesh_scale"],
                   "translation_scale":rec["translation_scale"],
               }
               updated.append(wid)
