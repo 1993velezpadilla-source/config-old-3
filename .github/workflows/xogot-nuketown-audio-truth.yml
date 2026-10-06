@@ -93,6 +93,23 @@ jobs:
             Pavlov/Plugins/UGC5097941/Content/box/music_box_00.uasset \
             Pavlov/Plugins/UGC5097941/Content/map_creator.uasset \
             Pavlov/Plugins/UGC5097941/Content/admin.uasset \
+            Pavlov/Plugins/UGC5097941/Content/sounds/amb/ntzombiesamb.uasset \
+            Pavlov/Plugins/UGC5097941/Content/sounds/marlten/marlton_1.uasset \
+            Pavlov/Plugins/UGC5097941/Content/sounds/marlten/marlton_2.uasset \
+            Pavlov/Plugins/UGC5097941/Content/sounds/marlten/marlton_3.uasset \
+            Pavlov/Plugins/UGC5097941/Content/sounds/marlten/marlton_4.uasset \
+            Pavlov/Plugins/UGC5097941/Content/sounds/marlten/marlton_5.uasset \
+            Pavlov/Plugins/UGC5097941/Content/perks/revive/songs/Call_of_Duty__Zombies_-_Quick_Revive_Song.uasset \
+            Pavlov/Plugins/UGC5097941/Content/perks/revive/songs/Perk-a-Cola_OST_-_Quick_Revive_Jingle__2024_.uasset \
+            Pavlov/Plugins/UGC5097941/Content/perks/revive/songs/Perk-a-Cola_OST_-_Quick_Revive_Jingle__2025_.uasset \
+            Pavlov/Plugins/UGC5097941/Content/perks/revive/songs/Perk-a-Cola_OST_-_Quick_Revive_Jingle__Dark_Aether_.uasset \
+            Pavlov/Plugins/UGC5097941/Content/perks/revive/songs/Quick_Revive__Call_of_Duty_.uasset \
+            Pavlov/Plugins/UGC5097941/Content/perks/revive/songs/Shadows_of_Evil_NEW__Quick_Revive_Perk_Jingle__in_BO3_Zombies___NEW_Black_Ops_3_Zombies_Perks_.uasset \
+            Pavlov/Plugins/UGC5097941/Content/perks/dt/songs/_NEW__The_Official_80_s_Double_Tap_Perk_Jingle_Music_Video.uasset \
+            Pavlov/Plugins/UGC5097941/Content/perks/dt/songs/Call_of_Duty__Black_Ops_Zombies_-_Double_Tap_Jingle__Mob_of_the_Dead_Version_.uasset \
+            Pavlov/Plugins/UGC5097941/Content/perks/dt/songs/Call_of_Duty__Zombies_-_Double_Tap_Song.uasset \
+            Pavlov/Plugins/UGC5097941/Content/perks/dt/songs/Perk-a-Cola_OST_-_Double_Tap_Root_Beer_Jingle__Dark_Aether_.uasset \
+            Pavlov/Plugins/UGC5097941/Content/perks/dt/songs/Shadows_of_Evil_NEW__Double_Tap_Perk_Jingle__in_BO3_Zombies___NEW_Black_Ops_3_Zombies_Perks_.uasset \
             | tee build/nuketown-source-audio/extract.log
           grep -q "XZOGOT_NUKETOWN_AUDIO_EXTRACT_GREEN" build/nuketown-source-audio/extract.log
 
@@ -107,7 +124,53 @@ jobs:
           p=Path("build/nuketown-source-audio/audio-manifest.json")
           d=json.loads(p.read_text())
           assert d["ready"] is True, d
-          assert d["decodedSoundCount"] == 3, d
+          assert d["decodedSoundCount"] == 20, d
+          d["ambientActors"] = {
+              "AmbientSound_1": {
+                  "cue": "marlton_1_SoundCue",
+                  "loop": True,
+                  "volumeMultiplier": 1.2,
+                  "attenuationShapeExtent": 430.0,
+                  "falloffDistance": 180.0,
+                  "relativeLocationUE": [-3446.2954, -2458.0461, 253.4512],
+                  "waves": ["marlton_5", "marlton_4", "marlton_2", "marlton_3", "marlton_1"],
+              },
+              "AmbientSound_2": {
+                  "cue": "ntzombiesamb_SoundCue",
+                  "loop": True,
+                  "canPlayMultipleInstances": True,
+                  "relativeLocationUE": [197.16177, -1483.09, 317.21808],
+                  "waves": ["ntzombiesamb"],
+              },
+              "AmbientSound_3": {
+                  "cue": "Call_of_Duty__Zombies_-_Quick_Revive_Song_SoundCue",
+                  "loop": True,
+                  "attenuationShapeExtent": 280.0,
+                  "falloffDistance": 250.0,
+                  "relativeLocationUE": [-1135.2125, -1309.3485, 308.49698],
+                  "waves": [
+                      "Call_of_Duty__Zombies_-_Quick_Revive_Song",
+                      "Perk-a-Cola_OST_-_Quick_Revive_Jingle__2024_",
+                      "Perk-a-Cola_OST_-_Quick_Revive_Jingle__2025_",
+                      "Perk-a-Cola_OST_-_Quick_Revive_Jingle__Dark_Aether_",
+                      "Quick_Revive__Call_of_Duty_",
+                      "Shadows_of_Evil_NEW__Quick_Revive_Perk_Jingle__in_BO3_Zombies___NEW_Black_Ops_3_Zombies_Perks_",
+                  ],
+              },
+              "AmbientSound_4": {
+                  "cue": "_NEW__The_Official_80_s_Double_Tap_Perk_Jingle_Music_Video_SoundCue",
+                  "loop": True,
+                  "falloffDistance": 300.0,
+                  "relativeLocationUE": [-149.82141, -1483.9275, 331.50946],
+                  "waves": [
+                      "_NEW__The_Official_80_s_Double_Tap_Perk_Jingle_Music_Video",
+                      "Call_of_Duty__Black_Ops_Zombies_-_Double_Tap_Jingle__Mob_of_the_Dead_Version_",
+                      "Call_of_Duty__Zombies_-_Double_Tap_Song",
+                      "Perk-a-Cola_OST_-_Double_Tap_Root_Beer_Jingle__Dark_Aether_",
+                      "Shadows_of_Evil_NEW__Double_Tap_Perk_Jingle__in_BO3_Zombies___NEW_Black_Ops_3_Zombies_Perks_",
+                  ],
+              },
+          }
           d["joinSoundBlueprints"] = {
               "JoinSounds_C": {
                   "sound": "/UGC4905655/bps/synthesized_audio_wav",
