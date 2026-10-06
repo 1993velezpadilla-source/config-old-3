@@ -14,6 +14,7 @@ extends Node3D
 @export var build_lights: bool = true
 @export var build_skeletal_actors: bool = true
 @export var cast_geometry_shadows: bool = true
+@export var build_world_collision: bool = false
 @export var max_instances: int = 0
 @export var vfs_map_root: String = "vfs/xziel/maps/xziel_nuketown_zombies"
 @export_file("*.json") var source_environment_truth_file: String = "res://data/nuketown_source_gameplay.json"
@@ -67,6 +68,7 @@ var _native_glb_chunk_count: int = 0
 var _xzms_fallback_mesh_count: int = 0
 var _source_skeletal_actor_count: int = 0
 var _source_skeletal_actor_missing: int = 0
+var _world_collision_count: int = 0
 
 func _ready() -> void:
 	if load_on_ready:
@@ -89,6 +91,7 @@ func _load_benchmark_world() -> void:
 	_native_glb_mesh_count = 0
 	_native_glb_chunk_count = 0
 	_xzms_fallback_mesh_count = 0
+	_world_collision_count = 0
 
 	_runtime_root = Node3D.new()
 	_runtime_root.name = "XZIELSceneRoot"
@@ -144,6 +147,11 @@ func _load_benchmark_world() -> void:
 			node.set_meta("source_surface_offset", surface_offset)
 			_apply_instance_materials(node, instance_id, mesh_index, surface_offset)
 			instance_root.add_child(node)
+			if build_world_collision:
+				node.create_trimesh_collision()
+				for child: Node in node.get_children():
+					if child is StaticBody3D:
+						_world_collision_count += 1
 			surface_offset += node.mesh.get_surface_count()
 		created += 1
 
@@ -170,6 +178,7 @@ func _load_benchmark_world() -> void:
 	set_meta("xziel_benchmark_xzms_fallback_mesh_count", _xzms_fallback_mesh_count)
 	set_meta("xziel_benchmark_source_skeletal_actor_count", _source_skeletal_actor_count)
 	set_meta("xziel_benchmark_source_skeletal_actor_missing", _source_skeletal_actor_missing)
+	set_meta("xziel_benchmark_world_collision_count", _world_collision_count)
 	set_meta("xziel_benchmark_material_alias_count", _source_material_alias_diffuse.size())
 	set_meta("xziel_benchmark_material_alias_conflict_count", _source_material_alias_conflicts.size())
 	set_meta("xziel_benchmark_material_alias_resolved_count", _source_material_resolved_alias_diffuse.size())
@@ -197,6 +206,7 @@ func _load_benchmark_world() -> void:
 		" xzms_fallback=", _xzms_fallback_mesh_count,
 		" skeletal_actors=", _source_skeletal_actor_count,
 		" skeletal_missing=", _source_skeletal_actor_missing,
+		" collisions=", _world_collision_count,
 		" materials=", _material_cache.size(),
 		" textures=", _texture_cache.size(),
 		" aliases=", _source_material_alias_diffuse.size(),
