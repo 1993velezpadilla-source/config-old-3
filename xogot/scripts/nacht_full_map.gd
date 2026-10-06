@@ -26,7 +26,6 @@ const ENVIRONMENT_SCENE_FILE := "nacht-environment-scene.json"
 const AUDIO_SCENE_FILE := "nacht-audio-scene.json"
 const AUDIO_CUES_FILE := "nacht-audio-cues.json"
 const AUDIO_RUNTIME_REPORT_FILE := "audio-runtime-report.json"
-const AUDIO_RUNTIME_REPORT_FILE := "audio-runtime-report.json"
 
 var _runtime_root: Node3D
 var _benchmark_loader: Node3D
@@ -43,6 +42,7 @@ var _audio_cues: Dictionary = {}
 var _audio_runtime_report: Dictionary = {}
 var _audio_wave_file_by_path: Dictionary = {}
 var _audio_cue_by_path: Dictionary = {}
+var _source_audio_players: Dictionary = {}
 var _mesh_cache: Dictionary = {}
 
 var _created_instances := 0
@@ -82,7 +82,6 @@ func _boot() -> void:
 	_environment_scene = _read_json(_source_path(ENVIRONMENT_SCENE_FILE))
 	_audio_scene = _read_json(_source_path(AUDIO_SCENE_FILE))
 	_audio_cues = _read_json(_source_path(AUDIO_CUES_FILE))
-	_audio_runtime_report = _read_json(_source_path(AUDIO_RUNTIME_REPORT_FILE))
 	_audio_runtime_report = _read_json(_source_path(AUDIO_RUNTIME_REPORT_FILE))
 	_index_audio_authority()
 
@@ -139,7 +138,7 @@ func _boot() -> void:
 	# audible runtime reproduction. They must only flip when those systems are
 	# actually mounted, never merely because the JSON exists.
 	set_meta("particle_visual_runtime_ready", false)
-	set_meta("source_audio_runtime_ready", false)
+	set_meta("source_audio_runtime_ready", _source_audio_player_count == 3 and _source_audio_stream_count == 3)
 	set_meta("source_environment_runtime_ready", false)
 	set_meta("source_class_count", int((_handoff.get("fullMapAuthority", {}) as Dictionary).get("classCensus", {}).get("uniqueClasses", -1)))
 	set_meta("nacht_full_map_ready", true)
