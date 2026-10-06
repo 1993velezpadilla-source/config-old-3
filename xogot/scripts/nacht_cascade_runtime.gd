@@ -8,6 +8,8 @@ const BIG_FIRE_FORWARD_SYSTEM := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Parti
 const BIG_FIRE_FORWARD_MATERIAL := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Materials/Fire_Inst/bigfire_fwd2_Inst.bigfire_fwd2_Inst"
 const BONE_FIRE_2B_SYSTEM := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Particles/Reference/Fireloop/2_bonefire2B_fwd2_pt.2_bonefire2B_fwd2_pt"
 const BONE_FIRE_2B_MATERIAL := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Materials/Fire_Inst/BoneFire2B_fwd2_Inst.BoneFire2B_fwd2_Inst"
+const BONE_FIRE_3_SYSTEM := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Particles/Reference/Fireloop/2_bonefire3_pt.2_bonefire3_pt"
+const BONE_FIRE_3_MATERIAL := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Materials/Fireloop_Inst/BoneFire3_Inst.BoneFire3_Inst"
 
 
 static func _canonical(raw: String) -> String:
@@ -467,6 +469,167 @@ static func bone_fire_2b_descriptor(graphs: Dictionary) -> Dictionary:
 		"startVelocityMaxUEcm": velocity_max,
 		"cylinderRadiusUEcm": radius_min,
 		"subUVMaxIndex": subuv_max,
+		"spawnRatesByLOD": spawn_rates,
+		"peakActiveByLOD": peak_active,
+		"sourceNodeCount": int(system.get("nodeCount", 0)),
+		"sourceReferenceCount": int(system.get("referenceCount", 0)),
+	}
+
+
+static func bone_fire_3_descriptor(graphs: Dictionary) -> Dictionary:
+	var system := _find_system(graphs, BONE_FIRE_3_SYSTEM)
+	if system.is_empty():
+		return {"ready": false, "error": "bone fire 3 source system missing"}
+	if int(system.get("nodeCount", -1)) != 17:
+		return {"ready": false, "error": "bone fire 3 node count mismatch %d" % int(system.get("nodeCount", -1))}
+	if int(system.get("referenceCount", -1)) != 7:
+		return {"ready": false, "error": "bone fire 3 reference count mismatch %d" % int(system.get("referenceCount", -1))}
+
+	var required := _one_node(system, "ParticleModuleRequired")
+	var lifetime := _one_node(system, "ParticleModuleLifetime")
+	var size := _one_node(system, "ParticleModuleSize")
+	var color := _one_node(system, "ParticleModuleColorOverLife")
+	var size_life := _one_node(system, "ParticleModuleSizeMultiplyLife")
+	var cylinder := _one_node(system, "ParticleModuleLocationPrimitiveCylinder")
+	var orientation := _one_node(system, "ParticleModuleOrientationAxisLock")
+	var pivot := _one_node(system, "ParticleModulePivotOffset")
+	var subuv_movie := _one_node(system, "ParticleModuleSubUVMovie")
+	var subuv_curve := _one_node(system, "DistributionFloatConstantCurve")
+	for pair: Array in [
+		["ParticleModuleRequired", required],
+		["ParticleModuleLifetime", lifetime],
+		["ParticleModuleSize", size],
+		["ParticleModuleColorOverLife", color],
+		["ParticleModuleSizeMultiplyLife", size_life],
+		["ParticleModuleLocationPrimitiveCylinder", cylinder],
+		["ParticleModuleOrientationAxisLock", orientation],
+		["ParticleModulePivotOffset", pivot],
+		["ParticleModuleSubUVMovie", subuv_movie],
+		["DistributionFloatConstantCurve", subuv_curve],
+	]:
+		if (pair[1] as Dictionary).is_empty():
+			return {"ready": false, "error": "missing or duplicate " + str(pair[0])}
+
+	var spawn_nodes := ParticleSource.nodes_by_type(system, "ParticleModuleSpawn")
+	var lod_nodes := ParticleSource.nodes_by_type(system, "ParticleLODLevel")
+	if spawn_nodes.size() != 2:
+		return {"ready": false, "error": "bone fire 3 spawn LOD count mismatch %d" % spawn_nodes.size()}
+	if lod_nodes.size() != 2:
+		return {"ready": false, "error": "bone fire 3 LOD count mismatch %d" % lod_nodes.size()}
+
+	var required_props := ParticleSource.properties(required)
+	var lifetime_props := ParticleSource.properties(lifetime)
+	var size_props := ParticleSource.properties(size)
+	var color_props := ParticleSource.properties(color)
+	var size_life_props := ParticleSource.properties(size_life)
+	var cylinder_props := ParticleSource.properties(cylinder)
+	var orientation_props := ParticleSource.properties(orientation)
+	var pivot_props := ParticleSource.properties(pivot)
+	var subuv_props := ParticleSource.properties(subuv_movie)
+
+	var material_path := str(required_props.get("Material", ""))
+	var screen_alignment := str(required_props.get("ScreenAlignment", ""))
+	var interpolation := str(required_props.get("InterpolationMethod", ""))
+	var subimages_h := int(required_props.get("SubImages_Horizontal", -1))
+	var subimages_v := int(required_props.get("SubImages_Vertical", -1))
+	var life := _distribution(lifetime_props.get("Lifetime"))
+	var start_size := _distribution(size_props.get("StartSize"))
+	var rgb := _distribution(color_props.get("ColorOverLife"))
+	var alpha := _distribution(color_props.get("AlphaOverLife"))
+	var life_multiplier := _distribution(size_life_props.get("LifeMultiplier"))
+	var radius := _distribution(cylinder_props.get("StartRadius"))
+	var pivot_offset := ParticleSource.vector2(pivot_props.get("PivotOffset"), Vector2.INF)
+	var frame_rate := _distribution(subuv_props.get("FrameRate"))
+	var subimage_index := _distribution(subuv_props.get("SubImageIndex"))
+	var lock_axis := str(orientation_props.get("LockAxisFlags", ""))
+
+	var life_min := float(life.get("MinValue", -1.0))
+	var life_max := float(life.get("MaxValue", -1.0))
+	var size_min := _vector_from_distribution(start_size, "MinValueVec", Vector3.INF)
+	var size_max := _vector_from_distribution(start_size, "MaxValueVec", Vector3.INF)
+	var life_multiplier_min := _vector_from_distribution(life_multiplier, "MinValueVec", Vector3.INF)
+	var life_multiplier_max := _vector_from_distribution(life_multiplier, "MaxValueVec", Vector3.INF)
+	var radius_min := float(radius.get("MinValue", -1.0))
+	var radius_max := float(radius.get("MaxValue", -1.0))
+	var frame_rate_min := float(frame_rate.get("MinValue", -1.0))
+	var frame_rate_max := float(frame_rate.get("MaxValue", -1.0))
+	var rgb_values := ParticleSource.table_values(rgb)
+	var alpha_values := ParticleSource.table_values(alpha)
+	var life_multiplier_values := ParticleSource.table_values(life_multiplier)
+	var subuv_curve_path := str(subimage_index.get("Distribution", ""))
+
+	var spawn_rates: Array[float] = []
+	for node: Dictionary in spawn_nodes:
+		var spawn_props := ParticleSource.properties(node)
+		var rate := _distribution(spawn_props.get("Rate"))
+		spawn_rates.append(float(rate.get("MinValue", -1.0)))
+	spawn_rates.sort()
+
+	var peak_active: Array[int] = []
+	for node: Dictionary in lod_nodes:
+		var lod_props := ParticleSource.properties(node)
+		peak_active.append(int(lod_props.get("PeakActiveParticles", -1)))
+	peak_active.sort()
+
+	if _canonical(material_path) != _canonical(BONE_FIRE_3_MATERIAL):
+		return {"ready": false, "error": "bone fire 3 material mismatch " + material_path}
+	if screen_alignment != "PSA_Rectangle":
+		return {"ready": false, "error": "bone fire 3 screen alignment mismatch " + screen_alignment}
+	if interpolation != "PSUVIM_Linear_Blend":
+		return {"ready": false, "error": "bone fire 3 SubUV interpolation mismatch " + interpolation}
+	if subimages_h != 8 or subimages_v != 8:
+		return {"ready": false, "error": "bone fire 3 SubUV grid mismatch %dx%d" % [subimages_h, subimages_v]}
+	if lock_axis != "EPAL_ROTATE_Z":
+		return {"ready": false, "error": "bone fire 3 axis lock mismatch " + lock_axis}
+	if not pivot_offset.is_equal_approx(Vector2(0.0, -0.5)):
+		return {"ready": false, "error": "bone fire 3 pivot mismatch " + str(pivot_offset)}
+	if not is_equal_approx(life_min, 1.5) or not is_equal_approx(life_max, 2.0):
+		return {"ready": false, "error": "bone fire 3 lifetime mismatch %s..%s" % [life_min, life_max]}
+	if not size_min.is_equal_approx(Vector3(14.0, 15.0, 0.0)):
+		return {"ready": false, "error": "bone fire 3 start size min mismatch " + str(size_min)}
+	if not size_max.is_equal_approx(Vector3(10.0, 10.0, 0.0)):
+		return {"ready": false, "error": "bone fire 3 start size max mismatch " + str(size_max)}
+	if not life_multiplier_min.is_equal_approx(Vector3(10.0, 10.0, 1.0)):
+		return {"ready": false, "error": "bone fire 3 life multiplier min mismatch " + str(life_multiplier_min)}
+	if not life_multiplier_max.is_equal_approx(Vector3(12.0, 12.0, 10.0)):
+		return {"ready": false, "error": "bone fire 3 life multiplier max mismatch " + str(life_multiplier_max)}
+	if life_multiplier_values.size() != 6:
+		return {"ready": false, "error": "bone fire 3 life multiplier table mismatch %d" % life_multiplier_values.size()}
+	if rgb_values.size() != 384:
+		return {"ready": false, "error": "bone fire 3 RGB table mismatch %d" % rgb_values.size()}
+	if alpha_values.size() != 32:
+		return {"ready": false, "error": "bone fire 3 alpha table mismatch %d" % alpha_values.size()}
+	if not is_equal_approx(radius_min, 50.0) or not is_equal_approx(radius_max, 50.0):
+		return {"ready": false, "error": "bone fire 3 cylinder radius mismatch"}
+	if not is_equal_approx(frame_rate_min, 30.0) or not is_equal_approx(frame_rate_max, 30.0):
+		return {"ready": false, "error": "bone fire 3 SubUV movie rate mismatch %s..%s" % [frame_rate_min, frame_rate_max]}
+	if _canonical(subuv_curve_path) != _canonical(str(subuv_curve.get("objectPath", ""))):
+		return {"ready": false, "error": "bone fire 3 SubUV curve reference mismatch " + subuv_curve_path}
+	if spawn_rates.size() != 2 or not is_equal_approx(spawn_rates[0], 0.99999994) or not is_equal_approx(spawn_rates[1], 10.0):
+		return {"ready": false, "error": "bone fire 3 LOD spawn rates mismatch " + str(spawn_rates)}
+	if peak_active != [5, 23]:
+		return {"ready": false, "error": "bone fire 3 peak active LOD mismatch " + str(peak_active)}
+
+	return {
+		"ready": true,
+		"systemPath": BONE_FIRE_3_SYSTEM,
+		"materialPath": material_path,
+		"screenAlignment": screen_alignment,
+		"interpolationMethod": interpolation,
+		"subImagesHorizontal": subimages_h,
+		"subImagesVertical": subimages_v,
+		"pivotOffset": pivot_offset,
+		"lifetimeMin": life_min,
+		"lifetimeMax": life_max,
+		"startSizeMinUEcm": size_min,
+		"startSizeMaxUEcm": size_max,
+		"lifeMultiplierMin": life_multiplier_min,
+		"lifeMultiplierMax": life_multiplier_max,
+		"rgbTableValueCount": rgb_values.size(),
+		"alphaTableValueCount": alpha_values.size(),
+		"cylinderRadiusUEcm": radius_min,
+		"subUVFrameRate": frame_rate_min,
+		"subUVCurvePath": subuv_curve_path,
 		"spawnRatesByLOD": spawn_rates,
 		"peakActiveByLOD": peak_active,
 		"sourceNodeCount": int(system.get("nodeCount", 0)),
