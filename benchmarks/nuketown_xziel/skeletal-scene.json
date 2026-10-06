@@ -1,53 +1,84 @@
 {
   "schemaVersion": 1,
-  "authority": "cooked UE skeletal component -> recovered XZSK -> Godot glTF",
-  "bindingCount": 3,
-  "bindings": [
+  "sourceGameName": "ue5.1",
+  "mapPackageCount": 1,
+  "packagesLoaded": 1,
+  "sourceRecoveredSkeletalMeshCount": 3,
+  "allSkeletalComponentCount": 3,
+  "skeletalComponentCount": 3,
+  "embeddedSkeletalComponentCount": 1,
+  "embeddedSkeletalComponents": [
     {
-      "actorName": "NewBlueprint1_2_C_1",
+      "packagePath": "Pavlov/Plugins/UGC5097941/Content/nuketownz.umap",
       "actorObjectPath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/nuketownz.nuketownz:PersistentLevel.NewBlueprint1_2_C_1",
+      "actorName": "NewBlueprint1_2_C_1",
+      "actorClassName": "NewBlueprint1_2_C",
+      "componentObjectPath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/nuketownz.nuketownz:PersistentLevel.NewBlueprint1_2_C_1.untitled1",
+      "disposition": "embedded_skeletal_component_preserved_for_actor_adapter"
+    }
+  ],
+  "resolvedActorCount": 3,
+  "unresolvedCount": 0,
+  "failureCount": 0,
+  "coordinateSystem": {
+    "source": "Unreal X,Y,Z centimeters",
+    "runtime": "XZIEL X,-Y,Z meters",
+    "matrixConvention": "row_major_column_vector_T_R_S",
+    "centimetersToMeters": 0.01
+  },
+  "actors": [
+    {
+      "packagePath": "Pavlov/Plugins/UGC5097941/Content/nuketownz.umap",
+      "actorObjectPath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/nuketownz.nuketownz:PersistentLevel.NewBlueprint1_2_C_1",
+      "actorName": "NewBlueprint1_2_C_1",
+      "actorClassName": "NewBlueprint1_2_C",
       "componentObjectPath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/nuketownz.nuketownz:PersistentLevel.NewBlueprint1_2_C_1.untitled1",
       "sourceSkeletalMeshObjectPath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/box/1/untitled.untitled",
       "sourceSkeletalMeshPackagePath": "Pavlov/Plugins/UGC5097941/Content/box/1/untitled.uasset",
       "sourceXzskFile": "s0000.xsk",
+      "sourceXzskIndex": 0,
       "skeletonHash": "40e5473fcfae14e8",
+      "meshReferenceProperty": "SkeletalMesh",
+      "meshReferenceTemplateDepth": 1,
+      "meshReferenceTemplatePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/box/NewBlueprint1_2.NewBlueprint1_2_C:untitled1_GEN_VARIABLE",
       "matrixRowMajor": [
         0.9396927,
         0.3420199,
-        -2.9349554e-08,
+        -2.9349554E-08,
         -22.95635,
         -0.3420199,
         0.9396927,
-        5.175116e-09,
+        5.175116E-09,
         -1.735423,
-        2.9349554e-08,
-        5.175116e-09,
+        2.9349554E-08,
+        5.175116E-09,
         1,
         2.1824393,
         0,
-        0,
+        -0,
         0,
         1
       ],
-      "gltf": "skeletal_00_untitled.gltf",
-      "animations": [
-        "arrive",
-        "close",
-        "leave",
-        "open",
-        "teddy_rise",
-        "weapon_dual_rise",
-        "weapon_rise"
+      "positionMeters": [
+        -22.95635,
+        -1.735423,
+        2.1824393
       ]
     },
     {
-      "actorName": "SkeletalMeshActor_3",
+      "packagePath": "Pavlov/Plugins/UGC5097941/Content/nuketownz.umap",
       "actorObjectPath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/nuketownz.nuketownz:PersistentLevel.SkeletalMeshActor_3",
+      "actorName": "SkeletalMeshActor_3",
+      "actorClassName": "SkeletalMeshActor",
       "componentObjectPath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/nuketownz.nuketownz:PersistentLevel.SkeletalMeshActor_3.SkeletalMeshComponent0",
       "sourceSkeletalMeshObjectPath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/shades/1/untitled.untitled",
       "sourceSkeletalMeshPackagePath": "Pavlov/Plugins/UGC5097941/Content/props/shades/1/untitled.uasset",
       "sourceXzskFile": "s0001.xsk",
+      "sourceXzskIndex": 1,
       "skeletonHash": "70299695c85b0559",
+      "meshReferenceProperty": "SkeletalMesh",
+      "meshReferenceTemplateDepth": 0,
+      "meshReferenceTemplatePath": null,
       "matrixRowMajor": [
         -0.25881898,
         -0.9659258,
@@ -55,30 +86,37 @@
         13.946689,
         0.9659258,
         -0.25881898,
-        0,
+        -0,
         2.1435616,
         0,
-        0,
+        -0,
         1,
         6.5266266,
         0,
-        0,
+        -0,
         0,
         1
       ],
-      "gltf": "skeletal_01_untitled.gltf",
-      "animations": [
-        "untitled_Anim"
+      "positionMeters": [
+        13.946689,
+        2.1435616,
+        6.5266266
       ]
     },
     {
-      "actorName": "SkeletalMeshActor_5",
+      "packagePath": "Pavlov/Plugins/UGC5097941/Content/nuketownz.umap",
       "actorObjectPath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/nuketownz.nuketownz:PersistentLevel.SkeletalMeshActor_5",
+      "actorName": "SkeletalMeshActor_5",
+      "actorClassName": "SkeletalMeshActor",
       "componentObjectPath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/nuketownz.nuketownz:PersistentLevel.SkeletalMeshActor_5.SkeletalMeshComponent0",
       "sourceSkeletalMeshObjectPath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/props/shades/2/untitled.untitled",
       "sourceSkeletalMeshPackagePath": "Pavlov/Plugins/UGC5097941/Content/props/shades/2/untitled.uasset",
       "sourceXzskFile": "s0002.xsk",
+      "sourceXzskIndex": 2,
       "skeletonHash": "09f7e917b6599364",
+      "meshReferenceProperty": "SkeletalMesh",
+      "meshReferenceTemplateDepth": 0,
+      "meshReferenceTemplatePath": null,
       "matrixRowMajor": [
         0.3420201,
         -0.9396927,
@@ -86,22 +124,25 @@
         -12.551954,
         0.9396927,
         0.3420201,
-        0,
+        -0,
         7.5040007,
         0,
         0,
         1,
         6.0489216,
         0,
-        0,
+        -0,
         0,
         1
       ],
-      "gltf": "skeletal_02_untitled.gltf",
-      "animations": [
-        "untitled_Anim"
+      "positionMeters": [
+        -12.551954,
+        7.5040007,
+        6.0489216
       ]
     }
   ],
+  "unresolved": [],
+  "failures": [],
   "ready": true
 }
