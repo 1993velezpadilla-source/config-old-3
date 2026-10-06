@@ -28,6 +28,7 @@ const ENVIRONMENT_RUNTIME_AUTHORITY_FILE := "nacht-environment-runtime-authority
 const AUDIO_SCENE_FILE := "nacht-audio-scene.json"
 const AUDIO_CUES_FILE := "nacht-audio-cues.json"
 const AUDIO_RUNTIME_REPORT_FILE := "audio-runtime-report.json"
+const AUDIO_RUNTIME_AUTHORITY_FILE := "nacht-audio-runtime-authority.json"
 
 var _runtime_root: Node3D
 var _benchmark_loader: Node3D
@@ -44,9 +45,12 @@ var _environment_runtime_authority: Dictionary = {}
 var _audio_scene: Dictionary = {}
 var _audio_cues: Dictionary = {}
 var _audio_runtime_report: Dictionary = {}
+var _audio_runtime_authority: Dictionary = {}
 var _audio_wave_file_by_path: Dictionary = {}
 var _audio_cue_by_path: Dictionary = {}
 var _source_audio_players: Dictionary = {}
+var _source_audio_component_key_by_id: Dictionary = {}
+var _source_audio_events_by_key: Dictionary = {}
 var _mesh_cache: Dictionary = {}
 
 var _created_instances := 0
@@ -89,7 +93,9 @@ func _boot() -> void:
 	_audio_scene = _read_json(_source_path(AUDIO_SCENE_FILE))
 	_audio_cues = _read_json(_source_path(AUDIO_CUES_FILE))
 	_audio_runtime_report = _read_json(_source_path(AUDIO_RUNTIME_REPORT_FILE))
+	_audio_runtime_authority = _read_json(_source_path(AUDIO_RUNTIME_AUTHORITY_FILE))
 	_index_audio_authority()
+	_index_audio_runtime_events()
 
 	if not _validate_authority():
 		return
@@ -144,6 +150,8 @@ func _boot() -> void:
 	set_meta("runtime_sound_cue_authority_count", (_audio_cues.get("cues", []) as Array).size())
 	set_meta("runtime_audio_wave_catalog_count", _audio_wave_file_by_path.size())
 	set_meta("runtime_sound_cue_index_count", _audio_cue_by_path.size())
+	set_meta("source_audio_event_authority_count", int(_audio_runtime_authority.get("actorAudioEventCount", 0)))
+	set_meta("source_audio_event_index_count", _source_audio_events_by_key.size())
 	set_meta("source_audio_runtime_player_count", _source_audio_player_count)
 	set_meta("source_audio_runtime_stream_count", _source_audio_stream_count)
 	set_meta(
@@ -264,6 +272,22 @@ func _validate_authority() -> bool:
 		if int(_audio_runtime_report.get("audioCount", 0)) != 295:
 			push_error("NACHT_FULL_MAP: staged source OGG count mismatch")
 			return false
+	if not _audio_runtime_authority.is_empty():
+		if not bool(_audio_runtime_authority.get("ready", false)):
+			push_error("NACHT_FULL_MAP: staged audio event authority is not ready")
+			return false
+		if int(_audio_runtime_authority.get("resolvedAudioComponentCount", 0)) != 3:
+			push_error("NACHT_FULL_MAP: staged audio event component coverage mismatch")
+			return false
+		if not (_audio_runtime_authority.get("unresolvedComponents", []) as Array).is_empty():
+			push_error("NACHT_FULL_MAP: staged audio event authority has unresolved components")
+			return false
+		if not (_audio_runtime_authority.get("unresolvedActorEvents", []) as Array).is_empty():
+			push_error("NACHT_FULL_MAP: staged audio event authority has unresolved actor events")
+			return false
+		if not (_audio_runtime_authority.get("unresolvedAssets", []) as Array).is_empty():
+			push_error("NACHT_FULL_MAP: staged audio event authority has unresolved assets")
+			return false
 	return true
 
 func _canonical_ue_object_path(raw_path: String) -> String:
@@ -299,6 +323,137 @@ func _index_audio_authority() -> void:
 		if object_path.is_empty():
 			continue
 		_audio_cue_by_path[object_path] = cue
+
+func _index_audio_runtime_events() -> void:
+	_source_audio_events_by_key.clear()
+	for raw: Variant in _audio_runtime_authority.get("actorEventBindings", []):
+		if not (raw is Dictionary):
+			continue
+		var event := raw as Dictionary
+		var actor_name := str(event.get("actorName", ""))
+		var function_name := str(event.get("function", ""))
+		var start_offset := int(event.get("startOffset", -1))
+		if actor_name.is_empty() or function_name.is_empty() or start_offset < 0:
+			continue
+		var key := actor_name + "|" + function_name + "|" + str(start_offset)
+		_source_audio_events_by_key[key] = event
+
+
+func _source_audio_stream_for_asset(asset_path: String) -> Dictionary:
+	var canonical := _canonical_ue_object_path(asset_path)
+	var cue := _source_cue_for_path(canonical)
+	var wave_path := canonical
+
+	if not cue.is_empty():
+		var waves := cue.get("waveObjectPaths", []) as Array
+		if waves.size() != 1:
+			return {}
+		wave_path = str(waves[0])
+
+	var runtime_path := _runtime_audio_file_for_wave(wave_path)
+	if runtime_path.is_empty() or not ResourceLoader.exists(runtime_path):
+		return {}
+	var stream := load(runtime_path) as AudioStream
+	if stream == null:
+		return {}
+
+	if not cue.is_empty():
+		_set_audio_stream_loop(stream, _cue_has_loop(cue))
+
+	return {
+		"stream": stream,
+		"cue": cue,
+		"wavePath": wave_path,
+		"runtimePath": runtime_path,
+	}
+
+
+func _source_audio_component_player_by_id(component_id: String) -> AudioStreamPlayer3D:
+	var component_key := str(_source_audio_component_key_by_id.get(component_id, ""))
+	if component_key.is_empty():
+		return null
+	return _source_audio_players.get(component_key) as AudioStreamPlayer3D
+
+
+func _source_audio_actor_position(actor_name: String) -> Vector3:
+	for raw: Variant in _audio_scene.get("audioComponents", []):
+		if not (raw is Dictionary):
+			continue
+		var row := raw as Dictionary
+		if str(row.get("actorName", "")) == actor_name:
+			return _audio_component_position(row.get("hierarchy", []))
+	return Vector3.ZERO
+
+
+func play_source_audio_event(
+	actor_name: String,
+	function_name: String,
+	start_offset: int,
+	source_position: Variant = null
+) -> bool:
+	var key := actor_name + "|" + function_name + "|" + str(start_offset)
+	var event := _source_audio_events_by_key.get(key, {}) as Dictionary
+	if event.is_empty():
+		return false
+
+	var call := str(event.get("call", "")).to_lower()
+	var resolved_component_id := str(event.get("resolvedComponentId", ""))
+	if call in ["play", "stop"]:
+		var component_player := _source_audio_component_player_by_id(resolved_component_id)
+		if component_player == null:
+			return false
+		if call == "play":
+			component_player.play()
+		else:
+			component_player.stop()
+		return true
+
+	var asset_path := str(event.get("resolvedAsset", ""))
+	if asset_path.is_empty():
+		return false
+	var resolved := _source_audio_stream_for_asset(asset_path)
+	if resolved.is_empty():
+		return false
+
+	var stream := resolved.get("stream") as AudioStream
+	if stream == null:
+		return false
+	var cue := resolved.get("cue", {}) as Dictionary
+	var volume_scale := maxf(0.0001, float(cue.get("volumeMultiplier", 1.0)))
+	var pitch_scale := maxf(0.01, float(cue.get("pitchMultiplier", 1.0)))
+
+	if call == "playsound2d":
+		var player_2d := AudioStreamPlayer.new()
+		player_2d.stream = stream
+		player_2d.volume_db = linear_to_db(volume_scale)
+		player_2d.pitch_scale = pitch_scale
+		player_2d.finished.connect(player_2d.queue_free)
+		add_child(player_2d)
+		player_2d.play()
+		return true
+
+	if call in [
+		"playsoundatlocation",
+		"spawnsoundatlocation",
+		"spawnsoundattached",
+		"playsoundattached"
+	]:
+		var player_3d := AudioStreamPlayer3D.new()
+		player_3d.stream = stream
+		player_3d.volume_db = linear_to_db(volume_scale)
+		player_3d.pitch_scale = pitch_scale
+		if source_position is Vector3:
+			player_3d.position = source_position as Vector3
+		else:
+			player_3d.position = _source_audio_actor_position(actor_name)
+		if not _cue_has_loop(cue):
+			player_3d.finished.connect(player_3d.queue_free)
+		_runtime_root.add_child(player_3d)
+		player_3d.play()
+		return true
+
+	return false
+
 
 func _runtime_audio_file_for_wave(wave_path: String) -> String:
 	var canonical := _canonical_ue_object_path(wave_path)
@@ -361,6 +516,7 @@ func _set_audio_stream_loop(stream: AudioStream, enabled: bool) -> void:
 
 func _build_source_audio_runtime() -> bool:
 	_source_audio_players.clear()
+	_source_audio_component_key_by_id.clear()
 	_source_audio_player_count = 0
 	_source_audio_stream_count = 0
 
@@ -446,6 +602,7 @@ func _build_source_audio_runtime() -> bool:
 
 		var key := actor_name + "." + component_name
 		_source_audio_players[key] = player
+		_source_audio_component_key_by_id[str(row.get("id", ""))] = key
 		_source_audio_player_count += 1
 		_source_audio_stream_count += 1
 
