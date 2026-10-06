@@ -17,6 +17,8 @@ const MYSTERY_BOX_FOG_SYSTEM := "/Game/CustomMaps/UGC2755515831/Materials/Killer
 const MYSTERY_BOX_FOG_MATERIAL := "/Game/CustomMaps/UGC2755515831/Materials/KillerJim/Smoke/unlit_smoke.unlit_smoke"
 const MYSTERY_INSIDE_SYSTEM := "/Game/CustomMaps/UGC2755515831/CoD/Particles/mysteryBox/inside/mysteryParticles.mysteryParticles"
 const MYSTERY_INSIDE_MATERIAL := "/Game/CustomMaps/UGC2755515831/CoD/Particles/mysteryBox/inside/mysteryParticle.mysteryParticle"
+const BIG_FIRE_VG_SMK_SYSTEM := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Particles/Reference/Fireloop/4_bigfire_vg_smk_pt.4_bigfire_vg_smk_pt"
+const BIG_FIRE_VG_SMK_MATERIAL := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Materials/Fireloop_Inst/bigfire_vg_smk_Inst.bigfire_vg_smk_Inst"
 
 
 static func _canonical(raw: String) -> String:
@@ -1209,6 +1211,202 @@ static func mystery_inside_descriptor(graphs: Dictionary) -> Dictionary:
 		"gpuMaxParticleCount": gpu_max_particles,
 		"gpuRotationRateScale": gpu_rotation_rate_scale,
 		"gpuQuantizedColorSampleCount": quantized_count,
+		"peakActiveByLOD": peaks,
+		"sourceNodeCount": int(system.get("nodeCount", 0)),
+		"sourceReferenceCount": int(system.get("referenceCount", 0)),
+	}
+
+
+static func big_fire_vg_smk_descriptor(graphs: Dictionary) -> Dictionary:
+	var system := _find_system(graphs, BIG_FIRE_VG_SMK_SYSTEM)
+	if system.is_empty():
+		return {"ready": false, "error": "big fire vg smoke source system missing"}
+	if int(system.get("nodeCount", -1)) != 19:
+		return {"ready": false, "error": "big fire vg smoke node count mismatch %d" % int(system.get("nodeCount", -1))}
+	if int(system.get("referenceCount", -1)) != 7:
+		return {"ready": false, "error": "big fire vg smoke reference count mismatch %d" % int(system.get("referenceCount", -1))}
+
+	var required := _one_node(system, "ParticleModuleRequired")
+	var lifetime := _one_node(system, "ParticleModuleLifetime")
+	var cylinder := _one_node(system, "ParticleModuleLocationPrimitiveCylinder")
+	var orientation := _one_node(system, "ParticleModuleOrientationAxisLock")
+	var pivot := _one_node(system, "ParticleModulePivotOffset")
+	var size_life := _one_node(system, "ParticleModuleSizeMultiplyLife")
+	var size_speed := _one_node(system, "ParticleModuleSizeScaleBySpeed")
+	var size := _one_node(system, "ParticleModuleSize")
+	var subuv_movie := _one_node(system, "ParticleModuleSubUVMovie")
+	var subuv_curve := _one_node(system, "DistributionFloatConstantCurve")
+	var velocity := _one_node(system, "ParticleModuleVelocity")
+	var color := _one_node(system, "ParticleModuleColorOverLife")
+	var spawn_nodes := ParticleSource.nodes_by_type(system, "ParticleModuleSpawn")
+	var lod_nodes := ParticleSource.nodes_by_type(system, "ParticleLODLevel")
+
+	for pair: Array in [
+		["ParticleModuleRequired", required],
+		["ParticleModuleLifetime", lifetime],
+		["ParticleModuleLocationPrimitiveCylinder", cylinder],
+		["ParticleModuleOrientationAxisLock", orientation],
+		["ParticleModulePivotOffset", pivot],
+		["ParticleModuleSizeMultiplyLife", size_life],
+		["ParticleModuleSizeScaleBySpeed", size_speed],
+		["ParticleModuleSize", size],
+		["ParticleModuleSubUVMovie", subuv_movie],
+		["DistributionFloatConstantCurve", subuv_curve],
+		["ParticleModuleVelocity", velocity],
+		["ParticleModuleColorOverLife", color],
+	]:
+		if (pair[1] as Dictionary).is_empty():
+			return {"ready": false, "error": "big fire vg smoke missing or duplicate " + str(pair[0])}
+	if spawn_nodes.size() != 2:
+		return {"ready": false, "error": "big fire vg smoke spawn LOD count mismatch %d" % spawn_nodes.size()}
+	if lod_nodes.size() != 2:
+		return {"ready": false, "error": "big fire vg smoke LOD count mismatch %d" % lod_nodes.size()}
+
+	var required_props := ParticleSource.properties(required)
+	var lifetime_props := ParticleSource.properties(lifetime)
+	var cylinder_props := ParticleSource.properties(cylinder)
+	var orientation_props := ParticleSource.properties(orientation)
+	var pivot_props := ParticleSource.properties(pivot)
+	var size_life_props := ParticleSource.properties(size_life)
+	var size_speed_props := ParticleSource.properties(size_speed)
+	var size_props := ParticleSource.properties(size)
+	var subuv_props := ParticleSource.properties(subuv_movie)
+	var velocity_props := ParticleSource.properties(velocity)
+	var color_props := ParticleSource.properties(color)
+
+	var material_path := str(required_props.get("Material", ""))
+	var screen_alignment := str(required_props.get("ScreenAlignment", ""))
+	var interpolation := str(required_props.get("InterpolationMethod", ""))
+	var subimages_h := int(required_props.get("SubImages_Horizontal", -1))
+	var subimages_v := int(required_props.get("SubImages_Vertical", -1))
+	var random_image_time := int(required_props.get("RandomImageTime", -1))
+	var legacy_emitter_time := bool(required_props.get("bUseLegacyEmitterTime", true))
+
+	var life := _distribution(lifetime_props.get("Lifetime"))
+	var radius := _distribution(cylinder_props.get("StartRadius"))
+	var height := _distribution(cylinder_props.get("StartHeight"))
+	var life_multiplier := _distribution(size_life_props.get("LifeMultiplier"))
+	var start_size := _distribution(size_props.get("StartSize"))
+	var frame_rate := _distribution(subuv_props.get("FrameRate"))
+	var subimage_index := _distribution(subuv_props.get("SubImageIndex"))
+	var start_velocity := _distribution(velocity_props.get("StartVelocity"))
+	var rgb := _distribution(color_props.get("ColorOverLife"))
+	var alpha := _distribution(color_props.get("AlphaOverLife"))
+
+	var life_min := float(life.get("MinValue", -1.0))
+	var life_max := float(life.get("MaxValue", -1.0))
+	var radius_min := float(radius.get("MinValue", -1.0))
+	var radius_max := float(radius.get("MaxValue", -1.0))
+	var height_min := float(height.get("MinValue", 0.0))
+	var height_max := float(height.get("MaxValue", 0.0))
+	var pivot_offset := ParticleSource.vector2(pivot_props.get("PivotOffset"), Vector2.INF)
+	var life_multiplier_min := _vector_from_distribution(life_multiplier, "MinValueVec", Vector3.INF)
+	var life_multiplier_max := _vector_from_distribution(life_multiplier, "MaxValueVec", Vector3.INF)
+	var speed_scale := ParticleSource.vector2(size_speed_props.get("SpeedScale"), Vector2.INF)
+	var max_scale := ParticleSource.vector2(size_speed_props.get("MaxScale"), Vector2.INF)
+	var size_min := _vector_from_distribution(start_size, "MinValueVec", Vector3.INF)
+	var size_max := _vector_from_distribution(start_size, "MaxValueVec", Vector3.INF)
+	var subuv_fps_min := float(frame_rate.get("MinValue", -1.0))
+	var subuv_fps_max := float(frame_rate.get("MaxValue", -1.0))
+	var subuv_curve_path := str(subimage_index.get("Distribution", ""))
+	var velocity_min := _vector_from_distribution(start_velocity, "MinValueVec", Vector3.INF)
+	var velocity_max := _vector_from_distribution(start_velocity, "MaxValueVec", Vector3.INF)
+	var rgb_min := _vector_from_distribution(rgb, "MinValueVec", Vector3.INF)
+	var rgb_max := _vector_from_distribution(rgb, "MaxValueVec", Vector3.INF)
+	var rgb_values := ParticleSource.table_values(rgb)
+	var alpha_values := ParticleSource.table_values(alpha)
+	var lock_axis := str(orientation_props.get("LockAxisFlags", ""))
+
+	var spawn_rates: Array[float] = []
+	for node: Dictionary in spawn_nodes:
+		var p := ParticleSource.properties(node)
+		var rate := _distribution(p.get("Rate"))
+		var rate_scale := _distribution(p.get("RateScale"))
+		var lo := float(rate.get("MinValue", -1.0))
+		var hi := float(rate.get("MaxValue", -1.0))
+		if not is_equal_approx(lo, hi):
+			return {"ready": false, "error": "big fire vg smoke non-constant LOD rate"}
+		if not is_equal_approx(float(rate_scale.get("MinValue", -1.0)), 1.0):
+			return {"ready": false, "error": "big fire vg smoke rate scale mismatch"}
+		spawn_rates.append(lo)
+	spawn_rates.sort()
+
+	var peaks: Array[int] = []
+	for node: Dictionary in lod_nodes:
+		var p := ParticleSource.properties(node)
+		peaks.append(int(p.get("PeakActiveParticles", -1)))
+	peaks.sort()
+
+	if _canonical(material_path) != _canonical(BIG_FIRE_VG_SMK_MATERIAL):
+		return {"ready": false, "error": "big fire vg smoke material mismatch " + material_path}
+	if screen_alignment != "PSA_Rectangle":
+		return {"ready": false, "error": "big fire vg smoke screen alignment mismatch " + screen_alignment}
+	if interpolation != "PSUVIM_Linear_Blend":
+		return {"ready": false, "error": "big fire vg smoke interpolation mismatch " + interpolation}
+	if subimages_h != 8 or subimages_v != 8:
+		return {"ready": false, "error": "big fire vg smoke SubUV grid mismatch %dx%d" % [subimages_h, subimages_v]}
+	if random_image_time != 1 or legacy_emitter_time:
+		return {"ready": false, "error": "big fire vg smoke emitter timing flags mismatch"}
+	if lock_axis != "EPAL_ROTATE_Z":
+		return {"ready": false, "error": "big fire vg smoke axis lock mismatch " + lock_axis}
+	if not is_equal_approx(life_min, 3.0) or not is_equal_approx(life_max, 5.0):
+		return {"ready": false, "error": "big fire vg smoke lifetime mismatch %s..%s" % [life_min, life_max]}
+	if not is_equal_approx(radius_min, 100.0) or not is_equal_approx(radius_max, 100.0):
+		return {"ready": false, "error": "big fire vg smoke cylinder radius mismatch"}
+	if not is_equal_approx(height_min, 0.0) or not is_equal_approx(height_max, 0.0):
+		return {"ready": false, "error": "big fire vg smoke cylinder height mismatch"}
+	if not pivot_offset.is_equal_approx(Vector2(0.0, -0.5)):
+		return {"ready": false, "error": "big fire vg smoke pivot mismatch " + str(pivot_offset)}
+	if not life_multiplier_min.is_equal_approx(Vector3(6.0, 6.0, 0.0)):
+		return {"ready": false, "error": "big fire vg smoke life multiplier min mismatch " + str(life_multiplier_min)}
+	if not life_multiplier_max.is_equal_approx(Vector3(7.0, 8.0, 0.0)):
+		return {"ready": false, "error": "big fire vg smoke life multiplier max mismatch " + str(life_multiplier_max)}
+	if ParticleSource.table_values(life_multiplier).size() != 6:
+		return {"ready": false, "error": "big fire vg smoke life multiplier table mismatch"}
+	if not speed_scale.is_equal_approx(Vector2(1.0, 2.0)) or not max_scale.is_equal_approx(Vector2(10.0, 50.0)):
+		return {"ready": false, "error": "big fire vg smoke speed scale mismatch"}
+	if not size_min.is_equal_approx(Vector3(20.0, 10.0, 0.0)):
+		return {"ready": false, "error": "big fire vg smoke start size min mismatch " + str(size_min)}
+	if not size_max.is_equal_approx(Vector3(15.0, 6.0, 0.0)):
+		return {"ready": false, "error": "big fire vg smoke start size max mismatch " + str(size_max)}
+	if not is_equal_approx(subuv_fps_min, 45.0) or not is_equal_approx(subuv_fps_max, 45.0):
+		return {"ready": false, "error": "big fire vg smoke SubUV frame rate mismatch"}
+	if _canonical(subuv_curve_path) != _canonical(str(subuv_curve.get("objectPath", ""))):
+		return {"ready": false, "error": "big fire vg smoke SubUV curve reference mismatch " + subuv_curve_path}
+	if not velocity_min.is_equal_approx(Vector3(-10.0, -10.0, 1.0)):
+		return {"ready": false, "error": "big fire vg smoke velocity min mismatch " + str(velocity_min)}
+	if not velocity_max.is_equal_approx(Vector3(10.0, 10.0, 5.0)):
+		return {"ready": false, "error": "big fire vg smoke velocity max mismatch " + str(velocity_max)}
+	if not rgb_min.is_equal_approx(Vector3(10.0, 5.0, 2.0)) or not rgb_max.is_equal_approx(Vector3(10.0, 5.0, 2.0)):
+		return {"ready": false, "error": "big fire vg smoke color mismatch"}
+	if rgb_values.size() != 3 or alpha_values.size() != 16:
+		return {"ready": false, "error": "big fire vg smoke color table mismatch rgb=%d alpha=%d" % [rgb_values.size(), alpha_values.size()]}
+	if spawn_rates.size() != 2 or not is_equal_approx(spawn_rates[0], 0.29999998) or not is_equal_approx(spawn_rates[1], 3.0):
+		return {"ready": false, "error": "big fire vg smoke LOD spawn rate mismatch " + str(spawn_rates)}
+	if peaks != [7, 17]:
+		return {"ready": false, "error": "big fire vg smoke LOD peaks mismatch " + str(peaks)}
+
+	return {
+		"ready": true,
+		"systemPath": BIG_FIRE_VG_SMK_SYSTEM,
+		"materialPath": material_path,
+		"lifetimeMin": life_min,
+		"lifetimeMax": life_max,
+		"cylinderRadiusUEcm": radius_min,
+		"pivotOffset": pivot_offset,
+		"lifeMultiplierMin": life_multiplier_min,
+		"lifeMultiplierMax": life_multiplier_max,
+		"speedScale": speed_scale,
+		"maxScale": max_scale,
+		"startSizeMinUEcm": size_min,
+		"startSizeMaxUEcm": size_max,
+		"subUVFrameRate": subuv_fps_min,
+		"subUVCurvePath": subuv_curve_path,
+		"startVelocityMinUEcm": velocity_min,
+		"startVelocityMaxUEcm": velocity_max,
+		"rgbTableValueCount": rgb_values.size(),
+		"alphaTableValueCount": alpha_values.size(),
+		"spawnRatesByLOD": spawn_rates,
 		"peakActiveByLOD": peaks,
 		"sourceNodeCount": int(system.get("nodeCount", 0)),
 		"sourceReferenceCount": int(system.get("referenceCount", 0)),
