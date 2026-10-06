@@ -183,6 +183,7 @@ func _build_perimeter_spawn_anchors(vertices: PackedVector3Array) -> int:
 		var anchor := Marker3D.new()
 		anchor.name = "NuketownZombieSpawn_%02d" % i
 		add_child(anchor)
+		add_child(anchor)
 		anchor.global_position = chosen[i] + Vector3.UP * 0.08
 		anchor.add_to_group("zombie_spawn_anchor")
 		anchor.add_to_group("nuketown_zombie_spawn_anchor")
@@ -206,7 +207,7 @@ func get_spawn_anchor_count() -> int:
 
 func request_path(from_world: Vector3, to_world: Vector3) -> Array[Vector3]:
 	var result: Array[Vector3] = []
-	if not _ready:
+	if not _navigation_ready_state:
 		result.append(to_world)
 		return result
 	var nav_map := get_world_3d().get_navigation_map()
