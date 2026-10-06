@@ -94,8 +94,8 @@ jobs:
           assert summary["ready"] is True,summary
           assert summary["mapPackageCount"]==1,summary
           assert summary["actorAnchorCount"]==11023,summary
-          assert summary["sceneInstanceCount"]>0,summary
-          assert summary["referencedNativeMeshCount"]>0,summary
+          assert summary["sceneInstanceCount"]==10793,summary
+          assert summary["referencedNativeMeshCount"]==493,summary
           assert summary["unresolvedMeshCount"]==0,summary
           assert summary["componentFailureCount"]==0,summary
 
