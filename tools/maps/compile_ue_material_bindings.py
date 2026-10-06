@@ -61,7 +61,7 @@ def material_family_key(value):
     # Numbered authored siblings such as foo_01/foo_02/foo_03 share a family.
     # This does not assign semantics by filename alone; it is only a grouping
     # key for explicit semantic parameters recovered from sibling materials.
-    return re.sub(r"(?<=_)\\d+$", "#", name)
+    return re.sub(r"(?<=_)\d+$", "#", name)
 
 
 def exact_texture_parameter(material, parameter_name):
