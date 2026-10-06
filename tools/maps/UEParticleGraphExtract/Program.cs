@@ -50,18 +50,30 @@ string? ResolveProviderPackagePath(DefaultFileProvider provider, string logicalP
 var scriptStructCount = 0;
 var scriptStructExpandedCount = 0;
 var scriptStructOpaqueCount = 0;
+var reflectedValueTypeCounts =
+    new SortedDictionary<string, int>(StringComparer.Ordinal);
+var opaqueValueTypeCounts =
+    new SortedDictionary<string, int>(StringComparer.Ordinal);
 
 bool IsReflectableSourceValue(object? value)
 {
     if (value is null) return false;
     var fullName = value.GetType().FullName ?? "";
-    return fullName.StartsWith(
-        "CUE4Parse.UE4.Objects.",
-        StringComparison.Ordinal);
+    return
+        fullName.StartsWith(
+            "CUE4Parse.UE4.Objects.",
+            StringComparison.Ordinal) ||
+        fullName.StartsWith(
+            "CUE4Parse.UE4.Assets.Objects.",
+            StringComparison.Ordinal);
 }
 
 object? DescribeReflectedSourceValue(object value, int depth)
 {
+    var reflectedType = value.GetType().FullName ?? value.GetType().Name;
+    reflectedValueTypeCounts[reflectedType] =
+        reflectedValueTypeCounts.GetValueOrDefault(reflectedType) + 1;
+
     if (depth >= 6)
         return new {
             kind = value.GetType().FullName,
@@ -195,8 +207,13 @@ object? DescribeValue(object? value, int depth = 0)
     if (IsReflectableSourceValue(value))
         return DescribeReflectedSourceValue(value, depth);
 
+    var opaqueType = value.GetType().FullName ?? value.GetType().Name;
+    if (opaqueType.StartsWith("CUE4Parse.", StringComparison.Ordinal))
+        opaqueValueTypeCounts[opaqueType] =
+            opaqueValueTypeCounts.GetValueOrDefault(opaqueType) + 1;
+
     return new {
-        kind = value.GetType().FullName,
+        kind = opaqueType,
         text = value.ToString()
     };
 }
@@ -378,6 +395,8 @@ var output = new {
     scriptStructCount,
     scriptStructExpandedCount,
     scriptStructOpaqueCount,
+    reflectedValueTypeCounts,
+    opaqueValueTypeCounts,
     nodeTypeCounts,
     systems,
     packageFailures,
@@ -398,6 +417,8 @@ Console.WriteLine("XZIEL_UE_PARTICLE_GRAPH " + JsonSerializer.Serialize(new {
     output.scriptStructCount,
     output.scriptStructExpandedCount,
     output.scriptStructOpaqueCount,
+    output.reflectedValueTypeCounts,
+    output.opaqueValueTypeCounts,
     output.nodeTypeCounts,
     failureCount = packageFailures.Count,
     output.ready
