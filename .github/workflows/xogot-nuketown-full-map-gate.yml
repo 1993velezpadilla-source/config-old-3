@@ -83,34 +83,88 @@ jobs:
           print("XZOGOT_NUKETOWN_FULL_SOURCE_PREFLIGHT_GREEN", dict(classes))
           PY
 
-      - name: Mount latest private Nuketown source WAV proof
+      - name: Mount all 26 SoundWaves from complete source authority
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          AUDIO_RUN=$(gh api \
-            -H "Accept: application/vnd.github+json" \
-            "/repos/${GITHUB_REPOSITORY}/actions/workflows/xogot-nuketown-audio-truth.yml/runs?branch=feature%2Fgodot-aaa-rebuild-v1&status=success&per_page=1" \
-            --jq '.workflow_runs[0].id')
-          test -n "$AUDIO_RUN"
-          rm -rf "$RUNNER_TEMP/nuketown-audio-proof"
-          mkdir -p "$RUNNER_TEMP/nuketown-audio-proof"
-          gh run download "$AUDIO_RUN" \
-            --repo "$GITHUB_REPOSITORY" \
-            --name Xogot-Nuketown-Source-Audio-Proof \
-            --dir "$RUNNER_TEMP/nuketown-audio-proof"
+          SOURCE_RUN=$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("benchmarks/nuketown_xziel/source_manifest.json").read_text())
+          print(d["source_run"])
+          PY
+          )
+          test -n "$SOURCE_RUN"
 
+          rm -rf "$RUNNER_TEMP/nuketown-full-audio"
+          mkdir -p "$RUNNER_TEMP/nuketown-full-audio" build/nuketown-full-audio
+          gh run download "$SOURCE_RUN" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name Xogot-Nuketown-Full-Source-Authority \
+            --dir "$RUNNER_TEMP/nuketown-full-audio"
+
+          REPORT=$(find "$RUNNER_TEMP/nuketown-full-audio" -type f -path '*/ue-xzaw-probe/report.json' -print -quit)
+          XAW_DIR=$(dirname "$REPORT")
+          test -s "$REPORT"
+          test "$(find "$XAW_DIR" -maxdepth 1 -type f -name '*.xaw' | wc -l)" -eq 26
+
+          mkdir -p "$RUNNER_TEMP/vgmstream-complete"
+          curl -fL --retry 5 --retry-delay 2 \
+            "https://github.com/vgmstream/vgmstream/releases/download/r2117/vgmstream-linux.zip" \
+            -o "$RUNNER_TEMP/vgmstream-complete.zip"
+          unzip -q "$RUNNER_TEMP/vgmstream-complete.zip" -d "$RUNNER_TEMP/vgmstream-complete"
+          VGM=$(find "$RUNNER_TEMP/vgmstream-complete" -type f -name 'vgmstream-cli' -perm -111 | head -1)
+          test -n "$VGM"
+
+          rm -rf xogot/assets/benchmarks/nuketown_xziel/audio
           mkdir -p xogot/assets/benchmarks/nuketown_xziel/audio
-          find "$RUNNER_TEMP/nuketown-audio-proof" -type f -name '*.wav' -print0 \
-            | xargs -0 -I{} cp "{}" xogot/assets/benchmarks/nuketown_xziel/audio/
+          python3 - "$REPORT" "$XAW_DIR" "$RUNNER_TEMP/nuketown-full-audio/payloads" <<'PY'
+          import json,re,struct,sys
+          from pathlib import Path
+          report=Path(sys.argv[1]); src=Path(sys.argv[2]); out=Path(sys.argv[3])
+          out.mkdir(parents=True,exist_ok=True)
+          d=json.loads(report.read_text())
+          assert d["ready"] and d["convertedSoundWaves"]==26,d
+          rows=[]
+          for row in d["soundWaves"]:
+              raw=(src/row["file"]).read_bytes()
+              assert raw[:4]==b"XZAW", row
+              header=struct.unpack_from("<I",raw,16)[0]
+              offset=struct.unpack_from("<I",raw,20)[0]
+              payload_bytes=struct.unpack_from("<I",raw,24)[0]
+              assert header==96 and offset==96 and offset+payload_bytes==len(raw), row
+              fmt=raw[32:96].split(b"\0",1)[0].decode("ascii").lower()
+              assert fmt=="binka", (row,fmt)
+              export=row["objectPath"].rsplit(".",1)[-1]
+              safe="".join(c if (c.isalnum() or c in "_-") else "_" for c in export)
+              payload=out/(safe+".binka")
+              payload.write_bytes(raw[offset:])
+              rows.append({"source":row["packagePath"],"payload":payload.name,"wav":safe+".wav"})
+          (out/"decode-map.json").write_text(json.dumps(rows,indent=2)+"\n")
+          print("XZOGOT_NUKETOWN_COMPLETE_XAW_PAYLOAD_GREEN",len(rows))
+          PY
+
+          python3 - "$RUNNER_TEMP/nuketown-full-audio/payloads/decode-map.json" <<'PY' > "$RUNNER_TEMP/nuketown-full-audio/decode-list.txt"
+          import json,sys
+          for row in json.load(open(sys.argv[1])):
+              print(row["payload"]+"|"+row["wav"])
+          PY
+          while IFS='|' read -r payload wav; do
+            "$VGM" -i -o "xogot/assets/benchmarks/nuketown_xziel/audio/$wav" \
+              "$RUNNER_TEMP/nuketown-full-audio/payloads/$payload"
+            test -s "xogot/assets/benchmarks/nuketown_xziel/audio/$wav"
+          done < "$RUNNER_TEMP/nuketown-full-audio/decode-list.txt"
 
           WAV_COUNT=$(find xogot/assets/benchmarks/nuketown_xziel/audio -maxdepth 1 -type f -name '*.wav' | wc -l)
-          test "$WAV_COUNT" -eq 20
+          test "$WAV_COUNT" -eq 26
           test -s xogot/assets/benchmarks/nuketown_xziel/audio/music_box_00.wav
           test -s xogot/assets/benchmarks/nuketown_xziel/audio/ntzombiesamb.wav
           test -s xogot/assets/benchmarks/nuketown_xziel/audio/marlton_1.wav
-          echo "XZOGOT_NUKETOWN_SOURCE_AUDIO_MOUNT_GREEN run=$AUDIO_RUN wavs=$WAV_COUNT"
+          test -s xogot/assets/benchmarks/nuketown_xziel/audio/map_creator.wav
+          test -s xogot/assets/benchmarks/nuketown_xziel/audio/admin.wav
+          echo "XZOGOT_NUKETOWN_COMPLETE_SOURCE_AUDIO_MOUNT_GREEN run=$SOURCE_RUN wavs=$WAV_COUNT"
 
       - name: Mount real Mystery Box source rig and animations
         shell: bash
