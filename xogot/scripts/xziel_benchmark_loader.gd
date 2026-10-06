@@ -594,6 +594,14 @@ func _load_xzmesh(runtime_file: String, scene_mesh_index: int) -> ArrayMesh:
 	_mesh_cache[runtime_file] = mesh
 	return mesh
 
+func _optional_source_path(value: Variant) -> String:
+	if value == null:
+		return ""
+	var path := str(value)
+	if path == "<null>" or path == "Null" or path == "null":
+		return ""
+	return path
+
 func _material_for_path(material_path: String) -> Material:
 	if material_path.is_empty():
 		return null
@@ -607,9 +615,9 @@ func _material_for_path(material_path: String) -> Material:
 	material.resource_name = material_path.get_file()
 
 	var canonical: Dictionary = record.get("canonicalTextures", {})
-	var diffuse_source := str(canonical.get("diffuse", ""))
-	var normal_source := str(canonical.get("normal", ""))
-	var emissive_source := str(canonical.get("emissive", ""))
+	var diffuse_source := _optional_source_path(canonical.get("diffuse", null))
+	var normal_source := _optional_source_path(canonical.get("normal", null))
+	var emissive_source := _optional_source_path(canonical.get("emissive", null))
 
 	# Some cooked source materials expose their real texture binding under the
 	# original parameter name instead of PM_Diffuse/PM_Normals. Do not guess by
@@ -650,7 +658,7 @@ func _material_for_path(material_path: String) -> Material:
 		if _source_effective_material_paths.has(material_path):
 			_source_effective_material_textured_count += 1
 		material.albedo_texture = diffuse
-		if str(canonical.get("diffuse", "")).is_empty():
+		if _optional_source_path(canonical.get("diffuse", null)).is_empty():
 			material.set_meta("source_noncanonical_diffuse_path", diffuse_source)
 	else:
 		_source_material_flat_fallback_count += 1
@@ -722,7 +730,7 @@ func _material_for_path(material_path: String) -> Material:
 
 	material.set_meta("source_material_path", material_path)
 	material.set_meta("source_blend_mode", blend_mode)
-	material.set_meta("source_specular_mask_path", str(canonical.get("specular_masks", "")))
+	material.set_meta("source_specular_mask_path", _optional_source_path(canonical.get("specular_masks", null)))
 	_material_cache[material_path] = material
 	return material
 
