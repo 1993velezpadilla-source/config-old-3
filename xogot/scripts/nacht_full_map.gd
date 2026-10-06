@@ -25,6 +25,7 @@ const PARTICLE_GRAPHS_FILE := "nacht-particle-graphs.json"
 const ENVIRONMENT_SCENE_FILE := "nacht-environment-scene.json"
 const AUDIO_SCENE_FILE := "nacht-audio-scene.json"
 const AUDIO_CUES_FILE := "nacht-audio-cues.json"
+const AUDIO_RUNTIME_REPORT_FILE := "audio-runtime-report.json"
 
 var _runtime_root: Node3D
 var _benchmark_loader: Node3D
@@ -38,6 +39,9 @@ var _particle_graphs: Dictionary = {}
 var _environment_scene: Dictionary = {}
 var _audio_scene: Dictionary = {}
 var _audio_cues: Dictionary = {}
+var _audio_runtime_report: Dictionary = {}
+var _audio_wave_file_by_path: Dictionary = {}
+var _audio_cue_by_path: Dictionary = {}
 var _mesh_cache: Dictionary = {}
 
 var _created_instances := 0
@@ -75,6 +79,8 @@ func _boot() -> void:
 	_environment_scene = _read_json(_source_path(ENVIRONMENT_SCENE_FILE))
 	_audio_scene = _read_json(_source_path(AUDIO_SCENE_FILE))
 	_audio_cues = _read_json(_source_path(AUDIO_CUES_FILE))
+	_audio_runtime_report = _read_json(_source_path(AUDIO_RUNTIME_REPORT_FILE))
+	_index_audio_authority()
 
 	if not _validate_authority():
 		return
@@ -120,6 +126,8 @@ func _boot() -> void:
 	set_meta("runtime_audio_authority_count", (_audio_scene.get("audioComponents", []) as Array).size())
 	set_meta("source_sound_cue_count", int(_audio_cues.get("cueCount", -1)))
 	set_meta("runtime_sound_cue_authority_count", (_audio_cues.get("cues", []) as Array).size())
+	set_meta("runtime_audio_wave_catalog_count", _audio_wave_file_by_path.size())
+	set_meta("runtime_sound_cue_index_count", _audio_cue_by_path.size())
 	# These flags intentionally distinguish parsed source authority from visual /
 	# audible runtime reproduction. They must only flip when those systems are
 	# actually mounted, never merely because the JSON exists.
@@ -211,6 +219,51 @@ func _validate_authority() -> bool:
 		push_error("NACHT_FULL_MAP: source SoundCue graph count mismatch")
 		return false
 	return true
+
+func _canonical_ue_object_path(raw_path: String) -> String:
+	var path := raw_path.strip_edges()
+	var quote_index := path.find("'")
+	if quote_index >= 0 and path.ends_with("'"):
+		path = path.substr(quote_index + 1, path.length() - quote_index - 2)
+	if path.begins_with("Content/"):
+		path = "/Game/" + path.substr("Content/".length())
+	elif path.begins_with("Game/"):
+		path = "/" + path
+	return path
+
+func _index_audio_authority() -> void:
+	_audio_wave_file_by_path.clear()
+	_audio_cue_by_path.clear()
+
+	for raw: Variant in _audio_runtime_report.get("audio", []):
+		if not (raw is Dictionary):
+			continue
+		var row := raw as Dictionary
+		var object_path := _canonical_ue_object_path(str(row.get("objectPath", "")))
+		var runtime_file := str(row.get("runtimeFile", ""))
+		if object_path.is_empty() or runtime_file.is_empty():
+			continue
+		_audio_wave_file_by_path[object_path] = runtime_file
+
+	for raw: Variant in _audio_cues.get("cues", []):
+		if not (raw is Dictionary):
+			continue
+		var cue := raw as Dictionary
+		var object_path := _canonical_ue_object_path(str(cue.get("objectPath", "")))
+		if object_path.is_empty():
+			continue
+		_audio_cue_by_path[object_path] = cue
+
+func _runtime_audio_file_for_wave(wave_path: String) -> String:
+	var canonical := _canonical_ue_object_path(wave_path)
+	var runtime_file := str(_audio_wave_file_by_path.get(canonical, ""))
+	if runtime_file.is_empty():
+		return ""
+	return _source_path("audio").path_join(runtime_file)
+
+func _source_cue_for_path(cue_path: String) -> Dictionary:
+	var canonical := _canonical_ue_object_path(cue_path)
+	return _audio_cue_by_path.get(canonical, {}) as Dictionary
 
 func _build_shared_source_world() -> bool:
 	_benchmark_loader = XzielBenchmarkLoaderScript.new() as Node3D
