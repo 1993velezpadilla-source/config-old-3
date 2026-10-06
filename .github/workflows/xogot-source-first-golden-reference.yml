@@ -8,6 +8,7 @@ on:
     paths:
       - ".github/workflows/xogot-source-first-golden-reference.yml"
       - "xogot/data/source_first_golden_reference.json"
+      - "tools/weapons/build_waw_source_presentation.py"
 
 permissions:
   contents: read
@@ -136,6 +137,26 @@ jobs:
           if ($dogMeshes.Count -lt 1) { throw 'zombie_wolf mesh did not export' }
           Write-Host 'XZOGOT_SOURCE_FIRST_MESH_DATA_GREEN'
 
+      - name: Generate all-weapon source presentation manifest
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dt=Get-ChildItem source-first-export -Recurse -File -Filter 'DT_Weapons.json' | Select-Object -First 1
+          if (-not $dt) { throw 'DT_Weapons.json missing before manifest generation' }
+          New-Item -ItemType Directory -Force -Path source-first-generated | Out-Null
+          python tools/weapons/build_waw_source_presentation.py $dt.FullName source-first-generated/weapon_viewmodel_source_presentation.json
+          @'
+          import json
+          from pathlib import Path
+          p=Path("source-first-generated/weapon_viewmodel_source_presentation.json")
+          d=json.loads(p.read_text())
+          assert d["weapon_count"] == 28, d["weapon_count"]
+          assert len(d["weapons"]) == 28
+          assert all(v["status"] == "source_datatable" for v in d["weapons"].values())
+          assert all("hand_transform_godot" in v and "ads_transform_godot" in v for v in d["weapons"].values())
+          print("XZOGOT_SOURCE_FIRST_28_PRESENTATION_GREEN", len(d["weapons"]))
+          '@ | python -
+
       - name: Export source animation trees as ActorX
         shell: pwsh
         run: |
@@ -207,6 +228,7 @@ jobs:
           name: xogot-source-first-golden-reference
           path: |
             source-first-inventory.json
+            source-first-generated/**
             source-first-patterns.txt
             source-first-actorx-patterns.txt
             source-first-provider-paths.txt
