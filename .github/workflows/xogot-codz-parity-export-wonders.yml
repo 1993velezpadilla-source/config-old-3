@@ -21,25 +21,48 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 150
     env:
-      SOURCE_RUN_ID: "37470563200"
-      SOURCE_ARTIFACT: "xogot-codz-parity-wonder-weapon-census"
+      CODZ_PARITY_DRIVE_ID: "1BiThIcM5dEjeAcm9xlFQZF8bzk9MyfK1"
     steps:
       - uses: actions/checkout@v5
 
-      - name: Download extracted CoDz candidates
+      - name: Download only the public CoDz source zip
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          mkdir -p source-artifact
-          gh run download "$SOURCE_RUN_ID" -n "$SOURCE_ARTIFACT" -D source-artifact
-          PROVIDER="$GITHUB_WORKSPACE/source-artifact/build/codz-parity-census/candidates/CoDz Parity modkit/Content"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full
+          python3 -m pip install --disable-pip-version-check --quiet gdown
+          mkdir -p "$RUNNER_TEMP/codz-direct"
+          python3 -m gdown "https://drive.google.com/uc?id=$CODZ_PARITY_DRIVE_ID" \
+            -O "$RUNNER_TEMP/codz-direct/CoDz-Parity-modkit.zip"
+          test -s "$RUNNER_TEMP/codz-direct/CoDz-Parity-modkit.zip"
+          echo "XZOGOT_CODZ_DIRECT_DOWNLOAD_GREEN"
+
+      - name: Extract only Ray Mk2 Thunder source neighborhoods
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf source-target
+          mkdir -p source-target
+          ZIP="$RUNNER_TEMP/codz-direct/CoDz-Parity-modkit.zip"
+          ROOT='CoDz Parity modkit/Content/CustomMaps/UGC2554408402'
+          for PATTERN in \
+            "$ROOT/Meshes/RayGun/*" \
+            "$ROOT/Materials/RayGun/*" \
+            "$ROOT/Animations/Raygun/*" \
+            "$ROOT/BPs/CustomItems/Guns/RayGun/*" \
+            "$ROOT/Sounds/Weapons/RayGun/*" \
+            "$ROOT/BPs/CustomItems/Guns/gavs_Wonderweaps/RaygunMk2/*" \
+            "$ROOT/BPs/CustomItems/Guns/gavs_Wonderweaps/Thundergun/*"; do
+            7z x -y "$ZIP" "$PATTERN" -osource-target >/dev/null || true
+          done
+          PROVIDER="$GITHUB_WORKSPACE/source-target/CoDz Parity modkit/Content"
           test -d "$PROVIDER"
           echo "CODZ_PROVIDER=$PROVIDER" >> "$GITHUB_ENV"
           test -s "$PROVIDER/CustomMaps/UGC2554408402/Meshes/RayGun/raygun_body.uasset"
           test -s "$PROVIDER/CustomMaps/UGC2554408402/BPs/CustomItems/Guns/gavs_Wonderweaps/RaygunMk2/model/blackop3/mk2BO3.uasset"
           test -s "$PROVIDER/CustomMaps/UGC2554408402/BPs/CustomItems/Guns/gavs_Wonderweaps/Thundergun/Model/thunderBody.uasset"
+          find "$PROVIDER" -type f | wc -l
           echo "XZOGOT_CODZ_WONDER_SOURCE_GREEN"
 
       - name: Install .NET 10
