@@ -1,0 +1,78 @@
+name: Xogot Audit Nacht Viewhands
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-audit-nacht-viewhands.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CENSUS_RUN: "37394741892"
+      CENSUS_ARTIFACT: "xogot-chronicles-nacht-gameplay-census"
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download validated Nacht gameplay census
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p census
+          gh run download "$CENSUS_RUN" -n "$CENSUS_ARTIFACT" -D census
+          test -s census/nacht-viewhands.txt
+          test -s census/nacht-animations.txt
+          echo "XZOGOT_NACHT_VIEWHANDS_CENSUS_GREEN"
+
+      - name: Cross reference viewhands with interaction animation paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re
+          hands=[x.strip() for x in Path("census/nacht-viewhands.txt").read_text(errors="ignore").splitlines() if x.strip()]
+          anims=[x.strip() for x in Path("census/nacht-animations.txt").read_text(errors="ignore").splitlines() if x.strip()]
+          relevant=[
+              x for x in anims
+              if re.search(
+                  r"(knife|melee|drink|bottle|perk|use|interact|press|grab|"
+                  r"switch|power|revive|repair|board|gumball|gum|teleport|pack)",
+                  x,re.I
+              )
+          ]
+          report={
+              "schema":1,
+              "source_run":37394741892,
+              "viewhands":hands,
+              "interaction_animation_candidates":relevant,
+          }
+          Path("nacht-viewhands-interaction-audit.json").write_text(json.dumps(report,indent=2)+"\n")
+          print("XZOGOT_NACHT_VIEWHANDS_COUNT",len(hands))
+          for x in hands:
+              print("XZOGOT_NACHT_VIEWHAND_PATH",x)
+          print("XZOGOT_NACHT_INTERACTION_ANIM_COUNT",len(relevant))
+          for x in relevant[:250]:
+              print("XZOGOT_NACHT_INTERACTION_ANIM_PATH",x)
+          if len(hands) < 1:
+              raise SystemExit("Nacht viewhands census unexpectedly empty")
+          print("XZOGOT_NACHT_VIEWHANDS_AUDIT_GREEN")
+          PY
+
+      - name: Upload compact audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: xogot-nacht-viewhands-interaction-audit
+          path: nacht-viewhands-interaction-audit.json
+          if-no-files-found: error
+          retention-days: 14
