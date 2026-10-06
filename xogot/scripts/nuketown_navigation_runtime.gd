@@ -9,7 +9,7 @@ signal navigation_failed(reason: String)
 
 var _region: NavigationRegion3D
 var _navigation_mesh: NavigationMesh
-var _ready: bool = false
+var _navigation_ready_state: bool = false
 var _spawn_anchor_count: int = 0
 var _bake_started: bool = false
 
@@ -92,7 +92,7 @@ func _on_bake_finished() -> void:
 		_fail("INSUFFICIENT_NAV_SPAWN_ANCHORS_" + str(_spawn_anchor_count))
 		return
 
-	_ready = true
+	_navigation_ready_state = true
 	set_meta("navigation_ready", true)
 	set_meta("navigation_polygon_count", polygons)
 	set_meta("navigation_vertex_count", vertices.size())
@@ -106,7 +106,7 @@ func _on_bake_finished() -> void:
 	navigation_ready.emit(polygons, _spawn_anchor_count)
 
 func _fail(reason: String) -> void:
-	_ready = false
+	_navigation_ready_state = false
 	set_meta("navigation_ready", false)
 	set_meta("navigation_failure", reason)
 	push_error("XZOGOT_NUKETOWN_NAV_FAILURE " + reason)
@@ -196,7 +196,7 @@ func _build_perimeter_spawn_anchors(vertices: PackedVector3Array) -> int:
 	return chosen.size()
 
 func is_navigation_ready() -> bool:
-	return _ready
+	return _navigation_ready_state
 
 func get_polygon_count() -> int:
 	return _navigation_mesh.get_polygon_count() if _navigation_mesh != null else 0
