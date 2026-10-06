@@ -64,6 +64,21 @@ func _run() -> void:
 	var effective_unresolved_fallbacks := int(
 		scene.get_meta("source_effective_unresolved_fallback_count", -1)
 	)
+	var effective_engine_defaults := int(
+		scene.get_meta("source_effective_engine_default_count", -1)
+	)
+	var particle_decoder_ready := bool(
+		scene.get_meta("source_particle_decoder_ready", false)
+	)
+	var particle_decoded_systems := int(
+		scene.get_meta("source_particle_decoded_system_count", -1)
+	)
+	var particle_decoded_nodes := int(
+		scene.get_meta("source_particle_decoded_node_count", -1)
+	)
+	var particle_decoded_references := int(
+		scene.get_meta("source_particle_decoded_reference_count", -1)
+	)
 	var source_particles := int(scene.get_meta("source_particle_component_count", -1))
 	var particle_authority := int(scene.get_meta("runtime_particle_authority_count", -1))
 	var source_particle_systems := int(scene.get_meta("source_particle_system_count", -1))
@@ -155,6 +170,34 @@ func _run() -> void:
 		_fail(20, "SoundCue authority coverage mismatch %d/%d expected=102" % [cue_authority, source_cues])
 		return
 	if staged_runtime:
+		if not particle_decoder_ready:
+			_fail(32, "Cascade source-value decoder did not become runtime-ready")
+			return
+		if (
+			particle_decoded_systems != 39
+			or particle_decoded_nodes != 1327
+			or particle_decoded_references != 643
+		):
+			_fail(
+				32,
+				"Cascade decoder coverage mismatch systems=%d nodes=%d refs=%d"
+				% [
+					particle_decoded_systems,
+					particle_decoded_nodes,
+					particle_decoded_references,
+				]
+			)
+			return
+		if effective_unresolved_fallbacks != 0:
+			_fail(
+				33,
+				"effective material unresolved fallbacks remain %d"
+				% effective_unresolved_fallbacks
+			)
+			return
+		if effective_engine_defaults <= 0:
+			_fail(33, "UE4.21 engine-default material semantics were not applied")
+			return
 		if not source_audio_stream_mount or source_audio_players != 3 or source_audio_streams != 3:
 			_fail(
 				22,
@@ -339,7 +382,12 @@ func _run() -> void:
 		" effective_flat_fallbacks=", effective_flat_fallbacks,
 		" effective_source_color=", effective_source_color,
 		" effective_default_surface=", effective_default_surface,
+		" effective_engine_defaults=", effective_engine_defaults,
 		" effective_unresolved_fallbacks=", effective_unresolved_fallbacks,
+		" cascade_decoder=", particle_decoder_ready,
+		" cascade_systems=", particle_decoded_systems,
+		" cascade_nodes=", particle_decoded_nodes,
+		" cascade_refs=", particle_decoded_references,
 		" particles_authority=", particle_authority,
 		" particle_graphs_authority=", particle_graph_authority,
 		" environment_authority=", environment_authority,
