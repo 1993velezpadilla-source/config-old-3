@@ -95,6 +95,7 @@ var _source_particle_mystery_fog_descriptor: Dictionary = {}
 var _source_particle_mystery_inside_descriptor: Dictionary = {}
 var _source_particle_fire_smoke_descriptor: Dictionary = {}
 var _source_particle_pap_wheel_out_descriptor: Dictionary = {}
+var _source_particle_electric_beam_descriptor: Dictionary = {}
 var _source_environment_fog_runtime_ready := false
 var _source_environment_reflection_runtime_ready := false
 var _source_spawn_candidates: Array[Node3D] = []
@@ -216,7 +217,7 @@ func _boot() -> void:
 	# audible runtime reproduction. They must only flip when those systems are
 	# actually mounted, never merely because the JSON exists.
 	set_meta("particle_visual_runtime_ready", false)
-	set_meta("source_particle_semantic_runtime_ready", _source_particle_semantic_runtime_count == 9 and _source_particle_semantic_placement_count == 18)
+	set_meta("source_particle_semantic_runtime_ready", _source_particle_semantic_runtime_count == 10 and _source_particle_semantic_placement_count == 19)
 	set_meta("source_particle_semantic_runtime_count", _source_particle_semantic_runtime_count)
 	set_meta("source_particle_semantic_placement_count", _source_particle_semantic_placement_count)
 	set_meta("source_audio_runtime_ready", _source_audio_semantics_ready())
@@ -1312,6 +1313,21 @@ func _build_source_particle_semantic_runtime() -> bool:
 		return false
 	_source_particle_semantic_runtime_count += 1
 
+	_source_particle_electric_beam_descriptor = NachtCascadeRuntime.electric_beam_descriptor(_particle_graphs)
+	if not bool(_source_particle_electric_beam_descriptor.get("ready", false)):
+		push_error(
+			"NACHT_FULL_MAP: electric beam Cascade semantics unresolved "
+			+ str(_source_particle_electric_beam_descriptor.get("error", "unknown"))
+		)
+		return false
+	if not _mount_source_particle_semantic_anchors(
+		_source_particle_electric_beam_descriptor,
+		1,
+		"electric beam"
+	):
+		return false
+	_source_particle_semantic_runtime_count += 1
+
 	set_meta(
 		"source_particle_mystery_spawn_rate",
 		float(_source_particle_mystery_descriptor.get("spawnRateMin", -1.0))
@@ -1792,6 +1808,74 @@ func _build_source_particle_semantic_runtime() -> bool:
 		"source_particle_pap_wheel_out_peak_active",
 		int(_source_particle_pap_wheel_out_descriptor.get("peakActiveParticles", -1))
 	)
+	set_meta(
+		"source_particle_electric_beam_lifetime_seconds",
+		float(_source_particle_electric_beam_descriptor.get("lifetimeSeconds", -1.0))
+	)
+	set_meta(
+		"source_particle_electric_beam_start_size_ue_cm",
+		_source_particle_electric_beam_descriptor.get("startSizeUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_electric_beam_spawn_rate",
+		float(_source_particle_electric_beam_descriptor.get("spawnRate", -1.0))
+	)
+	set_meta(
+		"source_particle_electric_beam_noise_frequency",
+		int(_source_particle_electric_beam_descriptor.get("noiseFrequency", -1))
+	)
+	set_meta(
+		"source_particle_electric_beam_noise_lock_time",
+		float(_source_particle_electric_beam_descriptor.get("noiseLockTime", -1.0))
+	)
+	set_meta(
+		"source_particle_electric_beam_noise_range_max_ue_cm",
+		_source_particle_electric_beam_descriptor.get("noiseRangeMaxUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_electric_beam_noise_speed_ue_cm",
+		_source_particle_electric_beam_descriptor.get("noiseSpeedUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_electric_beam_noise_tangent_strength",
+		float(_source_particle_electric_beam_descriptor.get("noiseTangentStrength", -1.0))
+	)
+	set_meta(
+		"source_particle_electric_beam_source_strength",
+		float(_source_particle_electric_beam_descriptor.get("sourceStrength", -1.0))
+	)
+	set_meta(
+		"source_particle_electric_beam_source_tangent",
+		_source_particle_electric_beam_descriptor.get("sourceTangent", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_electric_beam_target_ue_cm",
+		_source_particle_electric_beam_descriptor.get("targetUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_electric_beam_target_strength",
+		float(_source_particle_electric_beam_descriptor.get("targetStrength", -1.0))
+	)
+	set_meta(
+		"source_particle_electric_beam_target_tangent",
+		_source_particle_electric_beam_descriptor.get("targetTangent", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_electric_beam_distance",
+		float(_source_particle_electric_beam_descriptor.get("beamDistance", -1.0))
+	)
+	set_meta(
+		"source_particle_electric_beam_interpolation_points",
+		int(_source_particle_electric_beam_descriptor.get("interpolationPoints", -1))
+	)
+	set_meta(
+		"source_particle_electric_beam_max_beam_count",
+		int(_source_particle_electric_beam_descriptor.get("maxBeamCount", -1))
+	)
+	set_meta(
+		"source_particle_electric_beam_peak_active",
+		int(_source_particle_electric_beam_descriptor.get("peakActiveParticles", -1))
+	)
 
 	print(
 		"XZOGOT_NACHT_CASCADE_SEMANTIC_RUNTIME_GREEN systems=",
@@ -1841,7 +1925,11 @@ func _build_source_particle_semantic_runtime() -> bool:
 		" pap_wheel_out_rate=",
 		_source_particle_pap_wheel_out_descriptor.get("spawnRate"),
 		" pap_wheel_out_peak=",
-		_source_particle_pap_wheel_out_descriptor.get("peakActiveParticles")
+		_source_particle_pap_wheel_out_descriptor.get("peakActiveParticles"),
+		" electric_beam_rate=",
+		_source_particle_electric_beam_descriptor.get("spawnRate"),
+		" electric_beam_target=",
+		_source_particle_electric_beam_descriptor.get("targetUEcm")
 	)
 	return true
 
