@@ -7,7 +7,13 @@ enum Kind {
 	PERK,
 	POWER,
 	UPGRADE,
-	BELL
+	BELL,
+	WUNDERFIZZ,
+	GUMBALL,
+	TRAP,
+	TELEPORTER,
+	PICKUP,
+	REVIVE
 }
 
 @export var interaction_kind: Kind = Kind.DOOR
@@ -18,12 +24,18 @@ enum Kind {
 @export var weapon_id: String = ""
 @export var perk_id: String = ""
 @export var requires_power: bool = false
+@export var interaction_id: String = ""
+@export var teleporter_target_path: NodePath
+@export var trap_duration: float = 8.0
+@export var trap_damage_per_second: float = 225.0
 
 var _used: bool = false
 var _interaction_count: int = 0
 var _last_result: String = ""
 
 var _last_power_visual_state: bool = false
+var _trap_remaining: float = 0.0
+var _trap_activator: Node = null
 
 const SFX_DOOR := "res://assets/audio/church/world/door_open.ogg"
 const SFX_POWER := "res://assets/audio/church/world/power_switch.ogg"
@@ -70,7 +82,7 @@ func _ready() -> void:
 	_update_power_visual()
 	if interaction_kind == Kind.PERK or interaction_kind == Kind.UPGRADE:
 		_play_machine_animation("idle", 0.0)
-	set_process(requires_power)
+	set_process(requires_power or interaction_kind == Kind.TRAP)
 
 func _find_machine_animation_player(node: Node) -> AnimationPlayer:
 	if node is AnimationPlayer:
@@ -152,12 +164,19 @@ func _build_machine_loop_audio() -> void:
 	add_child(_machine_loop_audio)
 	_machine_loop_audio.play()
 
-func _process(_delta: float) -> void:
-	if not requires_power:
-		return
-	var power_now: bool = bool(get_tree().get_meta("power_on", false))
-	if power_now != _last_power_visual_state:
-		_update_power_visual()
+func _process(delta: float) -> void:
+	if requires_power:
+		var power_now: bool = bool(get_tree().get_meta("power_on", false))
+		if power_now != _last_power_visual_state:
+			_update_power_visual()
+
+	if interaction_kind == Kind.TRAP and _trap_remaining > 0.0:
+		_trap_remaining = maxf(0.0, _trap_remaining - delta)
+		_tick_active_trap(delta)
+		if _trap_remaining <= 0.0:
+			set_meta("trap_active", false)
+			_last_result = "TRAP_EXPIRED"
+			print("XZOGOT_TRAP_EXPIRED ", name)
 
 func _update_power_visual() -> void:
 	var powered: bool = not requires_power or bool(get_tree().get_meta("power_on", false))
@@ -240,6 +259,62 @@ func _pulse_perk_machine() -> void:
 	var tween := create_tween()
 	tween.tween_property(glow, "light_energy", maxf(base * 3.0, 0.75), 0.12)
 	tween.tween_property(glow, "light_energy", base, 0.48)
+
+func _play_player_hand_role(player: Node, role: String) -> void:
+	var weapon: Node = _find_player_weapon(player)
+	if weapon != null and weapon.has_method("play_interaction_animation"):
+		weapon.call("play_interaction_animation", role)
+
+func _activate_trap(player: Node) -> bool:
+	if _trap_remaining > 0.0:
+		_last_result = "TRAP_ALREADY_ACTIVE"
+		return false
+	_trap_remaining = maxf(0.1, trap_duration)
+	_trap_activator = player
+	set_meta("trap_active", true)
+	set_meta("trap_remaining", _trap_remaining)
+	_last_result = "TRAP_ACTIVE"
+	_interaction_count += 1
+	_play_player_hand_role(player, "trap_activate")
+	_play_machine_animation("power_on", 0.05)
+	_play_world_sfx(SFX_POWER, -2.0)
+	print("XZOGOT_TRAP_ACTIVE ", name, " duration=", _trap_remaining)
+	return true
+
+func _tick_active_trap(delta: float) -> void:
+	set_meta("trap_remaining", _trap_remaining)
+	var area := find_child("TrapArea", true, false) as Area3D
+	if area == null:
+		return
+	for body: Node3D in area.get_overlapping_bodies():
+		if body.is_in_group("zombie") and body.has_method("apply_damage"):
+			body.call("apply_damage", trap_damage_per_second * delta, _trap_activator)
+
+func _use_teleporter(player: Node) -> bool:
+	if player == null or not (player is Node3D):
+		return false
+	if teleporter_target_path.is_empty():
+		_last_result = "TELEPORT_TARGET_MISSING"
+		return false
+	var target := get_node_or_null(teleporter_target_path) as Node3D
+	if target == null:
+		_last_result = "TELEPORT_TARGET_MISSING"
+		return false
+	_play_player_hand_role(player, "teleporter_use")
+	(player as Node3D).global_position = target.global_position
+	_interaction_count += 1
+	_last_result = "TELEPORTED"
+	print("XZOGOT_TELEPORT_USED ", name, " -> ", target.name)
+	return true
+
+func _use_generic_source_interaction(player: Node, role: String, result: String) -> bool:
+	_play_player_hand_role(player, role)
+	_interaction_count += 1
+	_last_result = result if not result.is_empty() else role.to_upper()
+	_play_machine_animation("purchase", 0.05)
+	_play_world_sfx(SFX_MACHINE, -6.0)
+	print("XZOGOT_SOURCE_INTERACTION ", name, " role=", role, " result=", _last_result)
+	return true
 
 func interact(player: Node) -> bool:
 	if _used and one_shot:
@@ -330,6 +405,24 @@ func interact(player: Node) -> bool:
 				return false
 			_last_result = "BELL_RUNG"
 			print("XZOGOT_BELL_ROPE_USED ", _interaction_count)
+		Kind.WUNDERFIZZ:
+			if not _use_generic_source_interaction(player, "perk_use", interaction_id if not interaction_id.is_empty() else "WUNDERFIZZ"):
+				return false
+		Kind.GUMBALL:
+			if not _use_generic_source_interaction(player, "gumball_use", interaction_id if not interaction_id.is_empty() else "GUMBALL"):
+				return false
+		Kind.TRAP:
+			if not _activate_trap(player):
+				return false
+		Kind.TELEPORTER:
+			if not _use_teleporter(player):
+				return false
+		Kind.PICKUP:
+			if not _use_generic_source_interaction(player, "pickup", interaction_id if not interaction_id.is_empty() else "PICKUP"):
+				return false
+		Kind.REVIVE:
+			if not _use_generic_source_interaction(player, "revive", interaction_id if not interaction_id.is_empty() else "REVIVE"):
+				return false
 
 	if one_shot:
 		_used = true
@@ -429,6 +522,13 @@ func apply_network_world_state(
 				for audio_node: Node in get_tree().get_nodes_in_group("church_audio_runtime"):
 					if audio_node.has_method("ring_bell"):
 						audio_node.call("ring_bell")
+		Kind.TRAP:
+			if last_result == "TRAP_ACTIVE":
+				_trap_remaining = maxf(_trap_remaining, trap_duration)
+				set_meta("trap_active", true)
+		Kind.WUNDERFIZZ, Kind.GUMBALL, Kind.PICKUP, Kind.REVIVE, Kind.TELEPORTER:
+			if not last_result.is_empty():
+				_play_machine_animation("purchase", 0.04)
 		_:
 			pass
 
