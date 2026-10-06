@@ -127,6 +127,26 @@ func _run() -> void:
 	var particle_fire_subuv_max := float(
 		scene.get_meta("source_particle_fire_subuv_max_index", -1.0)
 	)
+	var particle_bonefire_size_min := scene.get_meta(
+		"source_particle_bonefire_start_size_min_ue_cm",
+		Vector3.INF
+	) as Vector3
+	var particle_bonefire_size_max := scene.get_meta(
+		"source_particle_bonefire_start_size_max_ue_cm",
+		Vector3.INF
+	) as Vector3
+	var particle_bonefire_lifetime_min := float(
+		scene.get_meta("source_particle_bonefire_lifetime_min", -1.0)
+	)
+	var particle_bonefire_lifetime_max := float(
+		scene.get_meta("source_particle_bonefire_lifetime_max", -1.0)
+	)
+	var particle_bonefire_radius := float(
+		scene.get_meta("source_particle_bonefire_cylinder_radius_ue_cm", -1.0)
+	)
+	var particle_bonefire_subuv_max := float(
+		scene.get_meta("source_particle_bonefire_subuv_max_index", -1.0)
+	)
 	var source_particles := int(scene.get_meta("source_particle_component_count", -1))
 	var particle_authority := int(scene.get_meta("runtime_particle_authority_count", -1))
 	var source_particle_systems := int(scene.get_meta("source_particle_system_count", -1))
@@ -239,14 +259,14 @@ func _run() -> void:
 		if not particle_semantic_ready:
 			_fail(34, "source-complete Cascade semantic runtime is not ready")
 			return
-		if particle_semantic_systems != 2 or particle_semantic_placements != 5:
+		if particle_semantic_systems != 3 or particle_semantic_placements != 6:
 			_fail(
 				34,
 				"Cascade semantic runtime coverage mismatch systems=%d placements=%d"
 				% [particle_semantic_systems, particle_semantic_placements]
 			)
 			return
-		if get_nodes_in_group("nacht_source_particle_semantic").size() != 5:
+		if get_nodes_in_group("nacht_source_particle_semantic").size() != 6:
 			_fail(34, "Cascade semantic placement group mismatch")
 			return
 		if (
@@ -286,6 +306,28 @@ func _run() -> void:
 					particle_fire_lifetime_max,
 					particle_fire_radius,
 					particle_fire_subuv_max,
+				]
+			)
+			return
+
+		if (
+			not particle_bonefire_size_min.is_equal_approx(Vector3(14.0, 14.0, 0.0))
+			or not particle_bonefire_size_max.is_equal_approx(Vector3(10.0, 10.0, 0.0))
+			or not is_equal_approx(particle_bonefire_lifetime_min, 1.0)
+			or not is_equal_approx(particle_bonefire_lifetime_max, 1.75)
+			or not is_equal_approx(particle_bonefire_radius, 50.0)
+			or not is_equal_approx(particle_bonefire_subuv_max, 47.0)
+		):
+			_fail(
+				34,
+				"Cascade bone fire 2B values mismatch size=%s..%s lifetime=%s..%s radius=%s subuv=%s"
+				% [
+					particle_bonefire_size_min,
+					particle_bonefire_size_max,
+					particle_bonefire_lifetime_min,
+					particle_bonefire_lifetime_max,
+					particle_bonefire_radius,
+					particle_bonefire_subuv_max,
 				]
 			)
 			return
@@ -496,6 +538,8 @@ func _run() -> void:
 		" fire_pivot=", particle_fire_pivot,
 		" fire_speed_scale=", particle_fire_speed_scale,
 		" fire_max_scale=", particle_fire_max_scale,
+		" bonefire_size=", particle_bonefire_size_min,
+		"..", particle_bonefire_size_max,
 		" particles_authority=", particle_authority,
 		" particle_graphs_authority=", particle_graph_authority,
 		" environment_authority=", environment_authority,
