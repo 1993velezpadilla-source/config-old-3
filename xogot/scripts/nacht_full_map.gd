@@ -1,5 +1,7 @@
 extends Node3D
 
+const XzielBenchmarkLoaderScript = preload("res://scripts/xziel_benchmark_loader.gd")
+
 ## Nacht der Untoten Chronicles full-map source runtime.
 ##
 ## This scene is intentionally independent from the church and Nuketown.
@@ -20,6 +22,7 @@ const LIGHTS_FILE := "nacht-lights.json"
 const ENVIRONMENT_REPORT_FILE := "nacht-environment-report.json"
 
 var _runtime_root: Node3D
+var _benchmark_loader: Node3D
 var _scene: Dictionary = {}
 var _handoff: Dictionary = {}
 var _glb_report: Dictionary = {}
@@ -61,10 +64,14 @@ func _boot() -> void:
 	if not _validate_authority():
 		return
 
+	if not _build_shared_source_world():
+		return
+
+	# Actor anchors and light transforms use the same XZIEL coordinate basis as
+	# the shared static-world loader but remain separate so gameplay adapters can
+	# bind directly to source actor identities without touching render nodes.
 	_runtime_root = Node3D.new()
-	_runtime_root.name = "NachtSourceWorld"
-	# Source scene matrices are XZIEL X,-Y,Z meters (Z-up).
-	# Rotate the parent once to Godot Y-up exactly as the proven benchmark loader.
+	_runtime_root.name = "NachtSourceActorsAndLights"
 	_runtime_root.basis = Basis(
 		Vector3(0.0, 0.0, -1.0),
 		Vector3(-1.0, 0.0, 0.0),
@@ -72,8 +79,6 @@ func _boot() -> void:
 	)
 	add_child(_runtime_root)
 
-	if not _build_static_world():
-		return
 	_build_actor_anchors()
 	_build_source_lights()
 
@@ -130,6 +135,56 @@ func _validate_authority() -> bool:
 		return false
 	if _environment_report.is_empty() or int(_environment_report.get("lightCount", 0)) <= 0:
 		push_error("NACHT_FULL_MAP: source light report missing")
+		return false
+	return true
+
+func _build_shared_source_world() -> bool:
+	_benchmark_loader = XzielBenchmarkLoaderScript.new() as Node3D
+	if _benchmark_loader == null:
+		push_error("NACHT_FULL_MAP: generic source loader missing")
+		return false
+
+	_benchmark_loader.name = "NachtStaticWorld"
+	_benchmark_loader.set("source_root", source_root)
+	_benchmark_loader.set("load_on_ready", false)
+	_benchmark_loader.set("build_materials", true)
+	_benchmark_loader.set("build_lights", false)
+	_benchmark_loader.set("build_skeletal_actors", false)
+	_benchmark_loader.set("cast_geometry_shadows", true)
+	_benchmark_loader.set("build_world_collision", build_world_collision)
+	_benchmark_loader.set("max_instances", 0)
+	_benchmark_loader.set("vfs_map_root", "vfs/xziel/maps/xziel_nacht_chronicles")
+	_benchmark_loader.set("source_runtime_id", "nacht_chronicles")
+	_benchmark_loader.set("visual_scene_file", SCENE_FILE)
+	_benchmark_loader.set("material_bindings_file", "material-binding-manifest.json")
+	_benchmark_loader.set("texture_report_file", "xzml-report.json")
+	_benchmark_loader.set("effective_material_report_file", "xzmi-report.json")
+	_benchmark_loader.set("complete_texture_report_file", "complete-xztx-report.json")
+	add_child(_benchmark_loader)
+
+	_benchmark_loader.call("_load_benchmark_world")
+	var ready := bool(_benchmark_loader.get_meta("xziel_benchmark_ready", false))
+	_created_instances = int(_benchmark_loader.get_meta("xziel_benchmark_instance_count", 0))
+	_missing_meshes = int(_benchmark_loader.get_meta("xziel_benchmark_missing_meshes", 0))
+	_collision_count = int(_benchmark_loader.get_meta("xziel_benchmark_world_collision_count", 0))
+	set_meta(
+		"source_material_textured_count",
+		int(_benchmark_loader.get_meta("xziel_benchmark_material_textured_count", 0))
+	)
+	set_meta(
+		"source_material_flat_fallback_count",
+		int(_benchmark_loader.get_meta("xziel_benchmark_flat_fallback_count", 0))
+	)
+	set_meta(
+		"source_texture_load_failures",
+		int(_benchmark_loader.get_meta("xziel_benchmark_texture_load_failures", 0))
+	)
+	if not ready:
+		push_error(
+			"NACHT_FULL_MAP: generic source world incomplete instances="
+			+ str(_created_instances)
+			+ " missing=" + str(_missing_meshes)
+		)
 		return false
 	return true
 
