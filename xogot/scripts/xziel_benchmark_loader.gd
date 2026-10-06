@@ -85,7 +85,7 @@ func _load_benchmark_world() -> void:
 			continue
 		var mesh_row: Dictionary = meshes[mesh_index]
 		var runtime_file := str(mesh_row.get("runtimeFile", ""))
-		var mesh := _load_xzmesh(runtime_file, mesh_index)
+		var mesh := _load_benchmark_mesh(runtime_file, mesh_index)
 		if mesh == null:
 			missing_meshes += 1
 			continue
@@ -194,6 +194,48 @@ func _prepare_material_authority() -> void:
 			if by_slot.has(submesh):
 				submesh_paths[submesh] = by_slot[submesh]
 		_instance_overrides[str(row.get("instanceId", ""))] = submesh_paths
+
+func _find_first_mesh_instance(node: Node) -> MeshInstance3D:
+	if node is MeshInstance3D:
+		return node as MeshInstance3D
+	for child: Node in node.get_children():
+		var found := _find_first_mesh_instance(child)
+		if found != null:
+			return found
+	return null
+
+func _load_benchmark_mesh(runtime_file: String, scene_mesh_index: int) -> ArrayMesh:
+	var cache_key := runtime_file.get_basename()
+	if _mesh_cache.has(cache_key):
+		return _mesh_cache[cache_key] as ArrayMesh
+
+	var native_name := runtime_file.get_basename() + ".glb"
+	var native_path := _source_path(VFS_MAP_ROOT.path_join("meshes_glb").path_join(native_name))
+	if ResourceLoader.exists(native_path):
+		var packed := load(native_path) as PackedScene
+		if packed != null:
+			var instance := packed.instantiate()
+			if instance != null:
+				var mesh_node := _find_first_mesh_instance(instance)
+				if mesh_node != null and mesh_node.mesh is ArrayMesh:
+					var mesh := (mesh_node.mesh as ArrayMesh).duplicate() as ArrayMesh
+					var base_materials: Array = _mesh_material_paths.get(scene_mesh_index, [])
+					if build_materials:
+						for surface in range(mini(mesh.get_surface_count(), base_materials.size())):
+							var material := _material_for_path(str(base_materials[surface]))
+							if material != null:
+								mesh.surface_set_material(surface, material)
+					instance.free()
+					_mesh_cache[cache_key] = mesh
+					return mesh
+				instance.free()
+
+	# Truthful compatibility fallback for source artifacts staged before the
+	# native GLB conversion. Shipping/mobile benchmark paths should use GLB.
+	var fallback := _load_xzmesh(runtime_file, scene_mesh_index)
+	if fallback != null:
+		_mesh_cache[cache_key] = fallback
+	return fallback
 
 func _load_xzmesh(runtime_file: String, scene_mesh_index: int) -> ArrayMesh:
 	if _mesh_cache.has(runtime_file):
