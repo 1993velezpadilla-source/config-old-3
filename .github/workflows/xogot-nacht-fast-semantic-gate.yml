@@ -1,0 +1,125 @@
+name: Xogot Nacht Fast Semantic Gate
+
+on:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-nacht-fast-semantic-gate.yml"
+      - "xogot/scripts/nacht_full_map.gd"
+      - "xogot/scripts/nacht_particle_source.gd"
+      - "xogot/scripts/nacht_cascade_runtime.gd"
+      - "xogot/scripts/xziel_benchmark_loader.gd"
+      - "xogot/ci/nacht_full_map_probe.gd"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-nacht-fast-semantic-gate
+  cancel-in-progress: true
+
+jobs:
+  semantic-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_ARTIFACT: "Xogot-Nacht-Chronicles-Godot-Runtime"
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Resolve latest GREEN staged runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_RUN=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/actions/workflows/xogot-stage-nacht-full-map.yml/runs?branch=feature%2Fgodot-aaa-rebuild-v1&status=success&per_page=20" \
+            --jq '.workflow_runs[0].id // empty' || true)
+          if [ -z "$SOURCE_RUN" ]; then
+            for PAGE in 1 2 3 4 5 6 7 8 9 10; do
+              SOURCE_RUN=$(gh api \
+                -H "Accept: application/vnd.github+json" \
+                "/repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100&page=$PAGE" \
+                --jq '[.workflow_runs[] | select(.head_branch=="feature/godot-aaa-rebuild-v1" and .name=="Stage Nacht Chronicles Full Map" and .conclusion=="success")][0].id // empty')
+              if [ -n "$SOURCE_RUN" ]; then
+                break
+              fi
+            done
+          fi
+          test -n "$SOURCE_RUN"
+          echo "SOURCE_RUN=$SOURCE_RUN" >> "$GITHUB_ENV"
+          echo "XZOGOT_NACHT_FAST_SEMANTIC_SOURCE_GREEN run=$SOURCE_RUN"
+
+      - name: Download GREEN staged runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf fast-stage xogot/assets/benchmarks/nacht_chronicles
+          mkdir -p fast-stage xogot/assets/benchmarks/nacht_chronicles
+          gh run download "$SOURCE_RUN" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "$SOURCE_ARTIFACT" \
+            --dir fast-stage
+          manifest=$(find fast-stage -type f -name source_manifest.json -print -quit)
+          test -n "$manifest"
+          artifact_root=$(dirname "$manifest")
+          cp -a "$artifact_root/." xogot/assets/benchmarks/nacht_chronicles/
+          test -s xogot/assets/benchmarks/nacht_chronicles/source_manifest.json
+          test -s xogot/assets/benchmarks/nacht_chronicles/nacht-particle-graphs.json
+          test -s xogot/assets/benchmarks/nacht_chronicles/nacht-particle-runtime-authority.json
+          echo "XZOGOT_NACHT_FAST_SEMANTIC_STAGE_GREEN run=$SOURCE_RUN"
+
+      - name: Install Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq unzip curl libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+
+      - name: Import current runtime code against staged authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-fast-semantic
+          timeout 1200 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit \
+            2>&1 | tee build/nacht-fast-semantic/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|MAX_MESH_SURFACES" \
+            build/nacht-fast-semantic/import.log
+
+      - name: Probe current Nacht semantic runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 900 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot \
+            --script res://ci/nacht_full_map_probe.gd \
+            2>&1 | tee build/nacht-fast-semantic/probe.log
+          grep -q "XZOGOT_NACHT_CASCADE_SOURCE_DECODER_GREEN" build/nacht-fast-semantic/probe.log
+          grep -q "XZOGOT_NACHT_CASCADE_SEMANTIC_RUNTIME_GREEN" build/nacht-fast-semantic/probe.log
+          grep -q "XZOGOT_NACHT_FULL_MAP_PROBE_GREEN" build/nacht-fast-semantic/probe.log
+          echo "XZOGOT_NACHT_FAST_SEMANTIC_GATE_GREEN source_run=$SOURCE_RUN head=${GITHUB_SHA}"
+
+      - name: Upload semantic proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nacht-Fast-Semantic-Proof
+          path: |
+            build/nacht-fast-semantic/import.log
+            build/nacht-fast-semantic/probe.log
+          if-no-files-found: error
+          retention-days: 7
