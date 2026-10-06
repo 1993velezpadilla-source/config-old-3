@@ -113,8 +113,9 @@ jobs:
           d=json.loads(Path("nacht-particles.json").read_text())
           assert d["mapPackageCount"]==1,d
           assert d["packagesLoaded"]==1,d
-          assert d["particleComponentCount"]>0,d
-          assert d["referencedTemplateCount"]>0,d
+          assert d["particleComponentCount"]==29,d
+          assert d["referencedTemplateCount"]==29,d
+          assert d["nullTemplateCount"]==0,d
           assert len(d["packageFailures"])==0,d
           assert len(d["componentFailures"])==0,d
           assert d["ready"] is True,d
