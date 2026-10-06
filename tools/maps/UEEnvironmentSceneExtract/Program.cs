@@ -227,6 +227,49 @@ Dictionary<string, object?> DescribeNamedProperties(
             StringComparer.Ordinal);
 }
 
+Dictionary<string, object?> DescribeExponentialHeightFog(
+    UExponentialHeightFogComponent component)
+{
+    // Keep optional/advanced fields from serialized source properties, but
+    // overwrite the core UE fields with CUE4Parse's deserialized values. That
+    // preserves UE4.21 class defaults when Nacht omits a property instead of
+    // silently losing the value from runtime authority.
+    var values = DescribeNamedProperties(component, new[] {
+        "SecondFogData",
+        "FogCutoffDistance",
+        "VolumetricFog",
+        "VolumetricFogScatteringDistribution",
+        "VolumetricFogAlbedo",
+        "VolumetricFogEmissive",
+        "VolumetricFogExtinctionScale",
+        "VolumetricFogDistance",
+        "VolumetricFogStaticLightingScatteringIntensity"
+    });
+
+    values["FogDensity"] = component.FogDensity;
+    values["FogHeightFalloff"] = component.FogHeightFalloff;
+    values["FogMaxOpacity"] = component.FogMaxOpacity;
+    values["StartDistance"] = component.StartDistance;
+    values["FogInscatteringLuminance"] = new {
+        R = component.FogInscatteringLuminance.R,
+        G = component.FogInscatteringLuminance.G,
+        B = component.FogInscatteringLuminance.B,
+        A = component.FogInscatteringLuminance.A
+    };
+    values["DirectionalInscatteringLuminance"] = new {
+        R = component.DirectionalInscatteringLuminance.R,
+        G = component.DirectionalInscatteringLuminance.G,
+        B = component.DirectionalInscatteringLuminance.B,
+        A = component.DirectionalInscatteringLuminance.A
+    };
+    values["DirectionalInscatteringExponent"] =
+        component.DirectionalInscatteringExponent;
+    values["DirectionalInscatteringStartDistance"] =
+        component.DirectionalInscatteringStartDistance;
+
+    return values;
+}
+
 string Kind(USceneComponent component)
 {
     if (component is UExponentialHeightFogComponent)
@@ -321,27 +364,9 @@ foreach (var logicalPackage in mapPackages)
                 counts.GetValueOrDefault(kind) + 1;
 
             object typed;
-            if (component is UExponentialHeightFogComponent)
+            if (component is UExponentialHeightFogComponent heightFog)
             {
-                typed = DescribeNamedProperties(component, new[] {
-                    "FogDensity",
-                    "FogHeightFalloff",
-                    "FogMaxOpacity",
-                    "StartDistance",
-                    "FogInscatteringLuminance",
-                    "DirectionalInscatteringLuminance",
-                    "DirectionalInscatteringExponent",
-                    "DirectionalInscatteringStartDistance",
-                    "SecondFogData",
-                    "FogCutoffDistance",
-                    "VolumetricFog",
-                    "VolumetricFogScatteringDistribution",
-                    "VolumetricFogAlbedo",
-                    "VolumetricFogEmissive",
-                    "VolumetricFogExtinctionScale",
-                    "VolumetricFogDistance",
-                    "VolumetricFogStaticLightingScatteringIntensity"
-                });
+                typed = DescribeExponentialHeightFog(heightFog);
             }
             else if (
                 component is UAtmosphericFogComponent ||
