@@ -29,6 +29,8 @@ const ACID_BALL_MATERIAL := "/Game/CustomMaps/UGC2755515831/Magnum/Materials/Uni
 const ACID_BALL_MESH := "/Game/CustomMaps/UGC2755515831/Magnum/Meshes/Sphere.Sphere"
 const SPARKS_SMALL_SYSTEM := "/Game/CustomMaps/UGC2755515831/CoD/Particles/sparks/sparksParticlesSmall.sparksParticlesSmall"
 const SPARKS_SMALL_MATERIAL := "/Game/CustomMaps/UGC2755515831/CoD/Particles/Dust/Dust.Dust"
+const QUAD_EXPLODE_SMOKE_SYSTEM := "/Game/CustomMaps/UGC2755515831/CoD/Particles/Quads/quadExplodeSmoke1.quadExplodeSmoke1"
+const QUAD_EXPLODE_SMOKE_MATERIAL := "/Game/CustomMaps/UGC2755515831/CoD/Particles/Fire/Materials/Smoke_Inst/unlit_smoke.unlit_smoke"
 
 
 static func _canonical(raw: String) -> String:
@@ -2327,6 +2329,205 @@ static func sparks_small_descriptor(graphs: Dictionary) -> Dictionary:
 		"gpuCollisionRadiusScale": collision_radius_scale,
 		"gpuCollisionRandomDistribution": collision_random,
 		"peakActiveByLOD": peaks,
+		"sourceNodeCount": int(system.get("nodeCount", 0)),
+		"sourceReferenceCount": int(system.get("referenceCount", 0)),
+	}
+
+
+static func quad_explode_smoke_descriptor(graphs: Dictionary) -> Dictionary:
+	var system := _find_system(graphs, QUAD_EXPLODE_SMOKE_SYSTEM)
+	if system.is_empty():
+		return {"ready": false, "error": "quad explode smoke source system missing"}
+	if int(system.get("nodeCount", -1)) != 23:
+		return {"ready": false, "error": "quad explode smoke node count mismatch %d" % int(system.get("nodeCount", -1))}
+	if int(system.get("referenceCount", -1)) != 7:
+		return {"ready": false, "error": "quad explode smoke reference count mismatch %d" % int(system.get("referenceCount", -1))}
+
+	var required := _one_node(system, "ParticleModuleRequired")
+	var lifetime := _one_node(system, "ParticleModuleLifetime")
+	var size := _one_node(system, "ParticleModuleSize")
+	var color_life := _one_node(system, "ParticleModuleColorOverLife")
+	var subuv_movie := _one_node(system, "ParticleModuleSubUVMovie")
+	var size_life := _one_node(system, "ParticleModuleSizeMultiplyLife")
+	var cylinder := _one_node(system, "ParticleModuleLocationPrimitiveCylinder")
+	var acceleration := _one_node(system, "ParticleModuleAcceleration")
+	var rotation := _one_node(system, "ParticleModuleRotation")
+	var rotation_rate := _one_node(system, "ParticleModuleRotationRate")
+	var velocity := _one_node(system, "ParticleModuleVelocity")
+	var velocity_life := _one_node(system, "ParticleModuleVelocityOverLifetime")
+	var skel_surface := _one_node(system, "ParticleModuleLocationSkelVertSurface")
+	var start_color := _one_node(system, "ParticleModuleColor")
+	var rotation_seeded := _one_node(system, "ParticleModuleRotation_Seeded")
+	var location := _one_node(system, "ParticleModuleLocation")
+	var spawn := _one_node(system, "ParticleModuleSpawn")
+	var lod := _one_node(system, "ParticleLODLevel")
+	for pair: Array in [
+		["required", required], ["lifetime", lifetime], ["size", size],
+		["color over life", color_life], ["SubUV movie", subuv_movie],
+		["size over life", size_life], ["cylinder location", cylinder],
+		["acceleration", acceleration], ["rotation", rotation],
+		["rotation rate", rotation_rate], ["velocity", velocity],
+		["velocity over life", velocity_life], ["skeletal surface", skel_surface],
+		["start color", start_color], ["seeded rotation", rotation_seeded],
+		["location", location], ["spawn", spawn], ["LOD", lod],
+	]:
+		if (pair[1] as Dictionary).is_empty():
+			return {"ready": false, "error": "quad explode smoke missing " + str(pair[0])}
+
+	var required_props := ParticleSource.properties(required)
+	if _canonical(str(required_props.get("Material", ""))) != _canonical(QUAD_EXPLODE_SMOKE_MATERIAL):
+		return {"ready": false, "error": "quad explode smoke material mismatch"}
+	if not is_equal_approx(float(required_props.get("EmitterDelay", -1.0)), 0.1):
+		return {"ready": false, "error": "quad explode smoke emitter delay mismatch"}
+	if int(required_props.get("EmitterLoops", -1)) != 1 or int(required_props.get("RandomImageTime", -1)) != 1:
+		return {"ready": false, "error": "quad explode smoke emitter loop/image timing mismatch"}
+	if int(required_props.get("SubImages_Horizontal", -1)) != 6 or int(required_props.get("SubImages_Vertical", -1)) != 6:
+		return {"ready": false, "error": "quad explode smoke SubUV grid mismatch"}
+	if str(required_props.get("InterpolationMethod", "")) != "PSUVIM_Linear_Blend":
+		return {"ready": false, "error": "quad explode smoke interpolation mismatch"}
+	if str(required_props.get("SortMode", "")) != "PSORTMODE_Age_OldestFirst":
+		return {"ready": false, "error": "quad explode smoke sort mode mismatch"}
+	if not bool(required_props.get("bRemoveHMDRoll", false)):
+		return {"ready": false, "error": "quad explode smoke HMD roll flag mismatch"}
+
+	var life := _distribution(ParticleSource.properties(lifetime).get("Lifetime"))
+	if not is_equal_approx(float(life.get("MinValue", -1.0)), 1.0) or not is_equal_approx(float(life.get("MaxValue", -1.0)), 2.0):
+		return {"ready": false, "error": "quad explode smoke lifetime mismatch"}
+	if ParticleSource.table_float_values(life) != [1.0, 2.0]:
+		return {"ready": false, "error": "quad explode smoke lifetime samples mismatch"}
+
+	var size_dist := _distribution(ParticleSource.properties(size).get("StartSize"))
+	var size_min := _vector_from_distribution(size_dist, "MinValueVec", Vector3.INF)
+	var size_max := _vector_from_distribution(size_dist, "MaxValueVec", Vector3.INF)
+	if not size_min.is_equal_approx(Vector3(200.0, 200.0, 200.0)) or not size_max.is_equal_approx(Vector3(250.0, 250.0, 250.0)):
+		return {"ready": false, "error": "quad explode smoke size mismatch"}
+
+	var location_dist := _distribution(ParticleSource.properties(location).get("StartLocation"))
+	var location_min := _vector_from_distribution(location_dist, "MinValueVec", Vector3.INF)
+	var location_max := _vector_from_distribution(location_dist, "MaxValueVec", Vector3.INF)
+	if not location_min.is_equal_approx(Vector3(-120.0, -120.0, 5.0)) or not location_max.is_equal_approx(Vector3(120.0, 120.0, 25.0)):
+		return {"ready": false, "error": "quad explode smoke location mismatch"}
+
+	var velocity_dist := _distribution(ParticleSource.properties(velocity).get("StartVelocity"))
+	var velocity_min := _vector_from_distribution(velocity_dist, "MinValueVec", Vector3.INF)
+	var velocity_max := _vector_from_distribution(velocity_dist, "MaxValueVec", Vector3.INF)
+	if not velocity_min.is_equal_approx(Vector3(-20.0, -20.0, 7.0)) or not velocity_max.is_equal_approx(Vector3(20.0, 20.0, 25.0)):
+		return {"ready": false, "error": "quad explode smoke velocity mismatch"}
+
+	var spawn_props := ParticleSource.properties(spawn)
+	var rate := _distribution(spawn_props.get("Rate"))
+	var rate_scale := _distribution(spawn_props.get("RateScale"))
+	var burst_scale := _distribution(spawn_props.get("BurstScale"))
+	if not is_equal_approx(float(rate.get("MinValue", -1.0)), 5.0) or not is_equal_approx(float(rate.get("MaxValue", -1.0)), 5.0):
+		return {"ready": false, "error": "quad explode smoke rate mismatch"}
+	if not is_equal_approx(float(rate_scale.get("MinValue", -1.0)), 5.0):
+		return {"ready": false, "error": "quad explode smoke rate scale mismatch"}
+	if not is_equal_approx(float(burst_scale.get("MinValue", -1.0)), 1.0):
+		return {"ready": false, "error": "quad explode smoke burst scale mismatch"}
+	var bursts_raw: Variant = spawn_props.get("BurstList", [])
+	if not (bursts_raw is Array) or (bursts_raw as Array).size() != 1:
+		return {"ready": false, "error": "quad explode smoke burst list mismatch"}
+	var burst := (bursts_raw as Array)[0] as Dictionary
+	if int(burst.get("Count", -1)) != 5 or int(burst.get("CountLow", 0)) != -1 or not is_equal_approx(float(burst.get("Time", -1.0)), 0.0):
+		return {"ready": false, "error": "quad explode smoke burst values mismatch"}
+
+	var subuv_props := ParticleSource.properties(subuv_movie)
+	var frame_rate := _distribution(subuv_props.get("FrameRate"))
+	if not is_equal_approx(float(frame_rate.get("MinValue", -1.0)), 15.0) or not is_equal_approx(float(frame_rate.get("MaxValue", -1.0)), 15.0):
+		return {"ready": false, "error": "quad explode smoke SubUV FPS mismatch"}
+	var subuv_index := _distribution(subuv_props.get("SubImageIndex"))
+	var subuv_curve_node := _node_by_path(system, str(subuv_index.get("Distribution", "")))
+	if subuv_curve_node.is_empty():
+		return {"ready": false, "error": "quad explode smoke SubUV curve missing"}
+	var curve_raw: Variant = ParticleSource.properties(subuv_curve_node).get("ConstantCurve", {})
+	var curve := curve_raw as Dictionary if curve_raw is Dictionary else {}
+	var points_raw: Variant = curve.get("Points", [])
+	if not (points_raw is Array) or (points_raw as Array).size() != 2:
+		return {"ready": false, "error": "quad explode smoke SubUV curve point count mismatch"}
+	for raw_point: Variant in points_raw as Array:
+		if not (raw_point is Dictionary) or not is_equal_approx(float((raw_point as Dictionary).get("OutVal", -1.0)), 0.0):
+			return {"ready": false, "error": "quad explode smoke SubUV curve value mismatch"}
+
+	var size_life_dist := _distribution(ParticleSource.properties(size_life).get("LifeMultiplier"))
+	var size_life_values := ParticleSource.table_float_values(size_life_dist)
+	if size_life_values.size() != 384:
+		return {"ready": false, "error": "quad explode smoke size-life table count mismatch %d" % size_life_values.size()}
+	if not is_equal_approx(size_life_values[0], 0.4) or not is_equal_approx(size_life_values[1], 0.4) or not is_equal_approx(size_life_values[2], 0.4):
+		return {"ready": false, "error": "quad explode smoke size-life head mismatch"}
+	if not is_equal_approx(size_life_values[381], 0.9) or not is_equal_approx(size_life_values[382], 0.9) or not is_equal_approx(size_life_values[383], 0.9):
+		return {"ready": false, "error": "quad explode smoke size-life tail mismatch"}
+
+	var color_props := ParticleSource.properties(color_life)
+	var rgb := _distribution(color_props.get("ColorOverLife"))
+	var alpha := _distribution(color_props.get("AlphaOverLife"))
+	var rgb_values := ParticleSource.table_float_values(rgb)
+	var alpha_values := ParticleSource.table_float_values(alpha)
+	if rgb_values.size() != 48 or alpha_values.size() != 128:
+		return {"ready": false, "error": "quad explode smoke color table counts mismatch rgb=%d alpha=%d" % [rgb_values.size(), alpha_values.size()]}
+	if not is_equal_approx(alpha_values[0], 0.0) or not is_equal_approx(alpha_values[127], 0.0):
+		return {"ready": false, "error": "quad explode smoke alpha endpoints mismatch"}
+
+	var rotation_dist := _distribution(ParticleSource.properties(rotation).get("StartRotation"))
+	if ParticleSource.table_float_values(rotation_dist) != [0.0, 0.1]:
+		return {"ready": false, "error": "quad explode smoke rotation mismatch"}
+	var seeded_rotation_dist := _distribution(ParticleSource.properties(rotation_seeded).get("StartRotation"))
+	if ParticleSource.table_float_values(seeded_rotation_dist) != [0.0, 1.0]:
+		return {"ready": false, "error": "quad explode smoke seeded rotation mismatch"}
+
+	var disabled_types: Array[String] = []
+	for node: Dictionary in [acceleration, cylinder, skel_surface, start_color, rotation_rate, velocity_life]:
+		var p := ParticleSource.properties(node)
+		if bool(p.get("bEnabled", true)):
+			return {"ready": false, "error": "quad explode smoke source-disabled module became enabled " + str(node.get("exportType", ""))}
+		disabled_types.append(str(node.get("exportType", "")))
+	disabled_types.sort()
+
+	var cylinder_props := ParticleSource.properties(cylinder)
+	var radius := _distribution(cylinder_props.get("StartRadius"))
+	var height := _distribution(cylinder_props.get("StartHeight"))
+	if not is_equal_approx(float(radius.get("MinValue", -1.0)), 350.0) or not is_equal_approx(float(height.get("MinValue", -1.0)), 50.0):
+		return {"ready": false, "error": "quad explode smoke disabled cylinder authority mismatch"}
+
+	var skel_props := ParticleSource.properties(skel_surface)
+	var valid_materials_raw: Variant = skel_props.get("ValidMaterialIndices", [])
+	var valid_materials := valid_materials_raw as Array if valid_materials_raw is Array else []
+	if not bool(skel_props.get("bEnforceNormalCheck", false)) or not is_equal_approx(float(skel_props.get("NormalCheckTolerance", -1.0)), 1.0):
+		return {"ready": false, "error": "quad explode smoke disabled skeletal check mismatch"}
+	if valid_materials.size() != 1 or int(valid_materials[0]) != 0:
+		return {"ready": false, "error": "quad explode smoke skeletal material indices mismatch"}
+
+	var rotation_rate_dist := _distribution(ParticleSource.properties(rotation_rate).get("StartRotationRate"))
+	if ParticleSource.table_float_values(rotation_rate_dist) != [-0.03, 0.03]:
+		return {"ready": false, "error": "quad explode smoke disabled rotation-rate authority mismatch"}
+	var velocity_life_dist := _distribution(ParticleSource.properties(velocity_life).get("VelOverLife"))
+	var velocity_life_values := ParticleSource.table_float_values(velocity_life_dist)
+	if velocity_life_values != [1.0, 1.0, 1.2, 1.0, 1.0, 1.0]:
+		return {"ready": false, "error": "quad explode smoke disabled velocity-life authority mismatch"}
+
+	if int(ParticleSource.properties(lod).get("PeakActiveParticles", -1)) != 31:
+		return {"ready": false, "error": "quad explode smoke peak active mismatch"}
+
+	return {
+		"ready": true,
+		"systemPath": QUAD_EXPLODE_SMOKE_SYSTEM,
+		"materialPath": QUAD_EXPLODE_SMOKE_MATERIAL,
+		"lifetimeMin": 1.0,
+		"lifetimeMax": 2.0,
+		"startSizeMinUEcm": size_min,
+		"startSizeMaxUEcm": size_max,
+		"startLocationMinUEcm": location_min,
+		"startLocationMaxUEcm": location_max,
+		"startVelocityMinUEcm": velocity_min,
+		"startVelocityMaxUEcm": velocity_max,
+		"spawnRate": 5.0,
+		"spawnRateScale": 5.0,
+		"burstCount": 5,
+		"subUVFrameRate": 15.0,
+		"sizeLifeTableValueCount": size_life_values.size(),
+		"rgbTableValueCount": rgb_values.size(),
+		"alphaTableValueCount": alpha_values.size(),
+		"disabledModuleTypes": disabled_types,
+		"peakActiveParticles": 31,
 		"sourceNodeCount": int(system.get("nodeCount", 0)),
 		"sourceReferenceCount": int(system.get("referenceCount", 0)),
 	}
