@@ -76,6 +76,15 @@ object? DescribeValue(object? value, int depth = 0)
         };
     }
 
+    if (value is FScriptStruct scriptStruct)
+    {
+        return new {
+            kind = "FScriptStruct",
+            structType = scriptStruct.StructType?.GetType().FullName,
+            value = DescribeValue(scriptStruct.StructType, depth + 1)
+        };
+    }
+
     if (value is string || value is bool || value is Enum ||
         value is byte || value is sbyte || value is short || value is ushort ||
         value is int || value is uint || value is long || value is ulong ||
@@ -118,6 +127,12 @@ void CollectRefs(object? value, SortedSet<string> refs, int depth = 0)
     {
         foreach (var p in fallback.Properties)
             CollectRefs(p.Tag?.GenericValue, refs, depth + 1);
+        return;
+    }
+
+    if (value is FScriptStruct scriptStruct)
+    {
+        CollectRefs(scriptStruct.StructType, refs, depth + 1);
         return;
     }
 
