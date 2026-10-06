@@ -31,6 +31,14 @@ const SPARKS_SMALL_SYSTEM := "/Game/CustomMaps/UGC2755515831/CoD/Particles/spark
 const SPARKS_SMALL_MATERIAL := "/Game/CustomMaps/UGC2755515831/CoD/Particles/Dust/Dust.Dust"
 const QUAD_EXPLODE_SMOKE_SYSTEM := "/Game/CustomMaps/UGC2755515831/CoD/Particles/Quads/quadExplodeSmoke1.quadExplodeSmoke1"
 const QUAD_EXPLODE_SMOKE_MATERIAL := "/Game/CustomMaps/UGC2755515831/CoD/Particles/Fire/Materials/Smoke_Inst/unlit_smoke.unlit_smoke"
+const MONSTER_DEATH_XL_SYSTEM := "/Game/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Monsters/FX_Monster_Deaths/P_Monster_Death_XLarge.P_Monster_Death_XLarge"
+const MONSTER_DEATH_MESH_1 := "/Game/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Meshes/Skills/SM_DeathPlane_01.SM_DeathPlane_01"
+const MONSTER_DEATH_MESH_2 := "/Game/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Meshes/Skills/SM_FireBlastMesh_Twist_01.SM_FireBlastMesh_Twist_01"
+const MONSTER_DEATH_MESH_MAT_1 := "/Game/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Materials/Misc/M_DeathPlane_01.M_DeathPlane_01"
+const MONSTER_DEATH_MESH_MAT_2 := "/Game/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Materials/Fire/M_Fire_Sheet_01_INST.M_Fire_Sheet_01_INST"
+const MONSTER_DEATH_ICE_MAT := "/Game/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Materials/ICE/M_IceBlastBase.M_IceBlastBase"
+const MONSTER_DEATH_SMOKE_MAT := "/Game/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Materials/Smoke/M_Smoke_01_8X8_INST.M_Smoke_01_8X8_INST"
+const MONSTER_DEATH_EMISSIVE_MAT := "/Engine/EngineMaterials/EmissiveTexturedMaterial.EmissiveTexturedMaterial"
 
 
 static func _canonical(raw: String) -> String:
@@ -2528,6 +2536,299 @@ static func quad_explode_smoke_descriptor(graphs: Dictionary) -> Dictionary:
 		"alphaTableValueCount": alpha_values.size(),
 		"disabledModuleTypes": disabled_types,
 		"peakActiveParticles": 31,
+		"sourceNodeCount": int(system.get("nodeCount", 0)),
+		"sourceReferenceCount": int(system.get("referenceCount", 0)),
+	}
+
+
+static func monster_death_xl_descriptor(graphs: Dictionary) -> Dictionary:
+	var system := _find_system(graphs, MONSTER_DEATH_XL_SYSTEM)
+	if system.is_empty():
+		return {"ready": false, "error": "monster death XL source system missing"}
+	if int(system.get("nodeCount", -1)) != 97:
+		return {"ready": false, "error": "monster death XL node count mismatch %d" % int(system.get("nodeCount", -1))}
+	if int(system.get("referenceCount", -1)) != 46:
+		return {"ready": false, "error": "monster death XL reference count mismatch %d" % int(system.get("referenceCount", -1))}
+
+	var expected_counts := {
+		"ParticleModuleRequired": 4,
+		"ParticleModuleSpawn": 4,
+		"ParticleLODLevel": 12,
+		"ParticleModuleTypeDataMesh": 2,
+		"ParticleModuleMeshMaterial": 2,
+		"ParticleModuleMeshRotation": 2,
+		"ParticleModuleMeshRotationRate": 4,
+		"ParticleModuleLifetime": 6,
+		"ParticleModuleSize": 4,
+		"ParticleModuleSizeMultiplyLife": 6,
+		"ParticleModuleColorOverLife": 10,
+		"ParticleModuleRotation": 2,
+		"ParticleModuleAcceleration": 1,
+		"ParticleModuleCameraOffset": 1,
+		"ParticleModuleLocation": 1,
+		"ParticleModuleLocationPrimitiveCylinder": 1,
+		"ParticleModuleOrientationAxisLock": 1,
+		"ParticleModuleSubUV": 1,
+		"ParticleModuleVelocity": 1,
+	}
+	for raw_type: Variant in expected_counts.keys():
+		var type_name := str(raw_type)
+		var actual := ParticleSource.nodes_by_type(system, type_name).size()
+		var expected := int(expected_counts[raw_type])
+		if actual != expected:
+			return {"ready": false, "error": "monster death XL module count mismatch %s=%d/%d" % [type_name, actual, expected]}
+
+	var base := str(system.get("objectPath", ""))
+	var required_suffixes := ["ParticleModuleRequired_1", "ParticleModuleRequired_22", "ParticleModuleRequired_25", "ParticleModuleRequired_8"]
+	var spawn_suffixes := ["ParticleModuleSpawn_1", "ParticleModuleSpawn_22", "ParticleModuleSpawn_25", "ParticleModuleSpawn_8"]
+	var required_nodes: Array[Dictionary] = []
+	var spawn_nodes: Array[Dictionary] = []
+	for suffix: String in required_suffixes:
+		var node := _node_by_path(system, base + ":" + suffix)
+		if node.is_empty():
+			return {"ready": false, "error": "monster death XL required node missing " + suffix}
+		required_nodes.append(node)
+	for suffix: String in spawn_suffixes:
+		var node := _node_by_path(system, base + ":" + suffix)
+		if node.is_empty():
+			return {"ready": false, "error": "monster death XL spawn node missing " + suffix}
+		spawn_nodes.append(node)
+
+	var delays: Array[float] = []
+	var material_paths: Array[String] = []
+	for node: Dictionary in required_nodes:
+		var p := ParticleSource.properties(node)
+		delays.append(float(p.get("EmitterDelay", 0.0)))
+		var material := str(p.get("Material", ""))
+		if not material.is_empty():
+			material_paths.append(material)
+		if int(p.get("EmitterLoops", -1)) != 1:
+			return {"ready": false, "error": "monster death XL emitter loops mismatch"}
+		if int(p.get("RandomImageTime", -1)) != 1:
+			return {"ready": false, "error": "monster death XL random image time mismatch"}
+		if bool(p.get("bUseLegacyEmitterTime", true)):
+			return {"ready": false, "error": "monster death XL legacy emitter time unexpectedly enabled"}
+	delays.sort()
+	material_paths.sort()
+	var expected_materials: Array[String] = [
+		MONSTER_DEATH_EMISSIVE_MAT,
+		MONSTER_DEATH_ICE_MAT,
+		MONSTER_DEATH_SMOKE_MAT,
+	]
+	expected_materials.sort()
+	if delays != [0.0, 0.1, 0.3, 0.4]:
+		return {"ready": false, "error": "monster death XL emitter delays mismatch " + str(delays)}
+	if material_paths != expected_materials:
+		return {"ready": false, "error": "monster death XL required material set mismatch " + str(material_paths)}
+	var smoke_required := ParticleSource.properties(_node_by_path(system, base + ":ParticleModuleRequired_25"))
+	if int(smoke_required.get("SubImages_Horizontal", -1)) != 8 or int(smoke_required.get("SubImages_Vertical", -1)) != 8:
+		return {"ready": false, "error": "monster death XL smoke SubUV grid mismatch"}
+	if str(smoke_required.get("InterpolationMethod", "")) != "PSUVIM_Linear_Blend":
+		return {"ready": false, "error": "monster death XL smoke interpolation mismatch"}
+
+	var burst_only_emitters := 0
+	var continuous_rate_15_emitters := 0
+	for node: Dictionary in spawn_nodes:
+		var p := ParticleSource.properties(node)
+		var rate := _distribution(p.get("Rate"))
+		var rate_values := ParticleSource.table_float_values(rate)
+		var bursts_raw: Variant = p.get("BurstList", [])
+		if not (bursts_raw is Array) or (bursts_raw as Array).size() != 1:
+			return {"ready": false, "error": "monster death XL spawn burst list mismatch"}
+		var burst := (bursts_raw as Array)[0] as Dictionary
+		if rate_values == [0.0]:
+			if int(burst.get("Count", -1)) != 1 or int(burst.get("CountLow", 0)) != -1 or not is_equal_approx(float(burst.get("Time", -1.0)), 0.0):
+				return {"ready": false, "error": "monster death XL burst-only emitter mismatch"}
+			burst_only_emitters += 1
+		elif rate_values == [15.0]:
+			if int(burst.get("Count", -1)) != 0:
+				return {"ready": false, "error": "monster death XL continuous emitter burst mismatch"}
+			continuous_rate_15_emitters += 1
+		else:
+			return {"ready": false, "error": "monster death XL unexpected spawn rate " + str(rate_values)}
+	if burst_only_emitters != 3 or continuous_rate_15_emitters != 1:
+		return {"ready": false, "error": "monster death XL spawn contract counts mismatch"}
+	var spawn8 := ParticleSource.properties(_node_by_path(system, base + ":ParticleModuleSpawn_8"))
+	var spawn8_scale := _distribution(spawn8.get("BurstScale"))
+	var spawn8_scale_node := _node_by_path(system, str(spawn8_scale.get("Distribution", "")))
+	if spawn8_scale_node.is_empty() or not is_equal_approx(float(ParticleSource.properties(spawn8_scale_node).get("Constant", -1.0)), 1.0):
+		return {"ready": false, "error": "monster death XL emitter 8 burst scale mismatch"}
+
+	var mesh_paths: Array[String] = []
+	for node: Dictionary in ParticleSource.nodes_by_type(system, "ParticleModuleTypeDataMesh"):
+		mesh_paths.append(str(ParticleSource.properties(node).get("Mesh", "")))
+	mesh_paths.sort()
+	var expected_meshes: Array[String] = [MONSTER_DEATH_MESH_1, MONSTER_DEATH_MESH_2]
+	expected_meshes.sort()
+	if mesh_paths != expected_meshes:
+		return {"ready": false, "error": "monster death XL mesh set mismatch " + str(mesh_paths)}
+
+	var mesh_materials: Array[String] = []
+	for node: Dictionary in ParticleSource.nodes_by_type(system, "ParticleModuleMeshMaterial"):
+		var raw_materials: Variant = ParticleSource.properties(node).get("MeshMaterials", [])
+		if not (raw_materials is Array) or (raw_materials as Array).size() != 1:
+			return {"ready": false, "error": "monster death XL mesh material override count mismatch"}
+		mesh_materials.append(str((raw_materials as Array)[0]))
+	mesh_materials.sort()
+	var expected_mesh_materials: Array[String] = [MONSTER_DEATH_MESH_MAT_1, MONSTER_DEATH_MESH_MAT_2]
+	expected_mesh_materials.sort()
+	if mesh_materials != expected_mesh_materials:
+		return {"ready": false, "error": "monster death XL mesh material set mismatch " + str(mesh_materials)}
+
+	var lifetime_ranges: Array[Vector2] = []
+	for node: Dictionary in ParticleSource.nodes_by_type(system, "ParticleModuleLifetime"):
+		var d := _distribution(ParticleSource.properties(node).get("Lifetime"))
+		var lo := float(d.get("MinValue", INF))
+		var hi := float(d.get("MaxValue", -INF))
+		if (is_inf(lo) or is_inf(hi)) and not str(d.get("Distribution", "")).is_empty():
+			var dist_node := _node_by_path(system, str(d.get("Distribution", "")))
+			if dist_node.is_empty():
+				return {"ready": false, "error": "monster death XL lifetime distribution missing"}
+			var dp := ParticleSource.properties(dist_node)
+			lo = float(dp.get("Min", INF))
+			hi = float(dp.get("Max", -INF))
+		if is_inf(lo) or is_inf(hi):
+			return {"ready": false, "error": "monster death XL lifetime range unresolved"}
+		lifetime_ranges.append(Vector2(lo, hi))
+	lifetime_ranges.sort()
+	var expected_lifetimes: Array[Vector2] = [
+		Vector2(1.4, 1.8),
+		Vector2(1.7, 2.0),
+		Vector2(2.0, 2.4),
+		Vector2(2.0, 2.4),
+		Vector2(2.4, 2.8),
+		Vector2(2.7, 2.8),
+	]
+	if lifetime_ranges != expected_lifetimes:
+		return {"ready": false, "error": "monster death XL lifetime families mismatch " + str(lifetime_ranges)}
+
+	var size1 := _distribution(ParticleSource.properties(_node_by_path(system, base + ":ParticleModuleSize_1")).get("StartSize"))
+	if ParticleSource.table_float_values(size1) != [13.0, 13.0, 1.0]:
+		return {"ready": false, "error": "monster death XL mesh size 1 mismatch"}
+	var size9 := _distribution(ParticleSource.properties(_node_by_path(system, base + ":ParticleModuleSize_9")).get("StartSize"))
+	var size9_node := _node_by_path(system, str(size9.get("Distribution", "")))
+	if size9_node.is_empty():
+		return {"ready": false, "error": "monster death XL size9 distribution missing"}
+	var size9_props := ParticleSource.properties(size9_node)
+	if not ParticleSource.vector3(size9_props.get("Min"), Vector3.INF).is_equal_approx(Vector3(2.0, 2.0, 2.0)):
+		return {"ready": false, "error": "monster death XL size9 min mismatch"}
+	if not ParticleSource.vector3(size9_props.get("Max"), Vector3.INF).is_equal_approx(Vector3(2.0, 2.0, 2.0)):
+		return {"ready": false, "error": "monster death XL size9 max mismatch"}
+	var size18 := _distribution(ParticleSource.properties(_node_by_path(system, base + ":ParticleModuleSize_18")).get("StartSize"))
+	var size21 := _distribution(ParticleSource.properties(_node_by_path(system, base + ":ParticleModuleSize_21")).get("StartSize"))
+	if not _vector_from_distribution(size18, "MinValueVec", Vector3.INF).is_equal_approx(Vector3(-500.0, -500.0, 0.0)):
+		return {"ready": false, "error": "monster death XL size18 min mismatch"}
+	if not _vector_from_distribution(size18, "MaxValueVec", Vector3.INF).is_equal_approx(Vector3(500.0, 500.0, 0.0)):
+		return {"ready": false, "error": "monster death XL size18 max mismatch"}
+	if not _vector_from_distribution(size21, "MinValueVec", Vector3.INF).is_equal_approx(Vector3(-75.0, -75.0, 0.0)):
+		return {"ready": false, "error": "monster death XL size21 min mismatch"}
+	if not _vector_from_distribution(size21, "MaxValueVec", Vector3.INF).is_equal_approx(Vector3(75.0, 75.0, 0.0)):
+		return {"ready": false, "error": "monster death XL size21 max mismatch"}
+
+	var resolved_size_life := 0
+	for node: Dictionary in ParticleSource.nodes_by_type(system, "ParticleModuleSizeMultiplyLife"):
+		var d := _distribution(ParticleSource.properties(node).get("LifeMultiplier"))
+		if not ParticleSource.table_float_values(d).is_empty():
+			resolved_size_life += 1
+		elif not str(d.get("Distribution", "")).is_empty() and not _node_by_path(system, str(d.get("Distribution", ""))).is_empty():
+			resolved_size_life += 1
+	if resolved_size_life != 6:
+		return {"ready": false, "error": "monster death XL size-life source coverage mismatch %d/6" % resolved_size_life}
+
+	var resolved_color_modules := 0
+	for node: Dictionary in ParticleSource.nodes_by_type(system, "ParticleModuleColorOverLife"):
+		var p := ParticleSource.properties(node)
+		var rgb := _distribution(p.get("ColorOverLife"))
+		var alpha := _distribution(p.get("AlphaOverLife"))
+		var rgb_ok := not ParticleSource.table_float_values(rgb).is_empty()
+		var alpha_ok := not ParticleSource.table_float_values(alpha).is_empty()
+		if not rgb_ok and not str(rgb.get("Distribution", "")).is_empty():
+			rgb_ok = not _node_by_path(system, str(rgb.get("Distribution", ""))).is_empty()
+		if not alpha_ok and not str(alpha.get("Distribution", "")).is_empty():
+			alpha_ok = not _node_by_path(system, str(alpha.get("Distribution", ""))).is_empty()
+		if rgb_ok and alpha_ok:
+			resolved_color_modules += 1
+	if resolved_color_modules != 10:
+		return {"ready": false, "error": "monster death XL color source coverage mismatch %d/10" % resolved_color_modules}
+
+	var accel := _distribution(ParticleSource.properties(_one_node(system, "ParticleModuleAcceleration")).get("Acceleration"))
+	if ParticleSource.table_float_values(accel) != [0.0, 0.0, 15.0, 0.0, 0.0, 30.0]:
+		return {"ready": false, "error": "monster death XL acceleration samples mismatch"}
+	if not bool(ParticleSource.properties(_one_node(system, "ParticleModuleAcceleration")).get("bAlwaysInWorldSpace", false)):
+		return {"ready": false, "error": "monster death XL acceleration world-space mismatch"}
+	var camera_offset := _distribution(ParticleSource.properties(_one_node(system, "ParticleModuleCameraOffset")).get("CameraOffset"))
+	if ParticleSource.table_float_values(camera_offset) != [80.0]:
+		return {"ready": false, "error": "monster death XL camera offset mismatch"}
+	var cylinder_props := ParticleSource.properties(_one_node(system, "ParticleModuleLocationPrimitiveCylinder"))
+	if not is_equal_approx(float(_distribution(cylinder_props.get("StartRadius")).get("MinValue", -1.0)), 190.0):
+		return {"ready": false, "error": "monster death XL cylinder radius mismatch"}
+	if not is_equal_approx(float(_distribution(cylinder_props.get("StartHeight")).get("MinValue", -1.0)), 5.0):
+		return {"ready": false, "error": "monster death XL cylinder height mismatch"}
+	var location_values := ParticleSource.table_float_values(_distribution(ParticleSource.properties(_one_node(system, "ParticleModuleLocation")).get("StartLocation")))
+	if location_values != [0.0, 0.0, 15.0]:
+		return {"ready": false, "error": "monster death XL location mismatch"}
+	if str(ParticleSource.properties(_one_node(system, "ParticleModuleOrientationAxisLock")).get("LockAxisFlags", "")) != "EPAL_Z":
+		return {"ready": false, "error": "monster death XL axis lock mismatch"}
+
+	var velocity_dist := _distribution(ParticleSource.properties(_one_node(system, "ParticleModuleVelocity")).get("StartVelocity"))
+	var velocity_min := _vector_from_distribution(velocity_dist, "MinValueVec", Vector3.INF)
+	var velocity_max := _vector_from_distribution(velocity_dist, "MaxValueVec", Vector3.INF)
+	if not velocity_min.is_equal_approx(Vector3(-15.0, -15.0, 25.0)) or not velocity_max.is_equal_approx(Vector3(15.0, 15.0, 35.0)):
+		return {"ready": false, "error": "monster death XL velocity mismatch"}
+
+	var subuv := _distribution(ParticleSource.properties(_one_node(system, "ParticleModuleSubUV")).get("SubImageIndex"))
+	var subuv_values := ParticleSource.table_float_values(subuv)
+	if subuv_values.size() != 32 or not is_equal_approx(subuv_values[0], 0.0) or not is_equal_approx(subuv_values[31], 63.0):
+		return {"ready": false, "error": "monster death XL SubUV samples mismatch"}
+
+	var lod_nodes := ParticleSource.nodes_by_type(system, "ParticleLODLevel")
+	var peaks: Array[int] = []
+	var required_counts: Dictionary = {}
+	var spawn_counts: Dictionary = {}
+	var type_counts: Dictionary = {}
+	for node: Dictionary in lod_nodes:
+		var p := ParticleSource.properties(node)
+		peaks.append(int(p.get("PeakActiveParticles", -1)))
+		var required_key := _canonical(str(p.get("RequiredModule", "")))
+		var spawn_key := _canonical(str(p.get("SpawnModule", "")))
+		var type_key := _canonical(str(p.get("TypeDataModule", "")))
+		required_counts[required_key] = int(required_counts.get(required_key, 0)) + 1
+		spawn_counts[spawn_key] = int(spawn_counts.get(spawn_key, 0)) + 1
+		type_counts[type_key] = int(type_counts.get(type_key, 0)) + 1
+	peaks.sort()
+	if peaks != [2, 2, 2, 2, 2, 2, 3, 3, 3, 16, 16, 16]:
+		return {"ready": false, "error": "monster death XL LOD peaks mismatch " + str(peaks)}
+	for suffix: String in required_suffixes:
+		if int(required_counts.get(_canonical(base + ":" + suffix), 0)) != 3:
+			return {"ready": false, "error": "monster death XL LOD required mapping mismatch " + suffix}
+	for suffix: String in spawn_suffixes:
+		if int(spawn_counts.get(_canonical(base + ":" + suffix), 0)) != 3:
+			return {"ready": false, "error": "monster death XL LOD spawn mapping mismatch " + suffix}
+	if int(type_counts.get(_canonical(base + ":ParticleModuleTypeDataMesh_1"), 0)) != 3:
+		return {"ready": false, "error": "monster death XL LOD mesh1 mapping mismatch"}
+	if int(type_counts.get(_canonical(base + ":ParticleModuleTypeDataMesh_3"), 0)) != 3:
+		return {"ready": false, "error": "monster death XL LOD mesh3 mapping mismatch"}
+	if int(type_counts.get("", 0)) != 6:
+		return {"ready": false, "error": "monster death XL sprite LOD mapping mismatch"}
+
+	return {
+		"ready": true,
+		"systemPath": MONSTER_DEATH_XL_SYSTEM,
+		"emitterCount": 4,
+		"lodCount": 12,
+		"meshPaths": mesh_paths,
+		"meshMaterialPaths": mesh_materials,
+		"requiredMaterialPaths": material_paths,
+		"emitterDelays": delays,
+		"burstOnlyEmitterCount": burst_only_emitters,
+		"continuousRate15EmitterCount": continuous_rate_15_emitters,
+		"lifetimeRanges": lifetime_ranges,
+		"resolvedSizeLifeModuleCount": resolved_size_life,
+		"resolvedColorModuleCount": resolved_color_modules,
+		"velocityMinUEcm": velocity_min,
+		"velocityMaxUEcm": velocity_max,
+		"subUVSampleCount": subuv_values.size(),
+		"lodPeaks": peaks,
 		"sourceNodeCount": int(system.get("nodeCount", 0)),
 		"sourceReferenceCount": int(system.get("referenceCount", 0)),
 	}
