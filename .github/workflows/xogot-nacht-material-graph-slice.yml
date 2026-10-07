@@ -190,6 +190,10 @@ jobs:
               "candlefire_d",
               "m_fire_sheet_01_inst",
               "m_add_trail_2sided_pan_master",
+              "m_deathplane_01",
+              "m_iceblastbase",
+              "t_tile_noise_tendril_01",
+              "t_frozenground",
               "t_fireblasttile",
               "t_black_32",
           )
