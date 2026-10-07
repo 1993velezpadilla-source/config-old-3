@@ -1,0 +1,126 @@
+name: Xogot Nacht Particle Visual Diagnose
+
+on:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-nacht-particle-visual-diagnose.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-nacht-particle-visual-diagnose
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: "37646740182"
+      SOURCE_ARTIFACT: "Xogot-Nacht-Chronicles-Godot-Runtime"
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/godot-aaa-rebuild-v1
+          fetch-depth: 1
+
+      - name: Download Stage 174 runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf runtime build/nacht-particle-visual-diagnose
+          mkdir -p runtime build/nacht-particle-visual-diagnose
+          gh run download "$SOURCE_RUN" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "$SOURCE_ARTIFACT" \
+            --dir runtime
+          authority=$(find runtime -type f -name nacht-particle-runtime-authority.json -print -quit)
+          test -n "$authority"
+          echo "PARTICLE_AUTHORITY=$authority" >> "$GITHUB_ENV"
+          echo "XZOGOT_NACHT_PARTICLE_DIAG_SOURCE_GREEN run=$SOURCE_RUN"
+
+      - name: Decompose exact particle placement matrices
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, math, os
+          from pathlib import Path
+
+          src=Path(os.environ["PARTICLE_AUTHORITY"])
+          data=json.loads(src.read_text())
+          rows=[]
+          for p in data.get("placements", []):
+              m=p.get("matrixRowMajor", [])
+              if len(m)!=16:
+                  raise SystemExit(f"missing matrix for {p.get('id')}")
+              sx=math.sqrt(m[0]*m[0] + m[4]*m[4] + m[8]*m[8])
+              sy=math.sqrt(m[1]*m[1] + m[5]*m[5] + m[9]*m[9])
+              sz=math.sqrt(m[2]*m[2] + m[6]*m[6] + m[10]*m[10])
+              row={
+                  "id":p.get("id"),
+                  "actorName":p.get("actorName"),
+                  "componentName":p.get("componentName"),
+                  "systemPath":p.get("templateObjectPath"),
+                  "worldPositionMeters":[m[3],m[7],m[11]],
+                  "worldScale":[sx,sy,sz],
+                  "matrixRowMajor":m,
+                  "hierarchyDepth":len(p.get("hierarchy", [])),
+                  "hierarchy":p.get("hierarchy", []),
+              }
+              rows.append(row)
+
+          out={
+              "sourceRun":int(os.environ["SOURCE_RUN"]),
+              "placementCount":len(rows),
+              "rows":rows,
+          }
+          dest=Path("build/nacht-particle-visual-diagnose/placement-matrices.json")
+          dest.write_text(json.dumps(out,indent=2)+"\n")
+
+          print("XZOGOT_NACHT_PARTICLE_MATRIX_DIAG_GREEN placements=",len(rows))
+          for row in rows:
+              key=(row["systemPath"] or "").lower()
+              if any(token in key for token in (
+                  "mysteryvertical",
+                  "mysteryboxfog",
+                  "mysteryparticles",
+                  "bigfire",
+                  "fire_00",
+                  "fire_14",
+                  "quadexplode",
+                  "bonefire",
+              )):
+                  print(
+                      "XZOGOT_NACHT_PARTICLE_MATRIX",
+                      row["id"],
+                      "system=",row["systemPath"],
+                      "scale=",row["worldScale"],
+                      "pos=",row["worldPositionMeters"],
+                      "depth=",row["hierarchyDepth"],
+                  )
+                  for h in row["hierarchy"]:
+                      print(
+                          "  HIER",
+                          h.get("depth"),
+                          h.get("componentName"),
+                          "loc=",h.get("locationUEcm"),
+                          "rot=",h.get("rotationUE"),
+                          "scale=",h.get("scale"),
+                      )
+          PY
+
+      - name: Upload particle visual diagnosis
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nacht-Particle-Visual-Diagnose
+          path: build/nacht-particle-visual-diagnose/placement-matrices.json
+          if-no-files-found: error
+          retention-days: 7
