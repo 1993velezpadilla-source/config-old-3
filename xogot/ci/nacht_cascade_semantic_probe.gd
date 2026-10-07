@@ -1,6 +1,7 @@
 extends SceneTree
 
 const CascadeRuntime = preload("res://scripts/nacht_cascade_runtime.gd")
+const ParticleSource = preload("res://scripts/nacht_particle_source.gd")
 
 const SLICE_ROOT := "res://assets/benchmarks/nacht_particle_slice"
 const GRAPHS_FILE := "particle-candidate-graphs.json"
@@ -29,6 +30,29 @@ func _canonical(raw: String) -> String:
 func _fail(message: String) -> void:
 	push_error("NACHT_CASCADE_FAST_PROBE: " + message)
 	quit(5)
+
+
+func _lod_audit(graphs: Dictionary, system_path: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var system := ParticleSource.find_system(graphs, system_path)
+	for node: Dictionary in ParticleSource.nodes_by_type(system, "ParticleLODLevel"):
+		var props := ParticleSource.properties(node)
+		var modules: Array[String] = []
+		var raw_modules: Variant = props.get("Modules", [])
+		if raw_modules is Array:
+			for raw: Variant in raw_modules:
+				modules.append(str(raw))
+		result.append({
+			"node": str(node.get("objectPath", "")),
+			"level": props.get("Level", null),
+			"enabled": props.get("bEnabled", true),
+			"peak": int(props.get("PeakActiveParticles", -1)),
+			"required": str(props.get("RequiredModule", "")),
+			"spawn": str(props.get("SpawnModule", "")),
+			"typeData": str(props.get("TypeDataModule", "")),
+			"modules": modules,
+		})
+	return result
 
 func _run() -> void:
 	var graphs := _read_json(SLICE_ROOT.path_join(GRAPHS_FILE))
@@ -82,6 +106,16 @@ func _run() -> void:
 	if total_placements != 29:
 		_fail("semantic placement coverage mismatch " + str(total_placements) + "/29")
 		return
+
+	print("XZOGOT_NACHT_CASCADE_LOD_AUDIT_FIRE00 ", JSON.stringify(
+		_lod_audit(graphs, CascadeRuntime.FIRE_00_SYSTEM)
+	))
+	print("XZOGOT_NACHT_CASCADE_LOD_AUDIT_ACIDBALL ", JSON.stringify(
+		_lod_audit(graphs, CascadeRuntime.ACID_BALL_SYSTEM)
+	))
+	print("XZOGOT_NACHT_CASCADE_LOD_AUDIT_MONSTER ", JSON.stringify(
+		_lod_audit(graphs, CascadeRuntime.MONSTER_DEATH_XL_SYSTEM)
+	))
 
 	print(
 		"XZOGOT_NACHT_CASCADE_FAST_SEMANTIC_GREEN systems=",
