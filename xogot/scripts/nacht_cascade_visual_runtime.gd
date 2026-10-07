@@ -396,14 +396,32 @@ static func _curve_from_samples(samples: Array[float]) -> Curve:
 	curve.min_value = minf(0.0, lo)
 	curve.max_value = maxf(1.0, hi)
 	if samples.size() == 1:
-		curve.add_point(Vector2(0.0, samples[0]))
-		curve.add_point(Vector2(1.0, samples[0]))
+		curve.add_point(
+			Vector2(0.0, samples[0]),
+			0.0,
+			0.0,
+			Curve.TANGENT_LINEAR,
+			Curve.TANGENT_LINEAR
+		)
+		curve.add_point(
+			Vector2(1.0, samples[0]),
+			0.0,
+			0.0,
+			Curve.TANGENT_LINEAR,
+			Curve.TANGENT_LINEAR
+		)
 		return curve
 	for index in range(samples.size()):
-		curve.add_point(Vector2(
-			float(index) / float(samples.size() - 1),
-			samples[index]
-		))
+		curve.add_point(
+			Vector2(
+				float(index) / float(samples.size() - 1),
+				samples[index]
+			),
+			0.0,
+			0.0,
+			Curve.TANGENT_LINEAR,
+			Curve.TANGENT_LINEAR
+		)
 	return curve
 
 
@@ -455,6 +473,7 @@ static func _color_over_life_texture(emitter: Dictionary) -> GradientTexture1D:
 	gradient.offsets = offsets
 	gradient.colors = colors
 	gradient.interpolation_mode = Gradient.GRADIENT_INTERPOLATE_LINEAR
+	gradient.interpolation_color_space = Gradient.GRADIENT_COLOR_SPACE_LINEAR_SRGB
 	var texture := GradientTexture1D.new()
 	texture.width = maxi(256, sample_count)
 	texture.use_hdr = true
@@ -472,6 +491,180 @@ static func _apply_emitter_life_curves(
 	var color_curve := _color_over_life_texture(emitter)
 	if color_curve != null:
 		process.color_ramp = color_curve
+
+
+static func _distribution_vector_bounds(value: Variant) -> Dictionary:
+	var distribution := ParticleSource.distribution(value)
+	var min_value := ParticleSource.vector3(
+		distribution.get("MinValueVec"),
+		Vector3.INF
+	)
+	var max_value := ParticleSource.vector3(
+		distribution.get("MaxValueVec"),
+		Vector3.INF
+	)
+	var samples := _vector_table_series(value)
+	if min_value.is_equal_approx(Vector3.INF):
+		if not samples.is_empty():
+			min_value = samples[0]
+			for sample: Vector3 in samples:
+				min_value.x = minf(min_value.x, sample.x)
+				min_value.y = minf(min_value.y, sample.y)
+				min_value.z = minf(min_value.z, sample.z)
+	if max_value.is_equal_approx(Vector3.INF):
+		if not samples.is_empty():
+			max_value = samples[0]
+			for sample: Vector3 in samples:
+				max_value.x = maxf(max_value.x, sample.x)
+				max_value.y = maxf(max_value.y, sample.y)
+				max_value.z = maxf(max_value.z, sample.z)
+	return {
+		"ready": (
+			not min_value.is_equal_approx(Vector3.INF)
+			and not max_value.is_equal_approx(Vector3.INF)
+		),
+		"min": min_value,
+		"max": max_value,
+	}
+
+
+static func _distribution_float_max(value: Variant, default_value: float = 0.0) -> float:
+	var samples := _float_table_series(value)
+	if not samples.is_empty():
+		var result := samples[0]
+		for sample: float in samples:
+			result = maxf(result, sample)
+		return result
+	var distribution := ParticleSource.distribution(value)
+	if distribution.has("MaxValue"):
+		return float(distribution.get("MaxValue", default_value))
+	if distribution.has("MinValue"):
+		return float(distribution.get("MinValue", default_value))
+	return default_value
+
+
+static func _apply_emitter_spawn_shape(
+	process: ParticleProcessMaterial,
+	emitter: Dictionary
+) -> void:
+	var raw_modules: Variant = emitter.get("modules", [])
+	if not (raw_modules is Array):
+		return
+	var enabled_locations: Array[Dictionary] = []
+	for raw: Variant in raw_modules:
+		if not (raw is Dictionary):
+			continue
+		var module := raw as Dictionary
+		var export_type := str(module.get("exportType", ""))
+		if export_type not in [
+			"ParticleModuleLocation",
+			"ParticleModuleLocation_Seeded",
+			"ParticleModuleLocationPrimitiveCylinder",
+			"ParticleModuleLocationPrimitiveSphere",
+		]:
+			continue
+		if not bool(ParticleSource.properties(module).get("bEnabled", true)):
+			continue
+		enabled_locations.append(module)
+
+	var primitive := {}
+	var simple_locations: Array[Dictionary] = []
+	for module: Dictionary in enabled_locations:
+		var export_type := str(module.get("exportType", ""))
+		if export_type in [
+			"ParticleModuleLocationPrimitiveCylinder",
+			"ParticleModuleLocationPrimitiveSphere",
+		]:
+			if primitive.is_empty():
+				primitive = module
+		else:
+			# Multiple source primitives need custom shader semantics; do not
+			# merge them into an invented Godot shape.
+			return
+		else:
+			simple_locations.append(module)
+
+	var simple_center := Vector3.ZERO
+	var simple_extents := Vector3.ZERO
+	var simple_uniform := false
+	if simple_locations.size() == 1:
+		var simple_props := ParticleSource.properties(simple_locations[0])
+		var bounds := _distribution_vector_bounds(simple_props.get("StartLocation"))
+		if bool(bounds.get("ready", false)):
+			var lo := bounds.get("min", Vector3.ZERO) as Vector3
+			var hi := bounds.get("max", Vector3.ZERO) as Vector3
+			simple_center = (lo + hi) * 0.5 * 0.01
+			simple_extents = (hi - lo).abs() * 0.5 * 0.01
+			simple_uniform = not lo.is_equal_approx(hi)
+	elif simple_locations.size() > 1:
+		# Additive/random multiple location modules cannot be represented by one
+		# built-in emission shape without changing source semantics.
+		return
+
+	if primitive.is_empty():
+		if simple_locations.is_empty():
+			return
+		if simple_uniform:
+			process.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+			process.emission_box_extents = simple_extents
+			process.emission_shape_offset = simple_center
+		else:
+			process.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_POINT
+			process.emission_shape_offset = simple_center
+		return
+
+	var primitive_props := ParticleSource.properties(primitive)
+	var primitive_type := str(primitive.get("exportType", ""))
+	var primitive_bounds := _distribution_vector_bounds(
+		primitive_props.get("StartLocation")
+	)
+	var primitive_center := Vector3.ZERO
+	if bool(primitive_bounds.get("ready", false)):
+		var primitive_lo := primitive_bounds.get("min", Vector3.ZERO) as Vector3
+		var primitive_hi := primitive_bounds.get("max", Vector3.ZERO) as Vector3
+		if not primitive_lo.is_equal_approx(primitive_hi):
+			# Primitive source center itself is random. Built-in Godot shapes
+			# cannot preserve that extra distribution exactly.
+			return
+		primitive_center = primitive_lo * 0.01
+
+	if simple_uniform:
+		# UE applies the simple random location in addition to the primitive.
+		# Keep this unsupported until the custom particle shader can compose
+		# both distributions exactly.
+		return
+	var center := primitive_center + simple_center
+
+	if primitive_type == "ParticleModuleLocationPrimitiveSphere":
+		var radius := _distribution_float_max(
+			primitive_props.get("StartRadius"),
+			0.0
+		) * 0.01
+		if radius <= 0.0:
+			return
+		process.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+		process.emission_sphere_radius = radius
+		process.emission_shape_offset = center
+		return
+
+	if primitive_type == "ParticleModuleLocationPrimitiveCylinder":
+		var radius := _distribution_float_max(
+			primitive_props.get("StartRadius"),
+			0.0
+		) * 0.01
+		var height := _distribution_float_max(
+			primitive_props.get("StartHeight"),
+			0.0
+		) * 0.01
+		if radius <= 0.0:
+			return
+		process.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
+		process.emission_ring_axis = Vector3(0.0, 0.0, 1.0)
+		process.emission_ring_radius = radius
+		process.emission_ring_inner_radius = 0.0
+		process.emission_ring_height = height
+		process.emission_ring_cone_angle = 90.0
+		process.emission_shape_offset = center
 
 
 static func _emitter_lifetime(system: Dictionary, emitter: Dictionary) -> Vector2:
@@ -539,11 +732,84 @@ static func _emitter_burst_count(emitter: Dictionary) -> int:
 	return result
 
 
+static func _enabled_emitter_modules(
+	emitter: Dictionary,
+	export_types: Array[String]
+) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var raw_modules: Variant = emitter.get("modules", [])
+	if not (raw_modules is Array):
+		return result
+	for raw: Variant in raw_modules:
+		if not (raw is Dictionary):
+			continue
+		var module := raw as Dictionary
+		if str(module.get("exportType", "")) not in export_types:
+			continue
+		if not bool(ParticleSource.properties(module).get("bEnabled", true)):
+			continue
+		result.append(module)
+	return result
+
+
+static func _float_sample_range(
+	system: Dictionary,
+	value: Variant
+) -> Vector2:
+	var samples := _float_samples(system, value)
+	if samples.is_empty():
+		return Vector2.ZERO
+	var lo := INF
+	var hi := -INF
+	for sample: float in samples:
+		lo = minf(lo, sample)
+		hi = maxf(hi, sample)
+	return Vector2(lo, hi)
+
+
+static func _apply_emitter_rotation(
+	process: ParticleProcessMaterial,
+	system: Dictionary,
+	emitter: Dictionary
+) -> void:
+	var rotation_modules := _enabled_emitter_modules(
+		emitter,
+		["ParticleModuleRotation", "ParticleModuleRotation_Seeded"]
+	)
+	# Multiple enabled rotation modules are additive in Cascade. Leave those for
+	# the custom particle shader instead of collapsing them into one range.
+	if rotation_modules.size() == 1:
+		var rotation_props := ParticleSource.properties(rotation_modules[0])
+		var rotation_range := _float_sample_range(
+			system,
+			rotation_props.get("StartRotation")
+		)
+		# Cascade particle rotations are authored in turns; Godot expects
+		# degrees for billboard angle.
+		process.angle_min = rotation_range.x * 360.0
+		process.angle_max = rotation_range.y * 360.0
+
+	var rate_modules := _enabled_emitter_modules(
+		emitter,
+		["ParticleModuleRotationRate"]
+	)
+	if rate_modules.size() == 1:
+		var rate_props := ParticleSource.properties(rate_modules[0])
+		var rate_range := _float_sample_range(
+			system,
+			rate_props.get("StartRotationRate")
+		)
+		process.angular_velocity_min = rate_range.x * 360.0
+		process.angular_velocity_max = rate_range.y * 360.0
+
+
 static func _configure_process_from_emitter(
 	process: ParticleProcessMaterial,
 	system: Dictionary,
 	emitter: Dictionary
 ) -> void:
+	_apply_emitter_spawn_shape(process, emitter)
+	_apply_emitter_rotation(process, system, emitter)
 	var velocities := _emitter_velocity_samples(system, emitter)
 	var velocity_lengths := _min_max_length(velocities)
 	var velocity_mean := _mean_vector(velocities)
