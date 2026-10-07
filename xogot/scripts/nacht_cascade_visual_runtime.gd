@@ -51,6 +51,129 @@ static func _node_by_path(system: Dictionary, raw_path: String) -> Dictionary:
 	return {}
 
 
+static func _distribution_curve_points(
+	system: Dictionary,
+	value: Variant
+) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var distribution := ParticleSource.distribution(value)
+	var source_props := distribution
+	var dist_path := str(distribution.get("Distribution", ""))
+	if not dist_path.is_empty():
+		var node := _node_by_path(system, dist_path)
+		if not node.is_empty():
+			source_props = ParticleSource.properties(node)
+
+	var curve_raw: Variant = source_props.get("ConstantCurve", {})
+	if not (curve_raw is Dictionary):
+		return result
+	var points_raw: Variant = (curve_raw as Dictionary).get("Points", [])
+	if not (points_raw is Array):
+		return result
+	for raw: Variant in points_raw as Array:
+		if not (raw is Dictionary):
+			continue
+		var row := raw as Dictionary
+		if not row.has("InVal") or not row.has("OutVal"):
+			continue
+		result.append(row)
+	result.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			return ParticleSource.float_value(a.get("InVal"), 0.0) < ParticleSource.float_value(b.get("InVal"), 0.0)
+	)
+	return result
+
+
+static func _sample_float_curve_points(
+	points: Array[Dictionary],
+	t: float
+) -> float:
+	if points.is_empty():
+		return 0.0
+	var first := points[0]
+	var first_t := ParticleSource.float_value(first.get("InVal"), 0.0)
+	var first_v := ParticleSource.float_value(first.get("OutVal"), 0.0)
+	if t <= first_t:
+		return first_v
+	for index in range(1, points.size()):
+		var right := points[index]
+		var right_t := ParticleSource.float_value(right.get("InVal"), first_t)
+		var right_v := ParticleSource.float_value(right.get("OutVal"), first_v)
+		var left := points[index - 1]
+		var left_t := ParticleSource.float_value(left.get("InVal"), first_t)
+		var left_v := ParticleSource.float_value(left.get("OutVal"), first_v)
+		if t <= right_t:
+			var span := right_t - left_t
+			if absf(span) <= 0.000001:
+				return right_v
+			return lerpf(left_v, right_v, clampf((t - left_t) / span, 0.0, 1.0))
+	return ParticleSource.float_value(points[points.size() - 1].get("OutVal"), first_v)
+
+
+static func _sample_vector_curve_points(
+	points: Array[Dictionary],
+	t: float
+) -> Vector3:
+	if points.is_empty():
+		return Vector3.ONE
+	var first := points[0]
+	var first_t := ParticleSource.float_value(first.get("InVal"), 0.0)
+	var first_v := ParticleSource.vector3(first.get("OutVal"), Vector3.ONE)
+	if t <= first_t:
+		return first_v
+	for index in range(1, points.size()):
+		var right := points[index]
+		var right_t := ParticleSource.float_value(right.get("InVal"), first_t)
+		var right_v := ParticleSource.vector3(right.get("OutVal"), first_v)
+		var left := points[index - 1]
+		var left_t := ParticleSource.float_value(left.get("InVal"), first_t)
+		var left_v := ParticleSource.vector3(left.get("OutVal"), first_v)
+		if t <= right_t:
+			var span := right_t - left_t
+			if absf(span) <= 0.000001:
+				return right_v
+			return left_v.lerp(right_v, clampf((t - left_t) / span, 0.0, 1.0))
+	return ParticleSource.vector3(points[points.size() - 1].get("OutVal"), first_v)
+
+
+static func _float_life_series(
+	system: Dictionary,
+	value: Variant,
+	sample_count: int = 64
+) -> Array[float]:
+	var baked := _float_table_series(value)
+	if not baked.is_empty():
+		return baked
+	var points := _distribution_curve_points(system, value)
+	var result: Array[float] = []
+	if points.is_empty():
+		return result
+	var count := maxi(2, sample_count)
+	for index in range(count):
+		var t := float(index) / float(count - 1)
+		result.append(_sample_float_curve_points(points, t))
+	return result
+
+
+static func _vector_life_series(
+	system: Dictionary,
+	value: Variant,
+	sample_count: int = 64
+) -> Array[Vector3]:
+	var baked := _vector_table_series(value)
+	if not baked.is_empty():
+		return baked
+	var points := _distribution_curve_points(system, value)
+	var result: Array[Vector3] = []
+	if points.is_empty():
+		return result
+	var count := maxi(2, sample_count)
+	for index in range(count):
+		var t := float(index) / float(count - 1)
+		result.append(_sample_vector_curve_points(points, t))
+	return result
+
+
 static func _float_samples(system: Dictionary, value: Variant) -> Array[float]:
 	var result: Array[float] = []
 	var distribution := ParticleSource.distribution(value)
@@ -70,6 +193,8 @@ static func _float_samples(system: Dictionary, value: Variant) -> Array[float]:
 				var raw: Variant = ParticleSource.unwrap(props.get(key))
 				if raw is float or raw is int:
 					result.append(float(raw))
+			for point: Dictionary in _distribution_curve_points(system, value):
+				result.append(ParticleSource.float_value(point.get("OutVal"), 0.0))
 	return result
 
 
@@ -94,6 +219,13 @@ static func _vector_samples(system: Dictionary, value: Variant) -> Array[Vector3
 				var decoded := ParticleSource.vector3(props.get(key), Vector3.INF)
 				if not decoded.is_equal_approx(Vector3.INF):
 					result.append(decoded)
+			for point: Dictionary in _distribution_curve_points(system, value):
+				var decoded_curve := ParticleSource.vector3(
+					point.get("OutVal"),
+					Vector3.INF
+				)
+				if not decoded_curve.is_equal_approx(Vector3.INF):
+					result.append(decoded_curve)
 	return result
 
 
@@ -420,13 +552,15 @@ static func _curve_from_samples(samples: Array[float]) -> Curve:
 
 
 static func _size_over_life_texture(
+	system: Dictionary,
 	emitter: Dictionary,
 	start_scale: Vector3 = Vector3.ONE
 ) -> CurveXYZTexture:
 	var module := _first_emitter_module(emitter, "ParticleModuleSizeMultiplyLife")
 	var samples: Array[Vector3] = []
 	if not module.is_empty():
-		samples = _vector_table_series(
+		samples = _vector_life_series(
+			system,
 			ParticleSource.properties(module).get("LifeMultiplier")
 		)
 	if samples.is_empty():
@@ -454,7 +588,10 @@ static func _size_over_life_texture(
 	return texture
 
 
-static func _color_over_life_texture(emitter: Dictionary) -> GradientTexture1D:
+static func _color_over_life_texture(
+	system: Dictionary,
+	emitter: Dictionary
+) -> GradientTexture1D:
 	var color_module := _first_emitter_module(emitter, "ParticleModuleColorOverLife")
 	var scale_module := _first_emitter_module(
 		emitter,
@@ -467,15 +604,21 @@ static func _color_over_life_texture(emitter: Dictionary) -> GradientTexture1D:
 	var alpha: Array[float] = []
 	if not color_module.is_empty():
 		var color_props := ParticleSource.properties(color_module)
-		rgb = _vector_table_series(color_props.get("ColorOverLife"))
-		alpha = _float_table_series(color_props.get("AlphaOverLife"))
+		rgb = _vector_life_series(system, color_props.get("ColorOverLife"))
+		alpha = _float_life_series(system, color_props.get("AlphaOverLife"))
 
 	var rgb_scale: Array[Vector3] = []
 	var alpha_scale: Array[float] = []
 	if not scale_module.is_empty():
 		var scale_props := ParticleSource.properties(scale_module)
-		rgb_scale = _vector_table_series(scale_props.get("ColorScaleOverLife"))
-		alpha_scale = _float_table_series(scale_props.get("AlphaScaleOverLife"))
+		rgb_scale = _vector_life_series(
+			system,
+			scale_props.get("ColorScaleOverLife")
+		)
+		alpha_scale = _float_life_series(
+			system,
+			scale_props.get("AlphaScaleOverLife")
+		)
 
 	if (
 		rgb.is_empty()
@@ -545,6 +688,7 @@ static func _apply_constant_start_color(
 
 static func _apply_emitter_life_curves(
 	process: ParticleProcessMaterial,
+	system: Dictionary,
 	emitter: Dictionary
 ) -> void:
 	_apply_constant_start_color(process, emitter)
@@ -556,10 +700,10 @@ static func _apply_emitter_life_curves(
 		)
 		if source_scale_raw is Vector3:
 			start_scale = source_scale_raw as Vector3
-	var size_curve := _size_over_life_texture(emitter, start_scale)
+	var size_curve := _size_over_life_texture(system, emitter, start_scale)
 	if size_curve != null:
 		process.scale_curve = size_curve
-	var color_curve := _color_over_life_texture(emitter)
+	var color_curve := _color_over_life_texture(system, emitter)
 	if color_curve != null:
 		process.color_ramp = color_curve
 
@@ -1570,7 +1714,7 @@ static func _build_source_sprite_emitter(
 		true
 	)
 	_apply_size_scale_by_speed(process, emitter)
-	_apply_emitter_life_curves(process, emitter)
+	_apply_emitter_life_curves(process, system, emitter)
 
 	var grid := _emitter_subuv_grid(emitter)
 	material.particles_anim_h_frames = grid.x
@@ -1746,7 +1890,7 @@ static func _build_source_mesh_emitter(
 	_configure_process_from_emitter(process, system, emitter)
 	_apply_mesh_rotation(process, system, emitter)
 	_apply_emitter_start_scale(process, system, emitter, false)
-	_apply_emitter_life_curves(process, emitter)
+	_apply_emitter_life_curves(process, system, emitter)
 
 	var burst_count := _emitter_burst_count(emitter)
 	var spawn_rate := _emitter_spawn_rate(system, emitter)
