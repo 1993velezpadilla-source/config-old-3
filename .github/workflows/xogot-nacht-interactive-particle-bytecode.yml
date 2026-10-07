@@ -1,0 +1,224 @@
+name: Xogot Nacht Interactive Particle Bytecode
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-nacht-interactive-particle-bytecode.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xogot-nacht-interactive-particle-bytecode
+  cancel-in-progress: true
+
+jobs:
+  extract:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env:
+      WORKSHOP_APP_ID: "555160"
+      WORKSHOP_ITEM_ID: "2755515831"
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/godot-aaa-rebuild-v1
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Download exact Nacht source and select interactive Blueprints
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $steam=Join-Path $env:RUNNER_TEMP 'steamcmd'
+          New-Item -ItemType Directory -Force -Path $steam | Out-Null
+          Invoke-WebRequest 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip' -OutFile "$env:RUNNER_TEMP\steamcmd.zip"
+          Expand-Archive "$env:RUNNER_TEMP\steamcmd.zip" -DestinationPath $steam -Force
+          & (Join-Path $steam 'steamcmd.exe') +login anonymous +workshop_download_item $env:WORKSHOP_APP_ID $env:WORKSHOP_ITEM_ID validate +quit
+          $global:LASTEXITCODE=0
+
+          $root=Get-ChildItem $steam,$env:RUNNER_TEMP -Directory -Recurse -ErrorAction SilentlyContinue |
+            Where-Object {$_.FullName -like "*steamapps\workshop\content\$env:WORKSHOP_APP_ID\$env:WORKSHOP_ITEM_ID"} |
+            Select-Object -First 1
+          if(-not $root){throw 'Nacht workshop payload not found'}
+          $pak=Join-Path $root.FullName 'WindowsNoEditor.pak'
+          if(-not (Test-Path $pak)){throw 'Nacht PAK missing'}
+          if((Get-Item $pak).Length -ne 2543506907){throw 'Nacht PAK byte authority mismatch'}
+
+          Invoke-WebRequest 'https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-pc-windows-msvc.zip' -OutFile "$env:RUNNER_TEMP\repak.zip"
+          $repakDir="$env:RUNNER_TEMP\repak"
+          Expand-Archive "$env:RUNNER_TEMP\repak.zip" -DestinationPath $repakDir -Force
+          $repak=Get-ChildItem $repakDir -Filter repak.exe -Recurse | Select-Object -First 1
+          if(-not $repak){throw 'repak missing'}
+
+          & $repak.FullName list $pak | Set-Content build-all-paths.txt -Encoding utf8
+          @'
+          import re
+          from pathlib import Path
+          lines=sorted(set(
+              x.strip().replace("\\","/")
+              for x in Path("build-all-paths.txt").read_text(encoding="utf-8-sig",errors="ignore").splitlines()
+              if x.strip()
+          ))
+          asset_rx=re.compile(
+              r"(?i)(?:/|^)(?:Pavlov/Content/)?CustomMaps/UGC2755515831/.*Blueprints/.*"
+              r"(gumball|punchapack|wonderfizz|wunderfizz|box_complete|box5).*\.uasset$"
+          )
+          uassets=[x for x in lines if asset_rx.search(x)]
+          if not uassets:
+              raise SystemExit("no interactive Blueprint uassets selected")
+          bases={re.sub(r"(?i)\.uasset$","",x) for x in uassets}
+          selected=[
+              x for x in lines
+              if any(x.lower().startswith(base.lower()+".") for base in bases)
+          ]
+          Path("interactive-blueprint-uassets.txt").write_text("\n".join(uassets)+"\n",encoding="utf-8")
+          Path("interactive-blueprint-files.txt").write_text("\n".join(selected)+"\n",encoding="utf-8")
+          print("XZOGOT_NACHT_INTERACTIVE_PARTICLE_SELECT",{
+              "uassets":len(uassets),
+              "files":len(selected),
+              "names":[Path(x).name for x in uassets],
+          })
+          names=" ".join(uassets).lower()
+          assert "gumball" in names,names
+          assert "punchapack" in names,names
+          assert ("wonderfizz" in names or "wunderfizz" in names),names
+          '@ | python -
+
+          Remove-Item nacht-interactive-bytecode -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path nacht-interactive-bytecode | Out-Null
+          $args=@('unpack',$pak,'-o','nacht-interactive-bytecode','--force')
+          Get-Content interactive-blueprint-files.txt | ForEach-Object {
+            if($_){$args += @('-i',$_)}
+          }
+          & $repak.FullName @args
+          if($LASTEXITCODE -ne 0){throw "selective repak failed $LASTEXITCODE"}
+          $global:LASTEXITCODE=0
+          Write-Host "XZOGOT_NACHT_INTERACTIVE_PARTICLE_SOURCE_GREEN"
+
+      - name: Pin Pavlov UE4 mappings
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          Invoke-WebRequest 'https://raw.githubusercontent.com/THW-Reaper/PavlovVRMappings/4976647b4f3a209042460bc55a7a3122662d05b7/PavMappings.usmap' -OutFile PavMappings.usmap
+          $hash=(Get-FileHash PavMappings.usmap -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($hash -ne '6d19f9731cc3fbaba34ca8e0833e81e4ffdf1b407edf24de48b1ccb5c63b060c'){throw "mappings mismatch $hash"}
+
+      - name: Build proven Blueprint bytecode extractor
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $project='tools/maps/UENuketownWallbuyBytecode/UENuketownWallbuyBytecode.csproj'
+          dotnet restore $project
+          if($LASTEXITCODE -ne 0){throw 'restore failed'}
+          dotnet build $project -c Release --no-restore
+          if($LASTEXITCODE -ne 0){throw 'build failed'}
+          Write-Host 'XZOGOT_NACHT_INTERACTIVE_PARTICLE_BYTECODE_TOOL_GREEN'
+
+      - name: Decompile interactive Blueprint bytecode
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          New-Item -ItemType Directory -Force -Path build/nacht-interactive-particle-bytecode | Out-Null
+          $app='tools/maps/UENuketownWallbuyBytecode/bin/Release/net10.0/UENuketownWallbuyBytecode.dll'
+          $assets=@(Get-ChildItem nacht-interactive-bytecode -Recurse -File -Filter '*.uasset' | Sort-Object FullName)
+          if($assets.Count -lt 3){throw "too few selected Blueprint assets: $($assets.Count)"}
+          $assetArgs=@($assets | ForEach-Object {$_.FullName})
+          dotnet $app PavMappings.usmap build/nacht-interactive-particle-bytecode/blueprint-bytecode.json @assetArgs |
+            Tee-Object build/nacht-interactive-particle-bytecode/extract.log
+          if($LASTEXITCODE -ne 0){throw "bytecode extractor failed $LASTEXITCODE"}
+          if(-not (Select-String -Path build/nacht-interactive-particle-bytecode/extract.log -Pattern 'XZOGOT_NUKETOWN_WALLBUY_BYTECODE_GREEN' -Quiet)){
+            throw 'bytecode green marker missing'
+          }
+
+      - name: Extract exact particle activation authority
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          @'
+          import json,re
+          from pathlib import Path
+
+          src=Path("build/nacht-interactive-particle-bytecode/blueprint-bytecode.json")
+          data=json.loads(src.read_text())
+          assert data.get("ready") is True,data
+          assert int(data.get("packageSuccessCount",0)) >= 3,data
+
+          call_rx=re.compile(r"(activate|deactivate|setactive|toggleactive|resetparticlesystem|play|stop)",re.I)
+          component_rx=re.compile(
+              r"(particle|fog|beam|spark|wheel|mystery|acidball|monster_death|quadexplodesmoke)",
+              re.I,
+          )
+          rows=[]
+          total_calls=0
+          total_trees=0
+          for package in data.get("packages",[]):
+              item={
+                  "fileName":package.get("fileName"),
+                  "calls":[],
+                  "expressionTrees":[],
+                  "objectReferences":[],
+                  "defaults":[],
+              }
+              for fn in package.get("functions",[]):
+                  for call in fn.get("calls",[]):
+                      if call_rx.search(str(call.get("call",""))):
+                          item["calls"].append({"function":fn.get("name"),**call})
+                  for top in fn.get("topLevelExpressions",[]):
+                      blob=json.dumps(top,sort_keys=True)
+                      if call_rx.search(blob) and component_rx.search(blob):
+                          item["expressionTrees"].append({
+                              "function":fn.get("name"),
+                              "tree":top,
+                          })
+              for ref in package.get("objectReferences",[]):
+                  if component_rx.search(json.dumps(ref,sort_keys=True)):
+                      item["objectReferences"].append(ref)
+              for row in package.get("normalExportProperties",[]):
+                  if component_rx.search(json.dumps(row,sort_keys=True)):
+                      item["defaults"].append(row)
+              total_calls += len(item["calls"])
+              total_trees += len(item["expressionTrees"])
+              rows.append(item)
+              print("XZOGOT_NACHT_INTERACTIVE_PARTICLE_BLUEPRINT",json.dumps({
+                  "fileName":item["fileName"],
+                  "activationCalls":len(item["calls"]),
+                  "activationTrees":len(item["expressionTrees"]),
+                  "particleRefs":len(item["objectReferences"]),
+                  "particleDefaults":len(item["defaults"]),
+                  "calls":item["calls"][:80],
+              },separators=(",",":")))
+
+          out={
+              "schemaVersion":1,
+              "source":"Nacht workshop 2755515831 UE4.21 Blueprint bytecode",
+              "packageCount":len(rows),
+              "activationCallCount":total_calls,
+              "activationTreeCount":total_trees,
+              "packages":rows,
+              "ready":True,
+          }
+          Path("build/nacht-interactive-particle-bytecode/particle-activation-authority.json").write_text(
+              json.dumps(out,indent=2)+"\n"
+          )
+          print(
+              "XZOGOT_NACHT_INTERACTIVE_PARTICLE_BYTECODE_GREEN",
+              f"packages={len(rows)} calls={total_calls} trees={total_trees}"
+          )
+          '@ | python -
+
+      - name: Upload particle activation authority
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nacht-Interactive-Particle-Bytecode
+          path: |
+            build/nacht-interactive-particle-bytecode/
+            interactive-blueprint-uassets.txt
+          if-no-files-found: error
+          retention-days: 7
