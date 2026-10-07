@@ -388,6 +388,25 @@ static func _auto_activate(placement: Dictionary) -> bool:
 	return true
 
 
+static func _effective_visible(placement: Dictionary) -> bool:
+	var props_raw: Variant = placement.get("properties", {})
+	if props_raw is Dictionary:
+		var props := props_raw as Dictionary
+		# UEParticleSceneExtract v2 resolves omitted Blueprint component-template
+		# visibility into this normalized field. Visibility and activation are
+		# separate source semantics: an active component may intentionally stay
+		# hidden while its simulation/event state remains alive.
+		if props.has("effectiveVisible"):
+			return bool(ParticleSource.unwrap(props["effectiveVisible"]))
+		if props.has("bVisible"):
+			return bool(ParticleSource.unwrap(props["bVisible"]))
+		if props.has("hiddenInGame"):
+			return not bool(ParticleSource.unwrap(props["hiddenInGame"]))
+		if props.has("bHiddenInGame"):
+			return not bool(ParticleSource.unwrap(props["bHiddenInGame"]))
+	return true
+
+
 static func _emitter_key(lod_node: Dictionary) -> String:
 	var path := str(lod_node.get("objectPath", ""))
 	var marker := ".ParticleLODLevel_"
@@ -2205,7 +2224,14 @@ static func mount_anchor(
 	var mounted_emitters := 0
 	var emitter_rows := _source_emitters(system)
 	var auto_activate := _auto_activate(placement)
+	var effective_visible := _effective_visible(placement)
 	anchor.set_meta("source_particle_auto_activate", auto_activate)
+	anchor.set_meta("source_particle_effective_visible", effective_visible)
+	# Do not conflate source visibility with activation. Hidden Blueprint
+	# components may still be active for event/simulation semantics; hiding the
+	# semantic anchor suppresses every renderer below it without killing the
+	# authored emitter lifecycle.
+	anchor.visible = effective_visible
 
 	if descriptor.has("targetUEcm") and descriptor.has("noiseFrequency"):
 		if not paths.is_empty():
@@ -2289,4 +2315,5 @@ static func mount_anchor(
 		"materialPathCount": paths.size(),
 		"systemPath": system_path,
 		"autoActivate": auto_activate,
+		"effectiveVisible": effective_visible,
 	}

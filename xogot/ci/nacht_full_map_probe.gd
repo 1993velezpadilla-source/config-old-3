@@ -1125,9 +1125,51 @@ func _run() -> void:
 				% [particle_semantic_systems, particle_semantic_placements]
 			)
 			return
-		if get_nodes_in_group("nacht_source_particle_semantic").size() != 29:
+		var semantic_particle_anchors := get_nodes_in_group(
+			"nacht_source_particle_semantic"
+		)
+		if semantic_particle_anchors.size() != 29:
 			_fail(34, "Cascade semantic placement group mismatch")
 			return
+
+		# Authority v2 resolves Blueprint component-template visibility. Nacht has
+		# exactly three placed particle components that are source-hidden:
+		# two Gumball AcidBall components and WonderFizz LightBeamYellow.
+		# They may remain active internally, but no visual descendant may be
+		# visible through the semantic anchor.
+		var source_hidden_particle_anchors := 0
+		for raw_anchor: Node in semantic_particle_anchors:
+			if not (raw_anchor is Node3D):
+				_fail(35, "Cascade semantic anchor is not Node3D")
+				return
+			var particle_anchor := raw_anchor as Node3D
+			var effective_visible := bool(
+				particle_anchor.get_meta(
+					"source_particle_effective_visible",
+					true
+				)
+			)
+			if effective_visible:
+				continue
+			source_hidden_particle_anchors += 1
+			if particle_anchor.visible:
+				_fail(
+					35,
+					"Cascade source-hidden placement rendered id=%s"
+					% str(particle_anchor.get_meta("source_particle_id", ""))
+				)
+				return
+		if source_hidden_particle_anchors != 3:
+			_fail(
+				35,
+				"Cascade inherited visibility coverage mismatch %d/3"
+				% source_hidden_particle_anchors
+			)
+			return
+		print(
+			"XZOGOT_NACHT_PARTICLE_VISIBILITY_GREEN hidden=3 placements=29"
+		)
+
 		if not particle_visual_mounted:
 			_fail(
 				35,
