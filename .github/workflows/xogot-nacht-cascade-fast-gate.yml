@@ -113,14 +113,27 @@ jobs:
           rm -rf "$dst"
           python3 tools/maps/xztx_to_dds.py "$src" "$dst" \
             --report build/nacht-cascade-fast/particle-dds-report.json
-          timeout 120 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
-            --headless --editor --path xogot --quit \
+          mini=build/nacht-dds-probe-project
+          rm -rf "$mini"
+          mkdir -p "$mini/textures_dds"
+          cp xogot/ci/nacht_particle_texture_alpha_probe.gd "$mini/probe.gd"
+          cp xogot/assets/benchmarks/nacht_particle_slice/placed-particle-material-authority.json \
+            "$mini/placed-particle-material-authority.json"
+          cp -a "$dst"/. "$mini/textures_dds/"
+          cat > "$mini/project.godot" <<'EOF'
+          [application]
+          config/name="Nacht DDS Alpha Probe"
+          [rendering]
+          renderer/rendering_method="gl_compatibility"
+          EOF
+          timeout 60 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path "$mini" --quit \
             2>&1 | tee build/nacht-cascade-fast/particle-import.log
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" \
             build/nacht-cascade-fast/particle-import.log
-          timeout 120 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
-            --headless --path xogot \
-            --script res://ci/nacht_particle_texture_alpha_probe.gd \
+          timeout 60 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path "$mini" \
+            --script res://probe.gd \
             2>&1 | tee build/nacht-cascade-fast/particle-alpha.log
           grep -q "XZOGOT_NACHT_GODOT_DDS_ALPHA_GREEN" \
             build/nacht-cascade-fast/particle-alpha.log
