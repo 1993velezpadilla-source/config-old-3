@@ -93,67 +93,62 @@ func _run() -> void:
 			_fail(16, "duplicate perk purchase consumed points: " + id)
 			return
 
-	if absf(float(player.call("get_max_health")) - 200.0) > 0.01:
-		_fail(17, "Martyr's Blood health effect wrong")
+	if absf(float(player.call("get_max_health")) - 250.0) > 0.01:
+		_fail(17, "Jugger-Nog source health effect wrong")
 		return
-	if absf(float(player.call("get_reload_multiplier")) - 0.70) > 0.001:
-		_fail(18, "Quick Hands effect wrong")
+	if absf(float(player.call("get_reload_multiplier")) - 0.50) > 0.001:
+		_fail(18, "Speed Cola source reload effect wrong")
 		return
-	if absf(float(player.call("get_move_speed_multiplier")) - 1.15) > 0.001:
-		_fail(19, "Pilgrim Rush effect wrong")
+	if absf(float(player.call("get_move_speed_multiplier")) - 1.07) > 0.001:
+		_fail(19, "Stamin-Up source movement effect wrong")
 		return
-	if absf(float(player.call("get_spread_multiplier")) - 0.62) > 0.001:
-		_fail(20, "Choir Sight spread effect wrong")
+	if absf(float(player.call("get_spread_multiplier")) - 0.65) > 0.001:
+		_fail(20, "Deadshot source spread effect wrong")
 		return
-	if absf(float(player.call("get_recoil_multiplier")) - 0.68) > 0.001:
-		_fail(21, "Choir Sight recoil effect wrong")
+	if absf(float(player.call("get_recoil_multiplier")) - 1.0) > 0.001:
+		_fail(21, "Deadshot must not invent a recoil multiplier")
 		return
-	if absf(float(player.call("get_fire_interval_multiplier")) - 0.78) > 0.001:
-		_fail(22, "Twin Bells fire-cycle effect wrong")
+	if absf(float(player.call("get_fire_interval_multiplier")) - 0.75) > 0.001:
+		_fail(22, "Double Tap II source fire-cycle effect wrong")
 		return
-	if absf(float(player.call("get_weapon_damage_multiplier")) - 1.08) > 0.001:
-		_fail(23, "Twin Bells damage effect wrong")
+	if absf(float(player.call("get_weapon_damage_multiplier")) - 2.0) > 0.001:
+		_fail(23, "Double Tap II source projectile damage effect wrong")
 		return
-
-	player.call("apply_damage", 9999.0)
-	if bool(player.call("is_downed")):
-		_fail(24, "Last Rites did not prevent lethal down")
+	if absf(float(player.call("get_revive_progress_multiplier")) - 2.0) > 0.001:
+		_fail(24, "Quick Revive source revive-speed effect wrong")
 		return
-	if bool(player.call("has_perk", "last_rites")):
-		_fail(25, "Last Rites was not consumed")
-		return
-	if not bool(player.get_meta("last_rites_triggered", false)):
-		_fail(26, "Last Rites trigger marker missing")
+	if str(player.get_meta("perk_source_id_last_rites", "")) != "quick_revive":
+		_fail(25, "Quick Revive source identity marker missing")
 		return
 
 	if not bool(weapon.call("equip_weapon", "mp40", true)):
-		_fail(27, "MP40 equip failed")
+		_fail(26, "MP40 equip failed")
 		return
 	var before: Dictionary = weapon.call("get_runtime_stats") as Dictionary
 	var forge: Node = forge_nodes[0]
 	if not bool(forge.call("interact", player)):
-		_fail(28, "Sanctum Forge purchase failed")
+		_fail(27, "Sanctum Forge purchase failed")
 		return
 	var after: Dictionary = weapon.call("get_runtime_stats") as Dictionary
 	if not bool(after.get("upgraded", false)):
-		_fail(29, "Forge did not mark weapon upgraded")
+		_fail(28, "Forge did not mark weapon upgraded")
 		return
 	if float(after.get("damage", 0.0)) <= float(before.get("damage", 0.0)):
-		_fail(30, "Forge did not raise damage")
+		_fail(29, "Forge did not raise damage")
 		return
 	if int(after.get("magazine_size", 0)) <= int(before.get("magazine_size", 0)):
-		_fail(31, "Forge did not increase magazine")
+		_fail(30, "Forge did not increase magazine")
 		return
 	var forge_points: int = int(player.call("get_points"))
 	if bool(forge.call("interact", player)):
-		_fail(32, "duplicate Forge upgrade should fail")
+		_fail(31, "duplicate Forge upgrade should fail")
 		return
 	if int(player.call("get_points")) != forge_points:
-		_fail(33, "duplicate Forge attempt consumed points")
+		_fail(32, "duplicate Forge attempt consumed points")
 		return
 
 	print("XZOGOT_PERK_EFFECTS_GREEN 6")
-	print("XZOGOT_LAST_RITES_GREEN")
+	print("XZOGOT_QUICK_REVIVE_SOURCE_GREEN progress=2.0")
 	print("XZOGOT_SANCTUM_FORGE_UPGRADE_GREEN ", before, " -> ", after)
 	scene.queue_free()
 	await process_frame

@@ -489,9 +489,7 @@ func contribute_revive(target: Node, delta: float) -> bool:
 	if global_position.distance_to((target as Node3D).global_position) > revive_range:
 		return false
 	_revive_target = target
-	var source_revive_delta: float = delta * SourceModifierPolicy.revive_progress_multiplier(
-		has_perk("last_rites")
-	)
+	var source_revive_delta: float = delta * get_revive_progress_multiplier()
 
 	var target_peer_id: int = int(target.get_meta("network_peer_id", 0))
 	var self_peer_id: int = int(get_meta("network_peer_id", 0))
@@ -786,6 +784,9 @@ func get_weapon_damage_multiplier_for(_weapon_id: String, weapon_family: String)
 func get_weapon_damage_multiplier() -> float:
 	# Compatibility path for callers that cannot provide a weapon family.
 	return SourceModifierPolicy.DOUBLE_TAP_PROJECTILE_DAMAGE_MULTIPLIER if has_perk("twin_bells") else 1.0
+
+func get_revive_progress_multiplier() -> float:
+	return SourceModifierPolicy.revive_progress_multiplier(has_perk("last_rites"))
 
 func get_max_health() -> float:
 	return max_health

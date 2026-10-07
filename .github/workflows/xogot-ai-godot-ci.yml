@@ -635,7 +635,7 @@ jobs:
             --headless --path xogot --script res://ci/perk_upgrade_probe.gd \
             2>&1 | tee build/xogot-ai/perk-upgrade-probe.log
           grep -q "XZOGOT_PERK_EFFECTS_GREEN" build/xogot-ai/perk-upgrade-probe.log
-          grep -q "XZOGOT_LAST_RITES_GREEN" build/xogot-ai/perk-upgrade-probe.log
+          grep -q "XZOGOT_QUICK_REVIVE_SOURCE_GREEN" build/xogot-ai/perk-upgrade-probe.log
           grep -q "XZOGOT_SANCTUM_FORGE_UPGRADE_GREEN" build/xogot-ai/perk-upgrade-probe.log
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/perk-upgrade-probe.log
           echo "XZOGOT_PERK_UPGRADE_GATE_GREEN"
