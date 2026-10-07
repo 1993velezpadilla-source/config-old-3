@@ -78,6 +78,29 @@ jobs:
           test -s xogot/assets/benchmarks/nacht_chronicles/nacht-particle-runtime-authority.json
           echo "XZOGOT_NACHT_FAST_SEMANTIC_STAGE_GREEN run=$SOURCE_RUN"
 
+      - name: Recompile current particle authority schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=xogot/assets/benchmarks/nacht_chronicles
+          test -s "$root/nacht-particles.json"
+          test -s "$root/nacht-particle-graphs.json"
+          python3 tools/maps/compile_nacht_particle_runtime_authority.py \
+            --scene "$root/nacht-particles.json" \
+            --graphs "$root/nacht-particle-graphs.json" \
+            --output "$root/nacht-particle-runtime-authority.json"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("xogot/assets/benchmarks/nacht_chronicles/nacht-particle-runtime-authority.json")
+          d=json.loads(p.read_text())
+          rows=d.get("placements", [])
+          assert d.get("ready") is True, d
+          assert len(rows)==29, len(rows)
+          assert all(len(row.get("matrixRowMajor", []))==16 for row in rows), "particle matrices incomplete"
+          print("XZOGOT_NACHT_FAST_PARTICLE_AUTHORITY_SCHEMA_GREEN placements=29 matrices=29")
+          PY
+
       - name: Install Godot 4.6.1
         shell: bash
         run: |
