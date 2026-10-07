@@ -428,7 +428,16 @@ func _prepare_material_authority() -> void:
 	for raw: Variant in bindings.get("materials", []):
 		if raw is Dictionary:
 			var record := raw as Dictionary
-			_material_records[str(record.get("materialPath", ""))] = record
+			var material_path := str(record.get("materialPath", ""))
+			if material_path.is_empty():
+				continue
+			_material_records[material_path] = record
+			# Particle graphs and static-scene bindings can preserve different
+			# source spellings (Content/... versus /Game/...). They identify the
+			# same cooked UE object. Keep the exact key for provenance and add a
+			# canonical lookup key so source-authored Cascade materials resolve
+			# without filename/name guessing.
+			_material_records[_canonical_source_object_path(material_path)] = record
 
 	for material_path_raw: Variant in effective_material_report.get("materialPaths", []):
 		var effective_path := str(material_path_raw)
@@ -702,9 +711,14 @@ func _optional_source_path(value: Variant) -> String:
 func _material_for_path(material_path: String) -> Material:
 	if material_path.is_empty():
 		return null
+	var canonical_path := _canonical_source_object_path(material_path)
 	if _material_cache.has(material_path):
 		return _material_cache[material_path] as Material
+	if _material_cache.has(canonical_path):
+		return _material_cache[canonical_path] as Material
 	var record: Dictionary = _material_records.get(material_path, {})
+	if record.is_empty():
+		record = _material_records.get(canonical_path, {})
 	if record.is_empty():
 		return null
 
@@ -886,6 +900,7 @@ func _material_for_path(material_path: String) -> Material:
 	material.set_meta("source_blend_mode", blend_mode)
 	material.set_meta("source_specular_mask_path", _optional_source_path(canonical.get("specular_masks", null)))
 	_material_cache[material_path] = material
+	_material_cache[canonical_path] = material
 	return material
 
 func _source_name_token(value: String) -> String:
