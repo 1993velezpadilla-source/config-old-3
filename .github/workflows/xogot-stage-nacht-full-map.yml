@@ -463,6 +463,34 @@ jobs:
           assert particle_graphs["particleSystemCount"] == 39 and particle_graphs["ready"] is True, particle_graphs
           assert particle_runtime["ready"] is True, particle_runtime
           assert particle_runtime["placementCount"] == 29, particle_runtime
+
+          assert particle_runtime_authority["ready"] is True, particle_runtime_authority
+          assert particle_runtime_authority["placementCount"] == 29, particle_runtime_authority
+          activation_missing=[]
+          activation_values=[]
+          monster_activation=[]
+          for placement in particle_runtime_authority["placements"]:
+              props=placement.get("properties",{})
+              if "autoActivate" not in props:
+                  activation_missing.append(placement.get("sourcePath"))
+                  continue
+              value=bool(props["autoActivate"])
+              activation_values.append(value)
+              if "p_monster_death_xlarge" in str(placement.get("templateObjectPath","")).lower():
+                  monster_activation.append({
+                      "sourcePath":placement.get("sourcePath"),
+                      "autoActivate":value,
+                  })
+          assert not activation_missing, activation_missing
+          assert len(activation_values)==29, len(activation_values)
+          assert monster_activation, monster_activation
+          print("XZOGOT_NACHT_PARTICLE_AUTOACTIVATE_AUTHORITY_GREEN",{
+              "placements":len(activation_values),
+              "active":sum(1 for x in activation_values if x),
+              "inactive":sum(1 for x in activation_values if not x),
+              "monsterDeath":monster_activation,
+          })
+
           assert environment["ready"] is True, environment
           assert environment_runtime_authority["ready"] is True, environment_runtime_authority
           assert environment_runtime_authority["componentCount"] == 2, environment_runtime_authority
