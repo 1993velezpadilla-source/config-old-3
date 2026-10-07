@@ -302,9 +302,176 @@ static func _first_emitter_module(emitter: Dictionary, export_type: String) -> D
 	if not (raw_modules is Array):
 		return {}
 	for raw: Variant in raw_modules:
-		if raw is Dictionary and str((raw as Dictionary).get("exportType", "")) == export_type:
-			return raw as Dictionary
+		if not (raw is Dictionary):
+			continue
+		var module := raw as Dictionary
+		if str(module.get("exportType", "")) != export_type:
+			continue
+		if not bool(ParticleSource.properties(module).get("bEnabled", true)):
+			continue
+		return module
 	return {}
+
+
+static func _distribution_table(value: Variant) -> Dictionary:
+	var distribution := ParticleSource.distribution(value)
+	var raw: Variant = distribution.get("Table", {})
+	return raw as Dictionary if raw is Dictionary else {}
+
+
+static func _float_table_series(value: Variant) -> Array[float]:
+	var result: Array[float] = []
+	var table := _distribution_table(value)
+	var entry_count := int(table.get("EntryCount", 0))
+	var entry_stride := int(table.get("EntryStride", 0))
+	var raw_values: Variant = table.get("Values", [])
+	if entry_count <= 0 or entry_stride <= 0 or not (raw_values is Array):
+		return result
+	var values := raw_values as Array
+	if values.size() < entry_count * entry_stride:
+		return result
+	for entry_index in range(entry_count):
+		var raw: Variant = values[entry_index * entry_stride]
+		if raw is float or raw is int:
+			result.append(float(raw))
+	return result
+
+
+static func _vector_table_series(value: Variant) -> Array[Vector3]:
+	var result: Array[Vector3] = []
+	var table := _distribution_table(value)
+	var entry_count := int(table.get("EntryCount", 0))
+	var entry_stride := int(table.get("EntryStride", 0))
+	var raw_values: Variant = table.get("Values", [])
+	if entry_count <= 0 or entry_stride < 3 or not (raw_values is Array):
+		return result
+	var values := raw_values as Array
+	if values.size() < entry_count * entry_stride:
+		return result
+	for entry_index in range(entry_count):
+		var at := entry_index * entry_stride
+		result.append(Vector3(
+			float(values[at]),
+			float(values[at + 1]),
+			float(values[at + 2])
+		))
+	return result
+
+
+static func _sample_float_series(values: Array[float], t: float, default_value: float) -> float:
+	if values.is_empty():
+		return default_value
+	if values.size() == 1:
+		return values[0]
+	var scaled := clampf(t, 0.0, 1.0) * float(values.size() - 1)
+	var lo := int(floor(scaled))
+	var hi := mini(values.size() - 1, lo + 1)
+	return lerpf(values[lo], values[hi], scaled - float(lo))
+
+
+static func _sample_vector_series(
+	values: Array[Vector3],
+	t: float,
+	default_value: Vector3
+) -> Vector3:
+	if values.is_empty():
+		return default_value
+	if values.size() == 1:
+		return values[0]
+	var scaled := clampf(t, 0.0, 1.0) * float(values.size() - 1)
+	var lo := int(floor(scaled))
+	var hi := mini(values.size() - 1, lo + 1)
+	return values[lo].lerp(values[hi], scaled - float(lo))
+
+
+static func _curve_from_samples(samples: Array[float]) -> Curve:
+	if samples.is_empty():
+		return null
+	var curve := Curve.new()
+	var lo := INF
+	var hi := -INF
+	for value: float in samples:
+		lo = minf(lo, value)
+		hi = maxf(hi, value)
+	curve.min_value = minf(0.0, lo)
+	curve.max_value = maxf(1.0, hi)
+	if samples.size() == 1:
+		curve.add_point(Vector2(0.0, samples[0]))
+		curve.add_point(Vector2(1.0, samples[0]))
+		return curve
+	for index in range(samples.size()):
+		curve.add_point(Vector2(
+			float(index) / float(samples.size() - 1),
+			samples[index]
+		))
+	return curve
+
+
+static func _size_over_life_texture(emitter: Dictionary) -> CurveXYZTexture:
+	var module := _first_emitter_module(emitter, "ParticleModuleSizeMultiplyLife")
+	if module.is_empty():
+		return null
+	var samples := _vector_table_series(
+		ParticleSource.properties(module).get("LifeMultiplier")
+	)
+	if samples.is_empty():
+		return null
+	var xs: Array[float] = []
+	var ys: Array[float] = []
+	var zs: Array[float] = []
+	for sample: Vector3 in samples:
+		xs.append(sample.x)
+		ys.append(sample.y)
+		zs.append(sample.z)
+	var texture := CurveXYZTexture.new()
+	texture.width = maxi(256, samples.size())
+	texture.curve_x = _curve_from_samples(xs)
+	texture.curve_y = _curve_from_samples(ys)
+	texture.curve_z = _curve_from_samples(zs)
+	return texture
+
+
+static func _color_over_life_texture(emitter: Dictionary) -> GradientTexture1D:
+	var module := _first_emitter_module(emitter, "ParticleModuleColorOverLife")
+	if module.is_empty():
+		return null
+	var module_props := ParticleSource.properties(module)
+	var rgb := _vector_table_series(module_props.get("ColorOverLife"))
+	var alpha := _float_table_series(module_props.get("AlphaOverLife"))
+	if rgb.is_empty() and alpha.is_empty():
+		return null
+	var sample_count := maxi(2, maxi(rgb.size(), alpha.size()))
+	var offsets := PackedFloat32Array()
+	var colors := PackedColorArray()
+	offsets.resize(sample_count)
+	colors.resize(sample_count)
+	for index in range(sample_count):
+		var t := float(index) / float(sample_count - 1)
+		var c := _sample_vector_series(rgb, t, Vector3.ONE)
+		var a := _sample_float_series(alpha, t, 1.0)
+		offsets[index] = t
+		colors[index] = Color(c.x, c.y, c.z, a)
+	var gradient := Gradient.new()
+	gradient.offsets = offsets
+	gradient.colors = colors
+	gradient.interpolation_mode = Gradient.GRADIENT_INTERPOLATE_LINEAR
+	var texture := GradientTexture1D.new()
+	texture.width = maxi(256, sample_count)
+	texture.use_hdr = true
+	texture.gradient = gradient
+	return texture
+
+
+static func _apply_emitter_life_curves(
+	process: ParticleProcessMaterial,
+	emitter: Dictionary
+) -> void:
+	var size_curve := _size_over_life_texture(emitter)
+	if size_curve != null:
+		process.scale_curve = size_curve
+	var color_curve := _color_over_life_texture(emitter)
+	if color_curve != null:
+		process.color_ramp = color_curve
 
 
 static func _emitter_lifetime(system: Dictionary, emitter: Dictionary) -> Vector2:
@@ -453,6 +620,7 @@ static func _build_source_sprite_emitter(
 		size_ue = 1.0
 	var process := ParticleProcessMaterial.new()
 	_configure_process_from_emitter(process, system, emitter)
+	_apply_emitter_life_curves(process, emitter)
 
 	var grid := _emitter_subuv_grid(emitter)
 	material.particles_anim_h_frames = grid.x
@@ -587,6 +755,7 @@ static func _build_source_mesh_emitter(
 	var lifetime := _emitter_lifetime(system, emitter)
 	var process := ParticleProcessMaterial.new()
 	_configure_process_from_emitter(process, system, emitter)
+	_apply_emitter_life_curves(process, emitter)
 	var size_samples := _emitter_size_samples(system, emitter)
 	if not size_samples.is_empty():
 		var min_scale := INF
