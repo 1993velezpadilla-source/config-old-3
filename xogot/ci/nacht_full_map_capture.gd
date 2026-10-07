@@ -111,17 +111,27 @@ func _save_view(
 
 func _restart_particle_visuals_deterministic(
 	particle_visuals: Array[Node],
-	warmup_frames: int = 30
+	_warmup_frames: int = 30
 ) -> void:
-	for raw_particle: Node in particle_visuals:
-		if raw_particle is GPUParticles3D:
-			var particles := raw_particle as GPUParticles3D
-			# Keep the renderer seed across every A/B sample. Without this,
-			# sequential isolation captures compare different particle histories
-			# instead of only the requested visibility change.
-			particles.restart(true)
-	for _i in range(maxi(1, warmup_frames)):
-		await process_frame
+	const SNAPSHOT_SECONDS := 0.75
+	for particle_index in range(particle_visuals.size()):
+		var raw_particle: Node = particle_visuals[particle_index]
+		if not (raw_particle is GPUParticles3D):
+			continue
+		var particles := raw_particle as GPUParticles3D
+		# Godot 4.6 exposes fixed particle seeds plus explicit simulation seek.
+		# Freeze every emitter at the same source-independent instant so each
+		# hide/solo screenshot changes visibility only, never particle history.
+		particles.use_fixed_seed = true
+		particles.seed = 1337 + particle_index * 7919
+		particles.speed_scale = 0.0
+		particles.restart(false)
+		particles.request_particles_process(SNAPSHOT_SECONDS)
+	# GPU restart/seek is committed by the render thread. Two frames are enough
+	# to expose the exact frozen state without replaying 30 world frames for
+	# every system sample.
+	await process_frame
+	await process_frame
 
 
 func _texture_alpha_probe(texture: Texture2D) -> Dictionary:
@@ -462,7 +472,7 @@ func _capture() -> void:
 			print(
 				"XZOGOT_NACHT_CANDIDATE02_PARTICLE_AB_GREEN nodes=",
 				particle_visuals.size(),
-				" deterministic_seed=true warmup_frames=30"
+				" deterministic_seed=true snapshot_seconds=0.75 frozen=true"
 			)
 
 			var systems: Array[String] = []
@@ -509,7 +519,7 @@ func _capture() -> void:
 					"XZOGOT_NACHT_CANDIDATE02_SYSTEM_ISOLATION ",
 					"index=", system_index,
 					" system=", system_path,
-					" deterministic_seed=true warmup_frames=30"
+					" deterministic_seed=true snapshot_seconds=0.75 frozen=true"
 				)
 
 				# Complement the hide-A/B with a solo render. This makes each
@@ -541,7 +551,7 @@ func _capture() -> void:
 					"XZOGOT_NACHT_CANDIDATE02_SYSTEM_SOLO ",
 					"index=", system_index,
 					" system=", system_path,
-					" deterministic_seed=true warmup_frames=30"
+					" deterministic_seed=true snapshot_seconds=0.75 frozen=true"
 				)
 			for particle_index in range(particle_visuals.size()):
 				var raw_particle: Node = particle_visuals[particle_index]
