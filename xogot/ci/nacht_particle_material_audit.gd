@@ -128,10 +128,10 @@ func _probe_monster_placement() -> void:
 	print("XZOGOT_NACHT_MONSTER_PLACEMENT_GREEN hits=", hits)
 
 func _probe_monster_source_graph() -> void:
-	if not FileAccess.file_exists(PARTICLE_GRAPHS):
-		print("XZOGOT_NACHT_MONSTER_SOURCE missing=", PARTICLE_GRAPHS)
+	if not FileAccess.file_exists(PARTICLE_RUNTIME_AUTHORITY):
+		print("XZOGOT_NACHT_MONSTER_SOURCE missing=", PARTICLE_RUNTIME_AUTHORITY)
 		return
-	var file := FileAccess.open(PARTICLE_GRAPHS, FileAccess.READ)
+	var file := FileAccess.open(PARTICLE_RUNTIME_AUTHORITY, FileAccess.READ)
 	if file == null:
 		print("XZOGOT_NACHT_MONSTER_SOURCE open_failed")
 		return
@@ -139,7 +139,7 @@ func _probe_monster_source_graph() -> void:
 	if not (parsed is Dictionary):
 		print("XZOGOT_NACHT_MONSTER_SOURCE parse_failed")
 		return
-	var systems_raw: Variant = (parsed as Dictionary).get("systems", [])
+	var systems_raw: Variant = (parsed as Dictionary).get("placedSystems", [])
 	if not (systems_raw is Array):
 		return
 	var interesting := {
@@ -162,11 +162,9 @@ func _probe_monster_source_graph() -> void:
 		var system := raw_system as Dictionary
 		if str(system.get("objectPath", "")) != TARGET_MONSTER:
 			continue
-		print(
-			"XZOGOT_NACHT_MONSTER_SOURCE_GREEN nodes=",
-			(system.get("nodes", []) as Array).size()
-		)
 		var nodes_raw: Variant = system.get("nodes", [])
+		var node_count := (nodes_raw as Array).size() if nodes_raw is Array else 0
+		print("XZOGOT_NACHT_MONSTER_SOURCE_GREEN nodes=", node_count)
 		if nodes_raw is Array:
 			for raw_node: Variant in nodes_raw:
 				if not (raw_node is Dictionary):
