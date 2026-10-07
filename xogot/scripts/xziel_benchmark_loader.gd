@@ -26,6 +26,7 @@ extends Node3D
 @export var complete_texture_report_file: String = "complete-xztx-report.json"
 @export var light_report_file: String = "xzen-report.json"
 @export var skeletal_bindings_file: String = "skeletal-runtime-bindings.json"
+@export var particle_mesh_bindings_file: String = "particle-mesh-bindings.json"
 const XZMS_HEADER_BYTES := 56
 const XZMS_SUBMESH_BYTES := 16
 const XZTX_HEADER_BYTES := 80
@@ -37,6 +38,8 @@ const XZMS_ATTR_UV0 := 1 << 2
 const XZMS_ATTR_TANGENT := 1 << 6
 
 var _mesh_cache: Dictionary = {}
+var _particle_mesh_cache: Dictionary = {}
+var _particle_mesh_bindings: Dictionary = {}
 var _material_cache: Dictionary = {}
 var _texture_cache: Dictionary = {}
 var _material_records: Dictionary = {}
@@ -311,6 +314,68 @@ func _build_source_skeletal_actors() -> void:
 
 func _source_path(relative: String) -> String:
 	return source_root.path_join(relative)
+
+func _canonical_source_object_path(raw: String) -> String:
+	var value := raw.strip_edges().replace("\\", "/")
+	var quote := value.find("'")
+	if quote >= 0 and value.ends_with("'"):
+		value = value.substr(quote + 1, value.length() - quote - 2)
+	if value.begins_with("Content/"):
+		value = "/Game/" + value.substr(8)
+	elif value.begins_with("Game/"):
+		value = "/" + value
+	return value.to_lower()
+
+func _prepare_particle_mesh_bindings() -> void:
+	if not _particle_mesh_bindings.is_empty():
+		return
+	var report := _read_json(_source_path(particle_mesh_bindings_file))
+	for raw: Variant in report.get("meshes", []):
+		if not (raw is Dictionary):
+			continue
+		var row := raw as Dictionary
+		var source_path := str(row.get("sourceObjectPath", ""))
+		var runtime_file := str(row.get("runtimeFile", ""))
+		if source_path.is_empty() or runtime_file.is_empty():
+			continue
+		_particle_mesh_bindings[_canonical_source_object_path(source_path)] = runtime_file
+
+func resolve_particle_mesh_chunks(source_object_path: String) -> Array[ArrayMesh]:
+	_prepare_particle_mesh_bindings()
+	var key := _canonical_source_object_path(source_object_path)
+	if _particle_mesh_cache.has(key):
+		var cached: Array[ArrayMesh] = []
+		for raw: Variant in _particle_mesh_cache[key]:
+			if raw is ArrayMesh:
+				cached.append(raw as ArrayMesh)
+		return cached
+	var runtime_file := str(_particle_mesh_bindings.get(key, ""))
+	var result: Array[ArrayMesh] = []
+	if runtime_file.is_empty():
+		return result
+	var native_name := runtime_file.get_basename() + ".glb"
+	var native_path := _source_path(
+		vfs_map_root.path_join("particle_meshes_glb").path_join(native_name)
+	)
+	if not ResourceLoader.exists(native_path):
+		return result
+	var packed := load(native_path) as PackedScene
+	if packed == null:
+		return result
+	var instance := packed.instantiate()
+	if instance == null:
+		return result
+	var mesh_nodes: Array[MeshInstance3D] = []
+	_collect_mesh_instances(instance, mesh_nodes)
+	for mesh_node: MeshInstance3D in mesh_nodes:
+		if mesh_node.mesh is ArrayMesh:
+			var duplicate := (mesh_node.mesh as ArrayMesh).duplicate() as ArrayMesh
+			if duplicate != null:
+				result.append(duplicate)
+	instance.free()
+	if not result.is_empty():
+		_particle_mesh_cache[key] = result
+	return result
 
 func _read_json(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
