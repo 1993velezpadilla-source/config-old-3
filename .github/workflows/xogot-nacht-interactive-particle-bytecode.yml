@@ -124,7 +124,17 @@ jobs:
                   f"Powered_Object_BaseN source mismatch {base_uassets}"
               )
 
-          all_uassets=uassets+base_uassets
+          expected_reward_names={
+              "ammo.uasset","firesale1.uasset","instagum.uasset",
+              "nuke.uasset","doublepointsdrop.uasset","weapon.uasset",
+          }
+          reward_names={Path(x).name.lower() for x in reward_uassets}
+          if reward_names!=expected_reward_names or len(reward_uassets)!=6:
+              raise SystemExit(
+                  f"Gumball reward asset set mismatch {reward_uassets}"
+              )
+
+          all_uassets=uassets+base_uassets+reward_uassets
           bases={re.sub(r"(?i)\.uasset$","",x) for x in all_uassets}
           selected=[
               x for x in lines
@@ -237,6 +247,31 @@ jobs:
             $baseIndex++
           }
           Write-Host "XZOGOT_NACHT_POWERED_BASE_BYTECODE_GREEN assets=$($baseAssets.Count)"
+
+          $rewardAssets=@(
+            Get-Content gumball-reward-uassets.txt | ForEach-Object {
+              $relative=$_.Replace('/','\\')
+              $full=Join-Path (Resolve-Path nacht-interactive-bytecode).Path $relative
+              if(-not (Test-Path $full)){throw "selected Gumball reward missing after unpack: $_"}
+              Get-Item $full
+            }
+          )
+          if($rewardAssets.Count -ne 6){
+            throw "Gumball reward asset count mismatch: $($rewardAssets.Count)"
+          }
+          $rewardIndex=0
+          foreach($asset in $rewardAssets){
+            $stem=[IO.Path]::GetFileNameWithoutExtension($asset.Name)
+            $out="build/nacht-interactive-particle-bytecode/reward-$('{0:D2}' -f $rewardIndex)-$stem.json"
+            $log="build/nacht-interactive-particle-bytecode/reward-$('{0:D2}' -f $rewardIndex)-$stem.log"
+            dotnet $app PavMappings.usmap $out $asset.FullName 2>&1 | Tee-Object $log
+            if($LASTEXITCODE -ne 0){throw "reward bytecode extractor failed $LASTEXITCODE asset=$($asset.FullName)"}
+            if(-not (Select-String -Path $log -Pattern 'XZOGOT_NUKETOWN_WALLBUY_BYTECODE_GREEN' -Quiet)){
+              throw "reward bytecode green marker missing asset=$($asset.FullName)"
+            }
+            $rewardIndex++
+          }
+          Write-Host "XZOGOT_NACHT_GUMBALL_REWARD_BYTECODE_GREEN assets=$($rewardAssets.Count)"
 
           @'
           import json
