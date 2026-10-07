@@ -13,6 +13,10 @@ CANONICAL_TEXTURE_KEYS = {
 }
 
 UE_DEFAULT_SURFACE_MATERIAL = "xziel://ue/default-surface"
+UE_ENGINE_DEFAULT_SURFACE_PATHS = (
+    "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial",
+    "/Engine/EngineMaterials/WorldGridMaterial.WorldGridMaterial",
+)
 
 
 def canonical_ue_path(value):
@@ -186,6 +190,12 @@ def main() -> int:
     scene_mesh_bindings = []
     total_submeshes = 0
     null_base_material_bindings = 0
+    resolved_engine_default_surface_path = None
+    for candidate in UE_ENGINE_DEFAULT_SURFACE_PATHS:
+        resolved = material_by_path.get(canonical_ue_path(candidate))
+        if resolved is not None:
+            resolved_engine_default_surface_path = resolved["objectPath"]
+            break
 
     for scene_mesh in scene["meshes"]:
         mesh_path = scene_mesh["sourceObjectPath"]
@@ -247,7 +257,10 @@ def main() -> int:
                     used_material_paths.add(material_path)
             else:
                 null_base_material_bindings += 1
-                material_path = UE_DEFAULT_SURFACE_MATERIAL
+                material_path = (
+                    resolved_engine_default_surface_path
+                    or UE_DEFAULT_SURFACE_MATERIAL
+                )
                 used_material_paths.add(material_path)
 
             section_rows.append({
@@ -626,6 +639,10 @@ def main() -> int:
             null_base_material_bindings,
         "defaultSurfaceBindingCount":
             null_base_material_bindings,
+        "engineDefaultSurfaceResolved":
+            resolved_engine_default_surface_path is not None,
+        "engineDefaultSurfacePath":
+            resolved_engine_default_surface_path,
         "instanceOverrideRecordCount":
             len(instance_override_rows),
         "effectiveOverrideSlotCount":
