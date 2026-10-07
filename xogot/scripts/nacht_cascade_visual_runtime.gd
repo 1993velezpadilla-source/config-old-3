@@ -112,7 +112,7 @@ static func _all_vector_samples(system: Dictionary, export_type: String, propert
 static func _max_abs_component(samples: Array[Vector3]) -> float:
 	var result := 0.0
 	for sample: Vector3 in samples:
-		result = maxf(result, absf(sample.x), absf(sample.y), absf(sample.z))
+		result = maxf(result, maxf(absf(sample.x), maxf(absf(sample.y), absf(sample.z))))
 	return result
 
 
