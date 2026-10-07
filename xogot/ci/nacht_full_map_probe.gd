@@ -666,6 +666,17 @@ func _run() -> void:
 	var particle_quad_smoke_peak := int(
 		scene.get_meta("source_particle_quad_smoke_peak_active", -1)
 	)
+	var particle_monster_emitters := int(scene.get_meta("source_particle_monster_emitter_count", -1))
+	var particle_monster_lods := int(scene.get_meta("source_particle_monster_lod_count", -1))
+	var particle_monster_burst_emitters := int(scene.get_meta("source_particle_monster_burst_only_emitters", -1))
+	var particle_monster_continuous_emitters := int(scene.get_meta("source_particle_monster_continuous_emitters", -1))
+	var particle_monster_lifetimes: Array = scene.get_meta("source_particle_monster_lifetime_ranges", []) as Array
+	var particle_monster_size_life_modules := int(scene.get_meta("source_particle_monster_size_life_modules", -1))
+	var particle_monster_color_modules := int(scene.get_meta("source_particle_monster_color_modules", -1))
+	var particle_monster_velocity_min := scene.get_meta("source_particle_monster_velocity_min_ue_cm", Vector3.INF) as Vector3
+	var particle_monster_velocity_max := scene.get_meta("source_particle_monster_velocity_max_ue_cm", Vector3.INF) as Vector3
+	var particle_monster_subuv_samples := int(scene.get_meta("source_particle_monster_subuv_sample_count", -1))
+	var particle_monster_peaks: Array = scene.get_meta("source_particle_monster_lod_peaks", []) as Array
 	var source_particles := int(scene.get_meta("source_particle_component_count", -1))
 	var particle_authority := int(scene.get_meta("runtime_particle_authority_count", -1))
 	var source_particle_systems := int(scene.get_meta("source_particle_system_count", -1))
@@ -778,14 +789,14 @@ func _run() -> void:
 		if not particle_semantic_ready:
 			_fail(34, "source-complete Cascade semantic runtime is not ready")
 			return
-		if particle_semantic_systems != 13 or particle_semantic_placements != 24:
+		if particle_semantic_systems != 14 or particle_semantic_placements != 25:
 			_fail(
 				34,
 				"Cascade semantic runtime coverage mismatch systems=%d placements=%d"
 				% [particle_semantic_systems, particle_semantic_placements]
 			)
 			return
-		if get_nodes_in_group("nacht_source_particle_semantic").size() != 24:
+		if get_nodes_in_group("nacht_source_particle_semantic").size() != 25:
 			_fail(34, "Cascade semantic placement group mismatch")
 			return
 		if (
@@ -1341,6 +1352,41 @@ func _run() -> void:
 					particle_quad_smoke_alpha_values,
 					particle_quad_smoke_disabled,
 					particle_quad_smoke_peak,
+				]
+			)
+			return
+		var monster_peaks_ok := (
+			particle_monster_peaks.size() == 12
+			and int(particle_monster_peaks[0]) == 2
+			and int(particle_monster_peaks[5]) == 2
+			and int(particle_monster_peaks[6]) == 3
+			and int(particle_monster_peaks[8]) == 3
+			and int(particle_monster_peaks[9]) == 16
+			and int(particle_monster_peaks[11]) == 16
+		)
+		if (
+			particle_monster_emitters != 4
+			or particle_monster_lods != 12
+			or particle_monster_burst_emitters != 3
+			or particle_monster_continuous_emitters != 1
+			or particle_monster_lifetimes.size() != 6
+			or particle_monster_size_life_modules != 6
+			or particle_monster_color_modules != 10
+			or not particle_monster_velocity_min.is_equal_approx(Vector3(-15.0, -15.0, 25.0))
+			or not particle_monster_velocity_max.is_equal_approx(Vector3(15.0, 15.0, 35.0))
+			or particle_monster_subuv_samples != 32
+			or not monster_peaks_ok
+		):
+			_fail(
+				34,
+				"monster XL Cascade summary mismatch emitters=%d lods=%d burst=%d continuous=%d lifetimes=%s size_life=%d color=%d velocity=%s..%s subuv=%d peaks=%s"
+				% [
+					particle_monster_emitters, particle_monster_lods,
+					particle_monster_burst_emitters, particle_monster_continuous_emitters,
+					particle_monster_lifetimes, particle_monster_size_life_modules,
+					particle_monster_color_modules, particle_monster_velocity_min,
+					particle_monster_velocity_max, particle_monster_subuv_samples,
+					particle_monster_peaks,
 				]
 			)
 			return
