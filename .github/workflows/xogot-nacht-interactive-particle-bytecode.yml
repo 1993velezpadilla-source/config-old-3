@@ -1575,6 +1575,29 @@ jobs:
               json.dumps(gumball_selection_rule,separators=(",",":"))
           )
 
+          spawn_struct_symbol="export:330:K2Node_MakeStruct_PavlovItemSpawnParams"
+          gumball_spawn_struct_trace=[]
+          for offset in sorted(gumball_top):
+              expr=gumball_top[offset]
+              blob=json.dumps(expr,sort_keys=True)
+              if (
+                  spawn_struct_symbol in blob
+                  or "PavlovItemSpawnParams" in blob
+              ):
+                  gumball_spawn_struct_trace.append({
+                      "startOffset":offset,
+                      "expression":expr,
+                  })
+          if len(gumball_spawn_struct_trace)<2:
+              raise SystemExit(
+                  "MachineGumball spawn struct trace too small "
+                  + repr(gumball_spawn_struct_trace)
+              )
+          print(
+              "XZOGOT_NACHT_GUMBALL_SPAWN_STRUCT_TRACE_GREEN",
+              json.dumps(gumball_spawn_struct_trace,separators=(",",":"))
+          )
+
           gumball_contract={
               "fileName":"MachineGumball.uasset",
               "blueprintName":"MachineGumball",
@@ -1610,6 +1633,7 @@ jobs:
               "testBytecodeSlice":gumball_test_slice,
               "selectionTrace":gumball_selection_trace,
               "selectionRule":gumball_selection_rule,
+              "spawnStructTrace":gumball_spawn_struct_trace,
           }
           source_interaction_contracts=[gumball_contract]
           print(
