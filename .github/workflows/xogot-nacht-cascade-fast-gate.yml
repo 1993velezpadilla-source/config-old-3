@@ -77,6 +77,12 @@ jobs:
           test -n "$matrix"
           cp "$graphs" xogot/assets/benchmarks/nacht_particle_slice/particle-candidate-graphs.json
           cp "$matrix" xogot/assets/benchmarks/nacht_particle_slice/particle-candidate-matrix.json
+          authority=$(find particle-slice -type f -name placed-particle-material-authority.json -print -quit)
+          native_dir=$(find particle-slice -type d -name placed-particle-native-textures -print -quit)
+          test -n "$authority"
+          test -n "$native_dir"
+          cp "$authority" xogot/assets/benchmarks/nacht_particle_slice/placed-particle-material-authority.json
+          cp -a "$native_dir" xogot/assets/benchmarks/nacht_particle_slice/native-textures
           echo "XZOGOT_NACHT_CASCADE_FAST_SLICE_GREEN"
 
       - name: Validate material compiler Python
@@ -98,6 +104,24 @@ jobs:
           unzip -q /tmp/godot.zip -d /tmp/godot
           chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
 
+      - name: Gate Godot particle DDS alpha
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=xogot/assets/benchmarks/nacht_particle_slice/native-textures
+          dst=xogot/assets/benchmarks/nacht_particle_slice/textures_dds
+          rm -rf "$dst"
+          python3 tools/maps/xztx_to_dds.py "$src" "$dst" \
+            --report build/nacht-cascade-fast/particle-dds-report.json
+          timeout 120 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot \
+            --script res://ci/nacht_particle_texture_alpha_probe.gd \
+            2>&1 | tee build/nacht-cascade-fast/particle-alpha.log
+          grep -q "XZOGOT_NACHT_GODOT_DDS_ALPHA_GREEN" \
+            build/nacht-cascade-fast/particle-alpha.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" \
+            build/nacht-cascade-fast/particle-alpha.log
+
       - name: Gate Cascade visual API
         shell: bash
         run: |
@@ -109,6 +133,8 @@ jobs:
             2>&1 | tee build/nacht-cascade-fast/visual-api.log
           grep -q "XZOGOT_NACHT_CASCADE_VISUAL_API_GREEN" \
             build/nacht-cascade-fast/visual-api.log
+            build/nacht-cascade-fast/particle-alpha.log
+            build/nacht-cascade-fast/particle-dds-report.json
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" \
             build/nacht-cascade-fast/visual-api.log
 
