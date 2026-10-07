@@ -326,6 +326,39 @@ def _texture_override_map(rows: Any) -> dict[str, str]:
     return result
 
 
+
+def partial_changed_texture_candidate(
+    instance: dict[str, Any],
+    base_material: dict[str, Any],
+) -> dict[str, str] | None:
+    """Return the one effective texture parameter changed from its parent.
+
+    Cooked UE materials can strip intermediate expression exports while still
+    preserving the parent defaults and the instance's effective overrides.
+    Exactly one changed texture parameter is positive source authority; two or
+    more changes remain ambiguous and are never guessed.
+    """
+    base_textures = _texture_override_map(base_material.get("textures", []))
+    instance_textures = _texture_override_map(instance.get("textures", []))
+    changed: list[dict[str, str]] = []
+
+    for parameter_key, bound_value in instance_textures.items():
+        base_value = base_textures.get(parameter_key)
+        if not base_value:
+            continue
+        if canonical_path(base_value) == canonical_path(bound_value):
+            continue
+        changed.append({
+            "parameter": parameter_key,
+            "baseValue": base_value,
+            "boundValue": bound_value,
+        })
+
+    if len(changed) != 1:
+        return None
+    return changed[0]
+
+
 def resolve_instance(materials_root: dict[str, Any], instance_path: str) -> dict[str, Any]:
     rows = materials_root.get("materials", [])
     if not isinstance(rows, list):
@@ -360,6 +393,7 @@ def resolve_instance(materials_root: dict[str, Any], instance_path: str) -> dict
     unresolved_pins = unresolved_output_inputs(base)
     parameter_candidates = base_parameter_candidates(base)
     primary_texture_candidate = partial_primary_texture_candidate(base)
+    changed_texture_candidate = partial_changed_texture_candidate(instance, base)
     textures = _texture_override_map(instance.get("textures", []))
     scalars = _override_map(instance.get("scalars", []))
     colors = _override_map(instance.get("colors", []))
@@ -415,6 +449,7 @@ def resolve_instance(materials_root: dict[str, Any], instance_path: str) -> dict
         "pins": resolved_pins,
         "parameterCandidates": candidate_bindings,
         "partialPrimaryTextureCandidate": primary_texture_candidate,
+        "partialChangedTextureCandidate": changed_texture_candidate,
         "instanceTextures": instance.get("textures", []),
         "instanceScalars": instance.get("scalars", []),
         "instanceColors": instance.get("colors", []),
