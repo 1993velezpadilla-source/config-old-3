@@ -220,6 +220,11 @@ func _run_probe() -> void:
 		var base_stats: Dictionary = weapon.call("get_runtime_stats") as Dictionary
 		var expected_pack_damage := WeaponBalanceAAA.pack_damage(id, -1.0)
 		var expected_pack_mag := WeaponBalanceAAA.pack_magazine(id, -1)
+		var expected_pack_reserve := WeaponBalanceAAA.pack_reserve(id, -1)
+		var expected_pack_interval := WeaponBalanceAAA.pack_fire_interval(id, -1.0)
+		var expected_pack_name := WeaponBalanceAAA.pack_name(id, "")
+		var expected_pack_row := WeaponBalanceAAA.source_row(id)
+		var expected_pending := WeaponBalanceAAA.unsupported_changed_fields(id)
 		if not bool(weapon.call("upgrade_current_weapon")):
 			_fail(23, "PaP upgrade failed " + id)
 			return
@@ -232,6 +237,24 @@ func _run_probe() -> void:
 			return
 		if float(pack_stats.get("damage", 0.0)) <= float(base_stats.get("damage", 0.0)):
 			_fail(26, "PaP did not increase damage " + id)
+			return
+		if absf(float(pack_stats.get("fire_interval", -1.0)) - expected_pack_interval) > 0.0001:
+			_fail(47, "PaP fire interval/RPM mismatch " + id)
+			return
+		if int(weapon.get("reserve_ammo")) != expected_pack_reserve:
+			_fail(48, "PaP reserve mismatch " + id)
+			return
+		if str(pack_stats.get("display_name", "")) != expected_pack_name:
+			_fail(49, "PaP source name mismatch " + id)
+			return
+		if str(pack_stats.get("pack_balance_authority", "")) != WeaponBalanceAAA.SOURCE_AUTHORITY:
+			_fail(50, "PaP source authority mismatch " + id)
+			return
+		if int(pack_stats.get("pack_source_row", -1)) != expected_pack_row:
+			_fail(51, "PaP source row mismatch " + id)
+			return
+		if bool(pack_stats.get("pack_source_runtime_complete", false)) != expected_pending.is_empty():
+			_fail(52, "PaP pending-special-field accounting mismatch " + id)
 			return
 
 		if id == "mp40":
