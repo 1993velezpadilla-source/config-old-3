@@ -136,6 +136,30 @@ def sibling_parameter_consensus(materials, target_path, target_textures, paramet
     return target_by_canonical[key]
 
 
+def source_raw_property_names(material):
+    """Return property names proven present in the cooked UObject.
+
+    CMaterialParams2.Properties is useful semantic authority but it is not a
+    complete reflection of UMaterial's serialized property holder. In
+    particular, UE4.21 particle masters can expose BlendMode in
+    rawMaterialProperties while omitting it from rawPropertyKeys. Constructor
+    defaults must only be synthesized when neither source view contains the
+    property.
+    """
+    names = {
+        str(name)
+        for name in material.get("rawPropertyKeys", [])
+        if name
+    }
+    for row in material.get("rawMaterialProperties", []):
+        if not isinstance(row, dict):
+            continue
+        name = row.get("name")
+        if name:
+            names.add(str(name))
+    return names
+
+
 def load(path: str):
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
@@ -530,10 +554,7 @@ def main() -> int:
             canonical_ue_path(base_path),
             material,
         )
-        base_raw_property_keys = base_material.get(
-            "rawPropertyKeys",
-            [],
-        )
+        base_source_property_names = source_raw_property_names(base_material)
 
         runtime_blend_mode = material["blendMode"]
         runtime_shading_model = material["shadingModel"]
@@ -549,7 +570,7 @@ def main() -> int:
         if (
             base_material.get("exportType") == "Material"
             and not material.get("semanticShadingOverride", False)
-            and "ShadingModel" not in base_raw_property_keys
+            and "ShadingModel" not in base_source_property_names
         ):
             runtime_shading_model = "MSM_DefaultLit"
             runtime_default_sources.append(
@@ -559,7 +580,7 @@ def main() -> int:
         if (
             base_material.get("exportType") == "Material"
             and not material.get("semanticBlendOverride", False)
-            and "BlendMode" not in base_raw_property_keys
+            and "BlendMode" not in base_source_property_names
         ):
             runtime_blend_mode = "BLEND_Opaque"
             runtime_default_sources.append(
@@ -569,7 +590,7 @@ def main() -> int:
         if (
             base_material.get("exportType") == "Material"
             and not material.get("semanticOpacityMaskOverride", False)
-            and "OpacityMaskClipValue" not in base_raw_property_keys
+            and "OpacityMaskClipValue" not in base_source_property_names
         ):
             runtime_opacity_mask_clip = 0.3333
             runtime_default_sources.append(
@@ -579,7 +600,7 @@ def main() -> int:
         if (
             base_material.get("exportType") == "Material"
             and not material.get("semanticTwoSidedOverride", False)
-            and "TwoSided" not in base_raw_property_keys
+            and "TwoSided" not in base_source_property_names
         ):
             runtime_two_sided = False
             runtime_default_sources.append(
@@ -588,7 +609,7 @@ def main() -> int:
 
         if (
             base_material.get("exportType") == "Material"
-            and "bDisableDepthTest" not in base_raw_property_keys
+            and "bDisableDepthTest" not in base_source_property_names
         ):
             runtime_disable_depth_test = False
             runtime_default_sources.append(
@@ -610,6 +631,8 @@ def main() -> int:
             "colors": material.get("colors", []),
             "switches": material.get("switches", []),
             "rawPropertyKeys": raw_property_keys,
+            "sourceRawPropertyNames": sorted(source_raw_property_names(material)),
+            "baseSourceRawPropertyNames": sorted(base_source_property_names),
             "auditBlendMode": material.get("blendMode"),
             "auditShadingModel": material.get("shadingModel"),
             "semanticBaseMaterialPath": base_path,
