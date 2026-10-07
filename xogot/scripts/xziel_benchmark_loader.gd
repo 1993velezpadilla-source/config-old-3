@@ -823,6 +823,7 @@ func _material_for_path(material_path: String) -> Material:
 	if diffuse_source.is_empty() and allow_diff_parameter:
 		diffuse_source = _exact_parameter_texture(record, "DIFF")
 		if not diffuse_source.is_empty():
+			source_diffuse_binding_route = "parameter:DIFF"
 			diffuse_authority = (
 				"partial_graph_parameter:DIFF"
 				if source_graph_status == "partial"
@@ -849,6 +850,7 @@ func _material_for_path(material_path: String) -> Material:
 	):
 		emissive_source = _exact_parameter_texture(record, "EMISS")
 		if not emissive_source.is_empty():
+			source_emissive_binding_route = "parameter:EMISS"
 			emissive_authority = (
 				"partial_graph_parameter:EMISS"
 				if source_graph_status == "partial"
