@@ -292,7 +292,7 @@ class MaterialGraphResolverTests(unittest.TestCase):
         self.assertEqual(resolved["graphStatus"], "partial")
         self.assertEqual(
             resolved["partialPrimaryTextureCandidate"],
-            "/game/test/primary.primary",
+            "/Game/Test/Primary.Primary",
         )
 
 
