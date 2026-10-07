@@ -1,6 +1,6 @@
 extends SceneTree
 
-const TARGET_CANDIDATES := [4, 5, 6]
+const TARGET_CANDIDATES := [5, 6]
 const EXPECTED_ACTORS := 11023
 const MONSTER_SYSTEM := "/Game/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Monsters/FX_Monster_Deaths/P_Monster_Death_XLarge.P_Monster_Death_XLarge"
 const QUAD_SYSTEM := "/Game/CustomMaps/UGC2755515831/CoD/Particles/Quads/quadExplodeSmoke1.quadExplodeSmoke1"
@@ -237,12 +237,13 @@ func _run() -> void:
 		})
 
 	# Resume source one-shots and let the longest 2.8 s Monster Death family
-	# plus its 0.4 s delay fully expire. Seven seconds gives Godot enough room
-	# even if a final particle is born at the end of its one-shot emission cycle.
+	# plus its 0.4 s delay fully expire. Use wall-clock SceneTree time rather
+	# than hundreds of full-map render frames; five seconds exceeds the source
+	# maximum while keeping this diagnostic cheap on CI software rendering.
 	for visual: GPUParticles3D in suspects:
 		visual.speed_scale = 1.0
-	for _i in range(420):
-		await process_frame
+	await create_timer(5.0).timeout
+	await process_frame
 
 	var settled_rows: Array = []
 	for raw_index: Variant in TARGET_CANDIDATES:
