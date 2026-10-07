@@ -1,6 +1,7 @@
 extends SceneTree
 
 const WeaponSourcePresentation = preload("res://scripts/weapon_viewmodel_source_presentation.gd")
+const SourceModifierPolicy = preload("res://scripts/source_modifier_policy.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -56,6 +57,58 @@ func _run() -> void:
 		_fail(47, "MP40 ADS movement did not preserve WaW 50 percent penalty")
 		return
 	print("XZOGOT_28_SOURCE_ADS_PROFILES_GREEN weapons=28 colt=0.10 mp40=0.20 bar=0.35 mg42=0.50 ptrs=0.40/0.60")
+
+	if (
+		absf(SourceModifierPolicy.SPEED_COLA_RELOAD_TIME_MULTIPLIER - 0.50) > 0.0001
+		or absf(SourceModifierPolicy.STAMIN_UP_MOVE_SPEED_MULTIPLIER - 1.07) > 0.0001
+		or absf(SourceModifierPolicy.DEADSHOT_SPREAD_MULTIPLIER - 0.65) > 0.0001
+		or absf(SourceModifierPolicy.DOUBLE_TAP_INTERVAL_MULTIPLIER - 0.75) > 0.0001
+		or absf(SourceModifierPolicy.DOUBLE_TAP_PROJECTILE_DAMAGE_MULTIPLIER - 2.0) > 0.0001
+		or absf(SourceModifierPolicy.JUGGERNOG_MAX_HEALTH - 250.0) > 0.0001
+	):
+		_fail(48, "COD source perk constants drifted")
+		return
+	print("XZOGOT_SOURCE_PERK_CONSTANTS_GREEN reload=0.50 move=1.07 spread=0.65 rate=0.75 damage=2.0 jug=250")
+
+	for perk_id: String in ["quick_hands", "pilgrim_rush", "choir_sight", "twin_bells", "martyrs_blood", "last_rites"]:
+		if not bool(player.call("grant_perk", perk_id)):
+			_fail(49, "could not grant source-mapped perk " + perk_id)
+			return
+	if absf(float(player.call("get_reload_multiplier")) - 0.50) > 0.0001:
+		_fail(50, "Speed Cola source reload multiplier mismatch")
+		return
+	if absf(float(player.call("get_move_speed_multiplier")) - 1.07) > 0.0001:
+		_fail(51, "Stamin-Up source move multiplier mismatch")
+		return
+	if absf(float(player.call("get_spread_multiplier")) - 0.65) > 0.0001 or absf(float(player.call("get_recoil_multiplier")) - 1.0) > 0.0001:
+		_fail(52, "Deadshot source spread/no-recoil-policy mismatch")
+		return
+	if absf(float(player.call("get_fire_interval_multiplier")) - 0.75) > 0.0001:
+		_fail(53, "Double Tap source fire interval mismatch")
+		return
+	if absf(float(player.call("get_weapon_damage_multiplier_for", "mp40", "smg")) - 2.0) > 0.0001:
+		_fail(54, "Double Tap II projectile damage mismatch")
+		return
+	if absf(float(player.call("get_weapon_damage_multiplier_for", "raygun", "wonder")) - 1.0) > 0.0001:
+		_fail(55, "Double Tap II incorrectly doubled wonder weapon damage")
+		return
+	if absf(float(player.call("get_max_health")) - 250.0) > 0.0001:
+		_fail(56, "Jugger-Nog source health mismatch")
+		return
+	print("XZOGOT_SOURCE_PERK_RUNTIME_GREEN")
+
+	if not bool(weapon.call("equip_weapon", "bar", true)):
+		_fail(57, "could not equip BAR for Pack-a-Punch handling policy")
+		return
+	var pre_pack_interval: float = float(weapon.get("fire_interval"))
+	var pre_pack_reload: float = float(weapon.get("reload_time"))
+	if not bool(weapon.call("upgrade_current_weapon")):
+		_fail(58, "could not Pack-a-Punch BAR")
+		return
+	if absf(float(weapon.get("fire_interval")) - pre_pack_interval) > 0.0001 or absf(float(weapon.get("reload_time")) - pre_pack_reload) > 0.0001:
+		_fail(59, "Pack-a-Punch applied guessed universal handling modifiers")
+		return
+	print("XZOGOT_PACK_HANDLING_SOURCE_NEUTRAL_GREEN")
 
 	for skin_path: String in [
 		"res://assets/hud/latest_12/hud_ads.webp",
