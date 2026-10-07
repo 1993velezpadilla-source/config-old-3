@@ -1,6 +1,7 @@
 extends SceneTree
 
 const WeaponCatalog = preload("res://scripts/weapon_catalog.gd")
+const WeaponSourceCombat = preload("res://scripts/weapon_source_combat.gd")
 
 func _init() -> void:
 	call_deferred("_run_probe")
@@ -28,9 +29,19 @@ func _run_probe() -> void:
 	if str(weapon.call("get_weapon_id")) != "colt":
 		_fail(4, "starting weapon is not Colt")
 		return
-	if int(weapon.call("get_magazine")) != 8 or int(weapon.call("get_reserve")) != 80:
-		_fail(5, "Colt starting ammo wrong")
+	var colt_mag := WeaponSourceCombat.base_magazine("colt", -1)
+	var colt_reserve := WeaponSourceCombat.base_reserve("colt", -1)
+	if int(weapon.call("get_magazine")) != colt_mag or int(weapon.call("get_reserve")) != colt_reserve:
+		_fail(5, "Colt DT_Weapons starting ammo wrong")
 		return
+	var colt_stats: Dictionary = weapon.call("get_runtime_stats") as Dictionary
+	if (
+		absf(float(colt_stats.get("damage", -1.0)) - WeaponSourceCombat.base_damage("colt", -1.0)) > 0.001
+		or absf(float(colt_stats.get("fire_interval", -1.0)) - WeaponSourceCombat.base_fire_interval("colt", -1.0)) > 0.0001
+	):
+		_fail(19, "Colt DT_Weapons combat profile wrong")
+		return
+	print("XZOGOT_WEAPON_BASE_SOURCE_GREEN colt damage=", colt_stats.get("damage"), " reserve=", colt_reserve)
 
 	weapon.call("request_fire")
 	if not bool(weapon.call("is_muzzle_fx_ready")):
@@ -43,7 +54,7 @@ func _run_probe() -> void:
 		_fail(18, "muzzle flash did not trigger on shot")
 		return
 	print("XZOGOT_WEAPON_MUZZLE_FX_GREEN ", weapon.call("get_muzzle_anchor_mode"))
-	if int(weapon.call("get_magazine")) != 7:
+	if int(weapon.call("get_magazine")) != colt_mag - 1:
 		_fail(6, "Colt fire did not consume one round")
 		return
 	if int(weapon.call("get_shots_fired")) != 1:
@@ -51,25 +62,29 @@ func _run_probe() -> void:
 		return
 
 	weapon.set("_magazine", 4)
-	weapon.set("reserve_ammo", 80)
+	weapon.set("reserve_ammo", colt_reserve)
 	weapon.set("_cooldown", 0.0)
 	weapon.call("request_reload")
 	if not bool(weapon.call("is_reloading")):
 		_fail(8, "reload did not start")
 		return
 	weapon.call("_finish_reload")
-	if int(weapon.call("get_magazine")) != 8 or int(weapon.call("get_reserve")) != 76:
-		_fail(9, "Colt reload accounting wrong")
+	var colt_reload_need := colt_mag - 4
+	if int(weapon.call("get_magazine")) != colt_mag or int(weapon.call("get_reserve")) != colt_reserve - colt_reload_need:
+		_fail(9, "Colt source reload accounting wrong")
 		return
 
 	if not bool(weapon.call("equip_weapon", "mp40", true)):
 		_fail(10, "MP40 equip failed")
 		return
-	if int(weapon.call("get_magazine")) != 32 or int(weapon.call("get_reserve")) != 192:
-		_fail(11, "MP40 ammo profile wrong")
+	if (
+		int(weapon.call("get_magazine")) != WeaponSourceCombat.base_magazine("mp40", -1)
+		or int(weapon.call("get_reserve")) != WeaponSourceCombat.base_reserve("mp40", -1)
+	):
+		_fail(11, "MP40 DT_Weapons ammo profile wrong")
 		return
-	if not bool(weapon.call("is_automatic")):
-		_fail(12, "MP40 should be automatic")
+	if bool(weapon.call("is_automatic")) != WeaponSourceCombat.base_is_automatic("mp40", false):
+		_fail(12, "MP40 DT_Weapons SelectFire wrong")
 		return
 	if absf(float(weapon.call("get_ads_fov")) - 46.0) > 0.01:
 		_fail(13, "MP40 ADS profile wrong")
