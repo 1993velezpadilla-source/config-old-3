@@ -100,6 +100,7 @@ var _source_particle_acid_ball_descriptor: Dictionary = {}
 var _source_particle_sparks_small_descriptor: Dictionary = {}
 var _source_particle_quad_smoke_descriptor: Dictionary = {}
 var _source_particle_monster_descriptor: Dictionary = {}
+var _source_particle_fire00_descriptor: Dictionary = {}
 var _source_environment_fog_runtime_ready := false
 var _source_environment_reflection_runtime_ready := false
 var _source_spawn_candidates: Array[Node3D] = []
@@ -221,7 +222,7 @@ func _boot() -> void:
 	# audible runtime reproduction. They must only flip when those systems are
 	# actually mounted, never merely because the JSON exists.
 	set_meta("particle_visual_runtime_ready", false)
-	set_meta("source_particle_semantic_runtime_ready", _source_particle_semantic_runtime_count == 14 and _source_particle_semantic_placement_count == 25)
+	set_meta("source_particle_semantic_runtime_ready", _source_particle_semantic_runtime_count == 15 and _source_particle_semantic_placement_count == 27)
 	set_meta("source_particle_semantic_runtime_count", _source_particle_semantic_runtime_count)
 	set_meta("source_particle_semantic_placement_count", _source_particle_semantic_placement_count)
 	set_meta("source_audio_runtime_ready", _source_audio_semantics_ready())
@@ -1389,6 +1390,18 @@ func _build_source_particle_semantic_runtime() -> bool:
 		return false
 	_source_particle_semantic_runtime_count += 1
 
+	_source_particle_fire00_descriptor = NachtCascadeRuntime.fire_00_descriptor(_particle_graphs)
+	if not bool(_source_particle_fire00_descriptor.get("ready", false)):
+		push_error("NACHT_FULL_MAP: Fire_00 Cascade semantics unresolved " + str(_source_particle_fire00_descriptor.get("error", "unknown")))
+		return false
+	if not _mount_source_particle_semantic_anchors(
+		_source_particle_fire00_descriptor,
+		2,
+		"Fire_00"
+	):
+		return false
+	_source_particle_semantic_runtime_count += 1
+
 	set_meta(
 		"source_particle_mystery_spawn_rate",
 		float(_source_particle_mystery_descriptor.get("spawnRateMin", -1.0))
@@ -2168,6 +2181,16 @@ func _build_source_particle_semantic_runtime() -> bool:
 	set_meta("source_particle_monster_velocity_max_ue_cm", _source_particle_monster_descriptor.get("velocityMaxUEcm", Vector3.INF))
 	set_meta("source_particle_monster_subuv_sample_count", int(_source_particle_monster_descriptor.get("subUVSampleCount", -1)))
 	set_meta("source_particle_monster_lod_peaks", _source_particle_monster_descriptor.get("lodPeaks", []))
+	set_meta("source_particle_fire00_emitter_count", int(_source_particle_fire00_descriptor.get("emitterCount", -1)))
+	set_meta("source_particle_fire00_lod_count", int(_source_particle_fire00_descriptor.get("lodCount", -1)))
+	set_meta("source_particle_fire00_material_paths", _source_particle_fire00_descriptor.get("materialPaths", []))
+	set_meta("source_particle_fire00_lifetime_ranges", _source_particle_fire00_descriptor.get("lifetimeRanges", []))
+	set_meta("source_particle_fire00_spawn_rates", _source_particle_fire00_descriptor.get("spawnRates", []))
+	set_meta("source_particle_fire00_dynamic_module_count", int(_source_particle_fire00_descriptor.get("dynamicModuleCount", -1)))
+	set_meta("source_particle_fire00_dynamic_parameter_count", int(_source_particle_fire00_descriptor.get("dynamicParameterCount", -1)))
+	set_meta("source_particle_fire00_light_count", int(_source_particle_fire00_descriptor.get("particleLightCount", -1)))
+	set_meta("source_particle_fire00_disabled_skel_surface_count", int(_source_particle_fire00_descriptor.get("disabledSkelSurfaceCount", -1)))
+	set_meta("source_particle_fire00_lod_peaks", _source_particle_fire00_descriptor.get("lodPeaks", []))
 
 	print(
 		"XZOGOT_NACHT_CASCADE_SEMANTIC_RUNTIME_GREEN systems=",
@@ -2233,7 +2256,11 @@ func _build_source_particle_semantic_runtime() -> bool:
 		" quad_smoke_rate=",
 		_source_particle_quad_smoke_descriptor.get("spawnRate"),
 		" quad_smoke_disabled=",
-		_source_particle_quad_smoke_descriptor.get("disabledModuleTypes")
+		_source_particle_quad_smoke_descriptor.get("disabledModuleTypes"),
+		" fire00_emitters=",
+		_source_particle_fire00_descriptor.get("emitterCount"),
+		" fire00_peaks=",
+		_source_particle_fire00_descriptor.get("lodPeaks")
 	)
 	return true
 
