@@ -34,7 +34,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          SOURCE_RUN=37565803412
+          SOURCE_RUN=37623273042
           gh api -H "Accept: application/vnd.github+json" \
             "/repos/${GITHUB_REPOSITORY}/actions/runs/$SOURCE_RUN" \
             --jq 'select(.conclusion=="success") | .id' | grep -qx "$SOURCE_RUN"
