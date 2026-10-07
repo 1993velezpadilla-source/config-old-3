@@ -9,7 +9,12 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from tools.ue_bridge.material_graph_resolver import output_pin_parameters
+from tools.ue_bridge.material_graph_resolver import (
+    base_parameter_candidates,
+    output_pin_parameters,
+    partial_primary_texture_candidate,
+    unresolved_output_inputs,
+)
 
 
 CANONICAL_TEXTURE_KEYS = {
@@ -504,6 +509,9 @@ def main() -> int:
     explicit_blend_mode_mismatches = []
     source_graph_binding_count = 0
     source_graph_binding_material_count = 0
+    source_graph_exact_material_count = 0
+    source_graph_partial_material_count = 0
+    source_graph_missing_material_count = 0
     source_graph_ambiguities = []
 
     for material_path in sorted(used_material_paths):
@@ -599,6 +607,35 @@ def main() -> int:
             material,
             base_material_for_graph,
         )
+        source_graph_unresolved_outputs = unresolved_output_inputs(
+            base_material_for_graph,
+        )
+        source_graph_parameter_candidates = base_parameter_candidates(
+            base_material_for_graph,
+        )
+        source_graph_texture_parameter_candidates = sorted({
+            str(row.get("parameter", ""))
+            for row in source_graph_parameter_candidates
+            if (
+                isinstance(row, dict)
+                and row.get("kind") == "texture"
+                and row.get("parameter")
+            )
+        })
+        source_graph_primary_texture_candidate = (
+            partial_primary_texture_candidate(
+                base_material_for_graph,
+            )
+        )
+        if source_graph_unresolved_outputs:
+            source_graph_status = "partial"
+            source_graph_partial_material_count += 1
+        elif source_graph_bindings:
+            source_graph_status = "exact"
+            source_graph_exact_material_count += 1
+        else:
+            source_graph_status = "missing"
+            source_graph_missing_material_count += 1
         if source_graph_bindings:
             source_graph_binding_material_count += 1
         source_graph_binding_count += len(source_graph_bindings)
@@ -760,6 +797,13 @@ def main() -> int:
             "sourceGraphBindings": source_graph_bindings,
             "sourceGraphBindingProvenance":
                 source_graph_binding_provenance,
+            "sourceGraphStatus": source_graph_status,
+            "sourceGraphUnresolvedOutputs":
+                source_graph_unresolved_outputs,
+            "sourceGraphTextureParameterCandidates":
+                source_graph_texture_parameter_candidates,
+            "sourceGraphPrimaryTextureCandidate":
+                source_graph_primary_texture_candidate,
         })
 
     # De-duplicate error rows while keeping deterministic JSON.
@@ -831,6 +875,12 @@ def main() -> int:
             source_graph_binding_count,
         "sourceGraphBindingMaterialCount":
             source_graph_binding_material_count,
+        "sourceGraphExactMaterialCount":
+            source_graph_exact_material_count,
+        "sourceGraphPartialMaterialCount":
+            source_graph_partial_material_count,
+        "sourceGraphMissingMaterialCount":
+            source_graph_missing_material_count,
         "sourceGraphAmbiguityCount":
             len(source_graph_ambiguities),
         "sourceGraphAmbiguities":
