@@ -316,6 +316,26 @@ func _capture() -> void:
 		)):
 			return
 
+		if spawn_index == 2:
+			for raw_particle: Node in particle_visuals:
+				if raw_particle is Node3D:
+					(raw_particle as Node3D).visible = false
+			if not (await _save_view(
+				"/tmp/xogot-nacht-spawn-candidate-02-no-particles.png",
+				"spawn_candidate_02_no_particles",
+				false,
+				2
+			)):
+				return
+			for particle_index in range(particle_visuals.size()):
+				var raw_particle: Node = particle_visuals[particle_index]
+				if raw_particle is Node3D:
+					(raw_particle as Node3D).visible = particle_visibility[particle_index]
+			print(
+				"XZOGOT_NACHT_CANDIDATE02_PARTICLE_AB_GREEN nodes=",
+				particle_visuals.size()
+			)
+
 	player.global_transform = saved_player_transform
 	player.velocity = saved_player_velocity
 	player.set_physics_process(true)
