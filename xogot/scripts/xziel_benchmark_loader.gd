@@ -786,6 +786,12 @@ func _material_for_path(material_path: String) -> Material:
 		and graph_diffuse_source.is_empty()
 		and not graph_emissive_source.is_empty()
 	)
+	var source_diffuse_binding_route := (
+		"canonical:diffuse" if not diffuse_source.is_empty() else ""
+	)
+	var source_emissive_binding_route := (
+		"canonical:emissive" if not emissive_source.is_empty() else ""
+	)
 	if graph_emissive_as_unshaded_color:
 		# UE Unlit surfaces display EmissiveColor directly. Godot's closest
 		# StandardMaterial3D equivalent is an unshaded albedo input; assigning
@@ -793,6 +799,8 @@ func _material_for_path(material_path: String) -> Material:
 		# especially under additive blending.
 		diffuse_source = graph_emissive_source
 		emissive_source = ""
+		source_diffuse_binding_route = "source_graph:EmissiveColor"
+		source_emissive_binding_route = "suppressed:unlit_graph_emissive"
 		diffuse_authority = "graph:EmissiveColor->unshaded_color"
 		emissive_authority = "graph:mapped_to_unshaded_color"
 
@@ -802,6 +810,8 @@ func _material_for_path(material_path: String) -> Material:
 	# This is source-authored metadata, not a filename/material-name guess.
 	if diffuse_source.is_empty():
 		diffuse_source = _exact_parameter_texture(record, "AlbedoTexture")
+		if not diffuse_source.is_empty():
+			source_diffuse_binding_route = "parameter:AlbedoTexture"
 		if not diffuse_source.is_empty():
 			diffuse_authority = "explicit_parameter:AlbedoTexture"
 	# When the cooked graph is partial, parameter names remain useful source
@@ -824,6 +834,8 @@ func _material_for_path(material_path: String) -> Material:
 			normal_authority = "explicit_parameter:NormalTexture"
 	if emissive_source.is_empty() and not graph_emissive_as_unshaded_color:
 		emissive_source = _exact_parameter_texture(record, "EmissiveTexture")
+		if not emissive_source.is_empty():
+			source_emissive_binding_route = "parameter:EmissiveTexture"
 		if not emissive_source.is_empty():
 			emissive_authority = "explicit_parameter:EmissiveTexture"
 	var allow_emiss_parameter := (
@@ -850,6 +862,8 @@ func _material_for_path(material_path: String) -> Material:
 	# linear texturePath. These paths are source-authored UE bindings.
 	if diffuse_source.is_empty():
 		diffuse_source = _unique_source_srgb_texture(record)
+		if not diffuse_source.is_empty():
+			source_diffuse_binding_route = "fallback:unique_srgb"
 	if diffuse_source.is_empty():
 		var duplicate_diffuse := _duplicate_source_material_parameter(
 			material_path,
@@ -879,6 +893,7 @@ func _material_for_path(material_path: String) -> Material:
 			if alias_texture != null:
 				diffuse_source = resolved_alias
 				diffuse = alias_texture
+				source_diffuse_binding_route += "->alias"
 				_source_material_alias_hits += 1
 	if diffuse == null:
 		var exact_source := _source_exact_token_diffuse_for_composite(material_path)
@@ -887,6 +902,7 @@ func _material_for_path(material_path: String) -> Material:
 			if exact_texture != null:
 				diffuse_source = exact_source
 				diffuse = exact_texture
+				source_diffuse_binding_route += "->exact_token"
 				_source_material_exact_token_hits += 1
 	var normal := _texture_for_source(normal_source)
 	var emissive := _texture_for_source(emissive_source)
@@ -1014,6 +1030,8 @@ func _material_for_path(material_path: String) -> Material:
 	material.set_meta("source_resolved_diffuse_path", diffuse_source)
 	material.set_meta("source_resolved_normal_path", normal_source)
 	material.set_meta("source_resolved_emissive_path", emissive_source)
+	material.set_meta("source_diffuse_binding_route", source_diffuse_binding_route)
+	material.set_meta("source_emissive_binding_route", source_emissive_binding_route)
 	material.set_meta("source_graph_status", source_graph_status)
 	material.set_meta("source_diffuse_binding_authority", diffuse_authority)
 	material.set_meta("source_normal_binding_authority", normal_authority)
