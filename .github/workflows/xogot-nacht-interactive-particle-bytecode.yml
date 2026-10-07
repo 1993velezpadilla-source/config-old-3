@@ -1510,6 +1510,29 @@ jobs:
               json.dumps(gumball_test_slice,separators=(",",":"))
           )
 
+          selection_needles=[
+              "Gobblegum","Random","Array_Get","GetArrayItem",
+              "SpawnActor","BeginDeferredActorSpawnFromClass",
+              "FinishSpawningActor",
+          ]
+          gumball_selection_trace=[]
+          for offset in sorted(gumball_top):
+              expr=gumball_top[offset]
+              blob=json.dumps(expr,sort_keys=True)
+              hits=[token for token in selection_needles if token.lower() in blob.lower()]
+              if hits:
+                  gumball_selection_trace.append({
+                      "startOffset":offset,
+                      "matches":hits,
+                      "expression":expr,
+                  })
+          if not gumball_selection_trace:
+              raise SystemExit("MachineGumball selection trace is empty")
+          print(
+              "XZOGOT_NACHT_GUMBALL_SELECTION_TRACE_GREEN",
+              json.dumps(gumball_selection_trace,separators=(",",":"))
+          )
+
           gumball_contract={
               "fileName":"MachineGumball.uasset",
               "blueprintName":"MachineGumball",
@@ -1543,6 +1566,7 @@ jobs:
                   "resumeOffset":794,
               },
               "testBytecodeSlice":gumball_test_slice,
+              "selectionTrace":gumball_selection_trace,
           }
           source_interaction_contracts=[gumball_contract]
           print(
