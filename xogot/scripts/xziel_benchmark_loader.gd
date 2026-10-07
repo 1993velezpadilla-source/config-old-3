@@ -742,6 +742,32 @@ func _material_for_path(material_path: String) -> Material:
 	var diffuse_source := _optional_source_path(canonical.get("diffuse", null))
 	var normal_source := _optional_source_path(canonical.get("normal", null))
 	var emissive_source := _optional_source_path(canonical.get("emissive", null))
+	var source_blend_mode := str(record.get("blendMode", "BLEND_Opaque"))
+	var source_shading_model := str(record.get("shadingModel", ""))
+	var source_graph_raw: Variant = record.get("sourceGraphBindings", {})
+	var source_graph: Dictionary = (
+		source_graph_raw as Dictionary
+		if source_graph_raw is Dictionary
+		else {}
+	)
+	var graph_diffuse_source := _optional_source_path(
+		source_graph.get("diffuse", null)
+	)
+	var graph_emissive_source := _optional_source_path(
+		source_graph.get("emissive", null)
+	)
+	var graph_emissive_as_unshaded_color := (
+		source_shading_model == "MSM_Unlit"
+		and graph_diffuse_source.is_empty()
+		and not graph_emissive_source.is_empty()
+	)
+	if graph_emissive_as_unshaded_color:
+		# UE Unlit surfaces display EmissiveColor directly. Godot's closest
+		# StandardMaterial3D equivalent is an unshaded albedo input; assigning
+		# the same texture to both albedo and emission would double its energy,
+		# especially under additive blending.
+		diffuse_source = graph_emissive_source
+		emissive_source = ""
 
 	# Preserve explicit cooked parameter semantics before any uniqueness-based
 	# fallback. UE4 material instances commonly expose AlbedoTexture and
@@ -756,9 +782,9 @@ func _material_for_path(material_path: String) -> Material:
 		diffuse_source = _exact_parameter_texture(record, "DIFF")
 	if normal_source.is_empty():
 		normal_source = _exact_parameter_texture(record, "NormalTexture")
-	if emissive_source.is_empty():
+	if emissive_source.is_empty() and not graph_emissive_as_unshaded_color:
 		emissive_source = _exact_parameter_texture(record, "EmissiveTexture")
-	if emissive_source.is_empty():
+	if emissive_source.is_empty() and not graph_emissive_as_unshaded_color:
 		emissive_source = _exact_parameter_texture(record, "EMISS")
 
 	# Some cooked source materials expose their real texture binding under the
@@ -904,7 +930,7 @@ func _material_for_path(material_path: String) -> Material:
 		else BaseMaterial3D.CULL_BACK
 	)
 
-	var blend_mode := str(record.get("blendMode", "BLEND_Opaque"))
+	var blend_mode := source_blend_mode
 	if bool(record.get("isMasked", false)) or blend_mode == "BLEND_Masked":
 		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 		material.alpha_scissor_threshold = float(record.get("opacityMaskClipValue", 0.333))
@@ -924,7 +950,7 @@ func _material_for_path(material_path: String) -> Material:
 		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		material.blend_mode = BaseMaterial3D.BLEND_MODE_PREMULT_ALPHA
 
-	if str(record.get("shadingModel", "")) == "MSM_Unlit":
+	if source_shading_model == "MSM_Unlit":
 		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 
 	material.set_meta("source_material_path", material_path)
@@ -932,6 +958,10 @@ func _material_for_path(material_path: String) -> Material:
 	material.set_meta("source_resolved_diffuse_path", diffuse_source)
 	material.set_meta("source_resolved_normal_path", normal_source)
 	material.set_meta("source_resolved_emissive_path", emissive_source)
+	material.set_meta(
+		"source_graph_emissive_as_unshaded_color",
+		graph_emissive_as_unshaded_color
+	)
 	material.set_meta("source_specular_mask_path", _optional_source_path(canonical.get("specular_masks", null)))
 	_material_cache[material_path] = material
 	_material_cache[canonical_path] = material
