@@ -9,7 +9,7 @@ on:
       - ".github/workflows/xogot-nacht-full-map-capture.yml"
       - "tools/maps/compile_nacht_*"
       - "tools/maps/compile_ue_material_bindings.py"
-      - "tools/ue_bridge/**"
+      - "tools/ue_bridge/material_graph_resolver.py"
       - "tools/maps/UEParticleGraphExtract/**"
       - "tools/patches/patch_ue421_material_texture_refs.py"
       - "tools/maps/xzaw_to_ogg.py"
