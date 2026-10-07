@@ -124,6 +124,111 @@ func _restart_particle_visuals_deterministic(
 		await process_frame
 
 
+func _texture_alpha_probe(texture: Texture2D) -> Dictionary:
+	if texture == null:
+		return {"ready": false}
+	var image := texture.get_image()
+	if image == null or image.is_empty():
+		return {
+			"ready": false,
+			"width": texture.get_width(),
+			"height": texture.get_height(),
+		}
+	var min_alpha := 1.0
+	var max_alpha := 0.0
+	var below_half := 0
+	var samples := 0
+	var step_x := maxi(1, image.get_width() / 64)
+	var step_y := maxi(1, image.get_height() / 32)
+	for y in range(0, image.get_height(), step_y):
+		for x in range(0, image.get_width(), step_x):
+			var alpha := image.get_pixel(x, y).a
+			min_alpha = minf(min_alpha, alpha)
+			max_alpha = maxf(max_alpha, alpha)
+			if alpha < 0.5:
+				below_half += 1
+			samples += 1
+	return {
+		"ready": true,
+		"width": image.get_width(),
+		"height": image.get_height(),
+		"minAlpha": min_alpha,
+		"maxAlpha": max_alpha,
+		"belowHalf": below_half,
+		"samples": samples,
+	}
+
+
+func _print_material_probe(label: String, material: Material) -> void:
+	if material == null:
+		print("XZOGOT_NACHT_MATERIAL_PROBE label=", label, " material=null")
+		return
+	if not (material is StandardMaterial3D):
+		print(
+			"XZOGOT_NACHT_MATERIAL_PROBE label=", label,
+			" class=", material.get_class()
+		)
+		return
+	var standard := material as StandardMaterial3D
+	var alpha_probe := _texture_alpha_probe(standard.albedo_texture)
+	print(
+		"XZOGOT_NACHT_MATERIAL_PROBE ",
+		"label=", label,
+		" source_blend=", str(standard.get_meta("source_blend_mode", "")),
+		" transparency=", int(standard.transparency),
+		" blend_mode=", int(standard.blend_mode),
+		" shading=", int(standard.shading_mode),
+		" billboard=", int(standard.billboard_mode),
+		" vertex_color=", standard.vertex_color_use_as_albedo,
+		" hframes=", standard.particles_anim_h_frames,
+		" vframes=", standard.particles_anim_v_frames,
+		" has_albedo=", standard.albedo_texture != null,
+		" alpha_probe=", alpha_probe
+	)
+
+
+func _probe_bonefire_material(scene: Node3D, particle_visuals: Array[Node]) -> void:
+	const BONEFIRE_SYSTEM := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Particles/Reference/Fireloop/2_bonefire2B_fwd2_pt.2_bonefire2B_fwd2_pt"
+	const BONEFIRE_MATERIAL := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Materials/Fire_Inst/BoneFire2B_fwd2_Inst.BoneFire2B_fwd2_Inst"
+	var loader := scene.get_node_or_null("NachtStaticWorld")
+	if loader != null and loader.has_method("resolve_source_material"):
+		var resolved_raw: Variant = loader.call(
+			"resolve_source_material",
+			BONEFIRE_MATERIAL
+		)
+		if resolved_raw is Material:
+			_print_material_probe("bonefire_loader", resolved_raw as Material)
+		else:
+			print(
+				"XZOGOT_NACHT_MATERIAL_PROBE label=bonefire_loader raw=",
+				typeof(resolved_raw)
+			)
+
+	for raw_particle: Node in particle_visuals:
+		if not (raw_particle is GPUParticles3D):
+			continue
+		var parent := raw_particle.get_parent()
+		if parent == null:
+			continue
+		if str(parent.get_meta("source_particle_system_path", "")) != BONEFIRE_SYSTEM:
+			continue
+		var particles := raw_particle as GPUParticles3D
+		var draw_mesh := particles.draw_pass_1
+		var draw_material: Material = null
+		if draw_mesh != null and draw_mesh.get_surface_count() > 0:
+			draw_material = draw_mesh.surface_get_material(0)
+		_print_material_probe("bonefire_draw_pass", draw_material)
+		print(
+			"XZOGOT_NACHT_BONEFIRE_PARTICLE_PROBE ",
+			"amount=", particles.amount,
+			" lifetime=", particles.lifetime,
+			" randomness=", particles.randomness,
+			" fixed_fps=", particles.fixed_fps,
+			" local_coords=", particles.local_coords,
+			" visible_aabb=", particles.visibility_aabb
+		)
+
+
 func _capture_player_basis_from_source_anchor(anchor: Node3D) -> Basis:
 	# Match nacht_full_map.gd source-spawn conversion: UE +X is gameplay
 	# forward, while the Godot character must remain native +Y-up.
@@ -238,6 +343,7 @@ func _capture() -> void:
 	# only Cascade visual nodes. This distinguishes static-world/default-material
 	# occlusion from an auto-activated particle effect without changing runtime.
 	var particle_visuals := get_nodes_in_group("nacht_source_particle_visual")
+	_probe_bonefire_material(scene, particle_visuals)
 	var particle_visibility: Array[bool] = []
 	for raw_particle: Node in particle_visuals:
 		if raw_particle is Node3D:
