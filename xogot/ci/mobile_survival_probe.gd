@@ -1,5 +1,7 @@
 extends SceneTree
 
+const WeaponSourcePresentation = preload("res://scripts/weapon_viewmodel_source_presentation.gd")
+
 func _init() -> void:
 	call_deferred("_run")
 
@@ -26,6 +28,34 @@ func _run() -> void:
 		_fail(3, "player/weapon/settings/round manager missing")
 		return
 	round_manager.set("auto_start", false)
+
+	var source_profile_file := FileAccess.open("res://data/weapon_source_movement.json", FileAccess.READ)
+	if source_profile_file == null:
+		_fail(43, "28-gun source movement profile missing")
+		return
+	var source_profile_payload: Variant = JSON.parse_string(source_profile_file.get_as_text())
+	if not (source_profile_payload is Dictionary) or int((source_profile_payload as Dictionary).get("weapon_count", 0)) != 28:
+		_fail(44, "source movement profile did not contain 28 guns")
+		return
+	var timing_checks := {
+		"colt": Vector2(0.10, 0.10),
+		"mp40": Vector2(0.20, 0.20),
+		"bar": Vector2(0.35, 0.35),
+		"mg42": Vector2(0.50, 0.50),
+		"ptrs": Vector2(0.40, 0.60),
+	}
+	for source_id: String in timing_checks.keys():
+		var expected: Vector2 = timing_checks[source_id]
+		if absf(WeaponSourcePresentation.ads_in_time(source_id) - expected.x) > 0.0001 or absf(WeaponSourcePresentation.ads_out_time(source_id) - expected.y) > 0.0001:
+			_fail(45, "source ADS timing mismatch for " + source_id)
+			return
+	if absf(WeaponSourcePresentation.source_ads_move_multiplier("colt") - 1.0) > 0.0001:
+		_fail(46, "Colt ADS movement did not cancel WaW 50 percent penalty")
+		return
+	if absf(WeaponSourcePresentation.source_ads_move_multiplier("mp40") - 0.5) > 0.0001:
+		_fail(47, "MP40 ADS movement did not preserve WaW 50 percent penalty")
+		return
+	print("XZOGOT_28_SOURCE_ADS_PROFILES_GREEN weapons=28 colt=0.10 mp40=0.20 bar=0.35 mg42=0.50 ptrs=0.40/0.60")
 
 	for skin_path: String in [
 		"res://assets/hud/latest_12/hud_ads.webp",
