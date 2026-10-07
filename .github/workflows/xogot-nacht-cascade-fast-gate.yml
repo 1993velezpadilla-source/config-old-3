@@ -52,6 +52,17 @@ jobs:
               -H "Accept: application/vnd.github+json" \
               "/repos/${GITHUB_REPOSITORY}/actions/workflows/xogot-nacht-material-graph-slice.yml/runs?branch=feature%2Fgodot-aaa-rebuild-v1&status=success&per_page=20" \
               --jq '.workflow_runs[0].id // empty' || true)
+            if [ -z "$SLICE_RUN" ]; then
+              for PAGE in 1 2 3 4 5 6 7 8 9 10; do
+                SLICE_RUN=$(gh api \
+                  -H "Accept: application/vnd.github+json" \
+                  "/repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100&page=$PAGE" \
+                  --jq '[.workflow_runs[] | select(.head_branch=="feature/godot-aaa-rebuild-v1" and .name=="Nacht Material Graph Slice" and .conclusion=="success")][0].id // empty' || true)
+                if [ -n "$SLICE_RUN" ]; then
+                  break
+                fi
+              done
+            fi
           fi
           test -n "$SLICE_RUN"
           echo "SLICE_RUN=$SLICE_RUN" >> "$GITHUB_ENV"
