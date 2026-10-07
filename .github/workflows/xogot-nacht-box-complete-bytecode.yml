@@ -22,6 +22,7 @@ jobs:
     env:
       WORKSHOP_APP_ID: "555160"
       WORKSHOP_ITEM_ID: "2755515831"
+      XZOGOT_ENGINE_VERSION: "VER_UE4_21"
 
     steps:
       - uses: actions/checkout@v5
