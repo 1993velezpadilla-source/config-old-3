@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 35
     env:
       GH_TOKEN: ${{ github.token }}
-      SOURCE_RUN: "37623273042"
+      SOURCE_RUN: "37626184890"
       SOURCE_ARTIFACT: "Xogot-Nacht-Chronicles-Godot-Runtime"
 
     steps:
