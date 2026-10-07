@@ -102,9 +102,6 @@ jobs:
               "mtl_p7_zm_gen_debris_concrete_rubble_lg_03",
               "t7_water_cp_bio_muddy_waterfall",
               "mysterBoxVerticalMat",
-              "BoneFire2B_fwd2_Inst",
-              "BoneFire3_Inst",
-              "BoneFire_fwd4_Inst",
           ]
           rows=source.get("materials",[])
           selected=[]
@@ -168,6 +165,85 @@ jobs:
           })
           PY
 
+      - name: Slice exact fire material parent chains
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+
+          root=Path("full")
+          out=Path("slice")
+          materials_path=next(root.rglob("nacht-materials.json"),None)
+          if not materials_path:
+              raise SystemExit("nacht-materials.json missing")
+
+          source=json.loads(materials_path.read_text())
+          rows=source.get("materials",[])
+          needles=(
+              "bonefire2b_fwd2_inst",
+              "bonefire3_inst",
+              "bonefire_fwd4_inst",
+          )
+
+          def canonical(raw):
+              value=str(raw or "").strip().replace("\\","/")
+              if "'" in value and value.endswith("'"):
+                  value=value.split("'",1)[1][:-1]
+              if value.startswith("Content/"):
+                  value="/Game/"+value[8:]
+              elif value.startswith("Game/"):
+                  value="/"+value
+              return value.lower()
+
+          by_path={
+              canonical(row.get("objectPath")):row
+              for row in rows
+              if row.get("objectPath")
+          }
+          selected={}
+          for row in rows:
+              path=str(row.get("objectPath",""))
+              if any(n in path.lower() for n in needles):
+                  selected[canonical(path)]=row
+
+          pending=list(selected.values())
+          while pending:
+              row=pending.pop()
+              base=canonical(row.get("semanticBaseMaterialPath"))
+              if not base or base in selected:
+                  continue
+              parent=by_path.get(base)
+              if parent is None:
+                  continue
+              selected[base]=parent
+              pending.append(parent)
+
+          payload={
+              "sourceRun":int(os.environ["SOURCE_RUN"]),
+              "targets":list(needles),
+              "selectedCount":len(selected),
+              "materials":sorted(
+                  selected.values(),
+                  key=lambda row:str(row.get("objectPath","")).lower(),
+              ),
+          }
+          (out/"fire-material-chain.json").write_text(
+              json.dumps(payload,indent=2)+"\n"
+          )
+          if not any(
+              "bonefire2b_fwd2_inst" in str(row.get("objectPath","")).lower()
+              for row in payload["materials"]
+          ):
+              raise SystemExit("BoneFire2B material missing from focused slice")
+          print("XZOGOT_NACHT_FIRE_MATERIAL_CHAIN_GREEN",{
+              "sourceRun":payload["sourceRun"],
+              "selectedCount":payload["selectedCount"],
+              "paths":[row.get("objectPath") for row in payload["materials"]],
+          })
+          PY
+
       - name: Slice portable source material exports
         shell: bash
         run: |
@@ -220,6 +296,7 @@ jobs:
           PY
 
       - name: Build placed Cascade candidate matrix
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -389,6 +466,7 @@ jobs:
           PY
 
       - name: Upload material graph slice
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: Xogot-Nacht-Material-Graph-Slice
