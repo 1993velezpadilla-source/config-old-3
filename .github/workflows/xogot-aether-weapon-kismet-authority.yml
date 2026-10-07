@@ -86,12 +86,17 @@ jobs:
           $ErrorActionPreference='Stop'
           New-Item -ItemType Directory -Force -Path build/aether-kismet | Out-Null
           $app='tools/maps/UENuketownGameplayTruth/bin/Release/net10.0/UENuketownGameplayTruth.dll'
-          dotnet $app "$env:AETHER_PAKDIR" Mappings.usmap build/aether-kismet/weapon-kismet.json \
-            'ProjectAether/Content/Assets/BP/Weapons/BP_WeaponBase.uasset' \
-            'ProjectAether/Content/FirstPerson/Blueprints/Weapons/Misc/WonderWeapons/BP_ExplosiveTracer.uasset' \
-            'ProjectAether/Content/Assets/BP/Lethals/BP_Master_SplashDamage.uasset' |
-            Tee-Object build/aether-kismet/extract.log
-          if($LASTEXITCODE -ne 0){throw "CUE4Parse Kismet extraction failed $LASTEXITCODE"}
+          $toolArgs=@(
+            "$env:AETHER_PAKDIR",
+            'Mappings.usmap',
+            'build/aether-kismet/weapon-kismet.json',
+            'ProjectAether/Content/Assets/BP/Weapons/BP_WeaponBase.uasset',
+            'ProjectAether/Content/FirstPerson/Blueprints/Weapons/Misc/WonderWeapons/BP_ExplosiveTracer.uasset',
+            'ProjectAether/Content/Assets/BP/Lethals/BP_Master_SplashDamage.uasset'
+          )
+          & dotnet $app @toolArgs 2>&1 | Tee-Object build/aether-kismet/extract.log
+          $rc=$LASTEXITCODE
+          if($rc -ne 0){throw "CUE4Parse Kismet extraction failed $rc"}
 
       - name: Prove burst hyperburst and splash source graph
         shell: pwsh
