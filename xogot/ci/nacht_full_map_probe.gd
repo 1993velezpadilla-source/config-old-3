@@ -1466,6 +1466,56 @@ func _run() -> void:
 				)
 				return
 
+		var fizz_desc_raw: Variant = scene.call(
+			"describe_source_blueprint_particle_event",
+			"WonderFizz_2",
+			"BallSpinning?"
+		)
+		var fizz_desc := (
+			fizz_desc_raw as Dictionary
+			if fizz_desc_raw is Dictionary
+			else {}
+		)
+		var fizz_timeline_raw: Variant = fizz_desc.get("timeline", [])
+		var fizz_timeline := (
+			fizz_timeline_raw as Array
+			if fizz_timeline_raw is Array
+			else []
+		)
+		if (
+			not bool(fizz_desc.get("ready", false))
+			or fizz_timeline.size() != 2
+		):
+			_fail(
+				35,
+				"WonderFizz replay-safe description failed "
+				+ str(fizz_desc)
+			)
+			return
+		var fizz_step0: Dictionary = fizz_timeline[0] as Dictionary
+		var fizz_step1: Dictionary = fizz_timeline[1] as Dictionary
+		var fizz_offsets0: Array = (
+			fizz_step0.get("actionStartOffsets", []) as Array
+		)
+		var fizz_offsets1: Array = (
+			fizz_step1.get("actionStartOffsets", []) as Array
+		)
+		if (
+			abs(float(fizz_step0.get("atSeconds", -1.0)) - 18.0) > 0.001
+			or abs(float(fizz_step1.get("atSeconds", -1.0)) - 20.0) > 0.001
+			or fizz_offsets0 != [10016]
+			or fizz_offsets1 != [
+				10129, 10165, 10201, 10237,
+				11400, 11437, 11474, 11511, 11548,
+			]
+		):
+			_fail(
+				35,
+				"WonderFizz replay-safe timeline mismatch "
+				+ str(fizz_timeline)
+			)
+			return
+
 		var pap_event_raw: Variant = scene.call(
 			"trigger_source_blueprint_particle_event",
 			"PunchAPackMachine_2",
@@ -1496,15 +1546,52 @@ func _run() -> void:
 		)
 		print(
 			"XZOGOT_NACHT_PARTICLE_EVENT_REPLAY_GREEN ",
-			"events=3 gumball_open=15.0 gumball_close=5.0 "
-			+ "pap=0.0 pap_anchors=4"
+			"events=4 gumball_open=15.0 gumball_close=5.0 "
+			+ "pap=0.0 wonderfizz=18.0/20.0 pap_anchors=4"
 		)
 
-		# Execute the replay-safe Gumball timers against live runtime state.
-		# Close and Open use separate source event generations, so running both
-		# concurrently proves the authored 5.0s OFF transition followed by the
-		# authored 15.0s Activate(reset=true) transition without extending CI
-		# to 20+ seconds.
+		# Execute Gumball and WonderFizz replay-safe timelines concurrently.
+		# This proves source 5/15/18/20 second transitions in ~20.5s wall clock.
+		var fizz_prime_raw: Variant = scene.call(
+			"set_source_particle_component_active",
+			"WonderFizz_2",
+			"ElectricBeam",
+			true,
+			false
+		)
+		var fizz_prime := (
+			fizz_prime_raw as Dictionary
+			if fizz_prime_raw is Dictionary
+			else {}
+		)
+		if not bool(fizz_prime.get("ready", false)):
+			_fail(
+				35,
+				"WonderFizz timed replay prime failed " + str(fizz_prime)
+			)
+			return
+		var fizz_trigger_raw: Variant = scene.call(
+			"trigger_source_blueprint_particle_event",
+			"WonderFizz_2",
+			"BallSpinning?"
+		)
+		var fizz_trigger := (
+			fizz_trigger_raw as Dictionary
+			if fizz_trigger_raw is Dictionary
+			else {}
+		)
+		if (
+			not bool(fizz_trigger.get("ready", false))
+			or int(fizz_trigger.get("immediateStepCount", -1)) != 0
+			or int(fizz_trigger.get("scheduledStepCount", -1)) != 2
+		):
+			_fail(
+				35,
+				"WonderFizz replay-safe scheduling failed "
+				+ str(fizz_trigger)
+			)
+			return
+
 		for component_name: String in ["Fog", "mysteryParticles"]:
 			var prime_raw: Variant = scene.call(
 				"set_source_particle_component_active",
@@ -1596,6 +1683,47 @@ func _run() -> void:
 				)
 				return
 
+		await create_timer(2.75).timeout
+		var fizz_off_state := _source_particle_component_runtime_state(
+			"WonderFizz_2",
+			"ElectricBeam"
+		)
+		if (
+			not bool(fizz_off_state.get("ready", false))
+			or not bool(fizz_off_state.get("allInactive", false))
+		):
+			_fail(
+				35,
+				"WonderFizz BallSpinning 18s ElectricBeam OFF failed "
+				+ str(fizz_off_state)
+			)
+			return
+
+		await create_timer(2.25).timeout
+		var fizz_components: Array[String] = [
+			"ElectricBeam",
+			"Fog",
+			"mysteryParticles",
+			"sparksParticlesSmall",
+			"sparksParticlesSmall1",
+		]
+		for component_name: String in fizz_components:
+			var fizz_on_state := _source_particle_component_runtime_state(
+				"WonderFizz_2",
+				component_name
+			)
+			if (
+				not bool(fizz_on_state.get("ready", false))
+				or not bool(fizz_on_state.get("allActive", false))
+				or not bool(fizz_on_state.get("allReset", false))
+			):
+				_fail(
+					35,
+					"WonderFizz BallSpinning 20s Activate(reset=true) failed "
+					+ component_name + " state=" + str(fizz_on_state)
+				)
+				return
+
 		for component_name: String in ["Fog", "mysteryParticles"]:
 			scene.call(
 				"set_source_particle_component_active",
@@ -1604,10 +1732,19 @@ func _run() -> void:
 				false,
 				false
 			)
+		for component_name: String in fizz_components:
+			scene.call(
+				"set_source_particle_component_active",
+				"WonderFizz_2",
+				component_name,
+				false,
+				false
+			)
 		print(
 			"XZOGOT_NACHT_PARTICLE_EVENT_TIMING_GREEN ",
-			"actor=MachineGumball_2 close_off_s=5.0 "
-			+ "open_on_s=15.0 components=2 reset=true"
+			"gumball_close_off_s=5.0 gumball_open_on_s=15.0 "
+			+ "wonderfizz_beam_off_s=18.0 wonderfizz_all_on_s=20.0 "
+			+ "gumball_components=2 wonderfizz_components=5 reset=true"
 		)
 
 		if not particle_visual_mounted:
