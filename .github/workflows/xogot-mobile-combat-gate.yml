@@ -8,6 +8,8 @@ on:
     paths:
       - "xogot/scripts/player.gd"
       - "xogot/scripts/weapon.gd"
+      - "xogot/scripts/perk_catalog.gd"
+      - "xogot/scripts/source_modifier_policy.gd"
       - "xogot/scripts/mobile_*.gd"
       - "xogot/assets/hud/**"
       - "xogot/ci/mobile_survival_probe.gd"
@@ -60,6 +62,9 @@ jobs:
             2>&1 | tee build/xogot-mobile/mobile-survival-probe.log
           grep -q "XZOGOT_MOBILE_CUSTOM_SKINS_GREEN" build/xogot-mobile/mobile-survival-probe.log
           grep -q "XZOGOT_28_SOURCE_ADS_PROFILES_GREEN" build/xogot-mobile/mobile-survival-probe.log
+          grep -q "XZOGOT_SOURCE_PERK_CONSTANTS_GREEN" build/xogot-mobile/mobile-survival-probe.log
+          grep -q "XZOGOT_SOURCE_PERK_RUNTIME_GREEN" build/xogot-mobile/mobile-survival-probe.log
+          grep -q "XZOGOT_PACK_HANDLING_SOURCE_NEUTRAL_GREEN" build/xogot-mobile/mobile-survival-probe.log
           grep -q "XZOGOT_MOBILE_PISTOL_AUTOFIRE_GREEN" build/xogot-mobile/mobile-survival-probe.log
           grep -q "XZOGOT_MOBILE_RELEASE_FIRE_GREEN" build/xogot-mobile/mobile-survival-probe.log
           grep -q "XZOGOT_SPRINT_RELOAD_PRESERVED_GREEN" build/xogot-mobile/mobile-survival-probe.log
