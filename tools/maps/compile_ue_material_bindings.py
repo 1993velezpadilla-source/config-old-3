@@ -428,6 +428,8 @@ def main() -> int:
 
     material_library = []
     native_texture_references = 0
+    explicit_blend_mode_preserved_count = 0
+    explicit_blend_mode_mismatches = []
 
     for material_path in sorted(used_material_paths):
         if material_path == UE_DEFAULT_SURFACE_MATERIAL:
@@ -616,6 +618,22 @@ def main() -> int:
                 "UE4.21.2 UMaterial ctor bDisableDepthTest=false"
             )
 
+        # If the cooked base UMaterial explicitly serialized BlendMode in
+        # either raw source view, that value is source authority and must never
+        # be replaced by the UE constructor default. This catches particle
+        # masters whose rawPropertyKeys omit BlendMode while
+        # rawMaterialProperties still contains it.
+        if "BlendMode" in base_source_property_names:
+            if runtime_blend_mode == material["blendMode"]:
+                explicit_blend_mode_preserved_count += 1
+            else:
+                explicit_blend_mode_mismatches.append({
+                    "materialPath": material_path,
+                    "baseMaterialPath": base_path,
+                    "sourceBlendMode": material["blendMode"],
+                    "runtimeBlendMode": runtime_blend_mode,
+                })
+
         material_library.append({
             "materialPath": material_path,
             "exportType": material["exportType"],
@@ -699,6 +717,12 @@ def main() -> int:
             len(unresolved_materials),
         "unresolvedTextureCount":
             len(unresolved_textures),
+        "explicitBlendModePreservedCount":
+            explicit_blend_mode_preserved_count,
+        "explicitBlendModeMismatchCount":
+            len(explicit_blend_mode_mismatches),
+        "explicitBlendModeMismatches":
+            explicit_blend_mode_mismatches,
     }
 
     summary["ready"] = (
@@ -709,6 +733,7 @@ def main() -> int:
         and summary["invalidMaterialSlotCount"] == 0
         and summary["unresolvedMaterialCount"] == 0
         and summary["unresolvedTextureCount"] == 0
+        and summary["explicitBlendModeMismatchCount"] == 0
     )
 
     output = {
