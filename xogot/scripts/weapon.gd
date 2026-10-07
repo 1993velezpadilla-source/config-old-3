@@ -72,6 +72,7 @@ var _dev_infinite_ammo: bool = false
 var _mobile_trigger_autofire: bool = false
 var _upgraded_ids: Dictionary = {}
 var _upgraded: bool = false
+var _source_pack_reserve_ammo: int = -1
 var _source_external_item_id: String = ""
 var _source_external_runtime_id: String = ""
 var _source_external_placeholder: bool = false
@@ -1324,20 +1325,29 @@ func _player_weapon_modifier(method_name: String, default_value: float = 1.0) ->
 func _apply_upgrade_stats() -> void:
 	if not _upgraded:
 		return
-	var balance: Dictionary = WeaponBalanceAAA.get_record(_weapon_id)
-	# Per-weapon damage/magazine rows are retained while their extraction lineage
-	# is audited, but handling must never use guessed universal PaP multipliers.
-	# Fire interval, reload time, ADS timing and movement therefore remain exactly
-	# at the source/base weapon values unless a proven per-weapon source field exists.
-	if not balance.is_empty():
-		damage = WeaponBalanceAAA.pack_damage(_weapon_id, damage)
-		magazine_size = WeaponBalanceAAA.pack_magazine(_weapon_id, magazine_size)
-	_display_name = "PACK-A-PUNCHED " + _display_name
-	set_meta("weapon_pack_balance_data_driven", not balance.is_empty())
-	set_meta("weapon_pack_balance_authority", "UNVERIFIED_PER_WEAPON_TABLE")
-	set_meta("weapon_pack_handling_authority", "SOURCE_PENDING_NEUTRAL")
+	var source: Dictionary = WeaponBalanceAAA.get_record(_weapon_id)
+	if source.is_empty():
+		set_meta("weapon_pack_source_authority", "SOURCE_ROW_MISSING")
+		return
+	damage = WeaponBalanceAAA.pack_damage(_weapon_id, damage)
+	magazine_size = WeaponBalanceAAA.pack_magazine(_weapon_id, magazine_size)
+	fire_interval = WeaponBalanceAAA.pack_fire_interval(_weapon_id, fire_interval)
+	_source_pack_reserve_ammo = WeaponBalanceAAA.pack_reserve(_weapon_id, reserve_ammo)
+	if _family == "shotgun":
+		_pellets = WeaponBalanceAAA.pack_pellets(_weapon_id, _pellets)
+	_display_name = WeaponBalanceAAA.pack_name(_weapon_id, _display_name)
+	var pending := WeaponBalanceAAA.unsupported_changed_fields(_weapon_id)
+	set_meta("weapon_pack_balance_data_driven", true)
+	set_meta("weapon_pack_balance_authority", WeaponBalanceAAA.SOURCE_AUTHORITY)
+	set_meta("weapon_pack_handling_authority", WeaponBalanceAAA.SOURCE_AUTHORITY)
+	set_meta("weapon_pack_source_row", WeaponBalanceAAA.source_row(_weapon_id))
+	set_meta("weapon_pack_source_min_damage", WeaponBalanceAAA.pack_min_damage(_weapon_id, damage))
+	set_meta("weapon_pack_source_unsupported_fields", pending)
+	set_meta("weapon_pack_source_runtime_complete", pending.is_empty())
 	set_meta("weapon_pack_damage", damage)
 	set_meta("weapon_pack_magazine", magazine_size)
+	set_meta("weapon_pack_reserve", _source_pack_reserve_ammo)
+	set_meta("weapon_pack_pellets", _pellets)
 	set_meta("weapon_pack_fire_interval", fire_interval)
 	set_meta("weapon_pack_reload_time", reload_time)
 
@@ -1372,8 +1382,11 @@ func get_runtime_stats() -> Dictionary:
 		"visual_recoil_deg": _visual_recoil_deg,
 		"upgraded": _upgraded,
 		"pack_balance_data_driven": WeaponBalanceAAA.has_data(_weapon_id),
-		"pack_balance_authority": "UNVERIFIED_PER_WEAPON_TABLE" if WeaponBalanceAAA.has_data(_weapon_id) else "NONE",
+		"pack_balance_authority": WeaponBalanceAAA.SOURCE_AUTHORITY if WeaponBalanceAAA.has_data(_weapon_id) else "NONE",
 		"pack_handling_authority": str(get_meta("weapon_pack_handling_authority", "NONE")),
+		"pack_source_row": int(get_meta("weapon_pack_source_row", -1)),
+		"pack_source_runtime_complete": bool(get_meta("weapon_pack_source_runtime_complete", false)),
+		"pack_source_unsupported_fields": get_meta("weapon_pack_source_unsupported_fields", []),
 		"source_ads_in_time": _source_ads_in_time,
 		"source_ads_out_time": _source_ads_out_time,
 		"ads_calibration_mode": _ads_calibration_mode,
@@ -1417,11 +1430,16 @@ func equip_weapon(id: String, refill: bool = true) -> bool:
 	_ads_spread_deg = float(def.get("ads_spread_deg", 0.25))
 	_visual_recoil_deg = float(def.get("visual_recoil_deg", 1.2))
 	_upgraded = bool(_upgraded_ids.get(id, false))
+	_source_pack_reserve_ammo = -1
 	_apply_upgrade_stats()
 
 	if refill:
 		_magazine = magazine_size
-		reserve_ammo = int(def.get("reserve", magazine_size * 4))
+		reserve_ammo = (
+			_source_pack_reserve_ammo
+			if _upgraded and _source_pack_reserve_ammo >= 0
+			else int(def.get("reserve", magazine_size * 4))
+		)
 	else:
 		_magazine = mini(_magazine, magazine_size)
 
@@ -1786,7 +1804,11 @@ func refill_max_ammo() -> void:
 		return
 	var def: Dictionary = WeaponCatalog.get_weapon(_weapon_id)
 	_magazine = magazine_size
-	reserve_ammo = int(def.get("reserve", magazine_size * 4))
+	reserve_ammo = (
+		WeaponBalanceAAA.pack_reserve(_weapon_id, int(def.get("reserve", magazine_size * 4)))
+		if _upgraded and WeaponBalanceAAA.has_data(_weapon_id)
+		else int(def.get("reserve", magazine_size * 4))
+	)
 	_reloading = false
 	_reload_timer = 0.0
 	print("XZOGOT_WEAPON_MAX_AMMO ", _weapon_id, " mag=", _magazine, " reserve=", reserve_ammo)

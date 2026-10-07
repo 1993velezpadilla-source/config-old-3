@@ -98,17 +98,31 @@ func _run() -> void:
 	print("XZOGOT_SOURCE_PERK_RUNTIME_GREEN")
 
 	if not bool(weapon.call("equip_weapon", "bar", true)):
-		_fail(57, "could not equip BAR for Pack-a-Punch handling policy")
+		_fail(57, "could not equip BAR for source Pack-a-Punch proof")
 		return
-	var pre_pack_interval: float = float(weapon.get("fire_interval"))
-	var pre_pack_reload: float = float(weapon.get("reload_time"))
 	if not bool(weapon.call("upgrade_current_weapon")):
 		_fail(58, "could not Pack-a-Punch BAR")
 		return
-	if absf(float(weapon.get("fire_interval")) - pre_pack_interval) > 0.0001 or absf(float(weapon.get("reload_time")) - pre_pack_reload) > 0.0001:
-		_fail(59, "Pack-a-Punch applied guessed universal handling modifiers")
+	var pack_stats: Dictionary = weapon.call("get_runtime_stats") as Dictionary
+	if absf(float(pack_stats.get("damage", 0.0)) - 355.0) > 0.001:
+		_fail(59, "BAR PaP MaxDamage did not come from DT_WeaponsPAP")
 		return
-	print("XZOGOT_PACK_HANDLING_SOURCE_NEUTRAL_GREEN")
+	if absf(float(pack_stats.get("fire_interval", 0.0)) - (60.0 / 545.0)) > 0.0001:
+		_fail(60, "BAR PaP RPM/fire interval did not come from DT_WeaponsPAP")
+		return
+	if int(pack_stats.get("magazine_size", 0)) != 30:
+		_fail(61, "BAR PaP clip did not come from DT_WeaponsPAP")
+		return
+	if int(weapon.call("get_reserve")) != 180:
+		_fail(62, "BAR PaP reserve did not come from DT_WeaponsPAP")
+		return
+	if str(pack_stats.get("display_name", "")) != "The Widow Maker":
+		_fail(63, "BAR PaP name did not come from DT_WeaponsPAP")
+		return
+	if str(pack_stats.get("pack_balance_authority", "")) != "Project Aether DT_WeaponsPAP":
+		_fail(64, "PaP source authority marker missing")
+		return
+	print("XZOGOT_PACK_SOURCE_TABLE_GREEN bar_damage=355 rpm=545 clip=30 reserve=180")
 
 	for skin_path: String in [
 		"res://assets/hud/latest_12/hud_ads.webp",
