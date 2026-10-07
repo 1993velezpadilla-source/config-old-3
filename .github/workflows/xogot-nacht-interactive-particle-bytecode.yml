@@ -22,6 +22,7 @@ jobs:
     env:
       WORKSHOP_APP_ID: "555160"
       WORKSHOP_ITEM_ID: "2755515831"
+      XZOGOT_ENGINE_VERSION: "VER_UE4_21"
 
     steps:
       - uses: actions/checkout@v5
@@ -135,8 +136,16 @@ jobs:
           $ErrorActionPreference='Stop'
           New-Item -ItemType Directory -Force -Path build/nacht-interactive-particle-bytecode | Out-Null
           $app='tools/maps/UENuketownWallbuyBytecode/bin/Release/net10.0/UENuketownWallbuyBytecode.dll'
-          $assets=@(Get-ChildItem nacht-interactive-bytecode -Recurse -File -Filter '*.uasset' | Sort-Object FullName)
+          $assets=@(
+            Get-Content interactive-blueprint-uassets.txt | ForEach-Object {
+              $relative=$_.Replace('/','\\')
+              $full=Join-Path (Resolve-Path nacht-interactive-bytecode).Path $relative
+              if(-not (Test-Path $full)){throw "selected Blueprint missing after unpack: $_"}
+              Get-Item $full
+            }
+          )
           if($assets.Count -lt 3){throw "too few selected Blueprint assets: $($assets.Count)"}
+          Write-Host "XZOGOT_NACHT_INTERACTIVE_PARTICLE_EXACT_ASSETS $($assets.Name -join ',')"
 
           $index=0
           foreach($asset in $assets){
