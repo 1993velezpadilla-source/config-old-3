@@ -245,6 +245,12 @@ static func _auto_activate(placement: Dictionary) -> bool:
 	var props_raw: Variant = placement.get("properties", {})
 	if props_raw is Dictionary:
 		var props := props_raw as Dictionary
+		# UEParticleSceneExtract serializes the resolved source value as
+		# `autoActivate`. Keep the legacy cooked-property spelling as a
+		# compatibility fallback for older manifests, but never skip the
+		# normalized authority field.
+		if props.has("autoActivate"):
+			return bool(ParticleSource.unwrap(props["autoActivate"]))
 		if props.has("bAutoActivate"):
 			return bool(ParticleSource.unwrap(props["bAutoActivate"]))
 	return true
