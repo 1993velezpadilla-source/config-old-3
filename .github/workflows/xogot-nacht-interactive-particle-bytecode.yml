@@ -91,6 +91,15 @@ jobs:
               if x.lower().endswith(".uasset")
               and Path(x).stem.lower() in reward_stems
           ]
+          drop_stems={
+              "firesaledrop","instakilldrop","maxammodrop","nukedrop",
+          }
+          reward_drop_uassets=[
+              x for x in lines
+              if x.lower().endswith(".uasset")
+              and Path(x).stem.lower() in drop_stems
+              and "/Blueprints/PowerUps/" in x.replace("\\","/")
+          ]
           related_uassets=[
               x for x in lines
               if x.lower().endswith(".uasset")
@@ -107,8 +116,13 @@ jobs:
               "\n".join(related_uassets)+("\n" if related_uassets else ""),
               encoding="utf-8",
           )
+          Path("gumball-reward-drop-uassets.txt").write_text(
+              "\n".join(reward_drop_uassets)+("\n" if reward_drop_uassets else ""),
+              encoding="utf-8",
+          )
           print("XZOGOT_NACHT_GUMBALL_REWARD_PATH_DISCOVERY",{
               "reward_uassets":reward_uassets,
+              "reward_drop_uassets":reward_drop_uassets,
               "related_uasset_count":len(related_uassets),
               "related_uassets":related_uassets,
           })
@@ -133,8 +147,17 @@ jobs:
               raise SystemExit(
                   f"Gumball reward asset set mismatch {reward_uassets}"
               )
+          expected_drop_names={
+              "firesaledrop.uasset","instakilldrop.uasset",
+              "maxammodrop.uasset","nukedrop.uasset",
+          }
+          reward_drop_names={Path(x).name.lower() for x in reward_drop_uassets}
+          if reward_drop_names!=expected_drop_names or len(reward_drop_uassets)!=4:
+              raise SystemExit(
+                  f"Gumball downstream drop asset set mismatch {reward_drop_uassets}"
+              )
 
-          all_uassets=uassets+base_uassets+reward_uassets
+          all_uassets=uassets+base_uassets+reward_uassets+reward_drop_uassets
           bases={re.sub(r"(?i)\.uasset$","",x) for x in all_uassets}
           selected=[
               x for x in lines
@@ -272,6 +295,31 @@ jobs:
             $rewardIndex++
           }
           Write-Host "XZOGOT_NACHT_GUMBALL_REWARD_BYTECODE_GREEN assets=$($rewardAssets.Count)"
+
+          $dropAssets=@(
+            Get-Content gumball-reward-drop-uassets.txt | ForEach-Object {
+              $relative=$_.Replace('/','\\')
+              $full=Join-Path (Resolve-Path nacht-interactive-bytecode).Path $relative
+              if(-not (Test-Path $full)){throw "selected downstream power-up drop missing after unpack: $_"}
+              Get-Item $full
+            }
+          )
+          if($dropAssets.Count -ne 4){
+            throw "Gumball downstream drop asset count mismatch: $($dropAssets.Count)"
+          }
+          $dropIndex=0
+          foreach($asset in $dropAssets){
+            $stem=[IO.Path]::GetFileNameWithoutExtension($asset.Name)
+            $out="build/nacht-interactive-particle-bytecode/drop-$('{0:D2}' -f $dropIndex)-$stem.json"
+            $log="build/nacht-interactive-particle-bytecode/drop-$('{0:D2}' -f $dropIndex)-$stem.log"
+            dotnet $app PavMappings.usmap $out $asset.FullName 2>&1 | Tee-Object $log
+            if($LASTEXITCODE -ne 0){throw "downstream drop extractor failed $LASTEXITCODE asset=$($asset.FullName)"}
+            if(-not (Select-String -Path $log -Pattern 'XZOGOT_NUKETOWN_WALLBUY_BYTECODE_GREEN' -Quiet)){
+              throw "downstream drop green marker missing asset=$($asset.FullName)"
+            }
+            $dropIndex++
+          }
+          Write-Host "XZOGOT_NACHT_GUMBALL_REWARD_DROP_BYTECODE_GREEN assets=$($dropAssets.Count)"
 
           @'
           import json
@@ -2250,6 +2298,7 @@ jobs:
             interactive-blueprint-uassets.txt
             interaction-base-uassets.txt
             gumball-reward-uassets.txt
+            gumball-reward-drop-uassets.txt
             gumball-related-uassets.txt
           if-no-files-found: error
           retention-days: 7
