@@ -641,13 +641,22 @@ jobs:
               json.dumps(visibility_counts,separators=(",",":"))
           )
 
-          # Conservative Kismet control-flow bridge. Link an entry point to a
-          # normalized particle action only when the recovered ExecuteUbergraph
-          # graph can reach that action. Branch predicates remain explicit and
-          # are never silently treated as true.
+          # Symbolically follow Kismet execution-flow stack semantics.
+          # EX_PushExecutionFlow pushes a return address and continues through
+          # its body; EX_PopExecutionFlow returns to that pushed address.
+          # This is required to preserve latent Delay ordering instead of
+          # incorrectly treating pushed return addresses as immediate branches.
           packages_by_name={
               str(p.get("fileName","")):p
               for p in data.get("packages",[])
+          }
+          delay_by_key={
+              (
+                  str(row["fileName"]),
+                  str(row["function"]),
+                  int(row["startOffset"]),
+              ):row
+              for row in latent_delays
           }
           event_action_bindings=[]
           linked_action_keys=set()
@@ -680,40 +689,90 @@ jobs:
                           return start
                   return None
 
-              edges={start:[] for start in starts}
-              for index,top in enumerate(tops):
-                  start=starts[index]
+              def successors(offset,stack):
+                  top=by_start[offset]
                   expr=top.get("expression") or {}
                   kind=str(expr.get("$type",""))
+                  index=starts.index(offset)
                   nxt=starts[index+1] if index+1<len(starts) else None
+                  rows=[]
 
-                  def add_edge(target,label):
+                  def add(target,new_stack,label,predicate=False):
                       if target is not None:
-                          edges[start].append((target,label))
+                          rows.append((
+                              (target,tuple(new_stack)),
+                              label,
+                              predicate,
+                          ))
 
                   if kind=="EX_Jump":
-                      add_edge(
+                      add(
                           norm_target(expr.get("CodeOffset",-1)),
+                          stack,
                           "jump",
                       )
                   elif kind=="EX_JumpIfNot":
-                      add_edge(
-                          norm_target(expr.get("CodeOffset",-1)),
-                          "branch_false",
-                      )
-                      add_edge(nxt,"branch_true")
+                      target=norm_target(expr.get("CodeOffset",-1))
+                      candidates=[]
+                      if target is not None:
+                          candidates.append(target)
+                      if nxt is not None:
+                          candidates.append(nxt)
+                      unique=[]
+                      for value in candidates:
+                          if value not in unique:
+                              unique.append(value)
+                      effective=len(unique)>1
+                      for value in unique:
+                          add(
+                              value,
+                              stack,
+                              "branch",
+                              effective,
+                          )
                   elif kind=="EX_PushExecutionFlow":
-                      add_edge(
-                          norm_target(expr.get("PushingAddress",-1)),
-                          "push_return",
-                      )
-                      add_edge(nxt,"push_body")
+                      target=norm_target(expr.get("PushingAddress",-1))
+                      if nxt is not None and target is not None:
+                          add(
+                              nxt,
+                              tuple(stack)+(target,),
+                              "push_body",
+                          )
+                      elif nxt is not None:
+                          add(nxt,stack,"push_body")
                   elif kind=="EX_PopExecutionFlow":
-                      pass
+                      if stack:
+                          add(
+                              stack[-1],
+                              stack[:-1],
+                              "pop_return",
+                          )
                   elif kind=="EX_PopExecutionFlowIfNot":
-                      add_edge(nxt,"pop_if_continue")
+                      candidates=[]
+                      if nxt is not None:
+                          candidates.append((nxt,tuple(stack),"continue"))
+                      if stack:
+                          candidates.append((
+                              stack[-1],
+                              tuple(stack[:-1]),
+                              "pop_return",
+                          ))
+                      unique=[]
+                      for row in candidates:
+                          key=(row[0],row[1])
+                          if key not in [(x[0],x[1]) for x in unique]:
+                              unique.append(row)
+                      effective=len(unique)>1
+                      for target,new_stack,label in unique:
+                          add(
+                              target,
+                              new_stack,
+                              "pop_if_"+label,
+                              effective,
+                          )
                   elif kind not in ("EX_Return","EX_EndOfScript"):
-                      add_edge(nxt,"seq")
+                      add(nxt,stack,"seq")
+                  return rows
 
               package_actions=[
                   a for a in normalized
@@ -728,76 +787,118 @@ jobs:
                   entry_start=norm_target(entry["entryOffset"])
                   if entry_start is None:
                       continue
-                  queue=[entry_start]
-                  previous={entry_start:None}
+                  initial=(entry_start,tuple())
+                  queue=[initial]
+                  previous={initial:None}
                   previous_edge={}
-                  while queue:
-                      current=queue.pop(0)
-                      for target,label in edges.get(current,[]):
-                          if target in previous:
+                  previous_predicate={}
+                  action_state={}
+
+                  while queue and len(previous)<50000:
+                      state=queue.pop(0)
+                      offset,stack=state
+                      for next_state,label,predicate in successors(
+                          offset,
+                          stack,
+                      ):
+                          if next_state in previous:
                               continue
-                          previous[target]=current
-                          previous_edge[target]=label
-                          queue.append(target)
+                          previous[next_state]=state
+                          previous_edge[next_state]=label
+                          previous_predicate[next_state]=predicate
+                          queue.append(next_state)
+
+                          next_offset=next_state[0]
+                          for action in package_actions:
+                              action_start=norm_target(
+                                  action["startOffset"]
+                              )
+                              if (
+                                  action_start==next_offset
+                                  and int(action["startOffset"])
+                                  not in action_state
+                              ):
+                                  action_state[
+                                      int(action["startOffset"])
+                                  ]=next_state
 
                   linked=[]
                   for action in package_actions:
-                      action_start=norm_target(action["startOffset"])
-                      if action_start not in previous:
-                          continue
+                      action_key=int(action["startOffset"])
+                      state=action_state.get(action_key)
+                      if state is None:
+                          if entry_start==norm_target(action_key):
+                              state=initial
+                          else:
+                              continue
 
-                      path=[]
-                      cursor=action_start
+                      states=[]
+                      cursor=state
                       while cursor is not None:
-                          path.append(cursor)
+                          states.append(cursor)
                           cursor=previous[cursor]
-                      path.reverse()
+                      states.reverse()
 
                       controls=[]
-                      predicate_count=0
-                      delay_offsets=[]
-                      for offset in path:
+                      predicate_offsets=[]
+                      path_delays=[]
+                      for index,state_row in enumerate(states):
+                          offset=state_row[0]
                           expr=(by_start[offset].get("expression") or {})
                           kind=str(expr.get("$type",""))
-                          if kind in (
-                              "EX_JumpIfNot",
-                              "EX_PopExecutionFlowIfNot",
-                          ):
-                              predicate_count+=1
-                          if kind in (
-                              "EX_Jump","EX_JumpIfNot",
-                              "EX_PushExecutionFlow",
-                              "EX_PopExecutionFlowIfNot",
-                          ):
+                          delay=delay_by_key.get((
+                              package_name,
+                              uber_name,
+                              offset,
+                          ))
+                          if delay is not None:
+                              path_delays.append({
+                                  "startOffset":offset,
+                                  "durationSeconds":float(
+                                      delay["durationSeconds"]
+                                  ),
+                                  "resumeOffset":delay["resumeOffset"],
+                                  "uuid":delay["uuid"],
+                                  "linkage":delay["linkage"],
+                              })
+                          if index>0:
+                              edge_label=previous_edge.get(
+                                  state_row,
+                                  "",
+                              )
                               controls.append({
                                   "offset":offset,
-                                  "type":kind,
+                                  "edge":edge_label,
+                                  "stackDepth":len(state_row[1]),
                               })
-                          if (
-                              kind=="EX_Context"
-                              and str(
-                                  (expr.get("ContextExpression") or {})
-                                  .get("StackNode","")
-                              ).endswith("KismetSystemLibrary.Delay")
-                          ):
-                              delay_offsets.append(offset)
+                              if previous_predicate.get(
+                                  state_row,
+                                  False,
+                              ):
+                                  previous_state=previous[state_row]
+                                  predicate_offsets.append(
+                                      previous_state[0]
+                                  )
 
                       linked.append({
-                          "actionStartOffset":int(action["startOffset"]),
+                          "actionStartOffset":action_key,
                           "actionEndOffset":int(action["endOffset"]),
                           "operation":action["operation"],
                           "componentName":action["componentName"],
                           "targetMode":action["targetMode"],
                           "active":action["active"],
                           "reset":action["reset"],
-                          "pathLength":len(path),
-                          "predicateCount":predicate_count,
-                          "delayOffsets":delay_offsets,
+                          "pathLength":len(states),
+                          "predicateCount":len(set(predicate_offsets)),
+                          "predicateOffsets":sorted(
+                              set(predicate_offsets)
+                          ),
+                          "delays":path_delays,
                           "controlFlow":controls,
                       })
                       linked_action_keys.add((
                           package_name,
-                          int(action["startOffset"]),
+                          action_key,
                       ))
 
                   if not linked:
@@ -813,6 +914,10 @@ jobs:
                       item["targetMode"]=="all_particle_components"
                       for item in linked
                   ):
+                      # Source PaP iterates all ParticleSystemComponents. The
+                      # normalized action intentionally expands that loop to the
+                      # actor's placed particle anchors while retaining the
+                      # source loop predicate as provenance.
                       policy="loop_expanded_event"
                   else:
                       policy="predicate_required"
@@ -836,12 +941,14 @@ jobs:
           )
 
           expected_bindings={
-              ("Box_complete.uasset","ReceiveTick"):(2,"predicate_required"),
-              ("MachineGumball.uasset","OpenLidMulticast"):(2,"event_direct"),
+              ("Box_complete.uasset","ReceiveTick"):
+                  (2,"predicate_required"),
+              ("MachineGumball.uasset","OpenLidMulticast"):
+                  (2,"event_direct"),
               ("PunchAPackMachine.uasset","ExecuteParticleEffect"):
                   (1,"loop_expanded_event"),
               ("WonderFizz.uasset","BallSpinning?"):
-                  (5,"predicate_required"),
+                  (5,"event_direct"),
           }
           actual_bindings={
               (row["fileName"],row["eventFunction"]):
@@ -859,10 +966,40 @@ jobs:
                   "particle CFG linked action coverage mismatch "
                   f"{len(linked_action_keys)}/10"
               )
+
+          binding_by_key={
+              (r["fileName"],r["eventFunction"]):r
+              for r in event_action_bindings
+          }
+          gumball=binding_by_key[
+              ("MachineGumball.uasset","OpenLidMulticast")
+          ]
+          gumball_delays=[
+              float(d["durationSeconds"])
+              for d in gumball["actions"][0]["delays"]
+          ]
+          if gumball_delays!=[4.0,4.5]:
+              raise SystemExit(
+                  f"Gumball source delay path mismatch {gumball_delays}"
+              )
+          fizz=binding_by_key[
+              ("WonderFizz.uasset","BallSpinning?")
+          ]
+          fizz_delays=[
+              float(d["durationSeconds"])
+              for d in fizz["actions"][0]["delays"]
+          ]
+          if fizz_delays!=[0.5,0.5]:
+              raise SystemExit(
+                  f"WonderFizz source delay path mismatch {fizz_delays}"
+              )
+
           print(
               "XZOGOT_NACHT_INTERACTIVE_PARTICLE_CFG_GREEN",
               f"bindings={len(event_action_bindings)} "
-              f"linked_actions={len(linked_action_keys)}/17",
+              f"linked_actions={len(linked_action_keys)}/17 "
+              f"gumball_delays={gumball_delays} "
+              f"wonderfizz_delays={fizz_delays}",
               json.dumps(actual_bindings,separators=(",",":")),
           )
 
