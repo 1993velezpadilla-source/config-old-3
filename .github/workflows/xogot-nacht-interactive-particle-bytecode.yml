@@ -1925,6 +1925,132 @@ jobs:
               json.dumps(gumball_presentation_rule,separators=(",",":"))
           )
 
+          require_gumball_tokens(
+              537,["KismetSystemLibrary.IsValid","K2Node_CustomEvent_Gun"],
+              "grab poll validity"
+          )
+          require_gumball_tokens(
+              602,["GetAttachParentActor","K2Node_CustomEvent_Gun"],
+              "grab poll parent"
+          )
+          require_gumball_tokens(
+              644,["NotEqual_ObjectObject","EX_Self"],
+              "grab detach predicate"
+          )
+          grab_continue=gumball_top.get(674,{})
+          if (
+              grab_continue.get("$type")!="EX_JumpIfNot"
+              or int(grab_continue.get("CodeOffset",-1))!=717
+          ):
+              raise SystemExit(
+                  f"MachineGumball grab poll branch mismatch {grab_continue}"
+              )
+          if not exact_delay(717,0.61,537):
+              raise SystemExit("MachineGumball grab poll delay authority mismatch")
+          require_gumball_tokens(688,["Sound_player"],"grab sound")
+          require_gumball_tokens(
+              702,["EX_PopExecutionFlowIfNot","GunFloatingDown"],
+              "grab floating guard"
+          )
+          grab_reset_jump=gumball_top.get(712,{})
+          if (
+              grab_reset_jump.get("$type")!="EX_Jump"
+              or int(grab_reset_jump.get("CodeOffset",-1))!=425
+          ):
+              raise SystemExit(
+                  f"MachineGumball grab reset jump mismatch {grab_reset_jump}"
+              )
+
+          require_gumball_tokens(42,["LowerGunMulticast"],"timeout lower gun")
+          require_gumball_tokens(56,["Actor.FlushNetDormancy"],"timeout dormancy")
+          require_gumball_tokens(
+              66,["BoxTimer",'"Value": 8'],"timeout counter init"
+          )
+          if not exact_delay(89,1.0,166):
+              raise SystemExit("MachineGumball timeout tick delay mismatch")
+          require_gumball_tokens(166,["Actor.FlushNetDormancy"],"timeout tick dormancy")
+          require_gumball_tokens(
+              176,["Subtract_IntInt","BoxTimer",'"Value": 1'],
+              "timeout counter decrement"
+          )
+          require_gumball_tokens(
+              245,["LessEqual_IntInt","BoxTimer",'"Value": 0'],
+              "timeout completion predicate"
+          )
+          timeout_loop=gumball_top.get(279,{})
+          if (
+              timeout_loop.get("$type")!="EX_JumpIfNot"
+              or int(timeout_loop.get("CodeOffset",-1))!=89
+          ):
+              raise SystemExit(
+                  f"MachineGumball timeout loop mismatch {timeout_loop}"
+              )
+          require_gumball_tokens(
+              293,["EX_PopExecutionFlowIfNot","GunFloatingDown"],
+              "timeout floating guard"
+          )
+          require_gumball_tokens(
+              303,["GetAttachParentActor","CallFunc_SpawnItemWRef_Item1"],
+              "timeout parent"
+          )
+          require_gumball_tokens(
+              345,["EqualEqual_ObjectObject","EX_Self"],
+              "timeout attached predicate"
+          )
+          timeout_destroy_branch=gumball_top.get(375,{})
+          if (
+              timeout_destroy_branch.get("$type")!="EX_JumpIfNot"
+              or int(timeout_destroy_branch.get("CodeOffset",-1))!=425
+          ):
+              raise SystemExit(
+                  "MachineGumball timeout destroy branch mismatch "
+                  + repr(timeout_destroy_branch)
+              )
+          require_gumball_tokens(389,["K2_DestroyActor"],"timeout destroy item")
+
+          require_gumball_tokens(425,["Actor.FlushNetDormancy"],"reset dormancy")
+          require_gumball_tokens(
+              435,["GunFloatingDown","EX_False"],"reset floating state"
+          )
+          require_gumball_tokens(446,["CloseLidMulticast"],"reset close lid")
+          if not exact_delay(460,2.0,37):
+              raise SystemExit("MachineGumball close delay authority mismatch")
+          reset_resume=gumball_top.get(37,{})
+          if (
+              reset_resume.get("$type")!="EX_Jump"
+              or int(reset_resume.get("CodeOffset",-1))!=15
+          ):
+              raise SystemExit(
+                  f"MachineGumball reset resume mismatch {reset_resume}"
+              )
+          require_gumball_tokens(15,["Actor.FlushNetDormancy"],"release dormancy")
+          require_gumball_tokens(25,["Inuse?","EX_False"],"release machine")
+
+          gumball_grab_reset_rule={
+              "pollIntervalSeconds":0.61,
+              "pollStartOffset":537,
+              "pollDelayOffset":717,
+              "pollResumeOffset":537,
+              "grabCondition":"item invalid or GetAttachParentActor(item) != self",
+              "grabSoundEvent":"Sound_player",
+              "grabResetOffset":425,
+              "timeoutLowerGunOffset":42,
+              "timeoutCounterSeconds":8,
+              "timeoutTickSeconds":1.0,
+              "timeoutDestroyIfStillAttached":True,
+              "timeoutDestroyOffset":389,
+              "resetFlushDormancy":True,
+              "resetGunFloatingDown":False,
+              "resetCloseEvent":"CloseLidMulticast",
+              "resetCloseDelaySeconds":2.0,
+              "resetReleaseOffset":25,
+              "resetReleasesInUse":True,
+          }
+          print(
+              "XZOGOT_NACHT_GUMBALL_GRAB_RESET_RULE_GREEN",
+              json.dumps(gumball_grab_reset_rule,separators=(",",":"))
+          )
+
           up_symbol="export:320:CallFunc_GetActorUpVector_ReturnValue"
           gumball_up_vector_trace=[]
           for offset in sorted(gumball_top):
@@ -1995,6 +2121,7 @@ jobs:
               "transformPositionTrace":gumball_transform_position_trace,
               "spawnTransformRule":gumball_spawn_transform_rule,
               "presentationRule":gumball_presentation_rule,
+              "grabResetRule":gumball_grab_reset_rule,
               "upVectorTrace":gumball_up_vector_trace,
               "gunPosExports":gunpos_exports,
           }
