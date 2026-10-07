@@ -1560,6 +1560,28 @@ static func _emitter_duration_seconds(emitter: Dictionary) -> float:
 	return 1.0
 
 
+static func _emitter_delay_timer_name(index: int) -> String:
+	return "CascadeEmitterDelay_%02d" % index
+
+
+static func _emitter_stop_timer_name(index: int) -> String:
+	return "CascadeEmitterStop_%02d" % index
+
+
+static func _cancel_emitter_timer(anchor: Node3D, timer_name: String) -> void:
+	var raw_timer := anchor.get_node_or_null(NodePath(timer_name))
+	if raw_timer is Timer:
+		var timer := raw_timer as Timer
+		timer.stop()
+		anchor.remove_child(timer)
+		timer.queue_free()
+
+
+static func _cancel_emitter_timers(anchor: Node3D, index: int) -> void:
+	_cancel_emitter_timer(anchor, _emitter_delay_timer_name(index))
+	_cancel_emitter_timer(anchor, _emitter_stop_timer_name(index))
+
+
 static func _schedule_emitter_stop(
 	anchor: Node3D,
 	particles: GPUParticles3D,
@@ -1568,8 +1590,10 @@ static func _schedule_emitter_stop(
 ) -> void:
 	if duration <= 0.0:
 		return
+	var timer_name := _emitter_stop_timer_name(index)
+	_cancel_emitter_timer(anchor, timer_name)
 	var stop_timer := Timer.new()
-	stop_timer.name = "CascadeEmitterStop_%02d" % index
+	stop_timer.name = timer_name
 	stop_timer.wait_time = duration
 	stop_timer.one_shot = true
 	stop_timer.autostart = true
@@ -1580,8 +1604,81 @@ static func _schedule_emitter_stop(
 				# Stopping emission does not kill particles already alive; they
 				# continue for GPUParticles3D.lifetime, matching Cascade.
 				particles.emitting = false
+				particles.set_meta("source_component_runtime_emitting", false)
 			if is_instance_valid(stop_timer):
 				stop_timer.queue_free()
+	)
+
+
+static func _set_emitter_runtime_active(
+	anchor: Node3D,
+	particles: GPUParticles3D,
+	active: bool,
+	reset: bool,
+	index: int
+) -> void:
+	_cancel_emitter_timers(anchor, index)
+	particles.set_meta("source_component_runtime_active", active)
+	if not active:
+		particles.emitting = false
+		particles.set_meta("source_component_runtime_emitting", false)
+		return
+
+	var delay := float(
+		particles.get_meta("source_emitter_delay_seconds", 0.0)
+	)
+	var duration := float(
+		particles.get_meta("source_emitter_duration_seconds", 0.0)
+	)
+	var timed_single_loop := bool(
+		particles.get_meta("source_emitter_timed_single_loop", false)
+	)
+	if delay <= 0.0:
+		if reset:
+			particles.restart()
+		particles.emitting = true
+		particles.set_meta("source_component_runtime_emitting", true)
+		if timed_single_loop:
+			_schedule_emitter_stop(anchor, particles, duration, index)
+		return
+
+	particles.emitting = false
+	particles.set_meta("source_component_runtime_emitting", false)
+	var timer := Timer.new()
+	timer.name = _emitter_delay_timer_name(index)
+	timer.wait_time = delay
+	timer.one_shot = true
+	timer.autostart = true
+	anchor.add_child(timer)
+	timer.timeout.connect(
+		func() -> void:
+			if (
+				is_instance_valid(particles)
+				and bool(
+					particles.get_meta(
+						"source_component_runtime_active",
+						false
+					)
+				)
+			):
+				# A delayed Cascade emitter begins a fresh emitter cycle when
+				# its delay elapses. This is independent of SetActive's reset
+				# flag because the delayed source cycle has not started yet.
+				particles.restart()
+				particles.emitting = true
+				particles.set_meta(
+					"source_component_runtime_emitting",
+					true
+				)
+				if timed_single_loop:
+					_schedule_emitter_stop(
+						anchor,
+						particles,
+						duration,
+						index
+					)
+			if is_instance_valid(timer):
+				timer.queue_free()
 	)
 
 
@@ -1600,39 +1697,17 @@ static func _apply_emitter_activation(
 		and not particles.one_shot
 		and duration > 0.0
 	)
+	particles.set_meta("source_particle_emitter_index", index)
 	particles.set_meta("source_emitter_delay_seconds", delay)
 	particles.set_meta("source_emitter_duration_seconds", duration)
 	particles.set_meta("source_emitter_loops", loops)
 	particles.set_meta("source_emitter_timed_single_loop", timed_single_loop)
-	if not auto_activate:
-		particles.emitting = false
-		return
-	if delay <= 0.0:
-		particles.emitting = true
-		if timed_single_loop:
-			_schedule_emitter_stop(anchor, particles, duration, index)
-		return
-	particles.emitting = false
-	var timer := Timer.new()
-	timer.name = "CascadeEmitterDelay_%02d" % index
-	timer.wait_time = delay
-	timer.one_shot = true
-	timer.autostart = true
-	anchor.add_child(timer)
-	timer.timeout.connect(
-		func() -> void:
-			if is_instance_valid(particles):
-				particles.restart()
-				particles.emitting = true
-				if timed_single_loop:
-					_schedule_emitter_stop(
-						anchor,
-						particles,
-						duration,
-						index
-					)
-			if is_instance_valid(timer):
-				timer.queue_free()
+	_set_emitter_runtime_active(
+		anchor,
+		particles,
+		auto_activate,
+		false,
+		index
 	)
 
 
@@ -2196,6 +2271,66 @@ static func _build_beam(
 	}
 
 
+static func set_anchor_active(
+	anchor: Node3D,
+	active: bool,
+	reset: bool = false
+) -> Dictionary:
+	var visual_nodes := 0
+	var particle_emitters := 0
+	var beam_nodes := 0
+
+	for child: Node in anchor.get_children():
+		if child is GPUParticles3D and child.is_in_group(
+			"nacht_source_particle_visual"
+		):
+			var particles := child as GPUParticles3D
+			var index := int(
+				particles.get_meta(
+					"source_particle_emitter_index",
+					-1
+				)
+			)
+			if index < 0:
+				push_error(
+					"NACHT_CASCADE_RUNTIME_ACTIVE: emitter index missing "
+					+ particles.name
+				)
+				continue
+			_set_emitter_runtime_active(
+				anchor,
+				particles,
+				active,
+				reset,
+				index
+			)
+			particle_emitters += 1
+			visual_nodes += 1
+		elif (
+			child is MeshInstance3D
+			and child.is_in_group("nacht_source_particle_visual")
+			and str(child.name) == "CascadeBeam"
+		):
+			(child as MeshInstance3D).visible = active
+			(child as MeshInstance3D).set_meta(
+				"source_component_runtime_active",
+				active
+			)
+			beam_nodes += 1
+			visual_nodes += 1
+
+	anchor.set_meta("source_particle_component_runtime_active", active)
+	anchor.set_meta("source_particle_component_last_reset", reset)
+	return {
+		"matched": visual_nodes > 0,
+		"active": active,
+		"reset": reset,
+		"visualNodeCount": visual_nodes,
+		"particleEmitterCount": particle_emitters,
+		"beamNodeCount": beam_nodes,
+	}
+
+
 static func mount_anchor(
 	anchor: Node3D,
 	descriptor: Dictionary,
@@ -2291,6 +2426,11 @@ static func mount_anchor(
 				mounted_emitters += 1
 
 	anchor.set_meta("source_particle_system_path", system_path)
+	anchor.set_meta(
+		"source_particle_component_runtime_active",
+		auto_activate
+	)
+	anchor.set_meta("source_particle_component_last_reset", false)
 	anchor.set_meta("source_particle_visual_node_count", visual_nodes)
 	anchor.set_meta("source_particle_visual_material_count", resolved_materials)
 	anchor.set_meta("source_particle_visual_unresolved_material_count", unresolved_materials)
