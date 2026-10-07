@@ -5,6 +5,7 @@ on:
     branches:
       - wip/nacht-cascade-module-parity-v2
       - wip/nacht-static-default-surface-v3
+      - wip/nacht-static-default-surface-v3
     paths:
       - ".github/workflows/xogot-nacht-wip-capture.yml"
       - "xogot/scripts/nacht_full_map.gd"
