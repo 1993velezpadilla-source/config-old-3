@@ -134,6 +134,12 @@ func _gate_monster_fire_material_runtime() -> Dictionary:
 			"diffuseBindingRoute": str(
 				standard.get_meta("source_diffuse_binding_route", "")
 			),
+			"diffuseBindingAuthority": str(
+				standard.get_meta("source_diffuse_binding_authority", "")
+			),
+			"graphStatus": str(
+				standard.get_meta("source_graph_status", "")
+			),
 			"emissiveBindingRoute": str(
 				standard.get_meta("source_emissive_binding_route", "")
 			),
@@ -158,9 +164,16 @@ func _gate_monster_fire_material_runtime() -> Dictionary:
 			or not bool(row["albedoTexture"])
 			or bool(row["emissionEnabled"])
 			or bool(row["emissionTexture"])
+			or not (
+				str(row["diffuseBindingAuthority"]) in [
+					"graph:EmissiveColor->unshaded_color",
+					"partial_graph_parameter:DIFF",
+					"explicit_parameter:DIFF",
+				]
+			)
 			or (
-				not bool(row["graphEmissiveAsColor"])
-				and str(row["diffuseBindingRoute"]) != "parameter:DIFF"
+				str(row["diffuseBindingAuthority"]) == "partial_graph_parameter:DIFF"
+				and str(row["graphStatus"]) != "partial"
 			)
 			or not str(row["resolvedDiffuse"]).contains("T_FireBlastTile")
 		):
