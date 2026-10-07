@@ -1189,6 +1189,66 @@ func _set_audio_stream_loop(stream: AudioStream, enabled: bool) -> void:
 
 
 
+func set_source_particle_component_active(
+	actor_name: String,
+	component_name: String,
+	active: bool,
+	reset: bool = false
+) -> Dictionary:
+	var matched_anchors := 0
+	var visual_nodes := 0
+	var particle_emitters := 0
+	var beam_nodes := 0
+
+	for raw_anchor: Node in get_tree().get_nodes_in_group(
+		"nacht_source_particle_semantic"
+	):
+		if not (raw_anchor is Node3D):
+			continue
+		var anchor := raw_anchor as Node3D
+		if str(anchor.get_meta("source_actor_name", "")) != actor_name:
+			continue
+		if str(anchor.get_meta("source_component_name", "")) != component_name:
+			continue
+		var report := NachtCascadeVisualRuntime.set_anchor_active(
+			anchor,
+			active,
+			reset
+		)
+		if not bool(report.get("matched", false)):
+			continue
+		matched_anchors += 1
+		visual_nodes += int(report.get("visualNodeCount", 0))
+		particle_emitters += int(report.get("particleEmitterCount", 0))
+		beam_nodes += int(report.get("beamNodeCount", 0))
+
+	var ready := matched_anchors > 0
+	var result := {
+		"ready": ready,
+		"actorName": actor_name,
+		"componentName": component_name,
+		"active": active,
+		"reset": reset,
+		"matchedAnchorCount": matched_anchors,
+		"visualNodeCount": visual_nodes,
+		"particleEmitterCount": particle_emitters,
+		"beamNodeCount": beam_nodes,
+	}
+	if ready:
+		print(
+			"XZOGOT_NACHT_PARTICLE_COMPONENT_ACTIVE ",
+			"actor=", actor_name,
+			" component=", component_name,
+			" active=", active,
+			" reset=", reset,
+			" anchors=", matched_anchors,
+			" particles=", particle_emitters,
+			" beams=", beam_nodes
+		)
+	return result
+
+
+
 func _mount_source_particle_semantic_anchors(
 	descriptor: Dictionary,
 	expected_count: int,
