@@ -1172,7 +1172,7 @@ func _run() -> void:
 			or particle_activation_visibility != 65
 			or particle_activation_bindings != 5
 			or particle_activation_linked != 17
-			or particle_activation_replay_safe != 3
+			or particle_activation_replay_safe != 4
 		):
 			_fail(
 				35,
