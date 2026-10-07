@@ -396,14 +396,32 @@ static func _curve_from_samples(samples: Array[float]) -> Curve:
 	curve.min_value = minf(0.0, lo)
 	curve.max_value = maxf(1.0, hi)
 	if samples.size() == 1:
-		curve.add_point(Vector2(0.0, samples[0]))
-		curve.add_point(Vector2(1.0, samples[0]))
+		curve.add_point(
+			Vector2(0.0, samples[0]),
+			0.0,
+			0.0,
+			Curve.TANGENT_LINEAR,
+			Curve.TANGENT_LINEAR
+		)
+		curve.add_point(
+			Vector2(1.0, samples[0]),
+			0.0,
+			0.0,
+			Curve.TANGENT_LINEAR,
+			Curve.TANGENT_LINEAR
+		)
 		return curve
 	for index in range(samples.size()):
-		curve.add_point(Vector2(
-			float(index) / float(samples.size() - 1),
-			samples[index]
-		))
+		curve.add_point(
+			Vector2(
+				float(index) / float(samples.size() - 1),
+				samples[index]
+			),
+			0.0,
+			0.0,
+			Curve.TANGENT_LINEAR,
+			Curve.TANGENT_LINEAR
+		)
 	return curve
 
 
@@ -455,6 +473,7 @@ static func _color_over_life_texture(emitter: Dictionary) -> GradientTexture1D:
 	gradient.offsets = offsets
 	gradient.colors = colors
 	gradient.interpolation_mode = Gradient.GRADIENT_INTERPOLATE_LINEAR
+	gradient.interpolation_color_space = Gradient.GRADIENT_COLOR_SPACE_LINEAR_SRGB
 	var texture := GradientTexture1D.new()
 	texture.width = maxi(256, sample_count)
 	texture.use_hdr = true
