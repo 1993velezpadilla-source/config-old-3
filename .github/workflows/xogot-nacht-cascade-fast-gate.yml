@@ -20,6 +20,7 @@ on:
       - "xogot/scripts/nacht_particle_source.gd"
       - "xogot/ci/nacht_cascade_semantic_probe.gd"
       - "xogot/ci/nacht_cascade_visual_compile_probe.gd"
+      - "xogot/ci/nacht_particle_texture_alpha_probe.gd"
   workflow_dispatch:
 
 permissions:
