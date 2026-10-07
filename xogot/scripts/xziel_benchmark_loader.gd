@@ -760,6 +760,18 @@ func _material_for_path(material_path: String) -> Material:
 		if source_graph_candidates_raw is Array
 		else []
 	)
+	var source_graph_primary_texture_candidate := _optional_source_path(
+		record.get("sourceGraphPrimaryTextureCandidate", null)
+	)
+	var source_graph_unresolved_raw: Variant = record.get(
+		"sourceGraphUnresolvedOutputs",
+		{}
+	)
+	var source_graph_unresolved: Dictionary = (
+		source_graph_unresolved_raw as Dictionary
+		if source_graph_unresolved_raw is Dictionary
+		else {}
+	)
 	var diffuse_authority := (
 		"canonical:diffuse"
 		if not diffuse_source.is_empty()
@@ -786,6 +798,14 @@ func _material_for_path(material_path: String) -> Material:
 		and graph_diffuse_source.is_empty()
 		and not graph_emissive_source.is_empty()
 	)
+	var partial_primary_emissive_as_unshaded_color := (
+		source_graph_status == "partial"
+		and source_shading_model == "MSM_Unlit"
+		and source_graph_unresolved.has("EmissiveColor")
+		and graph_diffuse_source.is_empty()
+		and graph_emissive_source.is_empty()
+		and not source_graph_primary_texture_candidate.is_empty()
+	)
 	var source_diffuse_binding_route := (
 		"canonical:diffuse" if not diffuse_source.is_empty() else ""
 	)
@@ -803,6 +823,16 @@ func _material_for_path(material_path: String) -> Material:
 		source_emissive_binding_route = "suppressed:unlit_graph_emissive"
 		diffuse_authority = "graph:EmissiveColor->unshaded_color"
 		emissive_authority = "graph:mapped_to_unshaded_color"
+	elif partial_primary_emissive_as_unshaded_color:
+		# The cooked graph lost the final expression link, but the base UMaterial
+		# still proves EmissiveColor is connected and exposes exactly one direct-UV
+		# texture sample. Preserve this as partial authority, never exact.
+		diffuse_source = source_graph_primary_texture_candidate
+		emissive_source = ""
+		source_diffuse_binding_route = "partial_graph:primary_texture"
+		source_emissive_binding_route = "suppressed:partial_unlit_emissive"
+		diffuse_authority = "partial_graph_primary:EmissiveColor"
+		emissive_authority = "partial_graph:mapped_to_unshaded_color"
 
 	# Preserve explicit cooked parameter semantics before any uniqueness-based
 	# fallback. UE4 material instances commonly expose AlbedoTexture and
@@ -1041,6 +1071,14 @@ func _material_for_path(material_path: String) -> Material:
 	material.set_meta(
 		"source_graph_emissive_as_unshaded_color",
 		graph_emissive_as_unshaded_color
+	)
+	material.set_meta(
+		"source_partial_primary_emissive_as_unshaded_color",
+		partial_primary_emissive_as_unshaded_color
+	)
+	material.set_meta(
+		"source_graph_primary_texture_candidate",
+		source_graph_primary_texture_candidate
 	)
 	material.set_meta("source_specular_mask_path", _optional_source_path(canonical.get("specular_masks", null)))
 	_material_cache[material_path] = material
