@@ -6,6 +6,7 @@ on:
     branches:
       - feature/xogot-port-v1
       - feature/church-expansion-v1
+      - feature/godot-aaa-rebuild-v1
     paths:
       - "xogot/**"
       - "services/xz-match-directory/**"
