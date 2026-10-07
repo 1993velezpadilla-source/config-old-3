@@ -3,6 +3,7 @@ extends Node3D
 const XzielBenchmarkLoaderScript = preload("res://scripts/xziel_benchmark_loader.gd")
 const NachtParticleSource = preload("res://scripts/nacht_particle_source.gd")
 const NachtCascadeRuntime = preload("res://scripts/nacht_cascade_runtime.gd")
+const NachtCascadeVisualRuntime = preload("res://scripts/nacht_cascade_visual_runtime.gd")
 
 ## Nacht der Untoten Chronicles full-map source runtime.
 ##
@@ -86,6 +87,11 @@ var _source_audio_stream_count := 0
 var _source_environment_visual_node_count := 0
 var _source_particle_semantic_runtime_count := 0
 var _source_particle_semantic_placement_count := 0
+var _source_particle_visual_anchor_count := 0
+var _source_particle_visual_node_count := 0
+var _source_particle_visual_material_count := 0
+var _source_particle_visual_unresolved_material_count := 0
+var _source_particle_visual_exact_anchor_count := 0
 var _source_particle_mystery_descriptor: Dictionary = {}
 var _source_particle_fire_descriptor: Dictionary = {}
 var _source_particle_bonefire_descriptor: Dictionary = {}
@@ -219,10 +225,32 @@ func _boot() -> void:
 		"source_audio_stream_mount_ready",
 		_source_audio_player_count == 3 and _source_audio_stream_count == 3
 	)
-	# These flags intentionally distinguish parsed source authority from visual /
-	# audible runtime reproduction. They must only flip when those systems are
-	# actually mounted, never merely because the JSON exists.
-	set_meta("particle_visual_runtime_ready", false)
+	# Parsed authority, mounted visuals and exact reproduction are separate
+	# states. The first visual layer now mounts real Godot render nodes from
+	# source graph/material values, but exact remains false until every Cascade
+	# module has a 1:1 execution path.
+	var particle_visual_mounted := (
+		_source_particle_visual_anchor_count == _source_particle_semantic_placement_count
+		and _source_particle_visual_node_count >= _source_particle_visual_anchor_count
+	)
+	var particle_visual_exact := (
+		particle_visual_mounted
+		and _source_particle_visual_exact_anchor_count == _source_particle_semantic_placement_count
+		and _source_particle_visual_unresolved_material_count == 0
+	)
+	set_meta("particle_visual_runtime_mounted", particle_visual_mounted)
+	set_meta("particle_visual_runtime_ready", particle_visual_exact)
+	set_meta("source_particle_visual_anchor_count", _source_particle_visual_anchor_count)
+	set_meta("source_particle_visual_node_count", _source_particle_visual_node_count)
+	set_meta("source_particle_visual_material_count", _source_particle_visual_material_count)
+	set_meta(
+		"source_particle_visual_unresolved_material_count",
+		_source_particle_visual_unresolved_material_count
+	)
+	set_meta(
+		"source_particle_visual_exact_anchor_count",
+		_source_particle_visual_exact_anchor_count
+	)
 	set_meta("source_particle_semantic_runtime_ready", _source_particle_semantic_runtime_count == 16 and _source_particle_semantic_placement_count == 29)
 	set_meta("source_particle_semantic_runtime_count", _source_particle_semantic_runtime_count)
 	set_meta("source_particle_semantic_placement_count", _source_particle_semantic_placement_count)
@@ -252,6 +280,10 @@ func _boot() -> void:
 		" lights=", _light_count,
 		" particles_authority=", get_meta("runtime_particle_authority_count"),
 		" particle_graphs_authority=", get_meta("runtime_particle_graph_authority_count"),
+		" particle_visual_anchors=", _source_particle_visual_anchor_count,
+		" particle_visual_nodes=", _source_particle_visual_node_count,
+		" particle_visual_materials=", _source_particle_visual_material_count,
+		" particle_visual_unresolved_materials=", _source_particle_visual_unresolved_material_count,
 		" environment_authority=", get_meta("runtime_environment_authority_count"),
 		" audio_authority=", get_meta("runtime_audio_authority_count"),
 		" cues_authority=", get_meta("runtime_sound_cue_authority_count")
@@ -1176,6 +1208,31 @@ func _mount_source_particle_semantic_anchors(
 		anchor.set_meta("source_root_rotation_ue", root.get("rotationUE", {}))
 		anchor.set_meta("source_root_scale", root.get("scale", {}))
 		_runtime_root.add_child(anchor)
+
+		var visual_report := NachtCascadeVisualRuntime.mount_anchor(
+			anchor,
+			descriptor,
+			_particle_graphs,
+			_benchmark_loader,
+			raw
+		)
+		if bool(visual_report.get("mounted", false)):
+			_source_particle_visual_anchor_count += 1
+		if bool(visual_report.get("exact", false)):
+			_source_particle_visual_exact_anchor_count += 1
+		_source_particle_visual_node_count += int(
+			visual_report.get("visualNodeCount", 0)
+		)
+		_source_particle_visual_material_count += int(
+			visual_report.get("resolvedMaterialCount", 0)
+		)
+		_source_particle_visual_unresolved_material_count += int(
+			visual_report.get("unresolvedMaterialCount", 0)
+		)
+		anchor.set_meta(
+			"source_particle_visual_report",
+			visual_report.duplicate(true)
+		)
 		_source_particle_semantic_placement_count += 1
 	return true
 
@@ -1183,6 +1240,11 @@ func _mount_source_particle_semantic_anchors(
 func _build_source_particle_semantic_runtime() -> bool:
 	_source_particle_semantic_runtime_count = 0
 	_source_particle_semantic_placement_count = 0
+	_source_particle_visual_anchor_count = 0
+	_source_particle_visual_node_count = 0
+	_source_particle_visual_material_count = 0
+	_source_particle_visual_unresolved_material_count = 0
+	_source_particle_visual_exact_anchor_count = 0
 
 	_source_particle_mystery_descriptor = NachtCascadeRuntime.mystery_vertical_descriptor(_particle_graphs)
 	if not bool(_source_particle_mystery_descriptor.get("ready", false)):
