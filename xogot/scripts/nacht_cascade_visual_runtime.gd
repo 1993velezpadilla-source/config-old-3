@@ -892,6 +892,55 @@ static func _float_sample_range(
 	return Vector2(lo, hi)
 
 
+static func _vector_component_bounds(samples: Array[Vector3]) -> Dictionary:
+	if samples.is_empty():
+		return {"ready": false}
+	var lo := samples[0]
+	var hi := samples[0]
+	for sample: Vector3 in samples:
+		lo.x = minf(lo.x, sample.x)
+		lo.y = minf(lo.y, sample.y)
+		lo.z = minf(lo.z, sample.z)
+		hi.x = maxf(hi.x, sample.x)
+		hi.y = maxf(hi.y, sample.y)
+		hi.z = maxf(hi.z, sample.z)
+	return {"ready": true, "min": lo, "max": hi}
+
+
+static func _apply_mesh_rotation(
+	process: ParticleProcessMaterial,
+	system: Dictionary,
+	emitter: Dictionary
+) -> void:
+	var rotation := _first_emitter_module(emitter, "ParticleModuleMeshRotation")
+	if not rotation.is_empty():
+		var rotation_samples := _vector_samples(
+			system,
+			ParticleSource.properties(rotation).get("StartRotation")
+		)
+		var bounds := _vector_component_bounds(rotation_samples)
+		if bool(bounds.get("ready", false)):
+			var lo := bounds.get("min", Vector3.ZERO) as Vector3
+			var hi := bounds.get("max", Vector3.ZERO) as Vector3
+			process.use_rotation_3d = true
+			process.rotation_3d_min = lo * 360.0
+			process.rotation_3d_max = hi * 360.0
+
+	var rate := _first_emitter_module(emitter, "ParticleModuleMeshRotationRate")
+	if not rate.is_empty():
+		var rate_samples := _vector_samples(
+			system,
+			ParticleSource.properties(rate).get("StartRotationRate")
+		)
+		var rate_bounds := _vector_component_bounds(rate_samples)
+		if bool(rate_bounds.get("ready", false)):
+			var rate_lo := rate_bounds.get("min", Vector3.ZERO) as Vector3
+			var rate_hi := rate_bounds.get("max", Vector3.ZERO) as Vector3
+			process.use_rotation_velocity_3d = true
+			process.rotation_velocity_3d_min = rate_lo * 360.0
+			process.rotation_velocity_3d_max = rate_hi * 360.0
+
+
 static func _apply_emitter_rotation(
 	process: ParticleProcessMaterial,
 	system: Dictionary,
@@ -1187,6 +1236,7 @@ static func _build_source_mesh_emitter(
 	var lifetime := _emitter_lifetime(system, emitter)
 	var process := ParticleProcessMaterial.new()
 	_configure_process_from_emitter(process, system, emitter)
+	_apply_mesh_rotation(process, system, emitter)
 	_apply_emitter_start_scale(process, system, emitter, false)
 	_apply_emitter_life_curves(process, emitter)
 
