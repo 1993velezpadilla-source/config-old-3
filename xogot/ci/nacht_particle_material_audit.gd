@@ -1,5 +1,8 @@
 extends SceneTree
 
+const TARGET_MONSTER := "/Game/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Monsters/FX_Monster_Deaths/P_Monster_Death_XLarge.P_Monster_Death_XLarge"
+const PARTICLE_GRAPHS := "res://assets/benchmarks/nacht_chronicles/nacht-particle-graphs.json"
+
 func _init() -> void:
 	call_deferred("_audit")
 
@@ -33,6 +36,114 @@ func _material_row(system_path: String, node_name: String, material: Material) -
 		" class=", material.get_class()
 	)
 
+
+func _monster_runtime_row(system_path: String, particles: GPUParticles3D) -> void:
+	if system_path != TARGET_MONSTER:
+		return
+	var process := particles.process_material as ParticleProcessMaterial
+	var mesh := particles.draw_pass_1
+	var mesh_aabb := AABB()
+	var mesh_class := "null"
+	if mesh != null:
+		mesh_aabb = mesh.get_aabb()
+		mesh_class = mesh.get_class()
+	var scale_min := -1.0
+	var scale_max := -1.0
+	var initial_velocity_min := -1.0
+	var initial_velocity_max := -1.0
+	var source_start_min: Variant = null
+	var source_start_max: Variant = null
+	var source_scale_bridge := ""
+	if process != null:
+		scale_min = process.scale_min
+		scale_max = process.scale_max
+		initial_velocity_min = process.initial_velocity_min
+		initial_velocity_max = process.initial_velocity_max
+		source_start_min = process.get_meta("source_start_scale_min", null)
+		source_start_max = process.get_meta("source_start_scale_max", null)
+		source_scale_bridge = str(process.get_meta("source_start_scale_bridge", ""))
+	print(
+		"XZOGOT_NACHT_MONSTER_RUNTIME ",
+		"node=", particles.name,
+		" renderer=", str(particles.get_meta("source_particle_renderer_mode", "")),
+		" emitter_path=", str(particles.get_meta("source_particle_emitter_path", "")),
+		" mesh_path=", str(particles.get_meta("source_particle_mesh_path", "")),
+		" material_path=", str(particles.get_meta("source_particle_material_path", "")),
+		" mesh_class=", mesh_class,
+		" mesh_aabb=", mesh_aabb,
+		" amount=", particles.amount,
+		" lifetime=", particles.lifetime,
+		" emitting=", particles.emitting,
+		" one_shot=", particles.one_shot,
+		" explosiveness=", particles.explosiveness,
+		" local_coords=", particles.local_coords,
+		" scale_min=", scale_min,
+		" scale_max=", scale_max,
+		" source_start_min=", source_start_min,
+		" source_start_max=", source_start_max,
+		" scale_bridge=", source_scale_bridge,
+		" velocity_min=", initial_velocity_min,
+		" velocity_max=", initial_velocity_max
+	)
+
+func _probe_monster_source_graph() -> void:
+	if not FileAccess.file_exists(PARTICLE_GRAPHS):
+		print("XZOGOT_NACHT_MONSTER_SOURCE missing=", PARTICLE_GRAPHS)
+		return
+	var file := FileAccess.open(PARTICLE_GRAPHS, FileAccess.READ)
+	if file == null:
+		print("XZOGOT_NACHT_MONSTER_SOURCE open_failed")
+		return
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	if not (parsed is Dictionary):
+		print("XZOGOT_NACHT_MONSTER_SOURCE parse_failed")
+		return
+	var systems_raw: Variant = (parsed as Dictionary).get("systems", [])
+	if not (systems_raw is Array):
+		return
+	var interesting := {
+		"ParticleLODLevel": true,
+		"ParticleModuleRequired": true,
+		"ParticleModuleSize": true,
+		"ParticleModuleSizeMultiplyLife": true,
+		"ParticleModuleSizeScaleBySpeed": true,
+		"ParticleModuleLifetime": true,
+		"ParticleModuleSpawn": true,
+		"ParticleModuleVelocity": true,
+		"ParticleModuleTypeDataMesh": true,
+		"ParticleModuleMeshMaterial": true,
+		"ParticleModuleColor": true,
+		"ParticleModuleColorOverLife": true,
+	}
+	for raw_system: Variant in systems_raw:
+		if not (raw_system is Dictionary):
+			continue
+		var system := raw_system as Dictionary
+		if str(system.get("objectPath", "")) != TARGET_MONSTER:
+			continue
+		print(
+			"XZOGOT_NACHT_MONSTER_SOURCE_GREEN nodes=",
+			(system.get("nodes", []) as Array).size()
+		)
+		var nodes_raw: Variant = system.get("nodes", [])
+		if nodes_raw is Array:
+			for raw_node: Variant in nodes_raw:
+				if not (raw_node is Dictionary):
+					continue
+				var node := raw_node as Dictionary
+				var export_type := str(node.get("exportType", ""))
+				if not interesting.has(export_type):
+					continue
+				print(
+					"XZOGOT_NACHT_MONSTER_SOURCE_NODE ",
+					JSON.stringify({
+						"exportType": export_type,
+						"objectPath": node.get("objectPath", ""),
+						"properties": node.get("properties", {})
+					})
+				)
+		return
+
 func _audit() -> void:
 	var packed := load("res://nacht_full_map.tscn") as PackedScene
 	if packed == null:
@@ -52,6 +163,8 @@ func _audit() -> void:
 		quit(5)
 		return
 
+	_probe_monster_source_graph()
+
 	var visuals := get_nodes_in_group("nacht_source_particle_visual")
 	var rows := 0
 	for raw: Node in visuals:
@@ -61,6 +174,7 @@ func _audit() -> void:
 			system_path = str(parent.get_meta("source_particle_system_path", ""))
 		if raw is GPUParticles3D:
 			var particles := raw as GPUParticles3D
+			_monster_runtime_row(system_path, particles)
 			for pass_index in range(1, particles.draw_passes + 1):
 				var mesh := particles.get("draw_pass_%d" % pass_index) as Mesh
 				if mesh == null:
