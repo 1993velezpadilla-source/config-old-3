@@ -151,6 +151,43 @@ def output_pin_parameters(base_material: dict[str, Any]) -> dict[str, list[dict[
     return result
 
 
+
+def base_parameter_candidates(base_material: dict[str, Any]) -> list[dict[str, str]]:
+    result: list[dict[str, str]] = []
+    for expression in base_material.get("expressionGraph", []):
+        if not isinstance(expression, dict) or not expression.get("loaded", False):
+            continue
+        kind = expression_kind(str(expression.get("exportType", "")))
+        name = parameter_name(expression)
+        if kind and name:
+            result.append({
+                "kind": kind,
+                "parameter": name,
+                "exportType": str(expression.get("exportType", "")),
+                "objectPath": str(expression.get("objectPath", "")),
+            })
+    unique: dict[tuple[str, str], dict[str, str]] = {}
+    for row in result:
+        unique[(row["kind"], row["parameter"].lower())] = row
+    return list(unique.values())
+
+
+def unresolved_output_inputs(base_material: dict[str, Any]) -> dict[str, str]:
+    props = property_map(base_material.get("rawMaterialProperties", []))
+    result: dict[str, str] = {}
+    for pin in OUTPUT_PINS:
+        raw_input = props.get(pin)
+        if not isinstance(raw_input, dict):
+            continue
+        if raw_input.get("kind") != "FExpressionInput":
+            continue
+        if isinstance(raw_input.get("resolvedExpression"), dict):
+            continue
+        expression_name = str(raw_input.get("expressionName", ""))
+        if expression_name:
+            result[pin] = expression_name
+    return result
+
 def _override_map(rows: Any, name_key: str = "name", value_key: str = "value") -> dict[str, Any]:
     result: dict[str, Any] = {}
     if not isinstance(rows, list):
@@ -206,6 +243,8 @@ def resolve_instance(materials_root: dict[str, Any], instance_path: str) -> dict
         )
 
     pins = output_pin_parameters(base)
+    unresolved_pins = unresolved_output_inputs(base)
+    parameter_candidates = base_parameter_candidates(base)
     textures = _texture_override_map(instance.get("textures", []))
     scalars = _override_map(instance.get("scalars", []))
     colors = _override_map(instance.get("colors", []))
@@ -229,12 +268,37 @@ def resolve_instance(materials_root: dict[str, Any], instance_path: str) -> dict
             bound.append({**row, "boundValue": value})
         resolved_pins[pin] = bound
 
+    candidate_bindings: list[dict[str, Any]] = []
+    for row in parameter_candidates:
+        kind = row["kind"]
+        key = row["parameter"].lower()
+        value: Any = None
+        if kind == "texture":
+            value = textures.get(key)
+        elif kind == "scalar":
+            value = scalars.get(key)
+        elif kind == "vector":
+            value = colors.get(key)
+        elif kind == "switch":
+            value = switches.get(key)
+        candidate_bindings.append({**row, "boundValue": value})
+
+    graph_status = "exact"
+    if unresolved_pins:
+        graph_status = "partial"
+    elif not resolved_pins:
+        graph_status = "missing"
+
     return {
         "instancePath": str(instance.get("objectPath", instance_path)),
         "baseMaterialPath": str(base.get("objectPath", base_path)),
         "blendMode": instance.get("blendMode"),
         "shadingModel": instance.get("shadingModel"),
+        "graphStatus": graph_status,
+        "exactPinBindings": graph_status == "exact",
+        "unresolvedOutputInputs": unresolved_pins,
         "pins": resolved_pins,
+        "parameterCandidates": candidate_bindings,
         "instanceTextures": instance.get("textures", []),
         "instanceScalars": instance.get("scalars", []),
         "instanceColors": instance.get("colors", []),
@@ -311,14 +375,16 @@ def main() -> int:
             return 2
         print("XZOGOT_UE_BRIDGE_MATERIAL_TARGET " + json.dumps(report, sort_keys=True))
         if args.strict:
-            emissive = report.get("pins", {}).get("EmissiveColor", [])
             texture_bindings = [
-                row for row in emissive
+                row for row in report.get("parameterCandidates", [])
                 if row.get("kind") == "texture" and row.get("boundValue")
             ]
             if report.get("blendMode") == "BLEND_Additive" and not texture_bindings:
-                print("XZOGOT_UE_BRIDGE_MATERIAL_FAILURE additive_emissive_texture_unresolved")
+                print("XZOGOT_UE_BRIDGE_MATERIAL_FAILURE additive_texture_candidates_unresolved")
                 return 3
+            if report.get("graphStatus") == "missing":
+                print("XZOGOT_UE_BRIDGE_MATERIAL_FAILURE base_graph_missing")
+                return 4
     else:
         report = census(root)
         print(
