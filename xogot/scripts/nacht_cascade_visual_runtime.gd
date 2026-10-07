@@ -165,10 +165,19 @@ static func _material_paths(system: Dictionary, descriptor: Dictionary) -> Array
 
 
 static func _source_material(loader: Node, path: String) -> StandardMaterial3D:
-	if loader == null or path.is_empty() or not loader.has_method("resolve_source_material"):
+	if loader == null or path.is_empty():
+		push_warning("NACHT_CASCADE_MATERIAL_UNRESOLVED path=%s reason=loader_or_path" % path)
+		return null
+	if not loader.has_method("resolve_source_material"):
+		push_warning("NACHT_CASCADE_MATERIAL_UNRESOLVED path=%s reason=resolver_missing" % path)
 		return null
 	var raw: Variant = loader.call("resolve_source_material", path)
 	if not (raw is StandardMaterial3D):
+		var raw_type := "null" if raw == null else str(typeof(raw))
+		push_warning(
+			"NACHT_CASCADE_MATERIAL_UNRESOLVED path=%s reason=material_lookup raw_type=%s"
+			% [path, raw_type]
+		)
 		return null
 	var duplicated: Resource = (raw as StandardMaterial3D).duplicate(true)
 	if not (duplicated is StandardMaterial3D):
