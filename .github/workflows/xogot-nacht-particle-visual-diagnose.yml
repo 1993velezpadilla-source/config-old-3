@@ -74,6 +74,7 @@ jobs:
                   "matrixRowMajor":m,
                   "hierarchyDepth":len(p.get("hierarchy", [])),
                   "hierarchy":p.get("hierarchy", []),
+                  "properties":p.get("properties", {}),
               }
               rows.append(row)
 
@@ -105,6 +106,7 @@ jobs:
                       "scale=",row["worldScale"],
                       "pos=",row["worldPositionMeters"],
                       "depth=",row["hierarchyDepth"],
+                      "properties=",row.get("properties", {}),
                   )
                   for h in row["hierarchy"]:
                       print(
