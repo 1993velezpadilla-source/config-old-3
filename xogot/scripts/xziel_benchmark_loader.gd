@@ -750,6 +750,31 @@ func _material_for_path(material_path: String) -> Material:
 		if source_graph_raw is Dictionary
 		else {}
 	)
+	var source_graph_status := str(record.get("sourceGraphStatus", "legacy"))
+	var source_graph_candidates_raw: Variant = record.get(
+		"sourceGraphTextureParameterCandidates",
+		[]
+	)
+	var source_graph_candidates: Array = (
+		source_graph_candidates_raw as Array
+		if source_graph_candidates_raw is Array
+		else []
+	)
+	var diffuse_authority := (
+		"canonical:diffuse"
+		if not diffuse_source.is_empty()
+		else ""
+	)
+	var normal_authority := (
+		"canonical:normal"
+		if not normal_source.is_empty()
+		else ""
+	)
+	var emissive_authority := (
+		"canonical:emissive"
+		if not emissive_source.is_empty()
+		else ""
+	)
 	var graph_diffuse_source := _optional_source_path(
 		source_graph.get("diffuse", null)
 	)
@@ -768,6 +793,8 @@ func _material_for_path(material_path: String) -> Material:
 		# especially under additive blending.
 		diffuse_source = graph_emissive_source
 		emissive_source = ""
+		diffuse_authority = "graph:EmissiveColor->unshaded_color"
+		emissive_authority = "graph:mapped_to_unshaded_color"
 
 	# Preserve explicit cooked parameter semantics before any uniqueness-based
 	# fallback. UE4 material instances commonly expose AlbedoTexture and
@@ -775,17 +802,46 @@ func _material_for_path(material_path: String) -> Material:
 	# This is source-authored metadata, not a filename/material-name guess.
 	if diffuse_source.is_empty():
 		diffuse_source = _exact_parameter_texture(record, "AlbedoTexture")
-	# UE VFX masters commonly expose the cooked color texture through the
-	# explicit source parameter DIFF. This is parameter authority, not a
-	# filename/material-name guess.
-	if diffuse_source.is_empty():
+		if not diffuse_source.is_empty():
+			diffuse_authority = "explicit_parameter:AlbedoTexture"
+	# When the cooked graph is partial, parameter names remain useful source
+	# authority only if the base material graph proves the parameter exists.
+	var allow_diff_parameter := (
+		source_graph_status != "partial"
+		or source_graph_candidates.has("DIFF")
+	)
+	if diffuse_source.is_empty() and allow_diff_parameter:
 		diffuse_source = _exact_parameter_texture(record, "DIFF")
+		if not diffuse_source.is_empty():
+			diffuse_authority = (
+				"partial_graph_parameter:DIFF"
+				if source_graph_status == "partial"
+				else "explicit_parameter:DIFF"
+			)
 	if normal_source.is_empty():
 		normal_source = _exact_parameter_texture(record, "NormalTexture")
+		if not normal_source.is_empty():
+			normal_authority = "explicit_parameter:NormalTexture"
 	if emissive_source.is_empty() and not graph_emissive_as_unshaded_color:
 		emissive_source = _exact_parameter_texture(record, "EmissiveTexture")
-	if emissive_source.is_empty() and not graph_emissive_as_unshaded_color:
+		if not emissive_source.is_empty():
+			emissive_authority = "explicit_parameter:EmissiveTexture"
+	var allow_emiss_parameter := (
+		source_graph_status != "partial"
+		or source_graph_candidates.has("EMISS")
+	)
+	if (
+		emissive_source.is_empty()
+		and not graph_emissive_as_unshaded_color
+		and allow_emiss_parameter
+	):
 		emissive_source = _exact_parameter_texture(record, "EMISS")
+		if not emissive_source.is_empty():
+			emissive_authority = (
+				"partial_graph_parameter:EMISS"
+				if source_graph_status == "partial"
+				else "explicit_parameter:EMISS"
+			)
 
 	# Some cooked source materials expose their real texture binding under the
 	# original parameter name instead of PM_Diffuse/PM_Normals. Do not guess by
@@ -958,6 +1014,10 @@ func _material_for_path(material_path: String) -> Material:
 	material.set_meta("source_resolved_diffuse_path", diffuse_source)
 	material.set_meta("source_resolved_normal_path", normal_source)
 	material.set_meta("source_resolved_emissive_path", emissive_source)
+	material.set_meta("source_graph_status", source_graph_status)
+	material.set_meta("source_diffuse_binding_authority", diffuse_authority)
+	material.set_meta("source_normal_binding_authority", normal_authority)
+	material.set_meta("source_emissive_binding_authority", emissive_authority)
 	material.set_meta(
 		"source_graph_emissive_as_unshaded_color",
 		graph_emissive_as_unshaded_color
