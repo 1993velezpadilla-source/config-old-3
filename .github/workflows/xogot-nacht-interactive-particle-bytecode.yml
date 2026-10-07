@@ -1495,6 +1495,21 @@ jobs:
               "post_open=0.5s resume=794"
           )
 
+          gumball_test_slice=[
+              {
+                  "startOffset":offset,
+                  "expression":gumball_top[offset],
+              }
+              for offset in sorted(gumball_top)
+              if 9521 <= offset < 9554
+          ]
+          if not gumball_test_slice:
+              raise SystemExit("MachineGumball Test bytecode slice is empty")
+          print(
+              "XZOGOT_NACHT_GUMBALL_TEST_SLICE_GREEN",
+              json.dumps(gumball_test_slice,separators=(",",":"))
+          )
+
           gumball_contract={
               "fileName":"MachineGumball.uasset",
               "blueprintName":"MachineGumball",
@@ -1527,6 +1542,7 @@ jobs:
                   "durationSeconds":0.5,
                   "resumeOffset":794,
               },
+              "testBytecodeSlice":gumball_test_slice,
           }
           source_interaction_contracts=[gumball_contract]
           print(
