@@ -822,7 +822,7 @@ func apply_authoritative_network_perks(perk_ids: Array[String]) -> void:
 		if PerkCatalog.has_perk(id):
 			_perks[id] = true
 	var has_martyr: bool = _perks.has("martyrs_blood")
-	max_health = maxf(_base_max_health * 2.0, 200.0) if has_martyr else _base_max_health
+	max_health = SourceModifierPolicy.JUGGERNOG_MAX_HEALTH if has_martyr else _base_max_health
 	if has_martyr and not had_martyr:
 		health = max_health
 	else:
