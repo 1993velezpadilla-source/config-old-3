@@ -156,6 +156,23 @@ jobs:
           assert d.get("ready") is True,d
           assert int(d.get("schemaVersion",0))==2,d
           assert int(d.get("normalizedActionCount",0))==17,d
+          assert int(d.get("sourceInteractionContractCount",0))==1,d
+          contracts=d.get("sourceInteractionContracts",[])
+          assert len(contracts)==1,contracts
+          g=contracts[0]
+          assert g.get("fileName")=="MachineGumball.uasset",g
+          assert int(g.get("baseCost",-1))==950,g
+          assert int(g.get("fireSaleCost",-1))==10,g
+          assert g.get("powerSwitchRule")=="PowerSwitchFlags_empty_or_Powered",g
+          assert g.get("denyPlayerTags")==["Downed","Zombie"],g
+          assert g.get("requiresNotInUse") is True,g
+          ib=g.get("interactBox",{})
+          assert ib.get("componentName")=="Pavlov_InteractBox",ib
+          size=ib.get("effectiveFullSizeMeters",{})
+          expected={"X":0.5251738739013672,"Y":0.5304168701171875,"Z":0.8718269920349121}
+          for axis,value in expected.items():
+              assert abs(float(size.get(axis,-1))-value)<1e-5,(axis,size,expected)
+          print("XZOGOT_NACHT_GUMBALL_INTERACTION_SOURCE_GREEN cost=950 firesale=10 pool=6 interact_box=exact")
           assert len(actions)==17,len(actions)
           assert sum(a.get("targetMode")=="named_component" for a in actions)==16,actions
           assert sum(a.get("targetMode")=="all_particle_components" for a in actions)==1,actions
@@ -618,6 +635,19 @@ jobs:
               "monsterDeath":monster_activation,
           })
 
+          contracts=particle_activation_authority.get("sourceInteractionContracts",[])
+          assert particle_activation_authority.get("sourceInteractionContractCount")==1, particle_activation_authority
+          assert len(contracts)==1,contracts
+          g=contracts[0]
+          assert g.get("fileName")=="MachineGumball.uasset",g
+          assert int(g.get("baseCost",-1))==950,g
+          assert int(g.get("fireSaleCost",-1))==10,g
+          assert g.get("denyPlayerTags")==["Downed","Zombie"],g
+          assert g.get("requiresNotInUse") is True,g
+          assert len(g.get("gobblegumPool",[]))==6,g
+          assert g.get("interactBox",{}).get("componentName")=="Pavlov_InteractBox",g
+          print("XZOGOT_NACHT_GUMBALL_INTERACTION_STAGE_GREEN cost=950 firesale=10 pool=6 interact_box=1")
+
           actions=particle_activation_authority.get("normalizedActions",[])
           assert particle_activation_authority.get("ready") is True, particle_activation_authority
           assert particle_activation_authority.get("schemaVersion")==2, particle_activation_authority
@@ -718,6 +748,7 @@ jobs:
               "sourceParticleEventBindings":particle_activation_authority["eventActionBindingCount"],
               "sourceParticleCfgLinkedActions":particle_activation_authority["cfgLinkedActionCount"],
               "sourceParticleReplaySafeEvents":particle_activation_authority["replaySafeEventCount"],
+              "sourceInteractionContracts":particle_activation_authority["sourceInteractionContractCount"],
               "sourcePlacedParticleSystems":particle_runtime_authority["uniquePlacedSystemCount"],
               "sourceParticleMeshes":particle_mesh_bindings["meshCount"],
               "sourceMaterials":mats["summary"]["usedMaterialCount"],

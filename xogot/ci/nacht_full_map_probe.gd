@@ -1091,6 +1091,9 @@ func _run() -> void:
 	var particle_activation_replay_safe := int(
 		scene.get_meta("source_particle_activation_replay_safe_event_count", 0)
 	)
+	var source_interaction_contracts := int(
+		scene.get_meta("source_interaction_contract_count", 0)
+	)
 	var runtime_environment_components := int(scene.get_meta("runtime_environment_component_count", 0))
 	var runtime_environment_visual_nodes := int(scene.get_meta("runtime_environment_visual_node_count", 0))
 	var source_environment_runtime := bool(scene.get_meta("source_environment_runtime_ready", false))
@@ -1173,12 +1176,13 @@ func _run() -> void:
 			or particle_activation_bindings != 5
 			or particle_activation_linked != 17
 			or particle_activation_replay_safe != 4
+			or source_interaction_contracts != 1
 		):
 			_fail(
 				35,
 				"particle activation authority mismatch "
 				+ "ready=%s actions=%d entries=%d delays=%d visibility=%d "
-				+ "bindings=%d linked=%d replay_safe=%d"
+				+ "bindings=%d linked=%d replay_safe=%d interactions=%d"
 				% [
 					particle_activation_ready,
 					particle_activation_actions,
@@ -1188,6 +1192,7 @@ func _run() -> void:
 					particle_activation_bindings,
 					particle_activation_linked,
 					particle_activation_replay_safe,
+					source_interaction_contracts,
 				]
 			)
 			return
@@ -1751,6 +1756,86 @@ func _run() -> void:
 			"gumball_close_off_s=5.0 gumball_open_on_s=15.0 "
 			+ "wonderfizz_beam_off_s=18.0 wonderfizz_all_on_s=20.0 "
 			+ "gumball_components=2 wonderfizz_components=5 reset=true"
+		)
+
+		var gumball_desc_raw: Variant = scene.call(
+			"describe_source_gumball_interaction",
+			"MachineGumball_2"
+		)
+		var gumball_desc := (
+			gumball_desc_raw as Dictionary
+			if gumball_desc_raw is Dictionary
+			else {}
+		)
+		if not bool(gumball_desc.get("ready", false)):
+			_fail(35, "Gumball source interaction contract missing " + str(gumball_desc))
+			return
+		var gumball_contract := gumball_desc.get("contract", {}) as Dictionary
+		var interact_box := gumball_contract.get("interactBox", {}) as Dictionary
+		var box_size := interact_box.get("effectiveFullSizeMeters", {}) as Dictionary
+		if (
+			int(gumball_contract.get("baseCost", -1)) != 950
+			or int(gumball_contract.get("fireSaleCost", -1)) != 10
+			or str(interact_box.get("componentName", "")) != "Pavlov_InteractBox"
+			or abs(float(box_size.get("X", -1.0)) - 0.5251738739) > 0.00001
+			or abs(float(box_size.get("Y", -1.0)) - 0.5304168701) > 0.00001
+			or abs(float(box_size.get("Z", -1.0)) - 0.8718269920) > 0.00001
+		):
+			_fail(35, "Gumball source interaction geometry mismatch " + str(gumball_contract))
+			return
+
+		var allow_raw: Variant = scene.call(
+			"evaluate_source_gumball_interaction",
+			"MachineGumball_2", 950, false, true, false, false, []
+		)
+		var allow := allow_raw as Dictionary if allow_raw is Dictionary else {}
+		if (
+			not bool(allow.get("allowed", false))
+			or int(allow.get("selectedCost", -1)) != 950
+			or int(allow.get("cashAfter", -1)) != 0
+		):
+			_fail(35, "Gumball source interaction allow failed " + str(allow))
+			return
+
+		var fire_raw: Variant = scene.call(
+			"evaluate_source_gumball_interaction",
+			"MachineGumball_2", 10, true, true, false, false, []
+		)
+		var fire := fire_raw as Dictionary if fire_raw is Dictionary else {}
+		if (
+			not bool(fire.get("allowed", false))
+			or int(fire.get("selectedCost", -1)) != 10
+		):
+			_fail(35, "Gumball Fire Sale interaction failed " + str(fire))
+			return
+
+		var deny_specs := [
+			[949, false, true, false, false, [], "cash"],
+			[950, false, false, false, false, [], "power"],
+			[950, false, true, false, true, [], "in_use"],
+			[950, false, true, false, false, ["Downed"], "player_tag:Downed"],
+			[950, false, true, false, false, ["Zombie"], "player_tag:Zombie"],
+		]
+		for spec: Array in deny_specs:
+			var tags: Array[String] = []
+			for raw_tag: Variant in spec[5] as Array:
+				tags.append(str(raw_tag))
+			var denied_raw: Variant = scene.call(
+				"evaluate_source_gumball_interaction",
+				"MachineGumball_2",
+				int(spec[0]), bool(spec[1]), bool(spec[2]),
+				bool(spec[3]), bool(spec[4]), tags
+			)
+			var denied := denied_raw as Dictionary if denied_raw is Dictionary else {}
+			if (
+				bool(denied.get("allowed", true))
+				or str(denied.get("reason", "")) != str(spec[6])
+			):
+				_fail(35, "Gumball source deny failed spec=" + str(spec) + " report=" + str(denied))
+				return
+		print(
+			"XZOGOT_NACHT_GUMBALL_INTERACTION_RUNTIME_GREEN ",
+			"cost=950 firesale=10 deny_cases=5 pool=6 interact_box=exact"
 		)
 
 		if not particle_visual_mounted:
@@ -2752,6 +2837,7 @@ func _run() -> void:
 		" particle_activation_bindings=", particle_activation_bindings,
 		" particle_activation_linked=", particle_activation_linked,
 		" particle_activation_replay_safe=", particle_activation_replay_safe,
+		" source_interaction_contracts=", source_interaction_contracts,
 		" source_audio_stream_mount=", source_audio_stream_mount,
 		" source_audio_runtime=", source_audio_runtime,
 		" source_audio_players=", source_audio_players,

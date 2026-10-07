@@ -243,6 +243,10 @@ func _boot() -> void:
 		"source_particle_activation_replay_safe_event_count",
 		int(_particle_activation_authority.get("replaySafeEventCount", 0))
 	)
+	set_meta(
+		"source_interaction_contract_count",
+		int(_particle_activation_authority.get("sourceInteractionContractCount", 0))
+	)
 	set_meta("source_environment_component_count", int(_environment_scene.get("environmentComponentCount", -1)))
 	set_meta("runtime_environment_authority_count", (_environment_scene.get("components", []) as Array).size())
 	set_meta("runtime_environment_component_count", int(_environment_runtime_authority.get("componentCount", 0)))
@@ -551,6 +555,28 @@ func _validate_authority() -> bool:
 		return false
 	if int(_particle_activation_authority.get("normalizedActionCount", 0)) != 17:
 		push_error("NACHT_FULL_MAP: particle activation action count mismatch")
+		return false
+	if int(_particle_activation_authority.get("sourceInteractionContractCount", 0)) != 1:
+		push_error("NACHT_FULL_MAP: source interaction contract count mismatch")
+		return false
+	var source_contracts_raw: Variant = _particle_activation_authority.get(
+		"sourceInteractionContracts",
+		[]
+	)
+	if not (source_contracts_raw is Array) or (source_contracts_raw as Array).size() != 1:
+		push_error("NACHT_FULL_MAP: source interaction contract authority incomplete")
+		return false
+	var source_gumball_contract := (source_contracts_raw as Array)[0] as Dictionary
+	var source_gumball_box := source_gumball_contract.get("interactBox", {}) as Dictionary
+	if (
+		str(source_gumball_contract.get("fileName", "")) != "MachineGumball.uasset"
+		or int(source_gumball_contract.get("baseCost", -1)) != 950
+		or int(source_gumball_contract.get("fireSaleCost", -1)) != 10
+		or str(source_gumball_contract.get("powerSwitchRule", "")) != "PowerSwitchFlags_empty_or_Powered"
+		or not bool(source_gumball_contract.get("requiresNotInUse", false))
+		or str(source_gumball_box.get("componentName", "")) != "Pavlov_InteractBox"
+	):
+		push_error("NACHT_FULL_MAP: source Gumball interaction contract mismatch")
 		return false
 	if int(_particle_activation_authority.get("entryPointCount", 0)) != 81:
 		push_error("NACHT_FULL_MAP: particle Blueprint entry-point count mismatch")
@@ -1431,6 +1457,121 @@ func apply_source_particle_activation_action(
 		}
 	report["sourceAction"] = action.duplicate(true)
 	return report
+
+
+func _source_interaction_contract_for_blueprint(
+	blueprint_file: String
+) -> Dictionary:
+	var raw_contracts: Variant = _particle_activation_authority.get(
+		"sourceInteractionContracts",
+		[]
+	)
+	if not (raw_contracts is Array):
+		return {}
+	for raw_contract: Variant in raw_contracts as Array:
+		if not (raw_contract is Dictionary):
+			continue
+		var contract := raw_contract as Dictionary
+		if str(contract.get("fileName", "")) == blueprint_file:
+			return contract
+	return {}
+
+
+func describe_source_gumball_interaction(actor_name: String) -> Dictionary:
+	var blueprint_file := _source_particle_blueprint_file_for_actor(actor_name)
+	if blueprint_file != "MachineGumball.uasset":
+		return {
+			"ready": false,
+			"error": "actor is not source MachineGumball",
+			"actorName": actor_name,
+		}
+	var contract := _source_interaction_contract_for_blueprint(blueprint_file)
+	if contract.is_empty():
+		return {
+			"ready": false,
+			"error": "source interaction contract missing",
+			"actorName": actor_name,
+		}
+	return {
+		"ready": true,
+		"actorName": actor_name,
+		"blueprintFile": blueprint_file,
+		"contract": contract.duplicate(true),
+	}
+
+
+func evaluate_source_gumball_interaction(
+	actor_name: String,
+	player_cash: int,
+	fire_sale_active: bool,
+	power_switch_flags_empty: bool,
+	powered: bool,
+	in_use: bool,
+	player_tags: Array[String]
+) -> Dictionary:
+	var desc := describe_source_gumball_interaction(actor_name)
+	if not bool(desc.get("ready", false)):
+		return desc
+	var contract := desc.get("contract", {}) as Dictionary
+	var selected_cost := (
+		int(contract.get("fireSaleCost", 10))
+		if fire_sale_active
+		else int(contract.get("baseCost", 950))
+	)
+	var deny_tags_raw: Variant = contract.get("denyPlayerTags", [])
+	var deny_tags: Array[String] = []
+	if deny_tags_raw is Array:
+		for raw_tag: Variant in deny_tags_raw as Array:
+			deny_tags.append(str(raw_tag))
+	var blocked_tag := ""
+	for tag: String in player_tags:
+		if tag in deny_tags:
+			blocked_tag = tag
+			break
+	var power_ok := power_switch_flags_empty or powered
+	var not_in_use := not in_use
+	var cash_ok := player_cash >= selected_cost
+	var allowed := power_ok and not_in_use and cash_ok and blocked_tag.is_empty()
+	var reason := "ok"
+	if not power_ok:
+		reason = "power"
+	elif not not_in_use:
+		reason = "in_use"
+	elif not blocked_tag.is_empty():
+		reason = "player_tag:" + blocked_tag
+	elif not cash_ok:
+		reason = "cash"
+	return {
+		"ready": true,
+		"allowed": allowed,
+		"reason": reason,
+		"actorName": actor_name,
+		"selectedCost": selected_cost,
+		"cashBefore": player_cash,
+		"cashAfter": player_cash - selected_cost if allowed else player_cash,
+		"fireSaleActive": fire_sale_active,
+		"powerOk": power_ok,
+		"notInUse": not_in_use,
+		"cashOk": cash_ok,
+		"blockedTag": blocked_tag,
+		"serverEntryOffset": int(contract.get("serverEntryOffset", -1)),
+		"serverInteractFunction": str(contract.get("serverInteractFunction", "")),
+		"successSequence": (
+			(contract.get("successSequence", []) as Array).duplicate(true)
+			if contract.get("successSequence", []) is Array
+			else []
+		),
+		"gobblegumPool": (
+			(contract.get("gobblegumPool", []) as Array).duplicate(true)
+			if contract.get("gobblegumPool", []) is Array
+			else []
+		),
+		"interactBox": (
+			(contract.get("interactBox", {}) as Dictionary).duplicate(true)
+			if contract.get("interactBox", {}) is Dictionary
+			else {}
+		),
+	}
 
 
 func _source_particle_activation_action_for_offset(

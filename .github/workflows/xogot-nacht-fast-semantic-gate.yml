@@ -106,6 +106,15 @@ jobs:
           assert d.get("ready") is True,d
           assert d.get("schemaVersion")==2,d
           assert d.get("normalizedActionCount")==17,d
+          assert d.get("sourceInteractionContractCount")==1,d
+          contracts=d.get("sourceInteractionContracts",[])
+          assert len(contracts)==1,contracts
+          g=contracts[0]
+          assert g.get("fileName")=="MachineGumball.uasset",g
+          assert int(g.get("baseCost",-1))==950,g
+          assert int(g.get("fireSaleCost",-1))==10,g
+          assert g.get("interactBox",{}).get("componentName")=="Pavlov_InteractBox",g
+          print("XZOGOT_NACHT_FAST_GUMBALL_INTERACTION_GREEN cost=950 firesale=10 interact_box=1")
           assert len(d.get("normalizedActions",[]))==17,d
           assert d.get("entryPointCount")==81,d
           assert d.get("latentDelayCount")==37,d
