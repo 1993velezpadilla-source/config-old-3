@@ -1,0 +1,71 @@
+name: Xogot UE Bridge Cascade Authority
+
+on:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-ue-bridge-cascade-authority.yml"
+      - "tools/ue_bridge/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  bridge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: "37544922004"
+      SOURCE_ARTIFACT: "Xogot-Nacht-Chronicles-Full-Map-Authority"
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/godot-aaa-rebuild-v1
+          fetch-depth: 1
+
+      - name: Unit-test Reflection-compatible decoder
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/ue_bridge/test_cascade_distribution_decoder.py
+
+      - name: Download proven Nacht particle authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/nacht-authority" build/ue-bridge
+          mkdir -p "$RUNNER_TEMP/nacht-authority" build/ue-bridge
+          gh run download "$SOURCE_RUN" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "$SOURCE_ARTIFACT" \
+            --dir "$RUNNER_TEMP/nacht-authority"
+          test -s "$RUNNER_TEMP/nacht-authority/nacht-particle-graphs.json"
+
+      - name: Decode all Nacht cooked Cascade distributions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/ue_bridge/cascade_distribution_decoder.py \
+            --graphs "$RUNNER_TEMP/nacht-authority/nacht-particle-graphs.json" \
+            --out build/ue-bridge/nacht-cascade-distributions.json \
+            --strict \
+            2>&1 | tee build/ue-bridge/cascade-bridge.log
+          grep -q "XZOGOT_UE_BRIDGE_CASCADE_GREEN" build/ue-bridge/cascade-bridge.log
+          if grep -q "XZOGOT_UE_BRIDGE_CASCADE_FAILURE" build/ue-bridge/cascade-bridge.log; then
+            exit 1
+          fi
+
+      - name: Upload UE bridge report
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-UE-Bridge-Cascade-Authority
+          path: |
+            build/ue-bridge/nacht-cascade-distributions.json
+            build/ue-bridge/cascade-bridge.log
+          if-no-files-found: error
+          retention-days: 7
