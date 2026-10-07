@@ -641,6 +641,231 @@ jobs:
               json.dumps(visibility_counts,separators=(",",":"))
           )
 
+          # Conservative Kismet control-flow bridge. Link an entry point to a
+          # normalized particle action only when the recovered ExecuteUbergraph
+          # graph can reach that action. Branch predicates remain explicit and
+          # are never silently treated as true.
+          packages_by_name={
+              str(p.get("fileName","")):p
+              for p in data.get("packages",[])
+          }
+          event_action_bindings=[]
+          linked_action_keys=set()
+          for package_name,package in packages_by_name.items():
+              blueprint_name=Path(package_name).stem
+              uber_name=f"ExecuteUbergraph_{blueprint_name}"
+              uber=next(
+                  (
+                      fn for fn in package.get("functions",[])
+                      if fn.get("name")==uber_name
+                  ),
+                  None,
+              )
+              if not uber:
+                  continue
+              tops=uber.get("topLevelExpressions",[]) or []
+              starts=[int(t.get("startOffset",-1)) for t in tops]
+              start_set=set(starts)
+              by_start={
+                  int(t.get("startOffset",-1)):t
+                  for t in tops
+              }
+
+              def norm_target(value):
+                  value=int(value)
+                  if value in start_set:
+                      return value
+                  for start in starts:
+                      if start>=value:
+                          return start
+                  return None
+
+              edges={start:[] for start in starts}
+              for index,top in enumerate(tops):
+                  start=starts[index]
+                  expr=top.get("expression") or {}
+                  kind=str(expr.get("$type",""))
+                  nxt=starts[index+1] if index+1<len(starts) else None
+
+                  def add_edge(target,label):
+                      if target is not None:
+                          edges[start].append((target,label))
+
+                  if kind=="EX_Jump":
+                      add_edge(
+                          norm_target(expr.get("CodeOffset",-1)),
+                          "jump",
+                      )
+                  elif kind=="EX_JumpIfNot":
+                      add_edge(
+                          norm_target(expr.get("CodeOffset",-1)),
+                          "branch_false",
+                      )
+                      add_edge(nxt,"branch_true")
+                  elif kind=="EX_PushExecutionFlow":
+                      add_edge(
+                          norm_target(expr.get("PushingAddress",-1)),
+                          "push_return",
+                      )
+                      add_edge(nxt,"push_body")
+                  elif kind=="EX_PopExecutionFlow":
+                      pass
+                  elif kind=="EX_PopExecutionFlowIfNot":
+                      add_edge(nxt,"pop_if_continue")
+                  elif kind not in ("EX_Return","EX_EndOfScript"):
+                      add_edge(nxt,"seq")
+
+              package_actions=[
+                  a for a in normalized
+                  if a["fileName"]==package_name
+              ]
+              package_entries=[
+                  e for e in entry_points
+                  if e["fileName"]==package_name
+              ]
+
+              for entry in package_entries:
+                  entry_start=norm_target(entry["entryOffset"])
+                  if entry_start is None:
+                      continue
+                  queue=[entry_start]
+                  previous={entry_start:None}
+                  previous_edge={}
+                  while queue:
+                      current=queue.pop(0)
+                      for target,label in edges.get(current,[]):
+                          if target in previous:
+                              continue
+                          previous[target]=current
+                          previous_edge[target]=label
+                          queue.append(target)
+
+                  linked=[]
+                  for action in package_actions:
+                      action_start=norm_target(action["startOffset"])
+                      if action_start not in previous:
+                          continue
+
+                      path=[]
+                      cursor=action_start
+                      while cursor is not None:
+                          path.append(cursor)
+                          cursor=previous[cursor]
+                      path.reverse()
+
+                      controls=[]
+                      predicate_count=0
+                      delay_offsets=[]
+                      for offset in path:
+                          expr=(by_start[offset].get("expression") or {})
+                          kind=str(expr.get("$type",""))
+                          if kind in (
+                              "EX_JumpIfNot",
+                              "EX_PopExecutionFlowIfNot",
+                          ):
+                              predicate_count+=1
+                          if kind in (
+                              "EX_Jump","EX_JumpIfNot",
+                              "EX_PushExecutionFlow",
+                              "EX_PopExecutionFlowIfNot",
+                          ):
+                              controls.append({
+                                  "offset":offset,
+                                  "type":kind,
+                              })
+                          if (
+                              kind=="EX_Context"
+                              and str(
+                                  (expr.get("ContextExpression") or {})
+                                  .get("StackNode","")
+                              ).endswith("KismetSystemLibrary.Delay")
+                          ):
+                              delay_offsets.append(offset)
+
+                      linked.append({
+                          "actionStartOffset":int(action["startOffset"]),
+                          "actionEndOffset":int(action["endOffset"]),
+                          "operation":action["operation"],
+                          "componentName":action["componentName"],
+                          "targetMode":action["targetMode"],
+                          "active":action["active"],
+                          "reset":action["reset"],
+                          "pathLength":len(path),
+                          "predicateCount":predicate_count,
+                          "delayOffsets":delay_offsets,
+                          "controlFlow":controls,
+                      })
+                      linked_action_keys.add((
+                          package_name,
+                          int(action["startOffset"]),
+                      ))
+
+                  if not linked:
+                      continue
+
+                  max_predicates=max(
+                      int(item["predicateCount"])
+                      for item in linked
+                  )
+                  if max_predicates==0:
+                      policy="event_direct"
+                  elif all(
+                      item["targetMode"]=="all_particle_components"
+                      for item in linked
+                  ):
+                      policy="loop_expanded_event"
+                  else:
+                      policy="predicate_required"
+
+                  event_action_bindings.append({
+                      "fileName":package_name,
+                      "blueprintName":blueprint_name,
+                      "eventFunction":entry["function"],
+                      "entryOffset":int(entry["entryOffset"]),
+                      "executionPolicy":policy,
+                      "actionCount":len(linked),
+                      "actions":linked,
+                  })
+
+          event_action_bindings.sort(
+              key=lambda r:(
+                  r["fileName"],
+                  r["entryOffset"],
+                  r["eventFunction"],
+              )
+          )
+
+          expected_bindings={
+              ("Box_complete.uasset","ReceiveTick"):(2,"predicate_required"),
+              ("MachineGumball.uasset","OpenLidMulticast"):(2,"event_direct"),
+              ("PunchAPackMachine.uasset","ExecuteParticleEffect"):
+                  (1,"loop_expanded_event"),
+              ("WonderFizz.uasset","BallSpinning?"):
+                  (5,"predicate_required"),
+          }
+          actual_bindings={
+              (row["fileName"],row["eventFunction"]):
+              (row["actionCount"],row["executionPolicy"])
+              for row in event_action_bindings
+          }
+          if actual_bindings!=expected_bindings:
+              raise SystemExit(
+                  "particle event-action CFG mismatch "
+                  f"actual={actual_bindings} "
+                  f"expected={expected_bindings}"
+              )
+          if len(linked_action_keys)!=10:
+              raise SystemExit(
+                  "particle CFG linked action coverage mismatch "
+                  f"{len(linked_action_keys)}/10"
+              )
+          print(
+              "XZOGOT_NACHT_INTERACTIVE_PARTICLE_CFG_GREEN",
+              f"bindings={len(event_action_bindings)} "
+              f"linked_actions={len(linked_action_keys)}/17",
+              json.dumps(actual_bindings,separators=(",",":")),
+          )
+
           out={
               "schemaVersion":2,
               "source":"Nacht workshop 2755515831 UE4.21 Blueprint bytecode",
@@ -655,6 +880,9 @@ jobs:
               "latentDelays":latent_delays,
               "componentVisibilityActionCount":len(visibility_actions),
               "componentVisibilityActions":visibility_actions,
+              "eventActionBindingCount":len(event_action_bindings),
+              "eventActionBindings":event_action_bindings,
+              "cfgLinkedActionCount":len(linked_action_keys),
               "packages":rows,
               "ready":True,
           }
