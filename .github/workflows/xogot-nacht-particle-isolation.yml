@@ -1,0 +1,99 @@
+name: Xogot Nacht Particle Isolation
+
+on:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-nacht-particle-isolation.yml"
+      - "xogot/ci/nacht_particle_isolation_capture.gd"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-nacht-particle-isolation
+  cancel-in-progress: true
+
+jobs:
+  isolate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: "37649134546"
+      SOURCE_ARTIFACT: "Xogot-Nacht-Chronicles-Godot-Runtime"
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/godot-aaa-rebuild-v1
+          fetch-depth: 1
+
+      - name: Download Stage 175 runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf fast-stage xogot/assets/benchmarks/nacht_chronicles build/nacht-particle-isolation
+          mkdir -p fast-stage xogot/assets/benchmarks/nacht_chronicles build/nacht-particle-isolation
+          gh run download "$SOURCE_RUN" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "$SOURCE_ARTIFACT" \
+            --dir fast-stage
+          manifest=$(find fast-stage -type f -name source_manifest.json -print -quit)
+          test -n "$manifest"
+          artifact_root=$(dirname "$manifest")
+          cp -a "$artifact_root/." xogot/assets/benchmarks/nacht_chronicles/
+          test -s xogot/assets/benchmarks/nacht_chronicles/source_manifest.json
+          test -s xogot/assets/benchmarks/nacht_chronicles/nacht-particle-runtime-authority.json
+          echo "XZOGOT_NACHT_PARTICLE_ISOLATION_STAGE_GREEN source_run=$SOURCE_RUN"
+
+      - name: Install Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq unzip curl libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers xvfb
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+
+      - name: Import current Nacht project
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 1200 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit \
+            2>&1 | tee build/nacht-particle-isolation/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|MAX_MESH_SURFACES" \
+            build/nacht-particle-isolation/import.log
+
+      - name: Isolate visual particle systems
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 1200 xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --path xogot \
+            --rendering-method gl_compatibility \
+            --script res://ci/nacht_particle_isolation_capture.gd \
+            2>&1 | tee build/nacht-particle-isolation/isolation.log
+          grep -q "XZOGOT_NACHT_PARTICLE_ISOLATION_GREEN" \
+            build/nacht-particle-isolation/isolation.log
+          test -s /tmp/nacht-particle-isolation.json
+          cp /tmp/nacht-particle-isolation.json build/nacht-particle-isolation/
+          cp /tmp/nacht-particle-isolation-candidate-*.png build/nacht-particle-isolation/
+          echo "XZOGOT_NACHT_PARTICLE_ISOLATION_CAPTURE_GREEN"
+
+      - name: Upload particle isolation proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nacht-Particle-Isolation
+          path: build/nacht-particle-isolation/
+          if-no-files-found: error
+          retention-days: 7
