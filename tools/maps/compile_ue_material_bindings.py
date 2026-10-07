@@ -37,6 +37,19 @@ def canonical_ue_path(value):
     return text.lower()
 
 
+def iter_package_index_paths(value):
+    if isinstance(value, dict):
+        if value.get("kind") == "FPackageIndex":
+            path = value.get("path")
+            if path:
+                yield path
+        for child in value.values():
+            yield from iter_package_index_paths(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from iter_package_index_paths(child)
+
+
 def build_canonical_lookup(rows, field):
     lookup = {}
     for row in rows:
@@ -328,6 +341,13 @@ def main() -> int:
         refs = list(system.get("references", []))
         for node in system.get("nodes", []):
             refs.extend(node.get("references", []))
+            # Some Cascade material dependencies, notably
+            # ParticleModuleMeshMaterial.MeshMaterials, are encoded only as
+            # nested FPackageIndex values inside decoded properties and are
+            # absent from the node's top-level references list. Walk those
+            # decoded source properties too, then still require a match in the
+            # extracted material authority before accepting the dependency.
+            refs.extend(iter_package_index_paths(node.get("properties", [])))
         for ref in refs:
             resolved = material_by_path.get(canonical_ue_path(ref))
             if resolved is None:
