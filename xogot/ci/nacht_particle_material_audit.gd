@@ -258,6 +258,66 @@ func _probe_monster_source_graph() -> void:
 				)
 		return
 
+
+func _audit_activation_runtime() -> bool:
+	var anchors := get_nodes_in_group("nacht_source_particle_semantic")
+	var off_anchors := 0
+	var on_anchors := 0
+	var violations: Array[String] = []
+	var monster_rows: Array[Dictionary] = []
+	for raw: Node in anchors:
+		if not (raw is Node3D):
+			continue
+		var anchor := raw as Node3D
+		if not anchor.has_meta("source_particle_auto_activate"):
+			violations.append(anchor.name + ":missing_auto_meta")
+			continue
+		var auto_activate := bool(anchor.get_meta("source_particle_auto_activate"))
+		if auto_activate:
+			on_anchors += 1
+		else:
+			off_anchors += 1
+		var system_path := str(anchor.get_meta("source_particle_system_path", ""))
+		var active_children := 0
+		var visual_children := 0
+		for child: Node in anchor.get_children():
+			if not child.is_in_group("nacht_source_particle_visual"):
+				continue
+			visual_children += 1
+			if child is GPUParticles3D:
+				if (child as GPUParticles3D).emitting:
+					active_children += 1
+					if not auto_activate:
+						violations.append(anchor.name + ":" + child.name + ":emitting_source_off")
+			elif child is Node3D:
+				if (child as Node3D).visible:
+					active_children += 1
+					if not auto_activate:
+						violations.append(anchor.name + ":" + child.name + ":visible_source_off")
+		if system_path == TARGET_MONSTER:
+			monster_rows.append({
+				"anchor": anchor.name,
+				"autoActivate": auto_activate,
+				"visualChildren": visual_children,
+				"activeChildren": active_children,
+			})
+	print(
+		"XZOGOT_NACHT_PARTICLE_ACTIVATION_RUNTIME ",
+		"anchors=", anchors.size(),
+		" on=", on_anchors,
+		" off=", off_anchors,
+		" violations=", violations.size(),
+		" monster=", JSON.stringify(monster_rows)
+	)
+	if not violations.is_empty():
+		push_error(
+			"XZOGOT_NACHT_PARTICLE_MATERIAL_AUDIT_FAILURE activation_violations="
+			+ JSON.stringify(violations)
+		)
+		return false
+	print("XZOGOT_NACHT_PARTICLE_ACTIVATION_RUNTIME_GREEN")
+	return true
+
 func _audit() -> void:
 	var packed := load("res://nacht_full_map.tscn") as PackedScene
 	if packed == null:
@@ -280,6 +340,10 @@ func _audit() -> void:
 	_probe_monster_placement()
 	_probe_monster_source_graph()
 	_probe_monster_placement()
+
+	if not _audit_activation_runtime():
+		quit(5)
+		return
 
 	var visuals := get_nodes_in_group("nacht_source_particle_visual")
 	var rows := 0
