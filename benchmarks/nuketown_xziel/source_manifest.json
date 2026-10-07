@@ -2,7 +2,7 @@
   "schema": 2,
   "id": "xogot_nuketown_complete_source_runtime",
   "purpose": "Godot runtime derived from the literal complete Nuketown Content folder",
-  "source_run": 37565803413,
+  "source_run": 37619437832,
   "source_artifact": "Xogot-Nuketown-Full-Source-Authority",
   "source_authority": "Pavlov/Plugins/UGC5097941/Content (complete folder)",
   "source_map": "Pavlov/Plugins/UGC5097941/Content/nuketownz.umap",
@@ -529,7 +529,7 @@
   "runtime_mesh_chunks": 53,
   "runtime_max_surfaces_per_mesh": 240,
   "source_xzms_authority": {
-    "source_run": 37565803413,
+    "source_run": 37619437832,
     "source_artifact": "Xogot-Nuketown-Full-Source-Authority",
     "staged_directory": "vfs/xziel/maps/xziel_nuketown_zombies/meshes"
   },
