@@ -219,6 +219,33 @@ func _capture() -> void:
 	)):
 		return
 
+	# Diagnostic A/B: preserve the exact same camera/player transform and hide
+	# only Cascade visual nodes. This distinguishes static-world/default-material
+	# occlusion from an auto-activated particle effect without changing runtime.
+	var particle_visuals := get_nodes_in_group("nacht_source_particle_visual")
+	var particle_visibility: Array[bool] = []
+	for raw_particle: Node in particle_visuals:
+		if raw_particle is Node3D:
+			particle_visibility.append((raw_particle as Node3D).visible)
+			(raw_particle as Node3D).visible = false
+		else:
+			particle_visibility.append(false)
+	if not (await _save_view(
+		"/tmp/xogot-nacht-spawn-no-particles.png",
+		"spawn_no_particles",
+		false,
+		2
+	)):
+		return
+	for particle_index in range(particle_visuals.size()):
+		var raw_particle: Node = particle_visuals[particle_index]
+		if raw_particle is Node3D:
+			(raw_particle as Node3D).visible = particle_visibility[particle_index]
+	print(
+		"XZOGOT_NACHT_PARTICLE_OCCLUSION_AB_GREEN nodes=",
+		particle_visuals.size()
+	)
+
 	var anchors := get_nodes_in_group("nacht_source_actor")
 	if anchors.size() != EXPECTED_ACTORS:
 		_fail(13, "source actor group mismatch " + str(anchors.size()))
