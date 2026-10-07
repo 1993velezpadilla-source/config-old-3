@@ -419,22 +419,33 @@ static func _curve_from_samples(samples: Array[float]) -> Curve:
 	return curve
 
 
-static func _size_over_life_texture(emitter: Dictionary) -> CurveXYZTexture:
+static func _size_over_life_texture(
+	emitter: Dictionary,
+	start_scale: Vector3 = Vector3.ONE
+) -> CurveXYZTexture:
 	var module := _first_emitter_module(emitter, "ParticleModuleSizeMultiplyLife")
-	if module.is_empty():
-		return null
-	var samples := _vector_table_series(
-		ParticleSource.properties(module).get("LifeMultiplier")
-	)
+	var samples: Array[Vector3] = []
+	if not module.is_empty():
+		samples = _vector_table_series(
+			ParticleSource.properties(module).get("LifeMultiplier")
+		)
 	if samples.is_empty():
-		return null
+		if start_scale.is_equal_approx(Vector3.ONE):
+			return null
+		samples = [Vector3.ONE, Vector3.ONE]
+
 	var xs: Array[float] = []
 	var ys: Array[float] = []
 	var zs: Array[float] = []
 	for sample: Vector3 in samples:
-		xs.append(sample.x)
-		ys.append(sample.y)
-		zs.append(sample.z)
+		var baked := Vector3(
+			sample.x * start_scale.x,
+			sample.y * start_scale.y,
+			sample.z * start_scale.z
+		)
+		xs.append(baked.x)
+		ys.append(baked.y)
+		zs.append(baked.z)
 	var texture := CurveXYZTexture.new()
 	texture.width = maxi(256, samples.size())
 	texture.curve_x = _curve_from_samples(xs)
@@ -537,7 +548,15 @@ static func _apply_emitter_life_curves(
 	emitter: Dictionary
 ) -> void:
 	_apply_constant_start_color(process, emitter)
-	var size_curve := _size_over_life_texture(emitter)
+	var start_scale := Vector3.ONE
+	if str(process.get_meta("source_start_scale_bridge", "")) == "godot46_curve_vector":
+		var source_scale_raw: Variant = process.get_meta(
+			"source_start_scale_min",
+			Vector3.ONE
+		)
+		if source_scale_raw is Vector3:
+			start_scale = source_scale_raw as Vector3
+	var size_curve := _size_over_life_texture(emitter, start_scale)
 	if size_curve != null:
 		process.scale_curve = size_curve
 	var color_curve := _color_over_life_texture(emitter)
@@ -889,6 +908,22 @@ static func _apply_emitter_start_scale(
 		process.set("scale_3d_max", hi)
 		process.set_meta("source_start_scale_bridge", "native_vector")
 		return true
+
+	if not sprite and lo.is_equal_approx(hi):
+		var isotropic := (
+			is_equal_approx(lo.x, lo.y)
+			and is_equal_approx(lo.y, lo.z)
+		)
+		if not isotropic:
+			# Godot 4.6 lacks vector start scale, but its XYZ scale curve can
+			# preserve a constant anisotropic Cascade StartSize exactly.
+			# Keep the scalar channel neutral and bake StartSize per axis into
+			# SizeMultiplyLife (or a synthesized constant curve).
+			process.scale_min = 1.0
+			process.scale_max = 1.0
+			process.set_meta("source_start_scale_bridge", "godot46_curve_vector")
+			process.set_meta("source_start_scale_vector_exact", true)
+			return true
 
 	var scalar_lo := _scale_vector_to_46_scalar(lo, sprite)
 	var scalar_hi := _scale_vector_to_46_scalar(hi, sprite)
