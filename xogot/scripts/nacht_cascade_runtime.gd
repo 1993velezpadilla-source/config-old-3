@@ -2716,14 +2716,12 @@ static func monster_death_xl_descriptor(graphs: Dictionary) -> Dictionary:
 		return {"ready": false, "error": "monster death XL size9 max mismatch"}
 	var size18 := _distribution(ParticleSource.properties(_node_by_path(system, base + ":ParticleModuleSize_18")).get("StartSize"))
 	var size21 := _distribution(ParticleSource.properties(_node_by_path(system, base + ":ParticleModuleSize_21")).get("StartSize"))
-	if not _vector_from_distribution(size18, "MinValueVec", Vector3.INF).is_equal_approx(Vector3(-500.0, -500.0, 0.0)):
-		return {"ready": false, "error": "monster death XL size18 min mismatch"}
-	if not _vector_from_distribution(size18, "MaxValueVec", Vector3.INF).is_equal_approx(Vector3(500.0, 500.0, 0.0)):
-		return {"ready": false, "error": "monster death XL size18 max mismatch"}
-	if not _vector_from_distribution(size21, "MinValueVec", Vector3.INF).is_equal_approx(Vector3(-75.0, -75.0, 0.0)):
-		return {"ready": false, "error": "monster death XL size21 min mismatch"}
-	if not _vector_from_distribution(size21, "MaxValueVec", Vector3.INF).is_equal_approx(Vector3(75.0, 75.0, 0.0)):
-		return {"ready": false, "error": "monster death XL size21 max mismatch"}
+	var size18_values := ParticleSource.table_float_values(size18)
+	var size21_values := ParticleSource.table_float_values(size21)
+	if size18_values != [-500.0, -500.0, 0.0, 500.0, 500.0, 0.0]:
+		return {"ready": false, "error": "monster death XL size18 samples mismatch " + str(size18_values)}
+	if size21_values != [-75.0, -75.0, 0.0, 75.0, 75.0, 0.0]:
+		return {"ready": false, "error": "monster death XL size21 samples mismatch " + str(size21_values)}
 
 	var resolved_size_life := 0
 	for node: Dictionary in ParticleSource.nodes_by_type(system, "ParticleModuleSizeMultiplyLife"):
