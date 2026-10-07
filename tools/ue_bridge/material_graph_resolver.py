@@ -272,7 +272,15 @@ def _package_index_path(value: Any) -> str:
         return ""
     if value.get("kind") != "FPackageIndex":
         return ""
-    return canonical_path(value.get("path"))
+    text = str(value.get("path") or "").strip().replace("\\", "/")
+    quote = text.find("'")
+    if quote >= 0 and text.endswith("'"):
+        text = text[quote + 1 : -1]
+    if text.startswith("Content/"):
+        text = "/Game/" + text[len("Content/") :]
+    elif text.startswith("Game/"):
+        text = "/" + text
+    return text
 
 
 def partial_primary_texture_candidate(
