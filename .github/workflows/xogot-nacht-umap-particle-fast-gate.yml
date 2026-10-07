@@ -119,6 +119,32 @@ jobs:
           assert len(d["packageFailures"])==0,d
           assert len(d["componentFailures"])==0,d
           assert d["ready"] is True,d
+
+          # Regression gate for cooked Blueprint component-template inheritance.
+          # These two Box_complete components omit their inherited values in the
+          # UMAP instance. Their cooked Blueprint templates author scale 0.5 and
+          # bAutoActivate=false; falling back to native identity/true caused the
+          # giant startup explosion that polluted the Nacht visual proof.
+          by_component={
+              (x["actorName"],x["componentName"]):x
+              for x in d["particleComponents"]
+          }
+          for component_name in (
+              "P_Monster_Death_XLarge",
+              "quadExplodeSmoke1",
+          ):
+              row=by_component[("Box_complete_6",component_name)]
+              assert row["properties"]["autoActivate"] is False,row
+              assert row["properties"]["provenance"]["autoActivate"]=="component_template",row
+              scale=row["hierarchy"][0]["scale"]
+              assert [scale["X"],scale["Y"],scale["Z"]]==[0.5,0.5,0.5],row
+              assert row["hierarchy"][0]["transformProvenance"]["scale"]=="component_template",row
+              authority=row["componentAuthority"]
+              assert authority["objectPath"].endswith(
+                  component_name+"_GEN_VARIABLE"
+              ),authority
+          print("XZOGOT_NACHT_PARTICLE_TEMPLATE_INHERITANCE_GREEN components=2")
+
           print("XZOGOT_NACHT_PARTICLE_FAST_RESULT",{
               "components":d["particleComponentCount"],
               "referencedTemplates":d["referencedTemplateCount"],
