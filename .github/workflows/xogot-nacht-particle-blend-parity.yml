@@ -1,0 +1,111 @@
+name: Xogot Nacht Particle Blend Parity
+
+on:
+  push:
+    branches:
+      - wip/nacht-cascade-system-isolation-v1
+    paths:
+      - ".github/workflows/xogot-nacht-particle-blend-parity.yml"
+      - "xogot/ci/nacht_particle_blend_parity_capture.gd"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-nacht-particle-blend-parity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_ARTIFACT: "Xogot-Nacht-Chronicles-Godot-Runtime"
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Resolve latest GREEN staged runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_RUN=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/actions/workflows/xogot-stage-nacht-full-map.yml/runs?branch=feature%2Fgodot-aaa-rebuild-v1&status=success&per_page=20" \
+            --jq '.workflow_runs[0].id // empty')
+          test -n "$SOURCE_RUN"
+          echo "SOURCE_RUN=$SOURCE_RUN" >> "$GITHUB_ENV"
+          echo "XZOGOT_NACHT_BLEND_PARITY_SOURCE_GREEN run=$SOURCE_RUN"
+
+      - name: Download GREEN staged runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf blend-stage xogot/assets/benchmarks/nacht_chronicles
+          mkdir -p blend-stage xogot/assets/benchmarks/nacht_chronicles
+          gh run download "$SOURCE_RUN" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "$SOURCE_ARTIFACT" \
+            --dir blend-stage
+          manifest=$(find blend-stage -type f -name source_manifest.json -print -quit)
+          test -n "$manifest"
+          artifact_root=$(dirname "$manifest")
+          cp -a "$artifact_root/." xogot/assets/benchmarks/nacht_chronicles/
+          test -s xogot/assets/benchmarks/nacht_chronicles/source_manifest.json
+
+      - name: Install Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq unzip curl xvfb libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+
+      - name: Import focused parity runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-blend-parity
+          timeout 1200 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit \
+            2>&1 | tee build/nacht-blend-parity/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|MAX_MESH_SURFACES" \
+            build/nacht-blend-parity/import.log
+
+      - name: Capture focused particle blend parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 900 xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --path xogot \
+            --script res://ci/nacht_particle_blend_parity_capture.gd \
+            2>&1 | tee build/nacht-blend-parity/capture.log
+          grep -q "XZOGOT_NACHT_BLEND_PARITY_MATERIAL_GREEN" build/nacht-blend-parity/capture.log
+          grep -q "XZOGOT_NACHT_BLEND_PARITY_GREEN" build/nacht-blend-parity/capture.log
+          ! grep -E "XZOGOT_NACHT_BLEND_PARITY_FAILURE|SCRIPT ERROR|Parse Error" \
+            build/nacht-blend-parity/capture.log
+          mkdir -p build/nacht-blend-parity/screenshots
+          cp /tmp/xogot-nacht-blend-parity-*.png build/nacht-blend-parity/screenshots/
+          echo "XZOGOT_NACHT_BLEND_PARITY_CAPTURE_GREEN source_run=$SOURCE_RUN"
+
+      - name: Upload focused parity proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nacht-Particle-Blend-Parity
+          path: |
+            build/nacht-blend-parity/screenshots/*.png
+            build/nacht-blend-parity/capture.log
+          if-no-files-found: error
+          retention-days: 7
