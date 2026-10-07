@@ -84,13 +84,26 @@ jobs:
           if(-not $exe){throw 'retoc.exe missing'}
           "RETOC=$($exe.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           & $exe.FullName --version
-          Write-Host "XZOGOT_RETOC_READY"
+
+          $repakZip="$env:RUNNER_TEMP\repak.zip"
+          Invoke-WebRequest 'https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-pc-windows-msvc.zip' -OutFile $repakZip
+          $repakDir="$env:RUNNER_TEMP\repak"
+          Expand-Archive $repakZip -DestinationPath $repakDir -Force
+          $repak=Get-ChildItem $repakDir -Filter 'repak.exe' -Recurse | Select-Object -First 1
+          if(-not $repak){throw 'repak.exe missing'}
+          "REPAK=$($repak.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "XZOGOT_RETOC_REPAK_READY"
 
       - name: Convert exact weapon authority packages to legacy
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
-          $out="$PWD\build\aether-kismet\legacy"
+          $root="$PWD\build\aether-kismet"
+          $pak="$root\aether-weapon-authority_P.pak"
+          $out="$root\legacy"
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          Remove-Item $pak -Force -ErrorAction SilentlyContinue
+          Remove-Item $out -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Force -Path $out | Out-Null
           $filters=@(
             'ProjectAether/Content/Assets/BP/Weapons/BP_WeaponBase.uasset',
@@ -99,13 +112,18 @@ jobs:
           )
           $args=@('to-legacy','--no-shaders',"$env:AETHER_PAKDIR")
           foreach($f in $filters){$args += @('--filter',$f)}
-          $args += @('--version','UE5_7',$out)
-          & "$env:RETOC" @args 2>&1 | Tee-Object build/aether-kismet/retoc.log
+          $args += $pak
+          & "$env:RETOC" @args 2>&1 | Tee-Object "$root\retoc.log"
           if($LASTEXITCODE -ne 0){throw "retoc to-legacy failed $LASTEXITCODE"}
+          if(-not (Test-Path $pak)){throw 'retoc legacy PAK missing'}
+          & "$env:REPAK" unpack $pak -o $out --force 2>&1 | Tee-Object "$root\repak.log"
+          if($LASTEXITCODE -ne 0){throw "repak unpack failed $LASTEXITCODE"}
           foreach($needle in @('BP_WeaponBase.uasset','BP_ExplosiveTracer.uasset','BP_Master_SplashDamage.uasset')){
-            if(-not (Get-ChildItem $out -Recurse -File -Filter $needle | Select-Object -First 1)){
-              throw "retoc did not recover $needle"
-            }
+            $asset=Get-ChildItem $out -Recurse -File -Filter $needle | Select-Object -First 1
+            if(-not $asset){throw "legacy PAK did not recover $needle"}
+            $bytes=[System.IO.File]::ReadAllBytes($asset.FullName)
+            if($bytes.Length -lt 32){throw "$needle header too small"}
+            Write-Host "XZOGOT_LEGACY_HEADER $needle size=$($bytes.Length) magic=$([BitConverter]::ToString($bytes[0..15]))"
           }
           Write-Host "XZOGOT_AETHER_KISMET_LEGACY_GREEN"
 
@@ -183,6 +201,7 @@ jobs:
             build/aether-kismet/weapon-kismet.json
             build/aether-kismet/weapon-kismet-proof.json
             build/aether-kismet/retoc.log
+            build/aether-kismet/repak.log
             build/aether-kismet/extract.log
           if-no-files-found: warn
           retention-days: 14
