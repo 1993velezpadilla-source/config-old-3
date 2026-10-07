@@ -211,7 +211,12 @@ func _capture() -> void:
 	spawn_camera.far = 800.0
 	spawn_camera.current = true
 
-	if not (await _save_view("/tmp/xogot-nacht-spawn.png", "spawn")):
+	if not (await _save_view(
+		"/tmp/xogot-nacht-spawn.png",
+		"spawn",
+		true,
+		12
+	)):
 		return
 
 	var anchors := get_nodes_in_group("nacht_source_actor")
