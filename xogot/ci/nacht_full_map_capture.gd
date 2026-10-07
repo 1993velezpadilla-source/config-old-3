@@ -86,9 +86,10 @@ func _prepare_structural_visual_proof(scene: Node3D) -> void:
 func _save_view(
 	path: String,
 	label: String,
-	require_visual_detail: bool = true
+	require_visual_detail: bool = true,
+	settle_frames: int = 2
 ) -> bool:
-	for _i in range(12):
+	for _i in range(maxi(1, settle_frames)):
 		await process_frame
 	var image := root.get_texture().get_image()
 	if image == null or image.is_empty():
@@ -210,8 +211,40 @@ func _capture() -> void:
 	spawn_camera.far = 800.0
 	spawn_camera.current = true
 
-	if not (await _save_view("/tmp/xogot-nacht-spawn.png", "spawn")):
+	if not (await _save_view(
+		"/tmp/xogot-nacht-spawn.png",
+		"spawn",
+		true,
+		12
+	)):
 		return
+
+	# Diagnostic A/B: preserve the exact same camera/player transform and hide
+	# only Cascade visual nodes. This distinguishes static-world/default-material
+	# occlusion from an auto-activated particle effect without changing runtime.
+	var particle_visuals := get_nodes_in_group("nacht_source_particle_visual")
+	var particle_visibility: Array[bool] = []
+	for raw_particle: Node in particle_visuals:
+		if raw_particle is Node3D:
+			particle_visibility.append((raw_particle as Node3D).visible)
+			(raw_particle as Node3D).visible = false
+		else:
+			particle_visibility.append(false)
+	if not (await _save_view(
+		"/tmp/xogot-nacht-spawn-no-particles.png",
+		"spawn_no_particles",
+		false,
+		2
+	)):
+		return
+	for particle_index in range(particle_visuals.size()):
+		var raw_particle: Node = particle_visuals[particle_index]
+		if raw_particle is Node3D:
+			(raw_particle as Node3D).visible = particle_visibility[particle_index]
+	print(
+		"XZOGOT_NACHT_PARTICLE_OCCLUSION_AB_GREEN nodes=",
+		particle_visuals.size()
+	)
 
 	var anchors := get_nodes_in_group("nacht_source_actor")
 	if anchors.size() != EXPECTED_ACTORS:
