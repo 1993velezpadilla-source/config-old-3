@@ -141,6 +141,7 @@ def main() -> int:
     parser.add_argument("--xzms", required=True)
     parser.add_argument("--materials", required=True)
     parser.add_argument("--xztx", required=True)
+    parser.add_argument("--particle-graphs")
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
 
@@ -148,6 +149,7 @@ def main() -> int:
     xzms = load(args.xzms)
     materials = load(args.materials)
     xztx = load(args.xztx)
+    particle_graphs = load(args.particle_graphs) if args.particle_graphs else {}
 
     mesh_by_path = {
         row["objectPath"]: row
@@ -315,6 +317,24 @@ def main() -> int:
             ],
             "affectedSubmeshes": affected_submeshes,
         })
+
+    # Particle render materials are source-visible dependencies too. The
+    # Cascade extractor already records every FPackageIndex reference, so use
+    # exact graph references and intersect them with the material authority.
+    # This adds no filename/name guessing and keeps static-mesh binding logic
+    # unchanged.
+    particle_material_paths = set()
+    for system in particle_graphs.get("systems", []):
+        refs = list(system.get("references", []))
+        for node in system.get("nodes", []):
+            refs.extend(node.get("references", []))
+        for ref in refs:
+            resolved = material_by_path.get(canonical_ue_path(ref))
+            if resolved is None:
+                continue
+            material_path = resolved["objectPath"]
+            particle_material_paths.add(material_path)
+            used_material_paths.add(material_path)
 
     material_library = []
     native_texture_references = 0
@@ -568,6 +588,7 @@ def main() -> int:
         "effectiveOverrideSubmeshCount":
             effective_override_submeshes,
         "usedMaterialCount": len(material_library),
+        "particleGraphMaterialCount": len(particle_material_paths),
         "nativeTextureReferenceCount":
             native_texture_references,
         "unresolvedMeshCount": len(unresolved_meshes),
