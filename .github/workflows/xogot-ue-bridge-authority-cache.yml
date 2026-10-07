@@ -36,11 +36,25 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf "$RUNNER_TEMP/nacht-authority" build/ue-bridge-cache
-          mkdir -p "$RUNNER_TEMP/nacht-authority" build/ue-bridge-cache
-          gh run download "$SOURCE_RUN" \
-            --repo "$GITHUB_REPOSITORY" \
-            --name "$SOURCE_ARTIFACT" \
-            --dir "$RUNNER_TEMP/nacht-authority"
+          mkdir -p build/ue-bridge-cache
+          downloaded=0
+          for attempt in 1 2 3 4; do
+            rm -rf "$RUNNER_TEMP/nacht-authority"
+            mkdir -p "$RUNNER_TEMP/nacht-authority"
+            echo "XZOGOT_UE_BRIDGE_CACHE_DOWNLOAD_ATTEMPT=$attempt"
+            if gh run download "$SOURCE_RUN" \
+              --repo "$GITHUB_REPOSITORY" \
+              --name "$SOURCE_ARTIFACT" \
+              --dir "$RUNNER_TEMP/nacht-authority"; then
+              downloaded=1
+              break
+            fi
+            sleep $((attempt * 10))
+          done
+          if [ "$downloaded" -ne 1 ]; then
+            echo "XZOGOT_UE_BRIDGE_CACHE_FAILURE download_exhausted"
+            exit 1
+          fi
           test -s "$RUNNER_TEMP/nacht-authority/nacht-particle-graphs.json"
           test -s "$RUNNER_TEMP/nacht-authority/nacht-materials.json"
           cp "$RUNNER_TEMP/nacht-authority/nacht-particle-graphs.json" \
