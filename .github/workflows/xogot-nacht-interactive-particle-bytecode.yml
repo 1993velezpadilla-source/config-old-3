@@ -1264,6 +1264,94 @@ jobs:
                   f"MachineGumball post-open resume mismatch {resume_offsets}"
               )
 
+          interact_template=next(
+              row for row in gumball_package.get("normalExportProperties",[])
+              if row.get("objectName")=="Pavlov_InteractBox_GEN_VARIABLE"
+          )
+          interact_props={
+              str(row.get("Name","")):row.get("Value")
+              for row in interact_template.get("properties",[])
+          }
+          def vector_value(raw,name):
+              if not isinstance(raw,list) or len(raw)!=1:
+                  raise SystemExit(
+                      f"MachineGumball {name} vector wrapper mismatch {raw}"
+                  )
+              row=raw[0]
+              value=row.get("Value") if isinstance(row,dict) else None
+              if not isinstance(value,dict):
+                  raise SystemExit(
+                      f"MachineGumball {name} vector value mismatch {raw}"
+                  )
+              return {
+                  "X":float(value.get("X",0.0)),
+                  "Y":float(value.get("Y",0.0)),
+                  "Z":float(value.get("Z",0.0)),
+              }
+
+          box_extent=vector_value(
+              interact_props.get("BoxExtent"),
+              "Pavlov_InteractBox.BoxExtent",
+          )
+          box_location=vector_value(
+              interact_props.get("RelativeLocation"),
+              "Pavlov_InteractBox.RelativeLocation",
+          )
+          box_scale=vector_value(
+              interact_props.get("RelativeScale3D"),
+              "Pavlov_InteractBox.RelativeScale3D",
+          )
+          expected_extent={
+              "X":26.25869369506836,
+              "Y":106.0833740234375,
+              "Z":58.12179946899414,
+          }
+          expected_location={
+              "X":5.999908447265625,
+              "Y":-5.265450818114914e-05,
+              "Z":59.052276611328125,
+          }
+          expected_scale={"X":1.0,"Y":-0.25,"Z":0.75}
+          for actual_vec,expected_vec,label in [
+              (box_extent,expected_extent,"extent"),
+              (box_location,expected_location,"location"),
+              (box_scale,expected_scale,"scale"),
+          ]:
+              for axis in "XYZ":
+                  if abs(actual_vec[axis]-expected_vec[axis])>1e-5:
+                      raise SystemExit(
+                          f"MachineGumball interact box {label} mismatch "
+                          f"axis={axis} actual={actual_vec} expected={expected_vec}"
+                      )
+
+          scs_node=next(
+              row for row in gumball_package.get("normalExportProperties",[])
+              if row.get("objectName")=="SCS_Node_3"
+          )
+          scs_blob=json.dumps(scs_node,sort_keys=True)
+          for token in [
+              "Pavlov_InteractBox","DefaultSceneRoot",
+              "Powered_Object_BaseN_C",
+          ]:
+              if token not in scs_blob:
+                  raise SystemExit(
+                      f"MachineGumball interact SCS authority missing {token}"
+                  )
+
+          interact_box={
+              "componentName":"Pavlov_InteractBox",
+              "parentComponent":"DefaultSceneRoot",
+              "parentOwnerClass":"Powered_Object_BaseN_C",
+              "boxExtentUEcm":box_extent,
+              "relativeLocationUEcm":box_location,
+              "relativeScale3D":box_scale,
+              "effectiveFullSizeMeters":{
+                  "X":2.0*box_extent["X"]*abs(box_scale["X"])*0.01,
+                  "Y":2.0*box_extent["Y"]*abs(box_scale["Y"])*0.01,
+                  "Z":2.0*box_extent["Z"]*abs(box_scale["Z"])*0.01,
+              },
+          }
+
           gumball_contract={
               "fileName":"MachineGumball.uasset",
               "blueprintName":"MachineGumball",
@@ -1288,11 +1376,17 @@ jobs:
               "timeToFallSeconds":time_to_fall,
               "cycleTimeSeconds":cycle_time,
               "gobblegumPool":gum_pool,
+              "interactBox":interact_box,
           }
           source_interaction_contracts=[gumball_contract]
           print(
               "XZOGOT_NACHT_GUMBALL_INTERACTION_AUTHORITY_GREEN",
               json.dumps(gumball_contract,separators=(",",":"))
+          )
+          print(
+              "XZOGOT_NACHT_GUMBALL_INTERACT_BOX_GREEN",
+              "component=Pavlov_InteractBox "
+              f"size_m={interact_box['effectiveFullSizeMeters']}"
           )
 
           out={
