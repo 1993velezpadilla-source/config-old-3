@@ -137,13 +137,53 @@ jobs:
           $app='tools/maps/UENuketownWallbuyBytecode/bin/Release/net10.0/UENuketownWallbuyBytecode.dll'
           $assets=@(Get-ChildItem nacht-interactive-bytecode -Recurse -File -Filter '*.uasset' | Sort-Object FullName)
           if($assets.Count -lt 3){throw "too few selected Blueprint assets: $($assets.Count)"}
-          $assetArgs=@($assets | ForEach-Object {$_.FullName})
-          dotnet $app PavMappings.usmap build/nacht-interactive-particle-bytecode/blueprint-bytecode.json @assetArgs |
-            Tee-Object build/nacht-interactive-particle-bytecode/extract.log
-          if($LASTEXITCODE -ne 0){throw "bytecode extractor failed $LASTEXITCODE"}
-          if(-not (Select-String -Path build/nacht-interactive-particle-bytecode/extract.log -Pattern 'XZOGOT_NUKETOWN_WALLBUY_BYTECODE_GREEN' -Quiet)){
-            throw 'bytecode green marker missing'
+
+          $index=0
+          foreach($asset in $assets){
+            $stem=[IO.Path]::GetFileNameWithoutExtension($asset.Name)
+            $out="build/nacht-interactive-particle-bytecode/asset-$('{0:D2}' -f $index)-$stem.json"
+            $log="build/nacht-interactive-particle-bytecode/asset-$('{0:D2}' -f $index)-$stem.log"
+            dotnet $app PavMappings.usmap $out $asset.FullName 2>&1 | Tee-Object $log
+            if($LASTEXITCODE -ne 0){throw "bytecode extractor failed $LASTEXITCODE asset=$($asset.FullName)"}
+            if(-not (Select-String -Path $log -Pattern 'XZOGOT_NUKETOWN_WALLBUY_BYTECODE_GREEN' -Quiet)){
+              throw "bytecode green marker missing asset=$($asset.FullName)"
+            }
+            $index++
           }
+
+          @'
+          import json
+          from pathlib import Path
+
+          files=sorted(Path("build/nacht-interactive-particle-bytecode").glob("asset-*.json"))
+          if len(files) < 3:
+              raise SystemExit(f"too few bytecode json files: {len(files)}")
+          docs=[json.loads(p.read_text()) for p in files]
+          numeric=[
+              "assetCount","packageSuccessCount","failureCount","parsedFunctions",
+              "parsedExpressions","integerConstants","parsedDataTableRows",
+              "parsedExportDefaults",
+          ]
+          merged={
+              "schemaVersion":docs[0].get("schemaVersion",1),
+              "engineVersion":docs[0].get("engineVersion"),
+              **{key:sum(int(d.get(key,0)) for d in docs) for key in numeric},
+              "packages":[p for d in docs for p in d.get("packages",[])],
+              "failures":[x for d in docs for x in d.get("failures",[])],
+              "ready":all(bool(d.get("ready",False)) for d in docs),
+          }
+          Path("build/nacht-interactive-particle-bytecode/blueprint-bytecode.json").write_text(
+              json.dumps(merged,indent=2)+"\n"
+          )
+          print("XZOGOT_NACHT_INTERACTIVE_PARTICLE_BYTECODE_MERGE_GREEN",{
+              "files":len(files),
+              "packages":len(merged["packages"]),
+              "failures":len(merged["failures"]),
+              "ready":merged["ready"],
+          })
+          if not merged["ready"] or merged["failureCount"] != 0:
+              raise SystemExit("merged interactive bytecode is not GREEN")
+          '@ | python -
 
       - name: Extract exact particle activation authority
         shell: pwsh
