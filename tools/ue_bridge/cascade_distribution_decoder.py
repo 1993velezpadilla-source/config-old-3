@@ -233,6 +233,38 @@ def iter_lookup_tables(root: Any, path: str = "$") -> Iterable[tuple[str, dict[s
     yield from visit(root, path)
 
 
+
+def raw_distribution_census(root: Any) -> dict[str, Any]:
+    counts: Counter[str] = Counter()
+    table_wrappers: Counter[str] = Counter()
+
+    def visit(value: Any) -> None:
+        if isinstance(value, dict):
+            kind = str(value.get("kind", ""))
+            struct_type = str(value.get("structType", ""))
+            label = kind or struct_type
+            if "RawDistributionFloat" in label:
+                counts["float"] += 1
+                decoded = unwrap(value)
+                if isinstance(decoded, dict) and isinstance(decoded.get("Table"), dict):
+                    table_wrappers["float"] += 1
+            if "RawDistributionVector" in label:
+                counts["vector"] += 1
+                decoded = unwrap(value)
+                if isinstance(decoded, dict) and isinstance(decoded.get("Table"), dict):
+                    table_wrappers["vector"] += 1
+            for child in value.values():
+                visit(child)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child)
+
+    visit(root)
+    return {
+        "wrappers": dict(sorted(counts.items())),
+        "withTable": dict(sorted(table_wrappers.items())),
+    }
+
 def census_graphs(graphs: dict[str, Any]) -> dict[str, Any]:
     counts: Counter[str] = Counter()
     dimensions: Counter[str] = Counter()
@@ -253,6 +285,7 @@ def census_graphs(graphs: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "decoder": "xogot-ue-bridge-reflection-compatible-v1",
+        "rawDistributionCoverage": raw_distribution_census(graphs),
         "total": len(rows),
         "counts": dict(sorted(counts.items())),
         "dimensions": dict(sorted(dimensions.items())),
@@ -276,7 +309,7 @@ def main() -> int:
     report = census_graphs(graphs)
     summary = {
         key: report[key]
-        for key in ("decoder", "total", "counts", "dimensions", "operations", "errors")
+        for key in ("decoder", "rawDistributionCoverage", "total", "counts", "dimensions", "operations", "errors")
     }
     print("XZOGOT_UE_BRIDGE_CASCADE_CENSUS " + json.dumps(summary, sort_keys=True))
 
