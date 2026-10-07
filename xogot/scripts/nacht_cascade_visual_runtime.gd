@@ -909,6 +909,40 @@ static func _apply_emitter_start_scale(
 		process.set_meta("source_start_scale_bridge", "native_vector")
 		return true
 
+	if sprite:
+		var lo_xy := Vector2(maxf(0.0001, absf(lo.x)), maxf(0.0001, absf(lo.y)))
+		var hi_xy := Vector2(maxf(0.0001, absf(hi.x)), maxf(0.0001, absf(hi.y)))
+		var anisotropic := (
+			not is_equal_approx(lo_xy.x, lo_xy.y)
+			or not is_equal_approx(hi_xy.x, hi_xy.y)
+		)
+		if anisotropic:
+			# Godot 4.6 only exposes scalar particle start scale. Preserve the
+			# authored Cascade X/Y aspect in the base quad instead of averaging
+			# both axes into a giant square. The scalar channel then carries the
+			# geometric-mean size range. This is exact for constant/proportional
+			# anisotropic ranges and dramatically closer for independently-random
+			# X/Y UniformVector ranges.
+			var mid_xy := (lo_xy + hi_xy) * 0.5
+			var norm := sqrt(maxf(0.0001, mid_xy.x * mid_xy.y))
+			var base_aspect := Vector2(mid_xy.x / norm, mid_xy.y / norm)
+			var geo_lo := sqrt(maxf(0.0001, lo_xy.x * lo_xy.y))
+			var geo_hi := sqrt(maxf(0.0001, hi_xy.x * hi_xy.y))
+			process.scale_min = minf(geo_lo, geo_hi)
+			process.scale_max = maxf(geo_lo, geo_hi)
+			process.set_meta(
+				"source_sprite_base_size_m",
+				base_aspect * 0.01
+			)
+			process.set_meta("source_start_scale_bridge", "godot46_sprite_aspect")
+			var lo_ratio := lo_xy.x / lo_xy.y
+			var hi_ratio := hi_xy.x / hi_xy.y
+			process.set_meta(
+				"source_start_scale_vector_exact",
+				is_equal_approx(lo_ratio, hi_ratio)
+			)
+			return true
+
 	if not sprite and lo.is_equal_approx(hi):
 		var isotropic := (
 			is_equal_approx(lo.x, lo.y)
@@ -1365,13 +1399,12 @@ static func _apply_sprite_pivot(
 	)
 	if pivot.is_equal_approx(Vector2.INF):
 		return
-	# UE Cascade applies PivotOffset in UV-sized sprite space. The documented
-	# default (0.5, 0.5) is the centered pivot, while QuadMesh center_offset=0
-	# is centered. The mesh is one UE centimeter before particle StartSize
-	# scaling, so this offset stays source-literal after scale_3d.
+	# UE Cascade applies PivotOffset in UV-sized sprite space. QuadMesh
+	# center_offset is expressed in the base mesh dimensions, so honor the
+	# anisotropic Godot 4.6 sprite bridge as well as the 1 cm default.
 	quad.center_offset = Vector3(
-		(pivot.x - 0.5) * 0.01,
-		(pivot.y - 0.5) * 0.01,
+		(pivot.x - 0.5) * quad.size.x,
+		(pivot.y - 0.5) * quad.size.y,
 		0.0
 	)
 
@@ -1458,9 +1491,18 @@ static func _build_source_sprite_emitter(
 			process.anim_offset_max = 1.0
 
 	var quad := QuadMesh.new()
-	# StartSize now lives in ParticleProcessMaterial scale_3d. Keep the mesh at
-	# one UE centimeter so the source size vectors remain literal.
-	quad.size = Vector2(0.01, 0.01)
+	# Godot 4.7+ can keep StartSize fully vectorized in the process material.
+	# On 4.6, anisotropic Cascade sprites preserve their X/Y aspect in the base
+	# quad while the scalar particle channel carries the overall size range.
+	var source_base_size: Variant = process.get_meta(
+		"source_sprite_base_size_m",
+		Vector2(0.01, 0.01)
+	)
+	quad.size = (
+		source_base_size as Vector2
+		if source_base_size is Vector2
+		else Vector2(0.01, 0.01)
+	)
 	_apply_sprite_pivot(quad, emitter)
 	quad.material = material
 
