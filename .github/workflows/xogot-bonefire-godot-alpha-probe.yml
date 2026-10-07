@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/xogot-bonefire-godot-alpha-probe.yml"
       - "xogot/ci/nacht_bonefire_texture_alpha_probe.gd"
+      - "xogot/ci/nacht_bonefire_standard_material_render.gd"
       - "tools/maps/xztx_to_dds.py"
   workflow_dispatch:
 
@@ -69,6 +70,7 @@ jobs:
             --report /tmp/bonefire-dds/report.json
           cp /tmp/bonefire-dds/bonefire_alpha.dds /tmp/bonefire-project/assets/ci/bonefire_alpha.dds
           cp xogot/ci/nacht_bonefire_texture_alpha_probe.gd /tmp/bonefire-project/ci/nacht_bonefire_texture_alpha_probe.gd
+          cp xogot/ci/nacht_bonefire_standard_material_render.gd /tmp/bonefire-project/ci/nacht_bonefire_standard_material_render.gd
           cat > /tmp/bonefire-project/project.godot <<'EOF'
           [application]
           config/name="BoneFire Alpha Probe"
@@ -78,6 +80,7 @@ jobs:
           EOF
           test -s /tmp/bonefire-project/assets/ci/bonefire_alpha.dds
           test -s /tmp/bonefire-project/ci/nacht_bonefire_texture_alpha_probe.gd
+          test -s /tmp/bonefire-project/ci/nacht_bonefire_standard_material_render.gd
           echo "XZOGOT_BONEFIRE_DDS_READY"
 
       - name: Install Godot 4.6.1
@@ -85,7 +88,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq unzip curl libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+          sudo apt-get install -y -qq unzip curl xvfb libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
           curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
             https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
             -o /tmp/godot.zip
@@ -111,3 +114,27 @@ jobs:
             2>&1 | tee /tmp/bonefire-alpha.log
           grep -q "XZOGOT_BONEFIRE_GODOT_ALPHA_GREEN" /tmp/bonefire-alpha.log
           ! grep -E "SCRIPT ERROR|Parse Error|XZOGOT_BONEFIRE_GODOT_ALPHA_FAILURE" /tmp/bonefire-alpha.log
+
+      - name: Render StandardMaterial alpha
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 300 xvfb-run -a -s "-screen 0 640x320x24" \
+            /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --path /tmp/bonefire-project \
+            --script res://ci/nacht_bonefire_standard_material_render.gd \
+            2>&1 | tee /tmp/bonefire-standard-render.log
+          grep -q "XZOGOT_BONEFIRE_STANDARD_RENDER_GREEN" /tmp/bonefire-standard-render.log
+          ! grep -E "SCRIPT ERROR|Parse Error|XZOGOT_BONEFIRE_STANDARD_RENDER_FAILURE" /tmp/bonefire-standard-render.log
+          test -s /tmp/bonefire-standard-material.png
+
+      - name: Upload BoneFire render proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-BoneFire-StandardMaterial-Proof
+          path: |
+            /tmp/bonefire-standard-material.png
+            /tmp/bonefire-alpha.log
+            /tmp/bonefire-standard-render.log
+          if-no-files-found: error
+          retention-days: 7
