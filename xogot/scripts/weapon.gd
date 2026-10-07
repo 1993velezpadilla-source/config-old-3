@@ -1732,16 +1732,17 @@ func _update_visual_recoil(delta: float) -> void:
 		# ADSTransform plus their authored transition times.
 		var ads_target: float = 1.0 if is_ads_active() else 0.0
 		var source_presentation := _ads_calibration_mode == "source_datatable"
+		var source_timing := WeaponViewmodelSourcePresentation.has_source_movement(_weapon_id)
 		var ads_speed: float
-		if source_presentation:
-			var transition_time := _source_ads_in_time if ads_target > _ads_pose_alpha else _source_ads_out_time
+		if source_timing:
+			var transition_time := WeaponViewmodelSourcePresentation.ads_in_time(_weapon_id) if ads_target > _ads_pose_alpha else WeaponViewmodelSourcePresentation.ads_out_time(_weapon_id)
 			ads_speed = 1.0 / maxf(transition_time, 0.001)
 		else:
 			ads_speed = 12.0 if ads_target > _ads_pose_alpha else 15.0
 		_ads_pose_alpha = move_toward(_ads_pose_alpha, ads_target, ads_speed * delta)
 		var target_position: Vector3 = _hip_pose_position.lerp(_ads_pose_position, _ads_pose_alpha)
 		var target_rotation: Quaternion = _hip_pose_rotation.slerp(_ads_pose_rotation, _ads_pose_alpha)
-		if source_presentation:
+		if source_presentation or source_timing:
 			_view_pose_position = target_position
 			_view_pose_rotation = target_rotation
 		else:
@@ -1801,17 +1802,14 @@ func get_family() -> String:
 	return _family
 
 func get_source_ads_transition_time(entering_ads: bool) -> float:
-	if _ads_calibration_mode != "source_datatable":
+	if not WeaponViewmodelSourcePresentation.has_source_movement(_weapon_id):
 		return -1.0
-	return _source_ads_in_time if entering_ads else _source_ads_out_time
+	return WeaponViewmodelSourcePresentation.ads_in_time(_weapon_id) if entering_ads else WeaponViewmodelSourcePresentation.ads_out_time(_weapon_id)
 
-func get_source_ads_target_fov(base_camera_fov: float) -> float:
-	if _ads_calibration_mode != "source_datatable":
-		return -1.0
-	var multiplier := WeaponViewmodelSourcePresentation.ads_fov_multiplier(_weapon_id, -1.0)
-	if multiplier <= 0.0:
-		return -1.0
-	return base_camera_fov * multiplier
+func get_source_ads_target_fov(_base_camera_fov: float) -> float:
+	# ADSFOVMultiplier is preserved from source, but its camera formula is not
+	# proven yet. Do not invent a multiplication rule here.
+	return -1.0
 
 func get_source_ads_move_multiplier() -> float:
 	var source_value := WeaponViewmodelSourcePresentation.source_ads_move_multiplier(_weapon_id)
