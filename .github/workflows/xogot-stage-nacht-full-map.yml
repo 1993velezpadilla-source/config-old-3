@@ -555,7 +555,10 @@ jobs:
           set -euo pipefail
           mkdir -p build/nacht-stage
           timeout 600 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64             --headless --editor --path xogot --quit             2>&1 | tee build/nacht-stage/import.log
-          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|MAX_MESH_SURFACES" build/nacht-stage/import.log
+          if grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|MAX_MESH_SURFACES" build/nacht-stage/import.log; then
+            echo "XZOGOT_NACHT_STAGE_IMPORT_FAILURE forbidden_error_in_log"
+            exit 1
+          fi
 
           timeout 600 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64             --headless --path xogot             --script res://ci/nacht_full_map_probe.gd             2>&1 | tee build/nacht-stage/probe.log
           grep -q "XZOGOT_NACHT_FULL_MAP_PROBE_GREEN" build/nacht-stage/probe.log
@@ -587,12 +590,18 @@ jobs:
 
           grep -q "XZOGOT_NACHT_CAPTURE_WORLD_GREEN" build/nacht-stage/capture.log
           grep -q "XZOGOT_NACHT_SPAWN_SCREENSHOT_GREEN" build/nacht-stage/capture.log
+          grep -q "XZOGOT_NACHT_SPAWN_NO_PARTICLES_SCREENSHOT_GREEN" build/nacht-stage/capture.log
           grep -q "XZOGOT_NACHT_OVERVIEW_SCREENSHOT_GREEN" build/nacht-stage/capture.log
-          ! grep -E "NACHT_CAPTURE:|SCRIPT ERROR|Parse Error|MAX_MESH_SURFACES" build/nacht-stage/capture.log
+          if grep -E "NACHT_CAPTURE:|SCRIPT ERROR|Parse Error|MAX_MESH_SURFACES" build/nacht-stage/capture.log; then
+            echo "XZOGOT_NACHT_STAGE_CAPTURE_FAILURE forbidden_error_in_log"
+            exit 1
+          fi
           test -s /tmp/xogot-nacht-spawn.png
+          test -s /tmp/xogot-nacht-spawn-no-particles.png
           test -s /tmp/xogot-nacht-overview.png
           test "$(find /tmp -maxdepth 1 -type f -name 'xogot-nacht-spawn-candidate-*.png' | wc -l)" -eq 10
           cp /tmp/xogot-nacht-spawn.png build/nacht-stage/xogot-nacht-spawn.png
+          cp /tmp/xogot-nacht-spawn-no-particles.png build/nacht-stage/xogot-nacht-spawn-no-particles.png
           cp /tmp/xogot-nacht-overview.png build/nacht-stage/xogot-nacht-overview.png
           cp /tmp/xogot-nacht-spawn-candidate-*.png build/nacht-stage/
           echo "XZOGOT_NACHT_STAGE_CAPTURE_GREEN views=12 candidates=10"
@@ -603,6 +612,7 @@ jobs:
           name: Xogot-Nacht-Full-Map-Screenshots
           path: |
             build/nacht-stage/xogot-nacht-spawn.png
+            build/nacht-stage/xogot-nacht-spawn-no-particles.png
             build/nacht-stage/xogot-nacht-overview.png
             build/nacht-stage/xogot-nacht-spawn-candidate-*.png
             build/nacht-stage/capture.log
