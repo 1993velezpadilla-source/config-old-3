@@ -266,6 +266,38 @@ def unresolved_output_inputs(base_material: dict[str, Any]) -> dict[str, str]:
             result[pin] = expression_name
     return result
 
+
+def _package_index_path(value: Any) -> str:
+    if not isinstance(value, dict):
+        return ""
+    if value.get("kind") != "FPackageIndex":
+        return ""
+    return canonical_path(value.get("path"))
+
+
+def partial_primary_texture_candidate(
+    base_material: dict[str, Any],
+) -> str | None:
+    candidates: dict[str, str] = {}
+    for expression in base_material.get("expressionGraph", []):
+        if not isinstance(expression, dict) or not expression.get("loaded", False):
+            continue
+        export_type = str(expression.get("exportType", ""))
+        if "MaterialExpressionTextureSample" not in export_type:
+            continue
+        props = property_map(expression.get("properties", []))
+        # A direct-UV sample has no authored Coordinates input at all. Samples
+        # that survived with panner/mask coordinate metadata are not eligible.
+        if "Coordinates" in props:
+            continue
+        texture_path = _package_index_path(props.get("Texture"))
+        if not texture_path:
+            continue
+        candidates[texture_path] = texture_path
+    if len(candidates) != 1:
+        return None
+    return next(iter(candidates.values()))
+
 def _override_map(rows: Any, name_key: str = "name", value_key: str = "value") -> dict[str, Any]:
     result: dict[str, Any] = {}
     if not isinstance(rows, list):
@@ -307,22 +339,27 @@ def resolve_instance(materials_root: dict[str, Any], instance_path: str) -> dict
     wanted = canonical_path(instance_path)
     instance = by_path.get(wanted)
     if instance is None:
-        raise MaterialGraphError(f"material instance not found: {instance_path}")
+        raise MaterialGraphError(f"material not found: {instance_path}")
 
-    base_path = str(instance.get("semanticBaseMaterialPath") or instance.get("objectPath") or "")
-    base = by_path.get(canonical_path(base_path))
-    if base is None:
-        raise MaterialGraphError(
-            f"base material not present in authority: {base_path}"
-        )
-    if str(base.get("exportType", "")) != "Material":
-        raise MaterialGraphError(
-            f"semantic base is not a UMaterial: {base.get('exportType')}"
-        )
+    if str(instance.get("exportType", "")) == "Material":
+        base = instance
+        base_path = str(instance.get("objectPath") or "")
+    else:
+        base_path = str(instance.get("semanticBaseMaterialPath") or instance.get("objectPath") or "")
+        base = by_path.get(canonical_path(base_path))
+        if base is None:
+            raise MaterialGraphError(
+                f"base material not present in authority: {base_path}"
+            )
+        if str(base.get("exportType", "")) != "Material":
+            raise MaterialGraphError(
+                f"semantic base is not a UMaterial: {base.get('exportType')}"
+            )
 
     pins = output_pin_parameters(base)
     unresolved_pins = unresolved_output_inputs(base)
     parameter_candidates = base_parameter_candidates(base)
+    primary_texture_candidate = partial_primary_texture_candidate(base)
     textures = _texture_override_map(instance.get("textures", []))
     scalars = _override_map(instance.get("scalars", []))
     colors = _override_map(instance.get("colors", []))
@@ -377,6 +414,7 @@ def resolve_instance(materials_root: dict[str, Any], instance_path: str) -> dict
         "unresolvedOutputInputs": unresolved_pins,
         "pins": resolved_pins,
         "parameterCandidates": candidate_bindings,
+        "partialPrimaryTextureCandidate": primary_texture_candidate,
         "instanceTextures": instance.get("textures", []),
         "instanceScalars": instance.get("scalars", []),
         "instanceColors": instance.get("colors", []),
