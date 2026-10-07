@@ -1632,6 +1632,69 @@ static func _build_sprite_emitter(
 	}
 
 
+static func _beam_hermite_point(
+	start: Vector3,
+	end: Vector3,
+	start_tangent: Vector3,
+	end_tangent: Vector3,
+	t: float
+) -> Vector3:
+	var t2 := t * t
+	var t3 := t2 * t
+	var h00 := 2.0 * t3 - 3.0 * t2 + 1.0
+	var h10 := t3 - 2.0 * t2 + t
+	var h01 := -2.0 * t3 + 3.0 * t2
+	var h11 := t3 - t2
+	return (
+		start * h00
+		+ start_tangent * h10
+		+ end * h01
+		+ end_tangent * h11
+	)
+
+
+static func _beam_source_path_points(descriptor: Dictionary) -> PackedVector3Array:
+	var result := PackedVector3Array()
+	var target_raw: Variant = descriptor.get("targetUEcm", Vector3.ZERO)
+	if not (target_raw is Vector3):
+		return result
+	var target := (target_raw as Vector3) * 0.01
+	if target.length_squared() < 0.000001:
+		return result
+
+	var source_tangent_raw: Variant = descriptor.get("sourceTangent", Vector3.ZERO)
+	var target_tangent_raw: Variant = descriptor.get("targetTangent", Vector3.ZERO)
+	var source_tangent := (
+		source_tangent_raw as Vector3
+		if source_tangent_raw is Vector3
+		else Vector3.ZERO
+	)
+	var target_tangent := (
+		target_tangent_raw as Vector3
+		if target_tangent_raw is Vector3
+		else Vector3.ZERO
+	)
+	var source_strength := float(descriptor.get("sourceStrength", 0.0)) * 0.01
+	var target_strength := float(descriptor.get("targetStrength", 0.0)) * 0.01
+	if source_tangent.length_squared() > 0.000001:
+		source_tangent = source_tangent.normalized() * source_strength
+	if target_tangent.length_squared() > 0.000001:
+		target_tangent = target_tangent.normalized() * target_strength
+
+	var points := maxi(1, int(descriptor.get("interpolationPoints", 1)))
+	result.resize(points + 1)
+	for index in range(points + 1):
+		var t := float(index) / float(points)
+		result[index] = _beam_hermite_point(
+			Vector3.ZERO,
+			target,
+			source_tangent,
+			target_tangent,
+			t
+		)
+	return result
+
+
 static func _build_beam(
 	anchor: Node3D,
 	system: Dictionary,
@@ -1645,18 +1708,15 @@ static func _build_beam(
 	material.billboard_mode = BaseMaterial3D.BILLBOARD_DISABLED
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 
-	var target_raw: Variant = descriptor.get("targetUEcm", Vector3.ZERO)
-	var target := Vector3.ZERO
-	if target_raw is Vector3:
-		target = target_raw as Vector3
-	target *= 0.01
-	if target.length_squared() < 0.000001:
+	var points := _beam_source_path_points(descriptor)
+	if points.size() < 2:
 		return {"mounted": false, "materialResolved": true, "nodeCount": 0}
 
 	var immediate := ImmediateMesh.new()
 	immediate.surface_begin(Mesh.PRIMITIVE_LINES, material)
-	immediate.surface_add_vertex(Vector3.ZERO)
-	immediate.surface_add_vertex(target)
+	for index in range(points.size() - 1):
+		immediate.surface_add_vertex(points[index])
+		immediate.surface_add_vertex(points[index + 1])
 	immediate.surface_end()
 
 	var beam := MeshInstance3D.new()
@@ -1666,6 +1726,18 @@ static func _build_beam(
 	beam.set_meta("source_particle_material_path", material_path)
 	beam.set_meta("source_beam_target_ue_cm", descriptor.get("targetUEcm"))
 	beam.set_meta("source_beam_noise_frequency", descriptor.get("noiseFrequency", 0))
+	beam.set_meta(
+		"source_beam_interpolation_points",
+		descriptor.get("interpolationPoints", 0)
+	)
+	beam.set_meta("source_beam_source_tangent", descriptor.get("sourceTangent"))
+	beam.set_meta("source_beam_target_tangent", descriptor.get("targetTangent"))
+	beam.set_meta("source_beam_source_strength", descriptor.get("sourceStrength", 0.0))
+	beam.set_meta("source_beam_target_strength", descriptor.get("targetStrength", 0.0))
+	beam.set_meta("source_beam_taper_factor", descriptor.get("taperFactor", 1.0))
+	beam.set_meta("source_beam_taper_scale", descriptor.get("taperScale", 1.0))
+	beam.set_meta("source_beam_noise_runtime_exact", false)
+	beam.set_meta("source_beam_width_runtime_exact", false)
 	anchor.add_child(beam)
 
 	return {
