@@ -195,8 +195,9 @@ func _probe_monster_placement() -> void:
 			" owner_class=", str(placement.get("ownerClassPath", "")),
 			" component=", str(placement.get("componentName", "")),
 			" source_path=", str(placement.get("sourcePath", "")),
-			" auto_present=", props.has("bAutoActivate"),
-			" auto_value=", str(props.get("bAutoActivate", "<missing>")),
+			" auto_present=", props.has("autoActivate"),
+			" auto_value=", str(props.get("autoActivate", "<missing>")),
+			" legacy_bAutoActivate_present=", props.has("bAutoActivate"),
 			" properties=", JSON.stringify(props)
 		)
 	print("XZOGOT_NACHT_MONSTER_PLACEMENT_GREEN hits=", hits)
