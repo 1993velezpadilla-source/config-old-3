@@ -106,7 +106,7 @@ func _freeze_particles(particle_visuals: Array[Node]) -> void:
 	await process_frame
 	await process_frame
 
-func _probe_target_materials(particle_visuals: Array[Node]) -> void:
+func _probe_target_materials(particle_visuals: Array[Node]) -> bool:
 	var target_nodes := 0
 	var opaque_nodes := 0
 	for raw in particle_visuals:
@@ -141,15 +141,16 @@ func _probe_target_materials(particle_visuals: Array[Node]) -> void:
 		)
 	if target_nodes <= 0:
 		_fail("target particle nodes missing")
-		return
+		return false
 	if opaque_nodes != 0:
 		_fail("target particle material remained opaque count=" + str(opaque_nodes))
-		return
+		return false
 	print(
 		"XZOGOT_NACHT_BLEND_PARITY_MATERIAL_GREEN nodes=",
 		target_nodes,
 		" opaque=0"
 	)
+	return true
 
 func _run() -> void:
 	var packed := load("res://nacht_full_map.tscn") as PackedScene
@@ -214,8 +215,7 @@ func _run() -> void:
 			(raw as Node3D).visible if raw is Node3D else false
 		)
 
-	_probe_target_materials(particle_visuals)
-	if Engine.get_exit_code() != 0:
+	if not _probe_target_materials(particle_visuals):
 		return
 
 	# Baseline structural frame.
