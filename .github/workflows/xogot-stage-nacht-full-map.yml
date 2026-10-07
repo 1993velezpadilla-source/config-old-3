@@ -428,6 +428,33 @@ jobs:
           assert mats["summary"]["ready"] is True, mats["summary"]
           assert mats["summary"]["unresolvedMaterialCount"] == 0, mats["summary"]
           assert mats["summary"]["unresolvedTextureCount"] == 0, mats["summary"]
+
+          # A non-default semantic blend resolved from source/inheritance can
+          # never be replaced by UE's BLEND_Opaque constructor default merely
+          # because a partial cooked-property view omitted BlendMode.
+          nonopaque_clobbers=[
+              row for row in mats["materials"]
+              if row.get("auditBlendMode") not in (None, "", "BLEND_Opaque")
+              and row.get("blendMode") == "BLEND_Opaque"
+          ]
+          assert not nonopaque_clobbers, nonopaque_clobbers[:20]
+
+          bonefire_rows=[
+              row for row in mats["materials"]
+              if "bonefire2b_fwd2_inst" in str(row.get("materialPath","")).lower()
+          ]
+          assert len(bonefire_rows) == 1, bonefire_rows
+          bonefire=bonefire_rows[0]
+          assert bonefire["auditBlendMode"] == "BLEND_Translucent", bonefire
+          assert bonefire["blendMode"] == "BLEND_Translucent", bonefire
+          assert "sequence_mat" in str(bonefire.get("semanticBaseMaterialPath","")).lower(), bonefire
+          print("XZOGOT_NACHT_BONEFIRE_BLEND_INHERITANCE_GREEN", {
+              "material":bonefire["materialPath"],
+              "audit":bonefire["auditBlendMode"],
+              "runtime":bonefire["blendMode"],
+              "base":bonefire.get("semanticBaseMaterialPath"),
+              "defaults":bonefire.get("runtimeEngineDefaults",[]),
+          })
           assert lights["lightCount"] == 166, lights
           assert particles["particleComponentCount"] == 29 and particles["ready"] is True, particles
           assert particles["referencedTemplateCount"] == 29, particles
