@@ -1024,7 +1024,7 @@ static func _build_source_sprite_emitter(
 	var lifetime := _emitter_lifetime(system, emitter)
 	var process := ParticleProcessMaterial.new()
 	_configure_process_from_emitter(process, system, emitter)
-	var has_source_scale := _apply_emitter_start_scale(
+	_apply_emitter_start_scale(
 		process,
 		system,
 		emitter,
@@ -1049,7 +1049,7 @@ static func _build_source_sprite_emitter(
 	var quad := QuadMesh.new()
 	# StartSize now lives in ParticleProcessMaterial scale_3d. Keep the mesh at
 	# one UE centimeter so the source size vectors remain literal.
-	quad.size = Vector2(0.01, 0.01) if has_source_scale else Vector2(0.01, 0.01)
+	quad.size = Vector2(0.01, 0.01)
 	quad.material = material
 
 	var particles := GPUParticles3D.new()
