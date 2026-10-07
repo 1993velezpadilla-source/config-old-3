@@ -12,6 +12,14 @@ CANONICAL_TEXTURE_KEYS = {
     "emissive": "PM_Emissive",
 }
 
+# Exact source-authored material parameter aliases. These are semantic
+# parameter names from the cooked material instance, not filename guesses.
+EXACT_TEXTURE_PARAMETER_ALIASES = {
+    "diffuse": ("AlbedoTexture", "Smoke_Texture"),
+    "normal": ("NormalTexture", "Normal_Texture"),
+    "emissive": ("EmissiveTexture",),
+}
+
 UE_DEFAULT_SURFACE_MATERIAL = "xziel://ue/default-surface"
 UE_ENGINE_DEFAULT_SURFACE_PATHS = (
     "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial",
@@ -477,6 +485,20 @@ def main() -> int:
                 else None
             )
 
+        # Preserve exact cooked parameter semantics before any family or
+        # uniqueness fallback. This is required by source particle materials
+        # such as unlit_smoke, whose atlas is authored as Smoke_Texture rather
+        # than PM_Diffuse.
+        for channel, aliases in EXACT_TEXTURE_PARAMETER_ALIASES.items():
+            if canonical.get(channel):
+                continue
+            for alias in aliases:
+                row = textures_by_parameter.get(alias)
+                if row is None or not row.get("texturePath"):
+                    continue
+                canonical[channel] = row["texturePath"]
+                break
+
         # Some UE4.21 cooked base Materials retain all TextureSample inputs but
         # lose the semantic PM_* parameter names. Recover only when multiple
         # numbered siblings expose an explicit semantic parameter and exactly
@@ -682,6 +704,10 @@ def main() -> int:
         "schemaVersion": 1,
         "format": "xziel_ue_material_binding_manifest_v1",
         "canonicalTextureKeys": CANONICAL_TEXTURE_KEYS,
+        "exactTextureParameterAliases": {
+            key: list(value)
+            for key, value in EXACT_TEXTURE_PARAMETER_ALIASES.items()
+        },
         "ueDefaultSurfaceMaterial":
             UE_DEFAULT_SURFACE_MATERIAL,
         "summary": summary,
