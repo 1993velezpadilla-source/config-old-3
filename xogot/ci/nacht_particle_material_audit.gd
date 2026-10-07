@@ -3,6 +3,8 @@ extends SceneTree
 const TARGET_MONSTER := "/Game/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Monsters/FX_Monster_Deaths/P_Monster_Death_XLarge.P_Monster_Death_XLarge"
 const PARTICLE_GRAPHS := "res://assets/benchmarks/nacht_chronicles/nacht-particle-graphs.json"
 const PARTICLE_RUNTIME_AUTHORITY := "res://assets/benchmarks/nacht_chronicles/nacht-particle-runtime-authority.json"
+const MATERIAL_BINDINGS_PATH := "res://assets/benchmarks/nacht_chronicles/material-binding-manifest.json"
+const MONSTER_FIRE_MATERIAL := "/Game/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Materials/Fire/M_Fire_Sheet_01_INST.M_Fire_Sheet_01_INST"
 
 func _init() -> void:
 	call_deferred("_audit")
@@ -247,6 +249,60 @@ func _probe_monster_placement() -> void:
 		)
 	print("XZOGOT_NACHT_MONSTER_PLACEMENT_GREEN hits=", hits)
 
+
+func _canonical_material_path(value: String) -> String:
+	var result := value.strip_edges().replace("\\", "/")
+	if result.begins_with("Content/"):
+		result = "/Game/" + result.substr("Content/".length())
+	elif result.begins_with("Game/"):
+		result = "/" + result
+	return result
+
+func _probe_monster_fire_material_binding() -> void:
+	if not FileAccess.file_exists(MATERIAL_BINDINGS_PATH):
+		print("XZOGOT_NACHT_MONSTER_FIRE_BINDING missing=", MATERIAL_BINDINGS_PATH)
+		return
+	var file := FileAccess.open(MATERIAL_BINDINGS_PATH, FileAccess.READ)
+	if file == null:
+		print("XZOGOT_NACHT_MONSTER_FIRE_BINDING open_failed")
+		return
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	if not (parsed is Dictionary):
+		print("XZOGOT_NACHT_MONSTER_FIRE_BINDING parse_failed")
+		return
+	var rows_raw: Variant = (parsed as Dictionary).get("materials", [])
+	if not (rows_raw is Array):
+		return
+	var by_path := {}
+	for raw_row: Variant in rows_raw:
+		if not (raw_row is Dictionary):
+			continue
+		var row := raw_row as Dictionary
+		var material_path := _canonical_material_path(str(row.get("materialPath", "")))
+		if not material_path.is_empty():
+			by_path[material_path] = row
+	var current := MONSTER_FIRE_MATERIAL
+	var visited := {}
+	var depth := 0
+	while not current.is_empty() and not visited.has(current) and depth < 12:
+		visited[current] = true
+		var row_raw: Variant = by_path.get(current, {})
+		if not (row_raw is Dictionary) or (row_raw as Dictionary).is_empty():
+			print("XZOGOT_NACHT_MONSTER_FIRE_BINDING depth=", depth, " path=", current, " record_missing=true")
+			break
+		var row := row_raw as Dictionary
+		print(
+			"XZOGOT_NACHT_MONSTER_FIRE_BINDING ",
+			"depth=", depth,
+			" path=", current,
+			" row=", JSON.stringify(row)
+		)
+		var next_path := _canonical_material_path(str(row.get("semanticBaseMaterialPath", "")))
+		if next_path.is_empty() or next_path == current:
+			break
+		current = next_path
+		depth += 1
+
 func _probe_monster_source_graph() -> void:
 	if not FileAccess.file_exists(PARTICLE_RUNTIME_AUTHORITY):
 		print("XZOGOT_NACHT_MONSTER_SOURCE missing=", PARTICLE_RUNTIME_AUTHORITY)
@@ -383,6 +439,7 @@ func _audit() -> void:
 		return
 
 	_probe_monster_placement()
+	_probe_monster_fire_material_binding()
 	_probe_monster_source_graph()
 	_probe_monster_placement()
 
