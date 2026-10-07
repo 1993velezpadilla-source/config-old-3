@@ -215,7 +215,7 @@ jobs:
           echo "XZOGOT_NACHT_STAGE_AUDIO_RUNTIME_AUTHORITY_GREEN"
 
 
-          python3 tools/maps/compile_ue_material_bindings.py             --scene "$root/nacht-static-scene.json"             --xzms "$AUTH/nacht-static-runtime-meshes.json"             --materials "$root/nacht-materials.json"             --xztx "$AUTH/nacht-native/textures/report.json"             --output "$root/material-binding-manifest.json"
+          python3 tools/maps/compile_ue_material_bindings.py             --scene "$root/nacht-static-scene.json"             --xzms "$AUTH/nacht-static-runtime-meshes.json"             --materials "$root/nacht-materials.json"             --xztx "$AUTH/nacht-native/textures/report.json"             --particle-graphs "$root/nacht-particle-graphs.json"             --output "$root/material-binding-manifest.json"
 
           python3 tools/maps/compile_xziel_material_instance_bindings.py             --scene "$root/nacht-static-scene.json"             --manifest "$root/material-binding-manifest.json"             --output "$root/materials.xzmi"             --report "$root/xzmi-report.json"
 
