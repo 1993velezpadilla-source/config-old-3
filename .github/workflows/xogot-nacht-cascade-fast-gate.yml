@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - feature/godot-aaa-rebuild-v1
+      - wip/nacht-cascade-module-parity-v2
     paths:
       - ".github/workflows/xogot-nacht-cascade-fast-gate.yml"
       - "xogot/scripts/nacht_cascade_runtime.gd"
