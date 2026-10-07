@@ -708,6 +708,11 @@ func _optional_source_path(value: Variant) -> String:
 		return ""
 	return path
 
+func resolve_source_material(material_path: String) -> Material:
+	# Public bridge for non-static source systems (Cascade, decals, future VFX).
+	# Keep the actual material construction authoritative in one place.
+	return _material_for_path(material_path)
+
 func _material_for_path(material_path: String) -> Material:
 	if material_path.is_empty():
 		return null
