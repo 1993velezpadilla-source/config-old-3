@@ -1460,6 +1460,41 @@ jobs:
               },
           }
 
+          gumball_entry_points=[
+              row for row in entry_points
+              if row.get("fileName")=="MachineGumball.uasset"
+          ]
+          gumball_latent_delays=[
+              row for row in latent_delays
+              if row.get("fileName")=="MachineGumball.uasset"
+          ]
+          if len(gumball_entry_points)!=24:
+              raise SystemExit(
+                  f"MachineGumball entry point count mismatch {len(gumball_entry_points)}"
+              )
+          if len(gumball_latent_delays)!=14:
+              raise SystemExit(
+                  f"MachineGumball latent delay count mismatch {len(gumball_latent_delays)}"
+              )
+          post_open_delay=[
+              row for row in gumball_latent_delays
+              if int(row.get("startOffset",-1))==4787
+          ]
+          if (
+              len(post_open_delay)!=1
+              or abs(float(post_open_delay[0].get("durationSeconds",-1.0))-0.5)>0.001
+              or int(post_open_delay[0].get("resumeOffset",-1))!=794
+          ):
+              raise SystemExit(
+                  f"MachineGumball post-open latent authority mismatch {post_open_delay}"
+              )
+          print(
+              "XZOGOT_NACHT_GUMBALL_FLOW_AUTHORITY_GREEN",
+              f"entry_points={len(gumball_entry_points)} "
+              f"delays={len(gumball_latent_delays)} "
+              "post_open=0.5s resume=794"
+          )
+
           gumball_contract={
               "fileName":"MachineGumball.uasset",
               "blueprintName":"MachineGumball",
@@ -1485,6 +1520,13 @@ jobs:
               "cycleTimeSeconds":cycle_time,
               "gobblegumPool":gum_pool,
               "interactBox":interact_box,
+              "entryPoints":gumball_entry_points,
+              "latentDelays":gumball_latent_delays,
+              "postOpenDelay":{
+                  "startOffset":4787,
+                  "durationSeconds":0.5,
+                  "resumeOffset":794,
+              },
           }
           source_interaction_contracts=[gumball_contract]
           print(
