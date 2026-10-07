@@ -91,6 +91,10 @@ var _source_particle_visual_anchor_count := 0
 var _source_particle_visual_node_count := 0
 var _source_particle_visual_material_count := 0
 var _source_particle_visual_unresolved_material_count := 0
+var _source_particle_visual_emitter_count := 0
+var _source_particle_visual_mounted_emitter_count := 0
+var _source_particle_visual_resolved_mesh_count := 0
+var _source_particle_visual_unresolved_mesh_count := 0
 var _source_particle_visual_exact_anchor_count := 0
 var _source_particle_mystery_descriptor: Dictionary = {}
 var _source_particle_fire_descriptor: Dictionary = {}
@@ -232,6 +236,9 @@ func _boot() -> void:
 	var particle_visual_mounted := (
 		_source_particle_visual_anchor_count == _source_particle_semantic_placement_count
 		and _source_particle_visual_node_count >= _source_particle_visual_anchor_count
+		and _source_particle_visual_mounted_emitter_count == _source_particle_visual_emitter_count
+		and _source_particle_visual_unresolved_material_count == 0
+		and _source_particle_visual_unresolved_mesh_count == 0
 	)
 	var particle_visual_exact := (
 		particle_visual_mounted
@@ -246,6 +253,19 @@ func _boot() -> void:
 	set_meta(
 		"source_particle_visual_unresolved_material_count",
 		_source_particle_visual_unresolved_material_count
+	)
+	set_meta("source_particle_visual_emitter_count", _source_particle_visual_emitter_count)
+	set_meta(
+		"source_particle_visual_mounted_emitter_count",
+		_source_particle_visual_mounted_emitter_count
+	)
+	set_meta(
+		"source_particle_visual_resolved_mesh_count",
+		_source_particle_visual_resolved_mesh_count
+	)
+	set_meta(
+		"source_particle_visual_unresolved_mesh_count",
+		_source_particle_visual_unresolved_mesh_count
 	)
 	set_meta(
 		"source_particle_visual_exact_anchor_count",
@@ -284,6 +304,10 @@ func _boot() -> void:
 		" particle_visual_nodes=", _source_particle_visual_node_count,
 		" particle_visual_materials=", _source_particle_visual_material_count,
 		" particle_visual_unresolved_materials=", _source_particle_visual_unresolved_material_count,
+		" particle_visual_emitters=", _source_particle_visual_emitter_count,
+		" particle_visual_mounted_emitters=", _source_particle_visual_mounted_emitter_count,
+		" particle_visual_resolved_meshes=", _source_particle_visual_resolved_mesh_count,
+		" particle_visual_unresolved_meshes=", _source_particle_visual_unresolved_mesh_count,
 		" environment_authority=", get_meta("runtime_environment_authority_count"),
 		" audio_authority=", get_meta("runtime_audio_authority_count"),
 		" cues_authority=", get_meta("runtime_sound_cue_authority_count")
@@ -1229,6 +1253,18 @@ func _mount_source_particle_semantic_anchors(
 		_source_particle_visual_unresolved_material_count += int(
 			visual_report.get("unresolvedMaterialCount", 0)
 		)
+		_source_particle_visual_emitter_count += int(
+			visual_report.get("emitterCount", 0)
+		)
+		_source_particle_visual_mounted_emitter_count += int(
+			visual_report.get("mountedEmitterCount", 0)
+		)
+		_source_particle_visual_resolved_mesh_count += int(
+			visual_report.get("resolvedMeshCount", 0)
+		)
+		_source_particle_visual_unresolved_mesh_count += int(
+			visual_report.get("unresolvedMeshCount", 0)
+		)
 		anchor.set_meta(
 			"source_particle_visual_report",
 			visual_report.duplicate(true)
@@ -1244,6 +1280,10 @@ func _build_source_particle_semantic_runtime() -> bool:
 	_source_particle_visual_node_count = 0
 	_source_particle_visual_material_count = 0
 	_source_particle_visual_unresolved_material_count = 0
+	_source_particle_visual_emitter_count = 0
+	_source_particle_visual_mounted_emitter_count = 0
+	_source_particle_visual_resolved_mesh_count = 0
+	_source_particle_visual_unresolved_mesh_count = 0
 	_source_particle_visual_exact_anchor_count = 0
 
 	_source_particle_mystery_descriptor = NachtCascadeRuntime.mystery_vertical_descriptor(_particle_graphs)
