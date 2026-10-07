@@ -2,7 +2,14 @@
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from tools.ue_bridge.material_graph_resolver import output_pin_parameters
 
 
 CANONICAL_TEXTURE_KEYS = {
@@ -134,6 +141,71 @@ def sibling_parameter_consensus(materials, target_path, target_textures, paramet
         return None
     key = next(iter(intersections))
     return target_by_canonical[key]
+
+
+
+GRAPH_TEXTURE_PIN_TO_CANONICAL = {
+    "BaseColor": "diffuse",
+    "EmissiveColor": "emissive",
+    "Normal": "normal",
+}
+
+
+def source_graph_texture_bindings(material, base_material):
+    """Resolve exact texture overrides wired to UE material output pins."""
+    if not isinstance(base_material, dict):
+        return {}, {}, []
+
+    pins = output_pin_parameters(base_material)
+    bindings = {}
+    provenance = {}
+    ambiguous = []
+
+    for pin_name, canonical_name in GRAPH_TEXTURE_PIN_TO_CANONICAL.items():
+        texture_parameters = [
+            row
+            for row in pins.get(pin_name, [])
+            if isinstance(row, dict) and row.get("kind") == "texture"
+        ]
+        if not texture_parameters:
+            continue
+
+        resolved = {}
+        parameter_names = []
+        for row in texture_parameters:
+            parameter = str(row.get("parameter", ""))
+            if not parameter:
+                continue
+            parameter_names.append(parameter)
+            texture_path = exact_texture_parameter(material, parameter)
+            if not texture_path:
+                continue
+            resolved[canonical_ue_path(texture_path)] = {
+                "parameter": parameter,
+                "texturePath": texture_path,
+                "expressionPath": row.get("objectPath"),
+                "expressionType": row.get("exportType"),
+            }
+
+        if len(resolved) == 1:
+            source = next(iter(resolved.values()))
+            bindings[canonical_name] = source["texturePath"]
+            provenance[canonical_name] = {
+                "outputPin": pin_name,
+                **source,
+            }
+        elif len(resolved) > 1:
+            ambiguous.append({
+                "materialPath": material.get("objectPath"),
+                "baseMaterialPath": base_material.get("objectPath"),
+                "outputPin": pin_name,
+                "parameters": sorted(set(parameter_names)),
+                "resolvedTextures": sorted(
+                    row["texturePath"] for row in resolved.values()
+                ),
+            })
+
+    return bindings, provenance, ambiguous
 
 
 def source_raw_property_names(material):
@@ -430,6 +502,9 @@ def main() -> int:
     native_texture_references = 0
     explicit_blend_mode_preserved_count = 0
     explicit_blend_mode_mismatches = []
+    source_graph_binding_count = 0
+    source_graph_binding_material_count = 0
+    source_graph_ambiguities = []
 
     for material_path in sorted(used_material_paths):
         if material_path == UE_DEFAULT_SURFACE_MATERIAL:
@@ -510,6 +585,27 @@ def main() -> int:
                 if row is not None
                 else None
             )
+
+        base_path_for_graph = material.get("semanticBaseMaterialPath") or material_path
+        base_material_for_graph = material_by_path.get(
+            canonical_ue_path(base_path_for_graph),
+            material,
+        )
+        (
+            source_graph_bindings,
+            source_graph_binding_provenance,
+            graph_ambiguities,
+        ) = source_graph_texture_bindings(
+            material,
+            base_material_for_graph,
+        )
+        if source_graph_bindings:
+            source_graph_binding_material_count += 1
+        source_graph_binding_count += len(source_graph_bindings)
+        source_graph_ambiguities.extend(graph_ambiguities)
+        for channel, texture_path in source_graph_bindings.items():
+            if not canonical.get(channel):
+                canonical[channel] = texture_path
 
         # Some UE4.21 cooked base Materials retain all TextureSample inputs but
         # lose the semantic PM_* parameter names. Recover only when multiple
@@ -661,6 +757,9 @@ def main() -> int:
             "semanticBaseMaterialPath": base_path,
             "runtimeEngineDefaults": runtime_default_sources,
             "sourceSiblingSemanticBindings": sibling_semantic_bindings,
+            "sourceGraphBindings": source_graph_bindings,
+            "sourceGraphBindingProvenance":
+                source_graph_binding_provenance,
         })
 
     # De-duplicate error rows while keeping deterministic JSON.
@@ -728,6 +827,14 @@ def main() -> int:
             len(explicit_blend_mode_mismatches),
         "explicitBlendModeMismatches":
             explicit_blend_mode_mismatches,
+        "sourceGraphBindingCount":
+            source_graph_binding_count,
+        "sourceGraphBindingMaterialCount":
+            source_graph_binding_material_count,
+        "sourceGraphAmbiguityCount":
+            len(source_graph_ambiguities),
+        "sourceGraphAmbiguities":
+            source_graph_ambiguities,
     }
 
     summary["ready"] = (
@@ -739,6 +846,7 @@ def main() -> int:
         and summary["unresolvedMaterialCount"] == 0
         and summary["unresolvedTextureCount"] == 0
         and summary["explicitBlendModeMismatchCount"] == 0
+        and summary["sourceGraphAmbiguityCount"] == 0
     )
 
     output = {
