@@ -13,6 +13,7 @@ on:
       - "xogot/scripts/mobile_*.gd"
       - "xogot/assets/hud/**"
       - "xogot/ci/mobile_survival_probe.gd"
+      - "xogot/ci/movement_probe.gd"
       - ".github/workflows/xogot-mobile-combat-gate.yml"
 
 permissions:

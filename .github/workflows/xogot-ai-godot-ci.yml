@@ -106,6 +106,7 @@ jobs:
             --headless --path xogot --script res://ci/movement_probe.gd \
             2>&1 | tee build/xogot-ai/movement-probe.log
           grep -q "XZOGOT_COD_VIEW_PROBE_GREEN" build/xogot-ai/movement-probe.log
+          grep -q "XZOGOT_MOVEMENT_SOURCE_ADS_SPEED_GREEN" build/xogot-ai/movement-probe.log
           grep -q "XZOGOT_MOVEMENT_PROBE_GREEN" build/xogot-ai/movement-probe.log
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/movement-probe.log
           echo "XOGOT_AI_VM_GREEN"
