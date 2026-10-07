@@ -32,6 +32,8 @@ const NAV_PATH := "res://data/nav_skeleton.json"
 @export var ads_touch_multiplier := CODSourceContract.ADS_TOUCH_MULTIPLIER
 @export var fire_touch_multiplier := CODSourceContract.TOUCH_LOOK_MULTIPLIER
 @export var ads_toggle_mode := false
+@export var mobile_sprint_zone := 1.10
+@export var ads_move_multiplier := 0.90
 @export var auto_knife_enabled := true
 @export var knife_button_range_only := true
 @export var knife_range_m := 1.65
@@ -83,6 +85,10 @@ var _knife_touch := -1
 var _use_touch := -1
 var _move_origin := Vector2.ZERO
 var _move_vector := Vector2.ZERO
+var _move_raw_vector := Vector2.ZERO
+var _sprint_suppressed := false
+var _reload_restore_ads := false
+var _adsfire_trigger_engaged := false
 var _jump_requested := false
 var _pitch := 0.0
 var _crouched := false
@@ -188,6 +194,51 @@ func _mobile_adsfire_release_mode() -> bool:
 		and bool(_weapon.call("mobile_adsfire_release_mode"))
 	)
 
+func _mobile_adsfire_ready() -> bool:
+	if _weapon == null or not _weapon.has_method("is_mobile_ads_ready"):
+		return true
+	return bool(_weapon.call("is_mobile_ads_ready"))
+
+func _mobile_sprint_zone_hot() -> bool:
+	if _move_touch < 0:
+		return false
+	var forward: float = -_move_raw_vector.y
+	return forward >= mobile_sprint_zone and absf(_move_raw_vector.x) <= forward * 0.70
+
+func _suppress_mobile_sprint_for_action() -> void:
+	if _sprinting or _mobile_sprint_zone_hot():
+		_sprint_suppressed = true
+	_sprinting = false
+
+func _request_mobile_reload() -> void:
+	if _weapon == null:
+		return
+	var restore_ads: bool = ads_toggle_mode and bool(get_meta("ads_toggled", false))
+	_weapon.call("request_reload")
+	if restore_ads and _weapon.has_method("is_reloading") and bool(_weapon.call("is_reloading")):
+		_reload_restore_ads = true
+		set_meta("ads_toggled", false)
+
+func _update_mobile_reload_ads_restore() -> void:
+	if not _reload_restore_ads:
+		return
+	if downed or eliminated or _sprinting:
+		_reload_restore_ads = false
+		return
+	if _weapon == null or not _weapon.has_method("is_reloading"):
+		_reload_restore_ads = false
+		return
+	if not bool(_weapon.call("is_reloading")):
+		set_meta("ads_toggled", true)
+		_reload_restore_ads = false
+
+func _update_mobile_adsfire_trigger() -> void:
+	if _adsfire_touch < 0 or _mobile_adsfire_release_mode() or _adsfire_trigger_engaged:
+		return
+	if _mobile_adsfire_ready():
+		_set_mobile_trigger_held(true)
+		_adsfire_trigger_engaged = true
+
 func _handle_touch(event: InputEventScreenTouch) -> void:
 	var size: Vector2 = get_viewport().get_visible_rect().size
 	if event.pressed:
@@ -198,20 +249,25 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			return
 		if MobileLayout.inside(event.position, size, MobileLayout.ADSFIRE_CENTER, MobileLayout.ADSFIRE_RADIUS) and _adsfire_touch < 0:
 			_adsfire_touch = event.index
-			# Bolt/sniper/shotgun AUTO BY WEAPON mode arms on press and fires on
-			# release. All other classes begin the mobile trigger immediately.
-			if not _mobile_adsfire_release_mode():
+			_adsfire_trigger_engaged = false
+			_suppress_mobile_sprint_for_action()
+			# PRESS waits for source ADS-ready; RELEASE stays armed until finger-up.
+			if not _mobile_adsfire_release_mode() and _mobile_adsfire_ready():
 				_set_mobile_trigger_held(true)
+				_adsfire_trigger_engaged = true
 		elif MobileLayout.inside(event.position, size, MobileLayout.FIRE_CENTER, MobileLayout.FIRE_RADIUS) and _fire_touch < 0:
 			_fire_touch = event.index
+			_suppress_mobile_sprint_for_action()
 			_set_mobile_trigger_held(true)
 		elif MobileLayout.inside(event.position, size, MobileLayout.ADS_CENTER, MobileLayout.ADS_RADIUS) and _ads_touch < 0:
+			_reload_restore_ads = false
+			_suppress_mobile_sprint_for_action()
 			if ads_toggle_mode:
 				set_meta("ads_toggled", not bool(get_meta("ads_toggled", false)))
 			else:
 				_ads_touch = event.index
 		elif MobileLayout.inside(event.position, size, MobileLayout.RELOAD_CENTER, MobileLayout.RELOAD_RADIUS):
-			_weapon.call("request_reload")
+			_request_mobile_reload()
 		elif MobileLayout.inside(event.position, size, MobileLayout.SLIDE_CENTER, MobileLayout.SLIDE_RADIUS) and _crouch_touch < 0:
 			_crouch_touch = event.index
 		elif MobileLayout.inside(event.position, size, MobileLayout.JUMP_CENTER, MobileLayout.JUMP_RADIUS):
@@ -221,18 +277,21 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			request_interact()
 		elif MobileLayout.inside(event.position, size, MobileLayout.KNIFE_CENTER, MobileLayout.KNIFE_RADIUS) and _knife_touch < 0:
 			_knife_touch = event.index
+			_suppress_mobile_sprint_for_action()
 			request_knife()
 		elif MobileLayout.inside(event.position, size, MobileLayout.JOY_CENTER, MobileLayout.JOY_RADIUS) and _move_touch < 0:
 			_move_touch = event.index
 			_move_origin = MobileLayout.screen_point(MobileLayout.JOY_CENTER, size)
-			_move_vector = (event.position - _move_origin) / maxf(MobileLayout.JOY_RADIUS * size.y * 0.90, 1.0)
-			_move_vector = _move_vector.limit_length(1.0)
+			_move_raw_vector = (event.position - _move_origin) / maxf(MobileLayout.JOY_RADIUS * size.y * 0.90, 1.0)
+			_move_vector = _move_raw_vector.limit_length(1.0)
 		elif _look_touch < 0:
 			_look_touch = event.index
 	else:
 		if event.index == _move_touch:
 			_move_touch = -1
 			_move_vector = Vector2.ZERO
+			_move_raw_vector = Vector2.ZERO
+			_sprint_suppressed = false
 		if event.index == _look_touch:
 			_look_touch = -1
 		if event.index == _crouch_touch:
@@ -244,11 +303,12 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			if _adsfire_touch < 0:
 				_set_mobile_trigger_held(false)
 		if event.index == _adsfire_touch:
-			# Fire before clearing the touch so the shot still sees native ADS.
-			if _mobile_adsfire_release_mode() and _fire_touch < 0:
+			# Early release before source ADS-ready cancels the shot.
+			if _mobile_adsfire_release_mode() and _fire_touch < 0 and _mobile_adsfire_ready():
 				if _weapon.has_method("request_mobile_release_fire"):
 					_weapon.call("request_mobile_release_fire")
 			_adsfire_touch = -1
+			_adsfire_trigger_engaged = false
 			if _fire_touch < 0:
 				_set_mobile_trigger_held(false)
 		if event.index == _use_touch:
@@ -259,8 +319,8 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 func _handle_drag(event: InputEventScreenDrag) -> void:
 	if event.index == _move_touch:
 		var size: Vector2 = get_viewport().get_visible_rect().size
-		_move_vector = (event.position - _move_origin) / maxf(MobileLayout.JOY_RADIUS * size.y * 0.90, 1.0)
-		_move_vector = _move_vector.limit_length(1.0)
+		_move_raw_vector = (event.position - _move_origin) / maxf(MobileLayout.JOY_RADIUS * size.y * 0.90, 1.0)
+		_move_vector = _move_raw_vector.limit_length(1.0)
 	elif event.index == _fire_touch:
 		_apply_look(event.relative * touch_sensitivity * fire_touch_multiplier)
 	elif event.index == _adsfire_touch:
@@ -280,6 +340,8 @@ func apply_mobile_settings(settings: Node) -> void:
 	if settings == null or not settings.has_method("get_setting_value"):
 		return
 	ads_toggle_mode = bool(settings.call("get_setting_value", "ads_toggle_mode"))
+	mobile_sprint_zone = float(settings.call("get_setting_value", "mobile_sprint_zone"))
+	ads_move_multiplier = float(settings.call("get_setting_value", "ads_move_multiplier"))
 	gyro_mode = int(settings.call("get_setting_value", "gyro_mode"))
 	gyro_enabled = gyro_mode != 0
 	gyro_invert_x = bool(settings.call("get_setting_value", "gyro_invert_x"))
@@ -351,6 +413,7 @@ func is_knifing() -> bool:
 func request_knife() -> bool:
 	if downed or _knife_timer > 0.0:
 		return false
+	_suppress_mobile_sprint_for_action()
 
 	# COD-style behavior: the knife swing is an input action, not a hit-only
 	# animation. Always play the first-person slash; damage is conditional.
@@ -492,6 +555,7 @@ func _enter_downed() -> void:
 	_sliding = false
 	_sprinting = false
 	_jump_requested = false
+	_reload_restore_ads = false
 	set_meta("ads_toggled", false)
 	set_meta("downed", true)
 	set_meta("eliminated", false)
@@ -946,6 +1010,7 @@ func _update_stance(delta: float, crouch_pressed: bool) -> void:
 
 func _physics_process(delta: float) -> void:
 	_tick_downed_state(delta)
+	_update_mobile_adsfire_trigger()
 	if _slide_cooldown_timer > 0.0:
 		_slide_cooldown_timer = maxf(0.0, _slide_cooldown_timer - delta)
 
@@ -1010,8 +1075,16 @@ func _physics_process(delta: float) -> void:
 		or Input.is_key_pressed(KEY_C)
 	)
 	var crouch_just_pressed: bool = crouch_pressed and not _crouch_was_pressed
-	var sprinting: bool = Input.is_key_pressed(KEY_SHIFT) or input_2d.length() > 0.92
+	var touch_sprint_hot: bool = _mobile_sprint_zone_hot()
+	if _move_touch >= 0 and not touch_sprint_hot:
+		_sprint_suppressed = false
+	var sprinting: bool
+	if _move_touch >= 0:
+		sprinting = touch_sprint_hot and not _sprint_suppressed
+	else:
+		sprinting = Input.is_key_pressed(KEY_SHIFT) or pad.length() > 0.92
 	_sprinting = sprinting and not downed and not eliminated and not _is_ads_active()
+	_update_mobile_reload_ads_restore()
 
 	if _dev_noclip:
 		var dev_speed: float = sprint_speed * (2.8 if _dev_speed_boost else 1.45)
@@ -1054,6 +1127,8 @@ func _physics_process(delta: float) -> void:
 	else:
 		var speed: float = crouch_speed if _crouched else (sprint_speed if _sprinting else walk_speed)
 		speed *= get_move_speed_multiplier()
+		if _is_ads_active():
+			speed *= ads_move_multiplier
 		if downed:
 			speed *= downed_move_multiplier
 		if eliminated:

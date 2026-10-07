@@ -1582,7 +1582,13 @@ func mobile_adsfire_release_mode() -> bool:
 		return true
 	return _weapon_id in ["kar98k", "springfield", "arisaka", "mosin"]
 
+func is_mobile_ads_ready() -> bool:
+	# Source ADS pose alpha is the Godot equivalent of NZPortable native zoom-ready.
+	return _ads_pose_alpha >= 0.92
+
 func request_mobile_release_fire() -> bool:
+	if not is_mobile_ads_ready():
+		return false
 	var before: int = _shots_fired
 	request_fire()
 	return _shots_fired > before

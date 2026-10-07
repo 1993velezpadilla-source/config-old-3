@@ -37,6 +37,10 @@ func _run() -> void:
 		"res://assets/hud/latest_12/hud_sprint.webp",
 		"res://assets/hud/latest_12/hud_swap.webp",
 		"res://assets/hud/latest_12/hud_grenade.webp",
+		"res://assets/hud/latest_12/hud_claw.webp",
+		"res://assets/hud/latest_12/hud_crouch.webp",
+		"res://assets/hud/latest_12/hud_prone.webp",
+		"res://assets/hud/latest_12/hud_jump.png",
 	]:
 		if not ResourceLoader.exists(skin_path):
 			_fail(20, "custom mobile skin missing: " + skin_path)
@@ -74,6 +78,12 @@ func _run() -> void:
 	if int(weapon.call("get_shots_fired")) != release_before:
 		_fail(25, "release-to-fire weapon fired on touch-down")
 		return
+	for i in range(20):
+		weapon.call("_process", 0.02)
+	if not bool(weapon.call("is_mobile_ads_ready")):
+		_fail(32, "release-to-fire weapon never reached source ADS readiness")
+		return
+	print("XZOGOT_MOBILE_ADS_READY_GATE_GREEN")
 	var ads_up := InputEventScreenTouch.new()
 	ads_up.index = 77
 	ads_up.position = adsfire_pos
@@ -94,6 +104,7 @@ func _run() -> void:
 		_fail(28, "reload did not start before sprint test")
 		return
 	player.set("_move_touch", 901)
+	player.set("_move_raw_vector", Vector2(0.0, -1.20))
 	player.set("_move_vector", Vector2(0.0, -1.0))
 	player.call("_physics_process", 0.05)
 	if not bool(player.call("is_sprinting")):
@@ -107,8 +118,84 @@ func _run() -> void:
 		_fail(31, "reload was cancelled during sprint timeline")
 		return
 	player.set("_move_touch", -1)
+	player.set("_move_raw_vector", Vector2.ZERO)
 	player.set("_move_vector", Vector2.ZERO)
+	player.set("_sprint_suppressed", false)
 	print("XZOGOT_SPRINT_RELOAD_PRESERVED_GREEN")
+
+	player.set("_move_touch", 902)
+	player.set("_move_raw_vector", Vector2(0.0, -1.20))
+	player.set("_move_vector", Vector2(0.0, -1.0))
+	player.set("_sprint_suppressed", false)
+	player.call("_physics_process", 0.05)
+	if not bool(player.call("is_sprinting")):
+		_fail(33, "physical sprint zone did not engage")
+		return
+	print("XZOGOT_MOBILE_SPRINT_ZONE_GREEN")
+
+	var fire_pos := Vector2(0.885 * viewport_size.x, 0.585 * viewport_size.y)
+	var fire_down := InputEventScreenTouch.new()
+	fire_down.index = 78
+	fire_down.position = fire_pos
+	fire_down.pressed = true
+	player.call("_handle_touch", fire_down)
+	player.call("_physics_process", 0.05)
+	if bool(player.call("is_sprinting")) or not bool(player.get("_sprint_suppressed")):
+		_fail(34, "FIRE did not suppress active sprint")
+		return
+	var fire_up := InputEventScreenTouch.new()
+	fire_up.index = 78
+	fire_up.position = fire_pos
+	fire_up.pressed = false
+	player.call("_handle_touch", fire_up)
+	player.call("_physics_process", 0.05)
+	if bool(player.call("is_sprinting")):
+		_fail(35, "sprint re-armed before stick left sprint zone")
+		return
+	player.set("_move_raw_vector", Vector2.ZERO)
+	player.set("_move_vector", Vector2.ZERO)
+	player.call("_physics_process", 0.05)
+	if bool(player.get("_sprint_suppressed")):
+		_fail(36, "sprint suppression did not clear after leaving zone")
+		return
+	player.set("_move_touch", -1)
+	print("XZOGOT_MOBILE_ACTION_SPRINT_SUPPRESSION_GREEN")
+
+	if not bool(weapon.call("equip_weapon", "mp40", true)):
+		_fail(37, "could not equip MP40 for ADS reload restore")
+		return
+	weapon.call("request_fire")
+	weapon.set("_cooldown", 0.0)
+	player.set("ads_toggle_mode", true)
+	player.set_meta("ads_toggled", true)
+	player.call("_request_mobile_reload")
+	if not bool(weapon.call("is_reloading")) or bool(player.get_meta("ads_toggled", false)):
+		_fail(38, "toggle ADS did not hip out for reload")
+		return
+	weapon.call("_finish_reload")
+	player.call("_physics_process", 0.01)
+	if not bool(player.get_meta("ads_toggled", false)) or bool(player.get("_reload_restore_ads")):
+		_fail(39, "toggle ADS did not restore after reload")
+		return
+	print("XZOGOT_MOBILE_ADS_RELOAD_RESTORE_GREEN")
+
+	player.set_meta("ads_toggled", true)
+	player.set("_move_touch", 903)
+	player.set("_move_raw_vector", Vector2(0.0, -0.90))
+	player.set("_move_vector", Vector2(0.0, -0.90))
+	player.velocity = Vector3.ZERO
+	for i in range(8):
+		player.call("_physics_process", 0.05)
+	var horizontal_speed := Vector2(player.velocity.x, player.velocity.z).length()
+	var expected_ads_speed: float = float(player.get("walk_speed")) * float(player.get("ads_move_multiplier")) * float(player.call("get_move_speed_multiplier"))
+	if absf(horizontal_speed - expected_ads_speed) > 0.08:
+		_fail(40, "ADS walk speed multiplier mismatch: %.3f vs %.3f" % [horizontal_speed, expected_ads_speed])
+		return
+	player.set_meta("ads_toggled", false)
+	player.set("_move_touch", -1)
+	player.set("_move_raw_vector", Vector2.ZERO)
+	player.set("_move_vector", Vector2.ZERO)
+	print("XZOGOT_MOBILE_ADS_WALK_SPEED_GREEN speed=", horizontal_speed)
 
 	# Settings must be live, not decorative.
 	var original_ads: bool = bool(player.get("ads_toggle_mode"))

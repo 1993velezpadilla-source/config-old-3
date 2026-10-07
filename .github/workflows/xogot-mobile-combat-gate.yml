@@ -62,6 +62,11 @@ jobs:
           grep -q "XZOGOT_MOBILE_PISTOL_AUTOFIRE_GREEN" build/xogot-mobile/mobile-survival-probe.log
           grep -q "XZOGOT_MOBILE_RELEASE_FIRE_GREEN" build/xogot-mobile/mobile-survival-probe.log
           grep -q "XZOGOT_SPRINT_RELOAD_PRESERVED_GREEN" build/xogot-mobile/mobile-survival-probe.log
+          grep -q "XZOGOT_MOBILE_ADS_READY_GATE_GREEN" build/xogot-mobile/mobile-survival-probe.log
+          grep -q "XZOGOT_MOBILE_SPRINT_ZONE_GREEN" build/xogot-mobile/mobile-survival-probe.log
+          grep -q "XZOGOT_MOBILE_ACTION_SPRINT_SUPPRESSION_GREEN" build/xogot-mobile/mobile-survival-probe.log
+          grep -q "XZOGOT_MOBILE_ADS_RELOAD_RESTORE_GREEN" build/xogot-mobile/mobile-survival-probe.log
+          grep -q "XZOGOT_MOBILE_ADS_WALK_SPEED_GREEN" build/xogot-mobile/mobile-survival-probe.log
           grep -q "XZOGOT_AUTO_REBUILD_PROBE_GREEN" build/xogot-mobile/mobile-survival-probe.log
           grep -q "XZOGOT_MANUAL_KNIFE_PROBE_GREEN" build/xogot-mobile/mobile-survival-probe.log
           grep -q "XZOGOT_DISMEMBERMENT_CRAWLER_PROBE_GREEN" build/xogot-mobile/mobile-survival-probe.log

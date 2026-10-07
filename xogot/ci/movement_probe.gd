@@ -62,6 +62,14 @@ func _run_probe() -> void:
 		push_error("MOVEMENT_PROBE: gyro ADS multiplier wrong")
 		quit(18)
 		return
+	if absf(float(player.get("mobile_sprint_zone")) - 1.10) > 0.001:
+		push_error("MOVEMENT_PROBE: mobile sprint zone wrong")
+		quit(24)
+		return
+	if absf(float(player.get("ads_move_multiplier")) - 0.90) > 0.001:
+		push_error("MOVEMENT_PROBE: ADS move multiplier wrong")
+		quit(25)
+		return
 	if absf(float(player.get("camera_stance_response")) - 18.0) > 0.01:
 		push_error("MOVEMENT_PROBE: stance camera response wrong")
 		quit(19)
@@ -106,6 +114,7 @@ func _run_probe() -> void:
 
 	# Synthetic full-stick + crouch edge should start one slide.
 	player.set("_move_touch", 88)
+	player.set("_move_raw_vector", Vector2(0.0, -1.20))
 	player.set("_move_vector", Vector2(0.0, -1.0))
 	player.set("_crouch_touch", 77)
 	player.set("_crouch_was_pressed", false)
