@@ -137,6 +137,51 @@ func _monster_runtime_row(system_path: String, particles: GPUParticles3D) -> voi
 		source_start_min = process.get_meta("source_start_scale_min", null)
 		source_start_max = process.get_meta("source_start_scale_max", null)
 		source_scale_bridge = str(process.get_meta("source_start_scale_bridge", ""))
+	if (
+		particles.name == "CascadeMeshEmitter_00"
+		and str(particles.get_meta("source_particle_mesh_path", "")).contains("SM_DeathPlane_01")
+	):
+		if source_scale_bridge != "godot46_curve_vector":
+			push_error(
+				"XZOGOT_NACHT_PARTICLE_MATERIAL_AUDIT_FAILURE death_plane_scale_bridge="
+				+ source_scale_bridge
+			)
+		elif (
+			not is_equal_approx(scale_min, 1.0)
+			or not is_equal_approx(scale_max, 1.0)
+		):
+			push_error(
+				"XZOGOT_NACHT_PARTICLE_MATERIAL_AUDIT_FAILURE death_plane_scalar_scale="
+				+ str(Vector2(scale_min, scale_max))
+			)
+		elif process == null or process.scale_curve == null:
+			push_error("XZOGOT_NACHT_PARTICLE_MATERIAL_AUDIT_FAILURE death_plane_scale_curve_missing")
+		else:
+			var curve := process.scale_curve as CurveXYZTexture
+			var first := Vector3(
+				curve.curve_x.sample(0.0),
+				curve.curve_y.sample(0.0),
+				curve.curve_z.sample(0.0)
+			)
+			var expected := Vector3(
+				13.0 * 0.30375317,
+				13.0 * 0.31227484,
+				1.0 * 3.000578
+			)
+			if not first.is_equal_approx(expected):
+				push_error(
+					"XZOGOT_NACHT_PARTICLE_MATERIAL_AUDIT_FAILURE death_plane_curve_first="
+					+ str(first) + " expected=" + str(expected)
+				)
+			else:
+				print(
+					"XZOGOT_NACHT_MONSTER_DEATH_SCALE_GREEN ",
+					"bridge=", source_scale_bridge,
+					" scalar=", Vector2(scale_min, scale_max),
+					" curve0=", first,
+					" expected=", expected
+				)
+
 	print(
 		"XZOGOT_NACHT_MONSTER_RUNTIME ",
 		"node=", particles.name,
