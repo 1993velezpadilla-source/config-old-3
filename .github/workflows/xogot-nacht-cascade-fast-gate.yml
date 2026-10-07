@@ -10,6 +10,7 @@ on:
     branches:
       - feature/godot-aaa-rebuild-v1
       - wip/nacht-cascade-module-parity-v2
+      - wip/nacht-static-default-surface-v3
       - wip/nacht-cascade-module-parity-v2
     paths:
       - ".github/workflows/xogot-nacht-cascade-fast-gate.yml"
