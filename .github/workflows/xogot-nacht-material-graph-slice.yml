@@ -663,6 +663,56 @@ jobs:
               for row in payload["materials"]
           ):
               raise SystemExit("BoneFire2B absent from placed particle material authority")
+
+          fire_sheet=[
+              row for row in payload["materials"]
+              if "m_fire_sheet_01_inst" in str(row.get("objectPath","")).lower()
+          ]
+          if len(fire_sheet) != 1:
+              raise SystemExit(f"M_Fire_Sheet_01_INST authority mismatch: {len(fire_sheet)}")
+          fire=fire_sheet[0]
+          parent=str(fire.get("semanticBaseMaterialPath",""))
+          parent_rows=[
+              row for row in payload["materials"]
+              if canonical(row.get("objectPath")) == canonical(parent)
+          ] if parent else []
+          texture_paths=[]
+          for row in [fire,*parent_rows]:
+              for tex in row.get("textures",[]):
+                  path=str(tex.get("objectPath",""))
+                  if path and path not in texture_paths:
+                      texture_paths.append(path)
+          native_fire=[
+              row for row in payload["nativeTextures"]
+              if canonical(row.get("objectPath")) in {canonical(x) for x in texture_paths}
+          ]
+          print("XZOGOT_NACHT_FIRE_SHEET_MATERIAL_AUTHORITY",{
+              "material":fire.get("objectPath"),
+              "exportType":fire.get("exportType"),
+              "blendMode":fire.get("blendMode"),
+              "shadingModel":fire.get("shadingModel"),
+              "base":parent,
+              "textureParameters":fire.get("textures",[]),
+              "parentCount":len(parent_rows),
+              "parents":[{
+                  "objectPath":row.get("objectPath"),
+                  "exportType":row.get("exportType"),
+                  "blendMode":row.get("blendMode"),
+                  "shadingModel":row.get("shadingModel"),
+                  "textures":row.get("textures",[]),
+                  "expressions":row.get("expressions",[]),
+                  "rawPropertyKeys":row.get("rawPropertyKeys",[]),
+              } for row in parent_rows],
+              "nativeTextures":[{
+                  "objectPath":row.get("objectPath"),
+                  "format":row.get("format"),
+                  "srgb":row.get("srgb"),
+                  "width":row.get("width"),
+                  "height":row.get("height"),
+                  "mipCount":row.get("mipCount"),
+                  "sliceFile":row.get("sliceFile"),
+              } for row in native_fire],
+          })
           print("XZOGOT_NACHT_PLACED_PARTICLE_MATERIAL_AUTHORITY_GREEN",{
               "systems":payload["placedSystemCount"],
               "directMaterials":payload["directMaterialCount"],
