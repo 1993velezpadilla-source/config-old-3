@@ -433,9 +433,9 @@ jobs:
           timeout 60 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
             --headless --path xogot --script res://ci/round_zombie_probe.gd \
             2>&1 | tee build/xogot-ai/round-zombie-probe.log
-          grep -q "XZOGOT_MONJA_BASICA_LOADED" build/xogot-ai/round-zombie-probe.log
+          grep -q "XZOGOT_WAW_ZOMBIE_SOURCE_LOADED model=waw_honorgd" build/xogot-ai/round-zombie-probe.log
           grep -q "XZOGOT_ZOMBIE_GROUND_SNAP_READY 0.38" build/xogot-ai/round-zombie-probe.log
-          grep -q "XZOGOT_MONJA_FORWARD_FIXED 90" build/xogot-ai/round-zombie-probe.log
+          grep -q "XZOGOT_ROUND_WAW_SOURCE_GREEN model=waw_honorgd" build/xogot-ai/round-zombie-probe.log
           grep -q "XZOGOT_WINDOW_PHYSICAL_CROSS_GREEN" build/xogot-ai/round-zombie-probe.log
           grep -q "XZOGOT_ENEMY_SCALE_PROBE_GREEN" build/xogot-ai/round-zombie-probe.log
           grep -q "XZOGOT_HEADSHOT_PROBE_GREEN" build/xogot-ai/round-zombie-probe.log
