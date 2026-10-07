@@ -1838,6 +1838,68 @@ func _run() -> void:
 			"cost=950 firesale=10 deny_cases=5 pool=6 interact_box=exact"
 		)
 
+		var selection_rule := gumball_contract.get("selectionRule", {}) as Dictionary
+		var selection_paths := selection_rule.get("paths", []) as Array
+		if (
+			str(selection_rule.get("sourceFunction", "")) != "KismetMathLibrary.RandomIntegerInRange"
+			or int(selection_rule.get("minInclusive", -1)) != 0
+			or int(selection_rule.get("maxInclusive", -1)) != 5
+			or str(selection_rule.get("poolProperty", "")) != "Gobblegum"
+			or int(selection_rule.get("poolSize", -1)) != 6
+			or selection_paths.size() != 2
+		):
+			_fail(35, "Gumball source selection rule mismatch " + str(selection_rule))
+			return
+		var select_min_raw: Variant = scene.call(
+			"select_source_gumball_by_index", "MachineGumball_2", 0
+		)
+		var select_max_raw: Variant = scene.call(
+			"select_source_gumball_by_index", "MachineGumball_2", 5
+		)
+		var select_oob_raw: Variant = scene.call(
+			"select_source_gumball_by_index", "MachineGumball_2", 6
+		)
+		var select_min := select_min_raw as Dictionary if select_min_raw is Dictionary else {}
+		var select_max := select_max_raw as Dictionary if select_max_raw is Dictionary else {}
+		var select_oob := select_oob_raw as Dictionary if select_oob_raw is Dictionary else {}
+		if (
+			not bool(select_min.get("ready", false))
+			or int(select_min.get("selectedIndex", -1)) != 0
+			or str(select_min.get("selectedId", "")) != "ammo"
+			or not bool(select_max.get("ready", false))
+			or int(select_max.get("selectedIndex", -1)) != 5
+			or str(select_max.get("selectedId", "")) != "Weapon"
+			or bool(select_oob.get("ready", true))
+		):
+			_fail(
+				35,
+				"Gumball source deterministic selection failed "
+				+ str([select_min, select_max, select_oob])
+			)
+			return
+		var roll_raw: Variant = scene.call(
+			"roll_source_gumball_selection", "MachineGumball_2"
+		)
+		var roll := roll_raw as Dictionary if roll_raw is Dictionary else {}
+		var rolled_index := int(roll.get("selectedIndex", -1))
+		var rolled_id := str(roll.get("selectedId", ""))
+		var source_pool := gumball_contract.get("gobblegumPool", []) as Array
+		if (
+			not bool(roll.get("ready", false))
+			or not bool(roll.get("rolled", false))
+			or rolled_index < 0
+			or rolled_index > 5
+			or rolled_id.is_empty()
+			or rolled_id not in source_pool
+		):
+			_fail(35, "Gumball source random selection failed " + str(roll))
+			return
+		print(
+			"XZOGOT_NACHT_GUMBALL_SELECTION_RUNTIME_GREEN ",
+			"rng=0..5 pool=6 min=ammo max=Weapon rolled_index=", rolled_index,
+			" rolled_id=", rolled_id
+		)
+
 		if not particle_visual_mounted:
 			_fail(
 				35,

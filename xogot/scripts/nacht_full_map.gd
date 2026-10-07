@@ -568,6 +568,9 @@ func _validate_authority() -> bool:
 		return false
 	var source_gumball_contract := (source_contracts_raw as Array)[0] as Dictionary
 	var source_gumball_box := source_gumball_contract.get("interactBox", {}) as Dictionary
+	var source_gumball_selection := source_gumball_contract.get("selectionRule", {}) as Dictionary
+	var source_gumball_pool_raw: Variant = source_gumball_contract.get("gobblegumPool", [])
+	var source_gumball_paths_raw: Variant = source_gumball_selection.get("paths", [])
 	if (
 		str(source_gumball_contract.get("fileName", "")) != "MachineGumball.uasset"
 		or int(source_gumball_contract.get("baseCost", -1)) != 950
@@ -575,8 +578,42 @@ func _validate_authority() -> bool:
 		or str(source_gumball_contract.get("powerSwitchRule", "")) != "PowerSwitchFlags_empty_or_Powered"
 		or not bool(source_gumball_contract.get("requiresNotInUse", false))
 		or str(source_gumball_box.get("componentName", "")) != "Pavlov_InteractBox"
+		or str(source_gumball_selection.get("sourceFunction", "")) != "KismetMathLibrary.RandomIntegerInRange"
+		or int(source_gumball_selection.get("minInclusive", -1)) != 0
+		or int(source_gumball_selection.get("maxInclusive", -1)) != 5
+		or str(source_gumball_selection.get("poolProperty", "")) != "Gobblegum"
+		or int(source_gumball_selection.get("poolSize", -1)) != 6
+		or not (source_gumball_pool_raw is Array)
+		or (source_gumball_pool_raw as Array).size() != 6
+		or not (source_gumball_paths_raw is Array)
+		or (source_gumball_paths_raw as Array).size() != 2
 	):
 		push_error("NACHT_FULL_MAP: source Gumball interaction contract mismatch")
+		return false
+	var source_gumball_pool := source_gumball_pool_raw as Array
+	if (
+		str(source_gumball_pool[0]) != "ammo"
+		or str(source_gumball_pool[1]) != "Firesale1"
+		or str(source_gumball_pool[2]) != "Instagum"
+		or str(source_gumball_pool[3]) != "nuke"
+		or str(source_gumball_pool[4]) != "DoublePointsDrop"
+		or str(source_gumball_pool[5]) != "Weapon"
+	):
+		push_error("NACHT_FULL_MAP: source Gumball pool mismatch")
+		return false
+	var source_gumball_paths := source_gumball_paths_raw as Array
+	if not (source_gumball_paths[0] is Dictionary) or not (source_gumball_paths[1] is Dictionary):
+		push_error("NACHT_FULL_MAP: source Gumball selection paths malformed")
+		return false
+	var source_gumball_path0 := source_gumball_paths[0] as Dictionary
+	var source_gumball_path1 := source_gumball_paths[1] as Dictionary
+	if (
+		int(source_gumball_path0.get("randomOffset", -1)) != 884
+		or int(source_gumball_path0.get("arrayGetOffset", -1)) != 1259
+		or int(source_gumball_path1.get("randomOffset", -1)) != 2131
+		or int(source_gumball_path1.get("arrayGetOffset", -1)) != 2506
+	):
+		push_error("NACHT_FULL_MAP: source Gumball selection offset mismatch")
 		return false
 	if int(_particle_activation_authority.get("entryPointCount", 0)) != 81:
 		push_error("NACHT_FULL_MAP: particle Blueprint entry-point count mismatch")
@@ -1500,6 +1537,85 @@ func describe_source_gumball_interaction(actor_name: String) -> Dictionary:
 	}
 
 
+func select_source_gumball_by_index(
+	actor_name: String,
+	selection_index: int
+) -> Dictionary:
+	var desc := describe_source_gumball_interaction(actor_name)
+	if not bool(desc.get("ready", false)):
+		return desc
+	var contract := desc.get("contract", {}) as Dictionary
+	var selection := contract.get("selectionRule", {}) as Dictionary
+	var pool_raw: Variant = contract.get("gobblegumPool", [])
+	if (
+		str(selection.get("sourceFunction", "")) != "KismetMathLibrary.RandomIntegerInRange"
+		or int(selection.get("minInclusive", -1)) != 0
+		or int(selection.get("maxInclusive", -1)) != 5
+		or str(selection.get("poolProperty", "")) != "Gobblegum"
+		or int(selection.get("poolSize", -1)) != 6
+		or not (pool_raw is Array)
+		or (pool_raw as Array).size() != 6
+	):
+		return {
+			"ready": false,
+			"error": "source Gumball selection authority mismatch",
+			"actorName": actor_name,
+		}
+	var min_index := int(selection.get("minInclusive", 0))
+	var max_index := int(selection.get("maxInclusive", 5))
+	if selection_index < min_index or selection_index > max_index:
+		return {
+			"ready": false,
+			"error": "source Gumball selection index out of range",
+			"actorName": actor_name,
+			"selectedIndex": selection_index,
+			"minInclusive": min_index,
+			"maxInclusive": max_index,
+		}
+	var pool := pool_raw as Array
+	return {
+		"ready": true,
+		"actorName": actor_name,
+		"blueprintFile": str(desc.get("blueprintFile", "")),
+		"selectedIndex": selection_index,
+		"selectedId": str(pool[selection_index]),
+		"sourceFunction": str(selection.get("sourceFunction", "")),
+		"minInclusive": min_index,
+		"maxInclusive": max_index,
+		"poolProperty": str(selection.get("poolProperty", "")),
+		"poolSize": int(selection.get("poolSize", 0)),
+		"paths": (
+			(selection.get("paths", []) as Array).duplicate(true)
+			if selection.get("paths", []) is Array
+			else []
+		),
+	}
+
+
+func roll_source_gumball_selection(actor_name: String) -> Dictionary:
+	var desc := describe_source_gumball_interaction(actor_name)
+	if not bool(desc.get("ready", false)):
+		return desc
+	var contract := desc.get("contract", {}) as Dictionary
+	var selection := contract.get("selectionRule", {}) as Dictionary
+	var min_index := int(selection.get("minInclusive", -1))
+	var max_index := int(selection.get("maxInclusive", -1))
+	if (
+		str(selection.get("sourceFunction", "")) != "KismetMathLibrary.RandomIntegerInRange"
+		or min_index != 0
+		or max_index != 5
+	):
+		return {
+			"ready": false,
+			"error": "source Gumball RNG authority mismatch",
+			"actorName": actor_name,
+		}
+	var selection_index: int = randi_range(min_index, max_index)
+	var result := select_source_gumball_by_index(actor_name, selection_index)
+	result["rolled"] = true
+	return result
+
+
 func evaluate_source_gumball_interaction(
 	actor_name: String,
 	player_cash: int,
@@ -1565,6 +1681,11 @@ func evaluate_source_gumball_interaction(
 			(contract.get("gobblegumPool", []) as Array).duplicate(true)
 			if contract.get("gobblegumPool", []) is Array
 			else []
+		),
+		"selectionRule": (
+			(contract.get("selectionRule", {}) as Dictionary).duplicate(true)
+			if contract.get("selectionRule", {}) is Dictionary
+			else {}
 		),
 		"interactBox": (
 			(contract.get("interactBox", {}) as Dictionary).duplicate(true)
