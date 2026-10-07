@@ -1,0 +1,64 @@
+name: Xogot UE Bridge Nacht Authority Cache
+
+on:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-ue-bridge-authority-cache.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-ue-bridge-authority-cache
+  cancel-in-progress: true
+
+jobs:
+  cache:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: "37544922004"
+      SOURCE_ARTIFACT: "Xogot-Nacht-Chronicles-Full-Map-Authority"
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/godot-aaa-rebuild-v1
+          fetch-depth: 1
+
+      - name: Download proven Nacht authority once
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/nacht-authority" build/ue-bridge-cache
+          mkdir -p "$RUNNER_TEMP/nacht-authority" build/ue-bridge-cache
+          gh run download "$SOURCE_RUN" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "$SOURCE_ARTIFACT" \
+            --dir "$RUNNER_TEMP/nacht-authority"
+          test -s "$RUNNER_TEMP/nacht-authority/nacht-particle-graphs.json"
+          test -s "$RUNNER_TEMP/nacht-authority/nacht-materials.json"
+          cp "$RUNNER_TEMP/nacht-authority/nacht-particle-graphs.json" \
+            build/ue-bridge-cache/nacht-particle-graphs.json
+          cp "$RUNNER_TEMP/nacht-authority/nacht-materials.json" \
+            build/ue-bridge-cache/nacht-materials.json
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path("build/ue-bridge-cache")
+          for p in sorted(root.glob("*.json")):
+              print("XZOGOT_UE_BRIDGE_CACHE_FILE", p.name, p.stat().st_size)
+          PY
+          echo "XZOGOT_UE_BRIDGE_CACHE_GREEN source_run=$SOURCE_RUN"
+
+      - name: Upload compact UE bridge authority
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-UE-Bridge-Nacht-Authority-Cache
+          path: build/ue-bridge-cache/*.json
+          if-no-files-found: error
+          retention-days: 30
