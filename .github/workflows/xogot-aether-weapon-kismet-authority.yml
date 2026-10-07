@@ -7,7 +7,7 @@ on:
       - feature/godot-aaa-rebuild-v1
     paths:
       - ".github/workflows/xogot-aether-weapon-kismet-authority.yml"
-      - "tools/maps/UENuketownWallbuyBytecode/**"
+      - "tools/maps/UENuketownGameplayTruth/**"
 
 permissions:
   contents: read
@@ -24,7 +24,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       SOURCE_MAPPING_RUN: "37244741312"
-      XZOGOT_ENGINE_VERSION: "VER_UE5_7"
+      XZOGOT_SOURCE_GAME: "ue5.7"
 
     steps:
       - uses: actions/checkout@v5
@@ -49,6 +49,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path $downloadDir | Out-Null
           $zip=$null
           for ($attempt=1; $attempt -le 6; $attempt++) {
+            Write-Host "XZOGOT_AETHER_DOWNLOAD_ATTEMPT $attempt"
             npx --yes itchio-downloader --url "https://verrial.itch.io/projectaether" --downloadDirectory $downloadDir
             $rc=$LASTEXITCODE
             $zip=Get-ChildItem $downloadDir -Filter '*.zip' -Recurse |
@@ -67,91 +68,30 @@ jobs:
           "AETHER_PAKDIR=$($pakDir.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "XZOGOT_AETHER_KISMET_PAKS_READY"
 
-      - name: Download retoc
-        shell: pwsh
-        run: |
-          $ErrorActionPreference='Stop'
-          $release=Invoke-RestMethod -Headers @{ 'User-Agent'='xogot-ci' } 'https://api.github.com/repos/trumank/retoc/releases/latest'
-          $asset=$release.assets |
-            Where-Object { $_.name -match '(?i)(windows|pc-windows-msvc).*\.zip$' } |
-            Select-Object -First 1
-          if(-not $asset){throw 'retoc Windows zip asset not found'}
-          $zip="$env:RUNNER_TEMP\retoc.zip"
-          Invoke-WebRequest $asset.browser_download_url -OutFile $zip
-          $dir="$env:RUNNER_TEMP\retoc"
-          Expand-Archive $zip -DestinationPath $dir -Force
-          $exe=Get-ChildItem $dir -Filter 'retoc*.exe' -Recurse | Select-Object -First 1
-          if(-not $exe){throw 'retoc.exe missing'}
-          "RETOC=$($exe.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
-          & $exe.FullName --version
-
-          $repakZip="$env:RUNNER_TEMP\repak.zip"
-          Invoke-WebRequest 'https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-pc-windows-msvc.zip' -OutFile $repakZip
-          $repakDir="$env:RUNNER_TEMP\repak"
-          Expand-Archive $repakZip -DestinationPath $repakDir -Force
-          $repak=Get-ChildItem $repakDir -Filter 'repak.exe' -Recurse | Select-Object -First 1
-          if(-not $repak){throw 'repak.exe missing'}
-          "REPAK=$($repak.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
-          Write-Host "XZOGOT_RETOC_REPAK_READY"
-
-      - name: Convert exact weapon authority packages to legacy
-        shell: pwsh
-        run: |
-          $ErrorActionPreference='Stop'
-          $root="$PWD\build\aether-kismet"
-          $pak="$root\aether-weapon-authority_P.pak"
-          $out="$root\legacy"
-          New-Item -ItemType Directory -Force -Path $root | Out-Null
-          Remove-Item $pak -Force -ErrorAction SilentlyContinue
-          Remove-Item $out -Recurse -Force -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Force -Path $out | Out-Null
-          $filters=@(
-            'ProjectAether/Content/Assets/BP/Weapons/BP_WeaponBase.uasset',
-            'ProjectAether/Content/FirstPerson/Blueprints/Weapons/Misc/WonderWeapons/BP_ExplosiveTracer.uasset',
-            'ProjectAether/Content/Assets/BP/Lethals/BP_Master_SplashDamage.uasset'
-          )
-          $args=@('to-legacy','--no-shaders',"$env:AETHER_PAKDIR")
-          foreach($f in $filters){$args += @('--filter',$f)}
-          $args += $pak
-          & "$env:RETOC" @args 2>&1 | Tee-Object "$root\retoc.log"
-          if($LASTEXITCODE -ne 0){throw "retoc to-legacy failed $LASTEXITCODE"}
-          if(-not (Test-Path $pak)){throw 'retoc legacy PAK missing'}
-          & "$env:REPAK" unpack $pak -o $out --force 2>&1 | Tee-Object "$root\repak.log"
-          if($LASTEXITCODE -ne 0){throw "repak unpack failed $LASTEXITCODE"}
-          foreach($needle in @('BP_WeaponBase.uasset','BP_ExplosiveTracer.uasset','BP_Master_SplashDamage.uasset')){
-            $asset=Get-ChildItem $out -Recurse -File -Filter $needle | Select-Object -First 1
-            if(-not $asset){throw "legacy PAK did not recover $needle"}
-            $bytes=[System.IO.File]::ReadAllBytes($asset.FullName)
-            if($bytes.Length -lt 32){throw "$needle header too small"}
-            Write-Host "XZOGOT_LEGACY_HEADER $needle size=$($bytes.Length) magic=$([BitConverter]::ToString($bytes[0..15]))"
-          }
-          Write-Host "XZOGOT_AETHER_KISMET_LEGACY_GREEN"
-
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
 
-      - name: Build generic Kismet extractor
+      - name: Build CUE4Parse Blueprint truth extractor
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
-          dotnet restore tools/maps/UENuketownWallbuyBytecode/UENuketownWallbuyBytecode.csproj
-          dotnet build tools/maps/UENuketownWallbuyBytecode/UENuketownWallbuyBytecode.csproj -c Release --no-restore
+          dotnet restore tools/maps/UENuketownGameplayTruth/UENuketownGameplayTruth.csproj
+          dotnet build tools/maps/UENuketownGameplayTruth/UENuketownGameplayTruth.csproj -c Release --no-restore
+          if($LASTEXITCODE -ne 0){throw 'CUE4Parse Blueprint truth build failed'}
 
-      - name: Decompile weapon Kismet authority
+      - name: Decompile weapon Kismet authority directly from IoStore
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
-          $legacy="$PWD\build\aether-kismet\legacy"
-          $targets=@(
-            (Get-ChildItem $legacy -Recurse -File -Filter 'BP_WeaponBase.uasset' | Select-Object -First 1).FullName,
-            (Get-ChildItem $legacy -Recurse -File -Filter 'BP_ExplosiveTracer.uasset' | Select-Object -First 1).FullName,
-            (Get-ChildItem $legacy -Recurse -File -Filter 'BP_Master_SplashDamage.uasset' | Select-Object -First 1).FullName
-          )
-          $app='tools/maps/UENuketownWallbuyBytecode/bin/Release/net10.0/UENuketownWallbuyBytecode.dll'
-          dotnet $app Mappings.usmap build/aether-kismet/weapon-kismet.json @targets |
+          New-Item -ItemType Directory -Force -Path build/aether-kismet | Out-Null
+          $app='tools/maps/UENuketownGameplayTruth/bin/Release/net10.0/UENuketownGameplayTruth.dll'
+          dotnet $app "$env:AETHER_PAKDIR" Mappings.usmap build/aether-kismet/weapon-kismet.json \
+            'ProjectAether/Content/Assets/BP/Weapons/BP_WeaponBase.uasset' \
+            'ProjectAether/Content/FirstPerson/Blueprints/Weapons/Misc/WonderWeapons/BP_ExplosiveTracer.uasset' \
+            'ProjectAether/Content/Assets/BP/Lethals/BP_Master_SplashDamage.uasset' |
             Tee-Object build/aether-kismet/extract.log
-          if($LASTEXITCODE -ne 0){throw "Kismet extraction failed $LASTEXITCODE"}
+          if($LASTEXITCODE -ne 0){throw "CUE4Parse Kismet extraction failed $LASTEXITCODE"}
 
       - name: Prove burst hyperburst and splash source graph
         shell: pwsh
@@ -163,34 +103,45 @@ jobs:
           d=json.loads(p.read_text())
           assert d["ready"] is True,d
           assert d["packageSuccessCount"]==3,d
-          out={}
+          assert d["packageFailureCount"]==0,d
+          assert d["dumpedFunctionsWithBytecode"]>0,d
+
+          proof={}
           for pkg in d["packages"]:
-              name=pkg["fileName"]
-              funcs={}
-              for fn in pkg["functions"]:
-                  if re.search(r"(fire|burst|shot|trigger|splash|damage|hit)",fn["name"],re.I):
-                      funcs[fn["name"]]={
-                          "calls":fn["calls"],
-                          "expressions":fn["expressions"],
-                          "topLevelExpressions":fn["topLevelExpressions"],
+              key=Path(pkg["packagePath"]).stem
+              functions={}
+              pseudos=[]
+              for ex in pkg["exports"]:
+                  name=ex.get("name","")
+                  if int(ex.get("scriptStatementCount") or 0)>0:
+                      functions[name]={
+                          "scriptStatementCount":ex["scriptStatementCount"],
+                          "scriptBytecode":ex.get("scriptBytecode"),
                       }
-              defaults=[
-                  row for row in pkg["normalExportProperties"]
-                  if re.search(r"(burst|rpm|damage|radius|projectile|splash|fire)",json.dumps(row),re.I)
-              ]
-              imports=[
-                  row for row in pkg["imports"]
-                  if re.search(r"(burst|damage|splash|projectile|timer|fire)",json.dumps(row),re.I)
-              ]
-              out[name]={"functions":funcs,"defaults":defaults,"imports":imports}
-          Path("build/aether-kismet/weapon-kismet-proof.json").write_text(json.dumps(out,indent=2)+"\n")
-          base=out.get("BP_WeaponBase.uasset",{})
-          assert all(k in base.get("functions",{}) for k in ["TryFire","TryBurst","BurstStep","FinishBurst","OnFireReleased"]),base.keys()
-          explosive=out.get("BP_ExplosiveTracer.uasset",{})
-          assert explosive, out.keys()
-          splash=out.get("BP_Master_SplashDamage.uasset",{})
-          assert splash, out.keys()
-          print("XZOGOT_AETHER_WEAPON_KISMET_GREEN")
+                  for fn in ex.get("classFunctions") or []:
+                      fn_name=fn.get("name","")
+                      if int(fn.get("scriptStatementCount") or 0)>0:
+                          functions[fn_name]=fn
+                  pseudo=ex.get("decompiledPseudo")
+                  if pseudo:
+                      pseudos.append(pseudo)
+              proof[key]={
+                  "packagePath":pkg["packagePath"],
+                  "functions":functions,
+                  "decompiledPseudo":"\n\n".join(pseudos),
+              }
+
+          base=proof.get("BP_WeaponBase",{})
+          names=set(base.get("functions",{}))
+          required={"TryFire","TryBurst","BurstStep","FinishBurst","OnFireReleased","DoubleTapFireRate","AutoFireTick"}
+          missing=sorted(required-names)
+          assert not missing,{"missing":missing,"available":sorted(names)}
+          assert "BP_ExplosiveTracer" in proof,proof.keys()
+          assert "BP_Master_SplashDamage" in proof,proof.keys()
+
+          Path("build/aether-kismet/weapon-kismet-proof.json").write_text(
+              json.dumps(proof,indent=2)+"\n")
+          print("XZOGOT_AETHER_WEAPON_KISMET_GREEN functions=",len(names))
           '@ | python -
 
       - uses: actions/upload-artifact@v4
@@ -200,8 +151,6 @@ jobs:
           path: |
             build/aether-kismet/weapon-kismet.json
             build/aether-kismet/weapon-kismet-proof.json
-            build/aether-kismet/retoc.log
-            build/aether-kismet/repak.log
             build/aether-kismet/extract.log
           if-no-files-found: warn
           retention-days: 14

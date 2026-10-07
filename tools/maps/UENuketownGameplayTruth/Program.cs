@@ -24,11 +24,23 @@ if (!Directory.Exists(root))
 if (!File.Exists(mappingsPath))
     throw new FileNotFoundException("mappings missing", mappingsPath);
 
+var sourceGameName =
+    Environment.GetEnvironmentVariable("XZOGOT_SOURCE_GAME")?.Trim().ToLowerInvariant()
+    ?? "ue5.1";
+EGame sourceGame =
+    sourceGameName switch
+    {
+        "ue5.1" or "ue5_1" or "ue51" => EGame.GAME_UE5_1,
+        "ue5.7" or "ue5_7" or "ue57" => EGame.GAME_UE5_7,
+        _ => throw new ArgumentException(
+            "unsupported XZOGOT_SOURCE_GAME: " + sourceGameName)
+    };
+
 var provider = new DefaultFileProvider(
     root,
     SearchOption.AllDirectories,
     true,
-    new VersionContainer(EGame.GAME_UE5_1))
+    new VersionContainer(sourceGame))
 {
     MappingsContainer = new FileUsmapTypeMappingsProvider(mappingsPath)
 };
@@ -273,7 +285,7 @@ foreach (var logicalPath in targets)
 var output = new JObject
 {
     ["schemaVersion"] = 1,
-    ["sourceGame"] = "ue5.1",
+    ["sourceGame"] = sourceGameName,
     ["mappingTypes"] = provider.MappingsForGame?.Types.Count ?? 0,
     ["mappingEnums"] = provider.MappingsForGame?.Enums.Count ?? 0,
     ["requestedPackageCount"] = targets.Length,
