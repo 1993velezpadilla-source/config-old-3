@@ -405,6 +405,38 @@ func _capture() -> void:
 					" system=", system_path,
 					" deterministic_seed=true warmup_frames=30"
 				)
+
+				# Complement the hide-A/B with a solo render. This makes each
+				# source system independently inspectable even when multiple
+				# translucent quads overlap the same camera.
+				for raw_particle: Node in particle_visuals:
+					if not (raw_particle is Node3D):
+						continue
+					var parent := raw_particle.get_parent()
+					var show_system := (
+						parent != null
+						and str(parent.get_meta("source_particle_system_path", ""))
+							== system_path
+					)
+					(raw_particle as Node3D).visible = show_system
+				await _restart_particle_visuals_deterministic(particle_visuals, 30)
+				var solo_path := (
+					"/tmp/xogot-nacht-spawn-candidate-02-solo-system-%02d.png"
+					% system_index
+				)
+				if not (await _save_view(
+					solo_path,
+					"spawn_candidate_02_solo_system_%02d" % system_index,
+					false,
+					1
+				)):
+					return
+				print(
+					"XZOGOT_NACHT_CANDIDATE02_SYSTEM_SOLO ",
+					"index=", system_index,
+					" system=", system_path,
+					" deterministic_seed=true warmup_frames=30"
+				)
 			for particle_index in range(particle_visuals.size()):
 				var raw_particle: Node = particle_visuals[particle_index]
 				if raw_particle is Node3D:
