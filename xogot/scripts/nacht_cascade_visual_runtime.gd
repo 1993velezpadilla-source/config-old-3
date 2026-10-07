@@ -860,6 +860,23 @@ static func _emitter_local_space(emitter: Dictionary) -> bool:
 	return bool(ParticleSource.properties(required_raw as Dictionary).get("bUseLocalSpace", false))
 
 
+static func _apply_sprite_axis_lock(
+	material: StandardMaterial3D,
+	emitter: Dictionary
+) -> void:
+	var modules := _enabled_emitter_modules(
+		emitter,
+		["ParticleModuleOrientationAxisLock"]
+	)
+	if modules.size() != 1:
+		return
+	var flag := str(ParticleSource.properties(modules[0]).get("LockAxisFlags", ""))
+	if flag == "EPAL_ROTATE_Z":
+		# UE Z-up becomes Godot world Y-up through NachtSourceActorsAndLights.
+		# FIXED_Y keeps the billboard camera-facing while locking that up axis.
+		material.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
+
+
 static func _build_source_sprite_emitter(
 	anchor: Node3D,
 	system: Dictionary,
@@ -878,6 +895,7 @@ static func _build_source_sprite_emitter(
 			"nodeCount": 0,
 			"error": "sprite material unresolved",
 		}
+	_apply_sprite_axis_lock(material, emitter)
 
 	var lifetime := _emitter_lifetime(system, emitter)
 	var sizes := _emitter_size_samples(system, emitter)
