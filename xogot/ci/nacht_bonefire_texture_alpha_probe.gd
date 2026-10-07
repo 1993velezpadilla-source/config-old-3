@@ -3,13 +3,28 @@ extends SceneTree
 const TEXTURE_PATH := "res://assets/ci/bonefire_alpha.dds"
 
 func _init() -> void:
+	var image: Image = null
+	var load_route := "resource"
 	var raw: Resource = load(TEXTURE_PATH)
-	if not (raw is Texture2D):
-		push_error("XZOGOT_BONEFIRE_GODOT_ALPHA_FAILURE texture_load path=%s" % TEXTURE_PATH)
-		quit(5)
-		return
-	var texture := raw as Texture2D
-	var image := texture.get_image()
+	if raw is Texture2D:
+		image = (raw as Texture2D).get_image()
+	else:
+		# ResourceLoader requires a completed import. For this focused gate,
+		# exercise Godot 4.6's built-in DDS decoder directly so we can verify
+		# BC3/DXT5 alpha independent of editor import metadata.
+		load_route = "dds_buffer"
+		var absolute_path := ProjectSettings.globalize_path(TEXTURE_PATH)
+		var bytes := FileAccess.get_file_as_bytes(absolute_path)
+		if bytes.is_empty():
+			push_error("XZOGOT_BONEFIRE_GODOT_ALPHA_FAILURE dds_bytes_empty path=%s" % absolute_path)
+			quit(5)
+			return
+		image = Image.new()
+		var dds_error := image.load_dds_from_buffer(bytes)
+		if dds_error != OK:
+			push_error("XZOGOT_BONEFIRE_GODOT_ALPHA_FAILURE dds_decode_error=%d" % int(dds_error))
+			quit(5)
+			return
 	if image == null or image.is_empty():
 		push_error("XZOGOT_BONEFIRE_GODOT_ALPHA_FAILURE image_empty")
 		quit(5)
@@ -45,7 +60,8 @@ func _init() -> void:
 
 	print(
 		"XZOGOT_BONEFIRE_GODOT_ALPHA_PROBE ",
-		"compressed=", was_compressed,
+		"route=", load_route,
+		" compressed=", was_compressed,
 		" width=", image.get_width(),
 		" height=", image.get_height(),
 		" min_alpha=", min_alpha,
