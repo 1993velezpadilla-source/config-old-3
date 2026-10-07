@@ -10,6 +10,7 @@ on:
   push:
     branches:
       - feature/godot-aaa-rebuild-v1
+      - wip/nacht-fire-material-slice-v1
     paths:
       - ".github/workflows/xogot-nacht-material-graph-slice.yml"
 
@@ -102,6 +103,14 @@ jobs:
               "mtl_p7_zm_gen_debris_concrete_rubble_lg_03",
               "t7_water_cp_bio_muddy_waterfall",
               "mysterBoxVerticalMat",
+              "Flame_Inst",
+              "BoneFire3_Inst",
+              "BoneFire_fwd4_Inst",
+              "bigfireB_fwd_Inst",
+              "bigfireB_Inst",
+              "Distortion_Mat_Inst2",
+              "0_6_smoke_Inst",
+              "3_6_smoke4_Inst",
           ]
           rows=source.get("materials",[])
           selected=[]
@@ -182,6 +191,14 @@ jobs:
               "mysteryboxverticalrippleparticle",
               "mysteryboxverticalmaskparticlethin",
               "mtl_p7_zm_gen_debris_concrete_rubble_lg_03",
+              "flame_inst",
+              "bonefire3_inst",
+              "bonefire_fwd4_inst",
+              "bigfireb_fwd_inst",
+              "bigfireb_inst",
+              "distortion_mat_inst2",
+              "0_6_smoke_inst",
+              "3_6_smoke4_inst",
           )
           copied=[]
           for source in root.rglob("*"):
