@@ -61,6 +61,11 @@ func _init() -> void:
 	if image == null or image.is_empty():
 		_fail("Godot DDS Texture2D image unavailable")
 		return
+	if image.is_compressed():
+		var decompress_error := image.decompress()
+		if decompress_error != OK:
+			_fail("Godot DDS image decompress failed error=" + str(decompress_error))
+			return
 	if image.get_width() != int(target.get("width", -1)):
 		_fail("width mismatch")
 		return
