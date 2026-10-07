@@ -1,0 +1,163 @@
+name: Xogot Nacht Box Complete Diagnose
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-nacht-box-complete-diagnose.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-nacht-box-complete-diagnose
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_ARTIFACT: Xogot-Nacht-Chronicles-Full-Map-Authority
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/godot-aaa-rebuild-v1
+          fetch-depth: 1
+
+      - name: Resolve latest GREEN full Nacht authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_RUN=$(gh api             -H "Accept: application/vnd.github+json"             "/repos/${GITHUB_REPOSITORY}/actions/workflows/xogot-nacht-chronicles-full-map-authority.yml/runs?branch=feature%2Fgodot-aaa-rebuild-v1&status=success&per_page=20"             --jq '.workflow_runs[0].id // empty' || true)
+          if [ -z "$SOURCE_RUN" ]; then
+            for PAGE in 1 2 3 4 5 6 7 8 9 10; do
+              SOURCE_RUN=$(gh api                 -H "Accept: application/vnd.github+json"                 "/repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100&page=$PAGE"                 --jq '[.workflow_runs[] | select(.head_branch=="feature/godot-aaa-rebuild-v1" and .name=="Xogot Nacht Chronicles Full Map Authority" and .conclusion=="success")][0].id // empty')
+              if [ -n "$SOURCE_RUN" ]; then break; fi
+            done
+          fi
+          test -n "$SOURCE_RUN"
+          echo "SOURCE_RUN=$SOURCE_RUN" >> "$GITHUB_ENV"
+          echo "XZOGOT_NACHT_BOX_DIAG_SOURCE_GREEN run=$SOURCE_RUN"
+
+      - name: Download exact full authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf full out
+          mkdir -p full out
+          gh run download "$SOURCE_RUN"             -R "${GITHUB_REPOSITORY}"             -n "$SOURCE_ARTIFACT"             -D full
+
+      - name: Extract Box_complete owner authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+
+          root=Path("full")
+          out=Path("out")
+          out.mkdir(exist_ok=True)
+          needles=(
+              "box_complete_6",
+              "box_complete_c",
+              "blueprints/objects/easteregg/box_complete",
+              "p_monster_death_xlarge",
+              "quadexplodesmoke1",
+          )
+
+          def text_contains(value):
+              try:
+                  text=json.dumps(value,separators=(",",":")).lower()
+              except Exception:
+                  text=str(value).lower()
+              return any(n in text for n in needles)
+
+          matched_files=[]
+          matched_rows=[]
+          direct_files=[]
+          candidate_names={
+              "nacht-particles.json",
+              "nacht-actors.json",
+              "actor-authority.json",
+              "source_manifest.json",
+          }
+
+          for p in root.rglob("*.json"):
+              rel=p.relative_to(root).as_posix()
+              rel_l=rel.lower()
+              if "box_complete" in rel_l:
+                  direct_files.append({"path":rel,"bytes":p.stat().st_size})
+                  if p.stat().st_size <= 8_000_000:
+                      target=out/("direct__"+rel.replace("/","__"))
+                      target.write_bytes(p.read_bytes())
+
+              if not ("box_complete" in rel_l or p.name in candidate_names):
+                  continue
+              try:
+                  data=json.loads(p.read_text())
+              except Exception:
+                  continue
+
+              file_hits=[]
+              def walk(v,path="$"):
+                  if isinstance(v,dict):
+                      keys=set(v.keys())
+                      if text_contains(v) and keys.intersection({
+                          "actorName","componentName","objectPath","sourcePath",
+                          "ownerExportType","ownerClassPath","exportType",
+                          "functionName","eventName","name"
+                      }):
+                          file_hits.append({"jsonPath":path,"value":v})
+                      for k,x in v.items():
+                          walk(x,path+"."+str(k))
+                  elif isinstance(v,list):
+                      for i,x in enumerate(v):
+                          walk(x,path+f"[{i}]")
+              walk(data)
+
+              if file_hits:
+                  matched_files.append({
+                      "path":rel,
+                      "bytes":p.stat().st_size,
+                      "hitCount":len(file_hits),
+                  })
+                  matched_rows.extend({"file":rel,**h} for h in file_hits)
+
+          payload={
+              "schemaVersion":1,
+              "sourceRun":int(os.environ["SOURCE_RUN"]),
+              "directFiles":direct_files,
+              "matchedFiles":matched_files,
+              "matchCount":len(matched_rows),
+              "matches":matched_rows,
+              "ready":bool(matched_rows or direct_files),
+          }
+          (out/"box-complete-authority.json").write_text(
+              json.dumps(payload,indent=2)+"\n"
+          )
+          print("XZOGOT_NACHT_BOX_COMPLETE_DIAG",{
+              "sourceRun":payload["sourceRun"],
+              "directFiles":len(direct_files),
+              "matchedFiles":len(matched_files),
+              "matches":len(matched_rows),
+              "ready":payload["ready"],
+          })
+          if not payload["ready"]:
+              raise SystemExit("Box_complete authority not found")
+          print("XZOGOT_NACHT_BOX_COMPLETE_DIAG_GREEN")
+          PY
+
+      - name: Upload Box_complete diagnosis
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nacht-Box-Complete-Diagnose
+          path: out/
+          if-no-files-found: error
+          retention-days: 7
