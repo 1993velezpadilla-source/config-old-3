@@ -73,6 +73,15 @@ var _mobile_trigger_autofire: bool = false
 var _upgraded_ids: Dictionary = {}
 var _upgraded: bool = false
 var _source_pack_reserve_ammo: int = -1
+var _source_fire_type_enum: String = ""
+var _source_burst_shots: int = 0
+var _source_burst_shot_delay: float = 0.0
+var _source_burst_delay: float = 0.0
+var _source_burst_active: bool = false
+var _source_burst_shots_remaining: int = 0
+var _source_burst_timer: float = 0.0
+var _source_hyperburst_rpm: float = 0.0
+var _source_hyperburst_bullets: int = 0
 var _source_external_item_id: String = ""
 var _source_external_runtime_id: String = ""
 var _source_external_placeholder: bool = false
@@ -95,10 +104,22 @@ func _process(delta: float) -> void:
 		if _reload_timer <= 0.0:
 			_finish_reload()
 	else:
-		# NZP-mobile parity: touch FIRE holds automatic weapons normally and
-		# translates semi-auto pistols into repeated native trigger attempts.
-		# request_fire() keeps the weapon's authored fire_interval authoritative.
-		if _trigger_held and (_automatic or (_mobile_trigger_autofire and _family == "pistol")):
+		if _source_burst_active:
+			_source_burst_timer -= delta
+			if _source_burst_timer <= 0.0:
+				if _fire_single_round(0.0):
+					_source_burst_shots_remaining -= 1
+					if _source_burst_shots_remaining > 0:
+						_source_burst_timer = _source_burst_shot_delay
+					else:
+						_finish_source_burst()
+				else:
+					_cancel_source_burst()
+		if (
+			not _source_burst_active
+			and _trigger_held
+			and (_automatic or (_mobile_trigger_autofire and _family == "pistol"))
+		):
 			request_fire()
 
 	if _melee_overlay_timer > 0.0:
@@ -1336,6 +1357,16 @@ func _apply_upgrade_stats() -> void:
 	if _family == "shotgun":
 		_pellets = WeaponBalanceAAA.pack_pellets(_weapon_id, _pellets)
 	_display_name = WeaponBalanceAAA.pack_name(_weapon_id, _display_name)
+	_source_fire_type_enum = WeaponBalanceAAA.pack_fire_type(_weapon_id)
+	_source_burst_shots = WeaponBalanceAAA.pack_burst_shots(_weapon_id)
+	_source_burst_shot_delay = WeaponBalanceAAA.pack_shot_delay(_weapon_id)
+	_source_burst_delay = WeaponBalanceAAA.pack_burst_delay(_weapon_id)
+	_source_hyperburst_rpm = WeaponBalanceAAA.pack_hyperburst_rpm(_weapon_id)
+	_source_hyperburst_bullets = WeaponBalanceAAA.pack_hyperburst_bullets(_weapon_id)
+	if _source_fire_type_enum == "E_FireType::NewEnumerator1":
+		_automatic = true
+	elif _source_fire_type_enum == "E_FireType::NewEnumerator4":
+		_automatic = false
 	var pending := WeaponBalanceAAA.unsupported_changed_fields(_weapon_id)
 	set_meta("weapon_pack_balance_data_driven", true)
 	set_meta("weapon_pack_balance_authority", WeaponBalanceAAA.SOURCE_AUTHORITY)
@@ -1344,6 +1375,12 @@ func _apply_upgrade_stats() -> void:
 	set_meta("weapon_pack_source_min_damage", WeaponBalanceAAA.pack_min_damage(_weapon_id, damage))
 	set_meta("weapon_pack_source_unsupported_fields", pending)
 	set_meta("weapon_pack_source_runtime_complete", pending.is_empty())
+	set_meta("weapon_pack_fire_type", _source_fire_type_enum)
+	set_meta("weapon_pack_burst_shots", _source_burst_shots)
+	set_meta("weapon_pack_burst_shot_delay", _source_burst_shot_delay)
+	set_meta("weapon_pack_burst_delay", _source_burst_delay)
+	set_meta("weapon_pack_hyperburst_rpm", _source_hyperburst_rpm)
+	set_meta("weapon_pack_hyperburst_bullets", _source_hyperburst_bullets)
 	set_meta("weapon_pack_damage", damage)
 	set_meta("weapon_pack_magazine", magazine_size)
 	set_meta("weapon_pack_reserve", _source_pack_reserve_ammo)
@@ -1387,6 +1424,12 @@ func get_runtime_stats() -> Dictionary:
 		"pack_source_row": int(get_meta("weapon_pack_source_row", -1)),
 		"pack_source_runtime_complete": bool(get_meta("weapon_pack_source_runtime_complete", false)),
 		"pack_source_unsupported_fields": get_meta("weapon_pack_source_unsupported_fields", []),
+		"pack_fire_type": _source_fire_type_enum,
+		"pack_burst_shots": _source_burst_shots,
+		"pack_burst_shot_delay": _source_burst_shot_delay,
+		"pack_burst_delay": _source_burst_delay,
+		"pack_hyperburst_rpm": _source_hyperburst_rpm,
+		"pack_hyperburst_bullets": _source_hyperburst_bullets,
 		"source_ads_in_time": _source_ads_in_time,
 		"source_ads_out_time": _source_ads_out_time,
 		"ads_calibration_mode": _ads_calibration_mode,
@@ -1431,6 +1474,15 @@ func equip_weapon(id: String, refill: bool = true) -> bool:
 	_visual_recoil_deg = float(def.get("visual_recoil_deg", 1.2))
 	_upgraded = bool(_upgraded_ids.get(id, false))
 	_source_pack_reserve_ammo = -1
+	_source_fire_type_enum = ""
+	_source_burst_shots = 0
+	_source_burst_shot_delay = 0.0
+	_source_burst_delay = 0.0
+	_source_burst_active = false
+	_source_burst_shots_remaining = 0
+	_source_burst_timer = 0.0
+	_source_hyperburst_rpm = 0.0
+	_source_hyperburst_bullets = 0
 	_apply_upgrade_stats()
 
 	if refill:
@@ -1626,8 +1678,25 @@ func request_mobile_release_fire() -> bool:
 	return _shots_fired > before
 
 func request_fire() -> void:
-	if _reloading or _cooldown > 0.0:
+	if _reloading or _cooldown > 0.0 or _source_burst_active:
 		return
+	if _source_burst_shots > 1:
+		_source_burst_active = true
+		_source_burst_shots_remaining = _source_burst_shots
+		if _fire_single_round(0.0):
+			_source_burst_shots_remaining -= 1
+			if _source_burst_shots_remaining > 0:
+				_source_burst_timer = _source_burst_shot_delay
+			else:
+				_finish_source_burst()
+		else:
+			_cancel_source_burst()
+		return
+	_fire_single_round(fire_interval * _player_modifier("get_fire_interval_multiplier"))
+
+func _fire_single_round(cooldown_seconds: float) -> bool:
+	if _reloading:
+		return false
 	if _magazine <= 0:
 		if reserve_ammo > 0:
 			request_reload()
@@ -1635,11 +1704,10 @@ func request_fire() -> void:
 			if _dry_fire_audio != null and _dry_fire_audio.stream != null:
 				_dry_fire_audio.play()
 			print("XZOGOT_WEAPON_DRY_FIRE ", _weapon_id)
-		return
-
+		return false
 	if not _dev_infinite_ammo:
 		_magazine -= 1
-	_cooldown = fire_interval * _player_modifier("get_fire_interval_multiplier")
+	_cooldown = maxf(0.0, cooldown_seconds)
 	_shots_fired += 1
 	_apply_recoil_impulse()
 	_trigger_weapon_fx()
@@ -1655,13 +1723,25 @@ func request_fire() -> void:
 		_fire_audio.play()
 	if _mechanical_audio != null and _mechanical_audio.stream != null:
 		_mechanical_audio.play()
-
 	var spread: float = (_ads_spread_deg if ads else _hip_spread_deg) * _player_modifier("get_spread_multiplier")
 	for pellet in range(_pellets):
 		_fire_hitscan(spread, pellet)
 	print("XZOGOT_WEAPON_FIRED ", _weapon_id, " ads=", ads, " pellets=", _pellets)
+	return true
+
+func _finish_source_burst() -> void:
+	_source_burst_active = false
+	_source_burst_shots_remaining = 0
+	_source_burst_timer = 0.0
+	_cooldown = maxf(_cooldown, _source_burst_delay)
+
+func _cancel_source_burst() -> void:
+	_source_burst_active = false
+	_source_burst_shots_remaining = 0
+	_source_burst_timer = 0.0
 
 func request_reload() -> void:
+	_cancel_source_burst()
 	if _dev_infinite_ammo:
 		_magazine = magazine_size
 		_reloading = false

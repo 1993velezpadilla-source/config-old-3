@@ -124,6 +124,60 @@ func _run() -> void:
 		return
 	print("XZOGOT_PACK_SOURCE_TABLE_GREEN bar_damage=355 rpm=545 clip=30 reserve=180")
 
+	if not bool(weapon.call("equip_weapon", "tt33", true)):
+		_fail(65, "could not equip TT-33 for PaP burst source proof")
+		return
+	if not bool(weapon.call("upgrade_current_weapon")):
+		_fail(66, "could not Pack-a-Punch TT-33")
+		return
+	var tt_stats: Dictionary = weapon.call("get_runtime_stats") as Dictionary
+	if str(tt_stats.get("pack_fire_type", "")) != "E_FireType::NewEnumerator4":
+		_fail(67, "TT-33 PaP source fire type was not burst")
+		return
+	if int(tt_stats.get("pack_burst_shots", 0)) != 3:
+		_fail(68, "TT-33 PaP source burst count mismatch")
+		return
+	if absf(float(tt_stats.get("pack_burst_shot_delay", 0.0)) - 0.06) > 0.0001:
+		_fail(69, "TT-33 PaP source shot delay mismatch")
+		return
+	if absf(float(tt_stats.get("pack_burst_delay", 0.0)) - 0.30) > 0.0001:
+		_fail(70, "TT-33 PaP source burst delay mismatch")
+		return
+	var tt_before: int = int(weapon.call("get_shots_fired"))
+	var tt_mag_before: int = int(weapon.call("get_magazine"))
+	weapon.call("set_trigger_held", true)
+	weapon.call("set_trigger_held", false)
+	weapon.call("_process", 0.061)
+	weapon.call("_process", 0.061)
+	var tt_after: int = int(weapon.call("get_shots_fired"))
+	if tt_after - tt_before != 3 or tt_mag_before - int(weapon.call("get_magazine")) != 3:
+		_fail(71, "TT-33 PaP did not complete exactly one three-shot source burst")
+		return
+	print("XZOGOT_TT33_PAP_BURST_SOURCE_GREEN shots=3 delay=0.06 burst_delay=0.30")
+
+	if not bool(weapon.call("equip_weapon", "walther", true)):
+		_fail(72, "could not equip Walther for PaP auto source proof")
+		return
+	if not bool(weapon.call("upgrade_current_weapon")):
+		_fail(73, "could not Pack-a-Punch Walther")
+		return
+	var walther_stats: Dictionary = weapon.call("get_runtime_stats") as Dictionary
+	if str(walther_stats.get("pack_fire_type", "")) != "E_FireType::NewEnumerator1" or not bool(weapon.call("is_automatic")):
+		_fail(74, "Walther PaP did not bind source full-auto fire type")
+		return
+	if absf(float(walther_stats.get("pack_hyperburst_rpm", 0.0)) - 500.0) > 0.001 or int(walther_stats.get("pack_hyperburst_bullets", 0)) != 5:
+		_fail(75, "Walther PaP hyperburst source metadata mismatch")
+		return
+	var walther_before: int = int(weapon.call("get_shots_fired"))
+	weapon.call("set_trigger_held", true)
+	for i in range(6):
+		weapon.call("_process", 0.06)
+	weapon.call("set_trigger_held", false)
+	if int(weapon.call("get_shots_fired")) - walther_before < 3:
+		_fail(76, "Walther PaP source full-auto did not sustain fire")
+		return
+	print("XZOGOT_WALTHER_PAP_AUTO_SOURCE_GREEN hyperburst_pending=5@500")
+
 	for skin_path: String in [
 		"res://assets/hud/latest_12/hud_ads.webp",
 		"res://assets/hud/latest_12/hud_ads_fire.webp",

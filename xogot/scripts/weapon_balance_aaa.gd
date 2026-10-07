@@ -60,6 +60,24 @@ static func pack_name(id: String, fallback: String) -> String:
 static func source_row(id: String) -> int:
 	return int(get_record(id).get("row", -1))
 
+static func pack_fire_type(id: String) -> String:
+	return str(get_record(id).get("fire_type_enum", ""))
+
+static func pack_burst_shots(id: String) -> int:
+	return maxi(0, int(get_record(id).get("burst_shots", 0)))
+
+static func pack_burst_delay(id: String) -> float:
+	return maxf(0.0, float(get_record(id).get("burst_delay_s", 0.0)))
+
+static func pack_shot_delay(id: String) -> float:
+	return maxf(0.0, float(get_record(id).get("shot_delay_s", 0.0)))
+
+static func pack_hyperburst_rpm(id: String) -> float:
+	return maxf(0.0, float(get_record(id).get("hyperburst_rpm", 0.0)))
+
+static func pack_hyperburst_bullets(id: String) -> int:
+	return maxi(0, int(get_record(id).get("hyperburst_bullets", 0)))
+
 static func unsupported_changed_fields(id: String) -> Array[String]:
 	var out: Array[String] = []
 	var raw: Array = get_record(id).get("unsupported_changed_fields", []) as Array
