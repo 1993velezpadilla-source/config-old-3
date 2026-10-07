@@ -241,6 +241,59 @@ jobs:
               assert src.is_file(), src
               shutil.copy2(src,mesh_dst/name)
 
+          # Exact Cascade mesh emitters used by placed Nacht particle systems.
+          # Resolve through the same native XZMS authority; never synthesize a
+          # mesh from a particle/material name.
+          particle_mesh_paths=[
+              "/Game/CustomMaps/UGC2755515831/Magnum/Meshes/Sphere.Sphere",
+              "/Game/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Meshes/Skills/SM_DeathPlane_01.SM_DeathPlane_01",
+              "/Game/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Meshes/Skills/SM_FireBlastMesh_Twist_01.SM_FireBlastMesh_Twist_01",
+          ]
+          native_mesh_report=json.loads(
+              (auth/"nacht-static-runtime-meshes.json").read_text()
+          )
+          def canonical_mesh_path(raw):
+              value=str(raw or "").replace("\\","/")
+              if value.startswith("Content/"):
+                  value="/Game/"+value[len("Content/"):]
+              elif value.startswith("Game/"):
+                  value="/"+value
+              return value.lower()
+          native_mesh_by_path={
+              canonical_mesh_path(row["objectPath"]):row
+              for row in native_mesh_report["meshes"]
+          }
+          particle_mesh_dst=root/map_rel/"particle_meshes"
+          particle_mesh_dst.mkdir(parents=True,exist_ok=True)
+          particle_mesh_rows=[]
+          for source_path in particle_mesh_paths:
+              row=native_mesh_by_path.get(canonical_mesh_path(source_path))
+              assert row is not None, source_path
+              runtime_file=str(row["file"])
+              src=mesh_source/runtime_file
+              assert src.is_file(), src
+              shutil.copy2(src,particle_mesh_dst/runtime_file)
+              particle_mesh_rows.append({
+                  "sourceObjectPath":source_path,
+                  "authorityObjectPath":str(row["objectPath"]),
+                  "runtimeFile":runtime_file,
+                  "nativeIndex":int(row["index"]),
+              })
+          particle_mesh_bindings={
+              "schemaVersion":1,
+              "format":"xogot_nacht_cascade_particle_mesh_bindings_v1",
+              "meshCount":len(particle_mesh_rows),
+              "meshes":particle_mesh_rows,
+              "ready":len(particle_mesh_rows)==3,
+          }
+          (root/"particle-mesh-bindings.json").write_text(
+              json.dumps(particle_mesh_bindings,indent=2)+"\n"
+          )
+          print(
+              "XZOGOT_NACHT_PARTICLE_MESH_BINDINGS_GREEN",
+              {"meshes":len(particle_mesh_rows)}
+          )
+
           texture_source=auth/"nacht-native/textures"
           texture_dst=root/map_rel/"textures"
           used_rows=xzml["textureAssets"]
@@ -321,6 +374,8 @@ jobs:
 
           python3 tools/maps/xzms_to_glb.py             "$root/$MAP_REL/meshes"             "$root/$MAP_REL/meshes_glb"             --report "$root/native-glb-report.json"
 
+          python3 tools/maps/xzms_to_glb.py             "$root/$MAP_REL/particle_meshes"             "$root/$MAP_REL/particle_meshes_glb"             --report "$root/particle-native-glb-report.json"
+
           python3 tools/maps/xztx_to_dds.py             "$root/$MAP_REL/textures"             "$root/$MAP_REL/textures_dds"             --report "$root/native-dds-report.json"
 
           python3 tools/maps/compile_xziel_environment.py             --source "$root/nacht-lights.json"             --output "$root/$MAP_REL/environment.xzen"             --report "$root/nacht-environment-report.json"
@@ -358,6 +413,8 @@ jobs:
           audio_runtime=json.loads((root/"audio-runtime-report.json").read_text())
           mats=json.loads((root/"material-binding-manifest.json").read_text())
           glb=json.loads((root/"native-glb-report.json").read_text())
+          particle_mesh_bindings=json.loads((root/"particle-mesh-bindings.json").read_text())
+          particle_glb=json.loads((root/"particle-native-glb-report.json").read_text())
           dds=json.loads((root/"native-dds-report.json").read_text())
           xzml=json.loads((root/"xzml-report.json").read_text())
           complete_textures=json.loads((root/"complete-xztx-report.json").read_text())
@@ -399,6 +456,9 @@ jobs:
           assert audio_cue_runtime["semanticRuntimeReadyPlacementCount"] == 3, audio_cue_runtime
           assert audio_cue_runtime["allPlacedCueSemanticsSupported"] is True, audio_cue_runtime
           assert glb["mesh_count"] == len(scene["meshes"]), (glb["mesh_count"],len(scene["meshes"]))
+          assert particle_mesh_bindings["ready"] is True, particle_mesh_bindings
+          assert particle_mesh_bindings["meshCount"] == 3, particle_mesh_bindings
+          assert particle_glb["mesh_count"] == 3, particle_glb
           assert dds["ready"] is True and dds["failure_count"] == 0, dds
           assert complete_textures["ready"] is True, complete_textures
           assert complete_textures["textureAssetCount"] == 1581, complete_textures
@@ -427,6 +487,7 @@ jobs:
               "sourceEnvironmentComponents":environment_runtime_authority["componentCount"],
               "sourceParticlePlacements":particle_runtime_authority["resolvedPlacementCount"],
               "sourcePlacedParticleSystems":particle_runtime_authority["uniquePlacedSystemCount"],
+              "sourceParticleMeshes":particle_mesh_bindings["meshCount"],
               "sourceMaterials":mats["summary"]["usedMaterialCount"],
               "sourceTextures":complete_textures["textureAssetCount"],
               "sourceUsedTextures":xzml["textureAssetCount"],
