@@ -2193,6 +2193,380 @@ jobs:
               json.dumps(gunpos_exports,separators=(",",":"))
           )
 
+          def load_single_package(pattern,label):
+              paths=sorted(
+                  Path("build/nacht-interactive-particle-bytecode").glob(pattern)
+              )
+              if len(paths)!=1:
+                  raise SystemExit(f"{label} artifact mismatch {paths}")
+              doc=json.loads(paths[0].read_text())
+              if (
+                  doc.get("ready") is not True
+                  or int(doc.get("failureCount",0))!=0
+                  or int(doc.get("packageSuccessCount",0))!=1
+              ):
+                  raise SystemExit(f"{label} bytecode not GREEN {doc}")
+              packages=doc.get("packages",[])
+              if len(packages)!=1:
+                  raise SystemExit(f"{label} package count mismatch {len(packages)}")
+              return packages[0]
+
+          reward_packages={}
+          for path in sorted(
+              Path("build/nacht-interactive-particle-bytecode").glob("reward-*.json")
+          ):
+              doc=json.loads(path.read_text())
+              if (
+                  doc.get("ready") is not True
+                  or int(doc.get("failureCount",0))!=0
+                  or int(doc.get("packageSuccessCount",0))!=1
+                  or len(doc.get("packages",[]))!=1
+              ):
+                  raise SystemExit(f"Gumball reward bytecode not GREEN {path}")
+              pkg=doc["packages"][0]
+              reward_packages[str(pkg.get("fileName",""))]=pkg
+          expected_reward_files={
+              "DoublePointsDrop.uasset","Firesale1.uasset","Instagum.uasset",
+              "Weapon.uasset","ammo.uasset","nuke.uasset",
+          }
+          if set(reward_packages)!=expected_reward_files:
+              raise SystemExit(
+                  f"Gumball reward package set mismatch {sorted(reward_packages)}"
+              )
+
+          drop_packages={}
+          for path in sorted(
+              Path("build/nacht-interactive-particle-bytecode").glob("drop-*.json")
+          ):
+              doc=json.loads(path.read_text())
+              if (
+                  doc.get("ready") is not True
+                  or int(doc.get("failureCount",0))!=0
+                  or int(doc.get("packageSuccessCount",0))!=1
+                  or len(doc.get("packages",[]))!=1
+              ):
+                  raise SystemExit(f"Gumball drop bytecode not GREEN {path}")
+              pkg=doc["packages"][0]
+              drop_packages[str(pkg.get("fileName",""))]=pkg
+          expected_drop_files={
+              "FireSaleDrop.uasset","InstaKillDrop.uasset",
+              "MaxAmmoDrop.uasset","NukeDrop.uasset",
+          }
+          if set(drop_packages)!=expected_drop_files:
+              raise SystemExit(
+                  f"Gumball downstream package set mismatch {sorted(drop_packages)}"
+              )
+
+          def function_by_name(pkg,name):
+              rows=[
+                  row for row in pkg.get("functions",[])
+                  if str(row.get("name",""))==name
+              ]
+              if len(rows)!=1:
+                  raise SystemExit(
+                      f"{pkg.get('fileName')} function {name} mismatch {rows}"
+                  )
+              return rows[0]
+
+          def top_map(pkg,function_name):
+              fn=function_by_name(pkg,function_name)
+              return {
+                  int(row.get("startOffset",-1)):row.get("expression",{})
+                  for row in fn.get("topLevelExpressions",[])
+              }
+
+          def require_expr_tokens(top,offset,tokens,label):
+              expr=top.get(offset,{})
+              blob=json.dumps(expr,sort_keys=True)
+              for token in tokens:
+                  if token not in blob:
+                      raise SystemExit(
+                          f"{label} missing {token} offset={offset} expr={expr}"
+                      )
+              return expr
+
+          def wrapper_entry(pkg,function_name,expected):
+              top=top_map(pkg,function_name)
+              expr=top.get(0,{})
+              params=expr.get("Parameters") or []
+              values=[
+                  int(p.get("Value"))
+                  for p in params
+                  if isinstance(p,dict) and p.get("$type")=="EX_IntConst"
+              ]
+              if values!=[expected]:
+                  raise SystemExit(
+                      f"{pkg.get('fileName')} {function_name} entry mismatch "
+                      f"{values} expected={expected}"
+                  )
+
+          # Four Gobble rewards spawn their real PowerUpDrop class at the
+          # reward StaticMesh component's exact world location.
+          spawned_reward_routes={
+              "ammo.uasset":"MaxAmmoDrop_C",
+              "Firesale1.uasset":"FireSaleDrop_C",
+              "Instagum.uasset":"InstaKillDrop_C",
+              "nuke.uasset":"NukeDrop_C",
+          }
+          spawned_reward_authority={}
+          for reward_file,drop_class in spawned_reward_routes.items():
+              pkg=reward_packages[reward_file]
+              wrapper_entry(pkg,"On Drank",10)
+              top=top_map(pkg,"ExecuteUbergraph_"+Path(reward_file).stem)
+              require_expr_tokens(
+                  top,10,["StaticMesh","K2_GetComponentLocation"],
+                  reward_file+" source drop location"
+              )
+              require_expr_tokens(
+                  top,97,[drop_class,"BeginDeferredActorSpawnFromClass"],
+                  reward_file+" downstream drop spawn"
+              )
+              spawned_reward_authority[Path(reward_file).stem]={
+                  "entryEvent":"On Drank",
+                  "entryOffset":10,
+                  "spawnLocationSource":"StaticMesh.K2_GetComponentLocation",
+                  "spawnedClass":drop_class,
+              }
+
+          # Weapon Gobble rolls uniformly from the exact 12 source IDs and
+          # spawns the selected Pavlov item in world space.
+          weapon_pkg=reward_packages["Weapon.uasset"]
+          wrapper_entry(weapon_pkg,"On Drank",10)
+          weapon_top=top_map(weapon_pkg,"ExecuteUbergraph_Weapon")
+          weapon_array=require_expr_tokens(
+              weapon_top,60,["EX_SetArray"],"Weapon Gobble source pool"
+          )
+          weapon_pool=[
+              str(row.get("Value",""))
+              for row in weapon_array.get("Elements",[])
+              if isinstance(row,dict) and row.get("$type")=="EX_NameConst"
+          ]
+          expected_weapon_pool=[
+              "Brenda30","Chatellerault","Sterling_epic","Zk383_loot4",
+              "volk","nabu","wonderwaffe","ppshcustom","raygun","erma",
+              "minigun","mg81",
+          ]
+          if weapon_pool!=expected_weapon_pool:
+              raise SystemExit(
+                  f"Weapon Gobble pool mismatch {weapon_pool}"
+              )
+          require_expr_tokens(
+              weapon_top,366,["KismetMathLibrary.RandomInteger"],
+              "Weapon Gobble RNG"
+          )
+          require_expr_tokens(
+              weapon_top,403,["PavlovItemSpawnParams.Id","EX_ArrayGetByRef"],
+              "Weapon Gobble selected ID"
+          )
+          require_expr_tokens(
+              weapon_top,617,["Pavlov_GameLogic.SpawnItemWRef"],
+              "Weapon Gobble world spawn"
+          )
+          weapon_reward_authority={
+              "entryEvent":"On Drank",
+              "entryOffset":10,
+              "selectionFunction":"KismetMathLibrary.RandomInteger",
+              "pool":weapon_pool,
+              "poolSize":len(weapon_pool),
+              "spawnFunction":"Pavlov_GameLogic.SpawnItemWRef",
+              "spawnLocationSource":"StaticMesh.K2_GetComponentLocation",
+          }
+
+          # Double Points directly fans its event to every ZombieGameLogic.
+          double_pkg=reward_packages["DoublePointsDrop.uasset"]
+          wrapper_entry(double_pkg,"OnGrabbed",15)
+          double_top=top_map(double_pkg,"ExecuteUbergraph_DoublePointsDrop")
+          require_expr_tokens(
+              double_top,62,["ZombieGameLogic_C","GetAllActorsOfClass"],
+              "Double Points game logic fanout"
+          )
+          require_expr_tokens(
+              double_top,357,["Double Points Event"],
+              "Double Points event"
+          )
+          double_points_authority={
+              "entryEvent":"OnGrabbed",
+              "entryOffset":15,
+              "targetClass":"ZombieGameLogic_C",
+              "operation":"Double Points Event",
+              "scope":"all_actors",
+          }
+
+          # Insta Kill follows the same all-ZombieGameLogic event fanout.
+          insta_pkg=drop_packages["InstaKillDrop.uasset"]
+          wrapper_entry(insta_pkg,"OnGrabbed",565)
+          insta_top=top_map(insta_pkg,"ExecuteUbergraph_InstaKillDrop")
+          require_expr_tokens(
+              insta_top,62,["ZombieGameLogic_C","GetAllActorsOfClass"],
+              "Insta Kill game logic fanout"
+          )
+          require_expr_tokens(
+              insta_top,357,["Insta Kill Event"],
+              "Insta Kill event"
+          )
+          insta_kill_authority={
+              "entryEvent":"OnGrabbed",
+              "entryOffset":565,
+              "targetClass":"ZombieGameLogic_C",
+              "operation":"Insta Kill Event",
+              "scope":"all_actors",
+          }
+
+          # Nuke pays every player 400, or 800 while Double Points is active,
+          # then calls Nuke Zombie on every BP_Zombie.
+          nuke_pkg=drop_packages["NukeDrop.uasset"]
+          wrapper_entry(nuke_pkg,"OnGrabbed",1550)
+          nuke_top=top_map(nuke_pkg,"ExecuteUbergraph_NukeDrop")
+          require_expr_tokens(
+              nuke_top,547,['"Value": 400'],"Nuke base cash"
+          )
+          require_expr_tokens(
+              nuke_top,570,['"Value": 800'],"Nuke double-points cash"
+          )
+          require_expr_tokens(
+              nuke_top,711,["DoublePointsActive?"],"Nuke double-points predicate"
+          )
+          require_expr_tokens(
+              nuke_top,752,["Pavlov_GameLogic.GiveEveryoneCash"],
+              "Nuke cash award"
+          )
+          require_expr_tokens(
+              nuke_top,848,["BP_Zombie_C","GetAllActorsOfClass"],
+              "Nuke zombie fanout"
+          )
+          require_expr_tokens(
+              nuke_top,1143,["Nuke Zombie"],"Nuke zombie operation"
+          )
+          nuke_authority={
+              "entryEvent":"OnGrabbed",
+              "entryOffset":1550,
+              "baseCash":400,
+              "doublePointsCash":800,
+              "doublePointsPredicate":"ZombieGameLogic_C.DoublePointsActive?",
+              "cashFunction":"Pavlov_GameLogic.GiveEveryoneCash",
+              "targetClass":"BP_Zombie_C",
+              "zombieOperation":"Nuke Zombie",
+          }
+
+          # Fire Sale is source-timed at 30 seconds. If already active, the
+          # bytecode exposes a timer reset path; otherwise it fires FireSale
+          # Event. Its SetPrice path writes the source Mystery Box price text 10.
+          firesale_pkg=drop_packages["FireSaleDrop.uasset"]
+          wrapper_entry(firesale_pkg,"OnGrabbed",2582)
+          firesale_top=top_map(firesale_pkg,"ExecuteUbergraph_FireSaleDrop")
+          require_expr_tokens(
+              firesale_top,2408,["FireSaleActive?"],"Fire Sale active predicate"
+          )
+          require_expr_tokens(
+              firesale_top,2476,["FireSaleTimer",'"Value": 30'],
+              "Fire Sale timer reset"
+          )
+          require_expr_tokens(
+              firesale_top,2522,["FireSale Event"],"Fire Sale event"
+          )
+          require_expr_tokens(
+              firesale_top,2587,["MakeLiteralText",'"Value": "10"'],
+              "Fire Sale Mystery Box price literal"
+          )
+          require_expr_tokens(
+              firesale_top,2679,["MysteryBox_C.Price","K2_SetText"],
+              "Fire Sale Mystery Box price display"
+          )
+          fire_sale_authority={
+              "entryEvent":"OnGrabbed",
+              "entryOffset":2582,
+              "activePredicate":"ZombieGameLogic_C.FireSaleActive?",
+              "timerProperty":"ZombieGameLogic_C.FireSaleTimer",
+              "durationSeconds":30,
+              "activationEvent":"FireSale Event",
+              "mysteryBoxPrice":10,
+              "priceTextProperty":"MysteryBox_C.Price",
+          }
+
+          # Max Ammo first restores every LimitedAmmoMarker magazine counter,
+          # then fills missing replenishable grenades per player using the
+          # source data table, compatible inventory slot and SpawnItem.
+          maxammo_pkg=drop_packages["MaxAmmoDrop.uasset"]
+          wrapper_entry(maxammo_pkg,"OnGrabbed",3328)
+          maxammo_top=top_map(maxammo_pkg,"ExecuteUbergraph_MaxAmmoDrop")
+          require_expr_tokens(
+              maxammo_top,170,["MagazinesLeft","MagazinesTotal"],
+              "Max Ammo limited-ammo refill"
+          )
+          require_expr_tokens(
+              maxammo_top,3353,["LimitedAmmoMarker_C","GetAllActorsOfClass"],
+              "Max Ammo limited marker fanout"
+          )
+          require_expr_tokens(
+              maxammo_top,543,["PlayerArray","Array_Length"],
+              "Max Ammo player iteration"
+          )
+          require_expr_tokens(
+              maxammo_top,976,[
+                  "GrenadeValueDataTable","GetDataTableRowFromName"
+              ],"Max Ammo grenade data"
+          )
+          require_expr_tokens(
+              maxammo_top,1077,["ReplenishableMaxAmmo"],
+              "Max Ammo replenishable predicate"
+          )
+          require_expr_tokens(
+              maxammo_top,1556,["GetAllInventoryItems_InvItems"],
+              "Max Ammo inventory scan"
+          )
+          require_expr_tokens(
+              maxammo_top,2106,["MaxGrenades","Grenades","Subtract_IntInt"],
+              "Max Ammo grenade deficit"
+          )
+          require_expr_tokens(
+              maxammo_top,2441,["GetCompatibleSlot","GrenadeID"],
+              "Max Ammo compatible slot"
+          )
+          require_expr_tokens(
+              maxammo_top,2617,["PavlovItemSpawnParams.Id","GrenadeID"],
+              "Max Ammo grenade spawn ID"
+          )
+          require_expr_tokens(
+              maxammo_top,2745,["bSpawnInInventory","EX_True"],
+              "Max Ammo inventory spawn"
+          )
+          require_expr_tokens(
+              maxammo_top,2801,["bSpawnInWorld","EX_False"],
+              "Max Ammo non-world spawn"
+          )
+          require_expr_tokens(
+              maxammo_top,2909,["Pavlov_GameLogic.SpawnItem"],
+              "Max Ammo grenade spawn"
+          )
+          max_ammo_authority={
+              "entryEvent":"OnGrabbed",
+              "entryOffset":3328,
+              "limitedAmmoMarkerClass":"LimitedAmmoMarker_C",
+              "limitedAmmoOperation":"MagazinesLeft = MagazinesTotal",
+              "playerSource":"GameState.PlayerArray",
+              "grenadeDataTable":"GrenadeValueDataTable",
+              "replenishablePredicate":"ReplenishableMaxAmmo",
+              "grenadeDeficitFormula":"MaxGrenades - current Grenades",
+              "grenadeSlotFunction":"Pavlov_PlayerProxy.GetCompatibleSlot",
+              "spawnFunction":"Pavlov_GameLogic.SpawnItem",
+              "spawnInInventory":True,
+              "spawnInWorld":False,
+          }
+
+          gumball_reward_authority={
+              "spawnedRewards":spawned_reward_authority,
+              "weapon":weapon_reward_authority,
+              "doublePoints":double_points_authority,
+              "instaKill":insta_kill_authority,
+              "nuke":nuke_authority,
+              "fireSale":fire_sale_authority,
+              "maxAmmo":max_ammo_authority,
+          }
+          print(
+              "XZOGOT_NACHT_GUMBALL_REWARD_AUTHORITY_GREEN",
+              json.dumps(gumball_reward_authority,separators=(",",":"))
+          )
+
           gumball_contract={
               "fileName":"MachineGumball.uasset",
               "blueprintName":"MachineGumball",
@@ -2238,6 +2612,7 @@ jobs:
               "grabResetRule":gumball_grab_reset_rule,
               "upVectorTrace":gumball_up_vector_trace,
               "gunPosExports":gunpos_exports,
+              "rewardAuthority":gumball_reward_authority,
           }
           source_interaction_contracts=[gumball_contract]
           print(
