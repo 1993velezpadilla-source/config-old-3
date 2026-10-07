@@ -21,6 +21,12 @@ static func _canonical(raw: String) -> String:
 	return value.to_lower()
 
 
+static func _ue_vector_to_xziel(value: Vector3) -> Vector3:
+	# Same basis used by NachtSourceActorsAndLights:
+	# UE +X -> Godot -Z, UE +Y -> Godot -X, UE +Z -> Godot +Y.
+	return Vector3(-value.y, value.z, -value.x)
+
+
 static func _find_system(graphs: Dictionary, object_path: String) -> Dictionary:
 	var wanted := _canonical(object_path)
 	for raw: Variant in graphs.get("systems", []):
@@ -432,15 +438,43 @@ static func _size_over_life_texture(emitter: Dictionary) -> CurveXYZTexture:
 
 
 static func _color_over_life_texture(emitter: Dictionary) -> GradientTexture1D:
-	var module := _first_emitter_module(emitter, "ParticleModuleColorOverLife")
-	if module.is_empty():
+	var color_module := _first_emitter_module(emitter, "ParticleModuleColorOverLife")
+	var scale_module := _first_emitter_module(
+		emitter,
+		"ParticleModuleColorScaleOverLife"
+	)
+	if color_module.is_empty() and scale_module.is_empty():
 		return null
-	var module_props := ParticleSource.properties(module)
-	var rgb := _vector_table_series(module_props.get("ColorOverLife"))
-	var alpha := _float_table_series(module_props.get("AlphaOverLife"))
-	if rgb.is_empty() and alpha.is_empty():
+
+	var rgb: Array[Vector3] = []
+	var alpha: Array[float] = []
+	if not color_module.is_empty():
+		var color_props := ParticleSource.properties(color_module)
+		rgb = _vector_table_series(color_props.get("ColorOverLife"))
+		alpha = _float_table_series(color_props.get("AlphaOverLife"))
+
+	var rgb_scale: Array[Vector3] = []
+	var alpha_scale: Array[float] = []
+	if not scale_module.is_empty():
+		var scale_props := ParticleSource.properties(scale_module)
+		rgb_scale = _vector_table_series(scale_props.get("ColorScaleOverLife"))
+		alpha_scale = _float_table_series(scale_props.get("AlphaScaleOverLife"))
+
+	if (
+		rgb.is_empty()
+		and alpha.is_empty()
+		and rgb_scale.is_empty()
+		and alpha_scale.is_empty()
+	):
 		return null
-	var sample_count := maxi(2, maxi(rgb.size(), alpha.size()))
+
+	var sample_count := maxi(
+		2,
+		maxi(
+			maxi(rgb.size(), alpha.size()),
+			maxi(rgb_scale.size(), alpha_scale.size())
+		)
+	)
 	var offsets := PackedFloat32Array()
 	var colors := PackedColorArray()
 	offsets.resize(sample_count)
@@ -449,8 +483,15 @@ static func _color_over_life_texture(emitter: Dictionary) -> GradientTexture1D:
 		var t := float(index) / float(sample_count - 1)
 		var c := _sample_vector_series(rgb, t, Vector3.ONE)
 		var a := _sample_float_series(alpha, t, 1.0)
+		var c_scale := _sample_vector_series(rgb_scale, t, Vector3.ONE)
+		var a_scale := _sample_float_series(alpha_scale, t, 1.0)
 		offsets[index] = t
-		colors[index] = Color(c.x, c.y, c.z, a)
+		colors[index] = Color(
+			c.x * c_scale.x,
+			c.y * c_scale.y,
+			c.z * c_scale.z,
+			a * a_scale
+		)
 	var gradient := Gradient.new()
 	gradient.offsets = offsets
 	gradient.colors = colors
@@ -462,10 +503,34 @@ static func _color_over_life_texture(emitter: Dictionary) -> GradientTexture1D:
 	return texture
 
 
+static func _apply_constant_start_color(
+	process: ParticleProcessMaterial,
+	emitter: Dictionary
+) -> void:
+	var module := _first_emitter_module(emitter, "ParticleModuleColor")
+	if module.is_empty():
+		return
+	var props := ParticleSource.properties(module)
+	var color_bounds := _distribution_vector_bounds(props.get("StartColor"))
+	var alpha_distribution := ParticleSource.distribution(props.get("StartAlpha"))
+	if not bool(color_bounds.get("ready", false)):
+		return
+	var lo := color_bounds.get("min", Vector3.ONE) as Vector3
+	var hi := color_bounds.get("max", Vector3.ONE) as Vector3
+	var alpha_min := float(alpha_distribution.get("MinValue", 1.0))
+	var alpha_max := float(alpha_distribution.get("MaxValue", alpha_min))
+	# Only map the exact constant case. UE can randomize RGB channels
+	# independently; a one-dimensional Godot ramp would correlate them.
+	if not lo.is_equal_approx(hi) or not is_equal_approx(alpha_min, alpha_max):
+		return
+	process.color = Color(lo.x, lo.y, lo.z, alpha_min)
+
+
 static func _apply_emitter_life_curves(
 	process: ParticleProcessMaterial,
 	emitter: Dictionary
 ) -> void:
+	_apply_constant_start_color(process, emitter)
 	var size_curve := _size_over_life_texture(emitter)
 	if size_curve != null:
 		process.scale_curve = size_curve
@@ -639,6 +704,18 @@ static func _apply_emitter_spawn_shape(
 		) * 0.01
 		if radius <= 0.0:
 			return
+		if bool(primitive_props.get("SurfaceOnly", false)):
+			# Godot's ring emitter is a volume/annulus primitive. Do not turn
+			# UE Cascade's surface-only cylindrical shell into a filled volume.
+			# Keep the source dependency explicit until the custom particle
+			# shader can sample the cylinder surface exactly.
+			process.set_meta(
+				"cascade_unresolved_spawn_shape",
+				"surface_only_cylinder"
+			)
+			process.set_meta("cascade_source_cylinder_radius_m", radius)
+			process.set_meta("cascade_source_cylinder_height_m", height)
+			return
 		process.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
 		process.emission_ring_axis = Vector3(0.0, 0.0, 1.0)
 		process.emission_ring_radius = radius
@@ -671,6 +748,116 @@ static func _emitter_size_samples(system: Dictionary, emitter: Dictionary) -> Ar
 	return _vector_samples(system, ParticleSource.properties(module).get("StartSize"))
 
 
+static func _emitter_size_bounds(
+	system: Dictionary,
+	emitter: Dictionary
+) -> Dictionary:
+	var samples := _emitter_size_samples(system, emitter)
+	if samples.is_empty():
+		return {"ready": false}
+	var lo := samples[0]
+	var hi := samples[0]
+	for sample: Vector3 in samples:
+		lo.x = minf(lo.x, sample.x)
+		lo.y = minf(lo.y, sample.y)
+		lo.z = minf(lo.z, sample.z)
+		hi.x = maxf(hi.x, sample.x)
+		hi.y = maxf(hi.y, sample.y)
+		hi.z = maxf(hi.z, sample.z)
+	return {"ready": true, "min": lo, "max": hi}
+
+
+static func _speed_scale_curve(
+	speed_scale: float,
+	max_scale: float,
+	max_speed_mps: float
+) -> Curve:
+	var curve := Curve.new()
+	curve.min_value = 0.0
+	curve.max_value = maxf(1.0, max_scale)
+	if max_speed_mps <= 0.0 or speed_scale <= 0.0:
+		curve.add_point(Vector2(0.0, 1.0))
+		curve.add_point(Vector2(1.0, 1.0))
+		return curve
+	var clamp_speed_mps := max_scale / (speed_scale * 100.0)
+	var clamp_t := clampf(clamp_speed_mps / max_speed_mps, 0.0, 1.0)
+	curve.add_point(Vector2(0.0, 0.0))
+	if clamp_t > 0.0 and clamp_t < 1.0:
+		curve.add_point(Vector2(clamp_t, max_scale))
+	curve.add_point(Vector2(
+		1.0,
+		minf(max_scale, max_speed_mps * speed_scale * 100.0)
+	))
+	return curve
+
+
+static func _apply_size_scale_by_speed(
+	process: ParticleProcessMaterial,
+	emitter: Dictionary
+) -> void:
+	var modules := _enabled_emitter_modules(
+		emitter,
+		["ParticleModuleSizeScaleBySpeed"]
+	)
+	if modules.size() != 1:
+		return
+	var props := ParticleSource.properties(modules[0])
+	var speed_scale := ParticleSource.vector2(
+		props.get("SpeedScale"),
+		Vector2.INF
+	)
+	var max_scale := ParticleSource.vector2(
+		props.get("MaxScale"),
+		Vector2.INF
+	)
+	if (
+		speed_scale.is_equal_approx(Vector2.INF)
+		or max_scale.is_equal_approx(Vector2.INF)
+	):
+		return
+	var max_speed_mps := 0.0
+	for value: float in [
+		(max_scale.x / (speed_scale.x * 100.0)) if speed_scale.x > 0.0 else 0.0,
+		(max_scale.y / (speed_scale.y * 100.0)) if speed_scale.y > 0.0 else 0.0,
+	]:
+		max_speed_mps = maxf(max_speed_mps, value)
+	if max_speed_mps <= 0.0:
+		return
+	var texture := CurveXYZTexture.new()
+	texture.width = 256
+	texture.curve_x = _speed_scale_curve(speed_scale.x, max_scale.x, max_speed_mps)
+	texture.curve_y = _speed_scale_curve(speed_scale.y, max_scale.y, max_speed_mps)
+	var z_curve := Curve.new()
+	z_curve.add_point(Vector2(0.0, 1.0))
+	z_curve.add_point(Vector2(1.0, 1.0))
+	texture.curve_z = z_curve
+	process.scale_over_velocity_min = 0.0
+	process.scale_over_velocity_max = max_speed_mps
+	process.scale_over_velocity_curve = texture
+
+
+static func _apply_emitter_start_scale(
+	process: ParticleProcessMaterial,
+	system: Dictionary,
+	emitter: Dictionary,
+	sprite: bool
+) -> bool:
+	var bounds := _emitter_size_bounds(system, emitter)
+	if not bool(bounds.get("ready", false)):
+		return false
+	var lo := bounds.get("min", Vector3.ONE) as Vector3
+	var hi := bounds.get("max", Vector3.ONE) as Vector3
+	if sprite:
+		# A 1 cm source quad lets Cascade StartSize map directly to per-axis
+		# particle scale while preserving independent X/Y randomization.
+		lo.z = 1.0 if is_zero_approx(lo.z) else lo.z
+		hi.z = 1.0 if is_zero_approx(hi.z) else hi.z
+	process.use_scale_3d = true
+	process.scale_3d_min = lo
+	process.scale_3d_max = hi
+	return true
+
+
 static func _emitter_velocity_samples(system: Dictionary, emitter: Dictionary) -> Array[Vector3]:
 	var module := _first_emitter_module(emitter, "ParticleModuleVelocity")
 	if module.is_empty():
@@ -679,10 +866,48 @@ static func _emitter_velocity_samples(system: Dictionary, emitter: Dictionary) -
 
 
 static func _emitter_acceleration_samples(system: Dictionary, emitter: Dictionary) -> Array[Vector3]:
+	var result: Array[Vector3] = []
 	var module := _first_emitter_module(emitter, "ParticleModuleAcceleration")
-	if module.is_empty():
-		return []
-	return _vector_samples(system, ParticleSource.properties(module).get("Acceleration"))
+	if not module.is_empty():
+		var props := ParticleSource.properties(module)
+		for sample: Vector3 in _vector_samples(system, props.get("Acceleration")):
+			if bool(props.get("bAlwaysInWorldSpace", false)):
+				result.append(_ue_vector_to_xziel(sample))
+			else:
+				result.append(sample)
+	var constant := _first_emitter_module(emitter, "ParticleModuleAccelerationConstant")
+	if not constant.is_empty():
+		var constant_props := ParticleSource.properties(constant)
+		var sample := ParticleSource.vector3(
+			constant_props.get("Acceleration"),
+			Vector3.INF
+		)
+		if not sample.is_equal_approx(Vector3.INF):
+			if bool(constant_props.get("bAlwaysInWorldSpace", false)):
+				sample = _ue_vector_to_xziel(sample)
+			result.append(sample)
+
+	var type_raw: Variant = emitter.get("typeData", {})
+	if (
+		type_raw is Dictionary
+		and str((type_raw as Dictionary).get("exportType", ""))
+			== "ParticleModuleTypeDataGpu"
+	):
+		var type_props := ParticleSource.properties(type_raw as Dictionary)
+		var info_raw: Variant = type_props.get("EmitterInfo", {})
+		if info_raw is Dictionary:
+			var gpu_accel := ParticleSource.vector3(
+				(info_raw as Dictionary).get("ConstantAcceleration"),
+				Vector3.INF
+			)
+			if not gpu_accel.is_equal_approx(Vector3.INF):
+				# GPU emitter acceleration is authored in UE simulation axes.
+				# World-space GPU emitters need the Nacht UE->Godot basis;
+				# local-space emitters inherit it from the parent transform.
+				if not _emitter_local_space(emitter):
+					gpu_accel = _ue_vector_to_xziel(gpu_accel)
+				result.append(gpu_accel)
+	return result
 
 
 static func _emitter_spawn_rate(system: Dictionary, emitter: Dictionary) -> float:
@@ -746,6 +971,55 @@ static func _float_sample_range(
 		lo = minf(lo, sample)
 		hi = maxf(hi, sample)
 	return Vector2(lo, hi)
+
+
+static func _vector_component_bounds(samples: Array[Vector3]) -> Dictionary:
+	if samples.is_empty():
+		return {"ready": false}
+	var lo := samples[0]
+	var hi := samples[0]
+	for sample: Vector3 in samples:
+		lo.x = minf(lo.x, sample.x)
+		lo.y = minf(lo.y, sample.y)
+		lo.z = minf(lo.z, sample.z)
+		hi.x = maxf(hi.x, sample.x)
+		hi.y = maxf(hi.y, sample.y)
+		hi.z = maxf(hi.z, sample.z)
+	return {"ready": true, "min": lo, "max": hi}
+
+
+static func _apply_mesh_rotation(
+	process: ParticleProcessMaterial,
+	system: Dictionary,
+	emitter: Dictionary
+) -> void:
+	var rotation := _first_emitter_module(emitter, "ParticleModuleMeshRotation")
+	if not rotation.is_empty():
+		var rotation_samples := _vector_samples(
+			system,
+			ParticleSource.properties(rotation).get("StartRotation")
+		)
+		var bounds := _vector_component_bounds(rotation_samples)
+		if bool(bounds.get("ready", false)):
+			var lo := bounds.get("min", Vector3.ZERO) as Vector3
+			var hi := bounds.get("max", Vector3.ZERO) as Vector3
+			process.use_rotation_3d = true
+			process.rotation_3d_min = lo * 360.0
+			process.rotation_3d_max = hi * 360.0
+
+	var rate := _first_emitter_module(emitter, "ParticleModuleMeshRotationRate")
+	if not rate.is_empty():
+		var rate_samples := _vector_samples(
+			system,
+			ParticleSource.properties(rate).get("StartRotationRate")
+		)
+		var rate_bounds := _vector_component_bounds(rate_samples)
+		if bool(rate_bounds.get("ready", false)):
+			var rate_lo := rate_bounds.get("min", Vector3.ZERO) as Vector3
+			var rate_hi := rate_bounds.get("max", Vector3.ZERO) as Vector3
+			process.use_rotation_velocity_3d = true
+			process.rotation_velocity_3d_min = rate_lo * 360.0
+			process.rotation_velocity_3d_max = rate_hi * 360.0
 
 
 static func _apply_emitter_rotation(
@@ -834,11 +1108,183 @@ static func _emitter_subuv_frame_rate(system: Dictionary, emitter: Dictionary) -
 	return result
 
 
+static func _emitter_subuv_offset_curve(
+	system: Dictionary,
+	emitter: Dictionary,
+	frame_count: int
+) -> CurveTexture:
+	if frame_count <= 1:
+		return null
+	var required_raw: Variant = emitter.get("required", {})
+	if not (required_raw is Dictionary):
+		return null
+	var interpolation := str(
+		ParticleSource.properties(required_raw as Dictionary).get(
+			"InterpolationMethod",
+			""
+		)
+	)
+	if not interpolation.begins_with("PSUVIM_Linear"):
+		return null
+	var subuv := _first_emitter_module(emitter, "ParticleModuleSubUV")
+	if subuv.is_empty():
+		return null
+	var values := _float_table_series(
+		ParticleSource.properties(subuv).get("SubImageIndex")
+	)
+	if values.size() < 2:
+		return null
+	var normalized: Array[float] = []
+	var denominator := float(frame_count - 1)
+	for value: float in values:
+		normalized.append(clampf(value / denominator, 0.0, 1.0))
+	var curve := _curve_from_samples(normalized)
+	if curve == null:
+		return null
+	var texture := CurveTexture.new()
+	texture.width = maxi(256, normalized.size())
+	texture.curve = curve
+	return texture
+
+
 static func _emitter_local_space(emitter: Dictionary) -> bool:
 	var required_raw: Variant = emitter.get("required", {})
 	if not (required_raw is Dictionary):
 		return false
 	return bool(ParticleSource.properties(required_raw as Dictionary).get("bUseLocalSpace", false))
+
+
+static func _emitter_delay_seconds(emitter: Dictionary) -> float:
+	var required_raw: Variant = emitter.get("required", {})
+	if not (required_raw is Dictionary):
+		return 0.0
+	return maxf(
+		0.0,
+		float(
+			ParticleSource.properties(required_raw as Dictionary).get(
+				"EmitterDelay",
+				0.0
+			)
+		)
+	)
+
+
+static func _emitter_duration_seconds(emitter: Dictionary) -> float:
+	var required_raw: Variant = emitter.get("required", {})
+	if not (required_raw is Dictionary):
+		return 0.0
+	return maxf(
+		0.0,
+		float(
+			ParticleSource.properties(required_raw as Dictionary).get(
+				"EmitterDuration",
+				0.0
+			)
+		)
+	)
+
+
+static func _apply_emitter_activation(
+	anchor: Node3D,
+	particles: GPUParticles3D,
+	emitter: Dictionary,
+	auto_activate: bool,
+	index: int
+) -> void:
+	var delay := _emitter_delay_seconds(emitter)
+	particles.set_meta("source_emitter_delay_seconds", delay)
+	particles.set_meta(
+		"source_emitter_duration_seconds",
+		_emitter_duration_seconds(emitter)
+	)
+	if not auto_activate:
+		particles.emitting = false
+		return
+	if delay <= 0.0:
+		particles.emitting = true
+		return
+	particles.emitting = false
+	var timer := Timer.new()
+	timer.name = "CascadeEmitterDelay_%02d" % index
+	timer.wait_time = delay
+	timer.one_shot = true
+	timer.autostart = true
+	anchor.add_child(timer)
+	timer.timeout.connect(
+		func() -> void:
+			if is_instance_valid(particles):
+				particles.restart()
+				particles.emitting = true
+			if is_instance_valid(timer):
+				timer.queue_free()
+	)
+
+
+static func _apply_sprite_axis_lock(
+	material: StandardMaterial3D,
+	emitter: Dictionary
+) -> void:
+	var modules := _enabled_emitter_modules(
+		emitter,
+		["ParticleModuleOrientationAxisLock"]
+	)
+	if modules.size() != 1:
+		return
+	var flag := str(ParticleSource.properties(modules[0]).get("LockAxisFlags", ""))
+	if flag == "EPAL_Z":
+		# QuadMesh defaults to FACE_Z in emitter-local space. The parent Nacht
+		# source basis maps that UE +Z facing to Godot world +Y exactly.
+		material.billboard_mode = BaseMaterial3D.BILLBOARD_DISABLED
+	elif flag == "EPAL_ROTATE_Z":
+		# UE Z-up is Godot Y-up after the Nacht source-root basis conversion.
+		material.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
+
+
+static func _apply_sprite_pivot(
+	quad: QuadMesh,
+	emitter: Dictionary
+) -> void:
+	var modules := _enabled_emitter_modules(
+		emitter,
+		["ParticleModulePivotOffset"]
+	)
+	if modules.size() != 1:
+		return
+	var pivot := ParticleSource.vector2(
+		ParticleSource.properties(modules[0]).get("PivotOffset"),
+		Vector2.INF
+	)
+	if pivot.is_equal_approx(Vector2.INF):
+		return
+	# UE Cascade applies PivotOffset in UV-sized sprite space. The documented
+	# default (0.5, 0.5) is the centered pivot, while QuadMesh center_offset=0
+	# is centered. The mesh is one UE centimeter before particle StartSize
+	# scaling, so this offset stays source-literal after scale_3d.
+	quad.center_offset = Vector3(
+		(pivot.x - 0.5) * 0.01,
+		(pivot.y - 0.5) * 0.01,
+		0.0
+	)
+
+
+static func _apply_sprite_screen_alignment(
+	material: StandardMaterial3D,
+	process: ParticleProcessMaterial,
+	emitter: Dictionary
+) -> void:
+	var required_raw: Variant = emitter.get("required", {})
+	if not (required_raw is Dictionary):
+		return
+	var alignment := str(
+		ParticleSource.properties(required_raw as Dictionary).get(
+			"ScreenAlignment",
+			""
+		)
+	)
+	if alignment == "PSA_Velocity":
+		# Particle billboard + Align Y matches UE velocity-facing sprite intent.
+		material.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		process.particle_flag_align_y = true
 
 
 static func _build_source_sprite_emitter(
@@ -859,14 +1305,19 @@ static func _build_source_sprite_emitter(
 			"nodeCount": 0,
 			"error": "sprite material unresolved",
 		}
+	_apply_sprite_axis_lock(material, emitter)
 
 	var lifetime := _emitter_lifetime(system, emitter)
-	var sizes := _emitter_size_samples(system, emitter)
-	var size_ue := _max_abs_component(sizes)
-	if size_ue <= 0.0:
-		size_ue = 1.0
 	var process := ParticleProcessMaterial.new()
 	_configure_process_from_emitter(process, system, emitter)
+	_apply_sprite_screen_alignment(material, process, emitter)
+	_apply_emitter_start_scale(
+		process,
+		system,
+		emitter,
+		true
+	)
+	_apply_size_scale_by_speed(process, emitter)
 	_apply_emitter_life_curves(process, emitter)
 
 	var grid := _emitter_subuv_grid(emitter)
@@ -874,18 +1325,34 @@ static func _build_source_sprite_emitter(
 	material.particles_anim_v_frames = grid.y
 	material.particles_anim_loop = true
 	if grid.x * grid.y > 1:
-		var source_fps := _emitter_subuv_frame_rate(system, emitter)
-		var cycles := 1.0
-		if source_fps > 0.0:
-			cycles = source_fps * lifetime.y / float(grid.x * grid.y)
-		process.anim_speed_min = cycles
-		process.anim_speed_max = cycles
-		process.anim_offset_min = 0.0
-		process.anim_offset_max = 1.0
+		var frame_count := grid.x * grid.y
+		var offset_curve := _emitter_subuv_offset_curve(
+			system,
+			emitter,
+			frame_count
+		)
+		if offset_curve != null:
+			process.anim_speed_min = 0.0
+			process.anim_speed_max = 0.0
+			process.anim_offset_min = 1.0
+			process.anim_offset_max = 1.0
+			process.anim_offset_curve = offset_curve
+			material.particles_anim_loop = false
+		else:
+			var source_fps := _emitter_subuv_frame_rate(system, emitter)
+			var cycles := 1.0
+			if source_fps > 0.0:
+				cycles = source_fps * lifetime.y / float(frame_count)
+			process.anim_speed_min = cycles
+			process.anim_speed_max = cycles
+			process.anim_offset_min = 0.0
+			process.anim_offset_max = 1.0
 
 	var quad := QuadMesh.new()
-	var size_m := maxf(0.001, size_ue * 0.01)
-	quad.size = Vector2(size_m, size_m)
+	# StartSize now lives in ParticleProcessMaterial scale_3d. Keep the mesh at
+	# one UE centimeter so the source size vectors remain literal.
+	quad.size = Vector2(0.01, 0.01)
+	_apply_sprite_pivot(quad, emitter)
 	quad.material = material
 
 	var particles := GPUParticles3D.new()
@@ -898,7 +1365,7 @@ static func _build_source_sprite_emitter(
 	particles.draw_pass_1 = quad
 	particles.visibility_aabb = AABB(Vector3(-8.0, -8.0, -8.0), Vector3(16.0, 16.0, 16.0))
 	particles.fixed_fps = 30
-	particles.emitting = auto_activate
+	_apply_emitter_activation(anchor, particles, emitter, auto_activate, index)
 	var burst_count := _emitter_burst_count(emitter)
 	var spawn_rate := _emitter_spawn_rate(system, emitter)
 	var required_raw: Variant = emitter.get("required", {})
@@ -1002,18 +1469,9 @@ static func _build_source_mesh_emitter(
 	var lifetime := _emitter_lifetime(system, emitter)
 	var process := ParticleProcessMaterial.new()
 	_configure_process_from_emitter(process, system, emitter)
+	_apply_mesh_rotation(process, system, emitter)
+	_apply_emitter_start_scale(process, system, emitter, false)
 	_apply_emitter_life_curves(process, emitter)
-	var size_samples := _emitter_size_samples(system, emitter)
-	if not size_samples.is_empty():
-		var min_scale := INF
-		var max_scale := 0.0
-		for size: Vector3 in size_samples:
-			var scalar := maxf(absf(size.x), maxf(absf(size.y), absf(size.z)))
-			min_scale = minf(min_scale, scalar)
-			max_scale = maxf(max_scale, scalar)
-		if not is_inf(min_scale):
-			process.scale_min = maxf(0.001, min_scale)
-			process.scale_max = maxf(process.scale_min, max_scale)
 
 	var particles := GPUParticles3D.new()
 	particles.name = "CascadeMeshEmitter_%02d" % index
@@ -1027,7 +1485,7 @@ static func _build_source_mesh_emitter(
 		particles.set("draw_pass_%d" % (chunk_index + 1), chunks[chunk_index])
 	particles.visibility_aabb = AABB(Vector3(-8.0, -8.0, -8.0), Vector3(16.0, 16.0, 16.0))
 	particles.fixed_fps = 30
-	particles.emitting = auto_activate
+	_apply_emitter_activation(anchor, particles, emitter, auto_activate, index)
 	var burst_count := _emitter_burst_count(emitter)
 	var spawn_rate := _emitter_spawn_rate(system, emitter)
 	var required_raw: Variant = emitter.get("required", {})
@@ -1174,6 +1632,69 @@ static func _build_sprite_emitter(
 	}
 
 
+static func _beam_hermite_point(
+	start: Vector3,
+	end: Vector3,
+	start_tangent: Vector3,
+	end_tangent: Vector3,
+	t: float
+) -> Vector3:
+	var t2 := t * t
+	var t3 := t2 * t
+	var h00 := 2.0 * t3 - 3.0 * t2 + 1.0
+	var h10 := t3 - 2.0 * t2 + t
+	var h01 := -2.0 * t3 + 3.0 * t2
+	var h11 := t3 - t2
+	return (
+		start * h00
+		+ start_tangent * h10
+		+ end * h01
+		+ end_tangent * h11
+	)
+
+
+static func _beam_source_path_points(descriptor: Dictionary) -> PackedVector3Array:
+	var result := PackedVector3Array()
+	var target_raw: Variant = descriptor.get("targetUEcm", Vector3.ZERO)
+	if not (target_raw is Vector3):
+		return result
+	var target := (target_raw as Vector3) * 0.01
+	if target.length_squared() < 0.000001:
+		return result
+
+	var source_tangent_raw: Variant = descriptor.get("sourceTangent", Vector3.ZERO)
+	var target_tangent_raw: Variant = descriptor.get("targetTangent", Vector3.ZERO)
+	var source_tangent := (
+		source_tangent_raw as Vector3
+		if source_tangent_raw is Vector3
+		else Vector3.ZERO
+	)
+	var target_tangent := (
+		target_tangent_raw as Vector3
+		if target_tangent_raw is Vector3
+		else Vector3.ZERO
+	)
+	var source_strength := float(descriptor.get("sourceStrength", 0.0)) * 0.01
+	var target_strength := float(descriptor.get("targetStrength", 0.0)) * 0.01
+	if source_tangent.length_squared() > 0.000001:
+		source_tangent = source_tangent.normalized() * source_strength
+	if target_tangent.length_squared() > 0.000001:
+		target_tangent = target_tangent.normalized() * target_strength
+
+	var points := maxi(1, int(descriptor.get("interpolationPoints", 1)))
+	result.resize(points + 1)
+	for index in range(points + 1):
+		var t := float(index) / float(points)
+		result[index] = _beam_hermite_point(
+			Vector3.ZERO,
+			target,
+			source_tangent,
+			target_tangent,
+			t
+		)
+	return result
+
+
 static func _build_beam(
 	anchor: Node3D,
 	system: Dictionary,
@@ -1187,18 +1708,15 @@ static func _build_beam(
 	material.billboard_mode = BaseMaterial3D.BILLBOARD_DISABLED
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 
-	var target_raw: Variant = descriptor.get("targetUEcm", Vector3.ZERO)
-	var target := Vector3.ZERO
-	if target_raw is Vector3:
-		target = target_raw as Vector3
-	target *= 0.01
-	if target.length_squared() < 0.000001:
+	var points := _beam_source_path_points(descriptor)
+	if points.size() < 2:
 		return {"mounted": false, "materialResolved": true, "nodeCount": 0}
 
 	var immediate := ImmediateMesh.new()
 	immediate.surface_begin(Mesh.PRIMITIVE_LINES, material)
-	immediate.surface_add_vertex(Vector3.ZERO)
-	immediate.surface_add_vertex(target)
+	for index in range(points.size() - 1):
+		immediate.surface_add_vertex(points[index])
+		immediate.surface_add_vertex(points[index + 1])
 	immediate.surface_end()
 
 	var beam := MeshInstance3D.new()
@@ -1208,6 +1726,18 @@ static func _build_beam(
 	beam.set_meta("source_particle_material_path", material_path)
 	beam.set_meta("source_beam_target_ue_cm", descriptor.get("targetUEcm"))
 	beam.set_meta("source_beam_noise_frequency", descriptor.get("noiseFrequency", 0))
+	beam.set_meta(
+		"source_beam_interpolation_points",
+		descriptor.get("interpolationPoints", 0)
+	)
+	beam.set_meta("source_beam_source_tangent", descriptor.get("sourceTangent"))
+	beam.set_meta("source_beam_target_tangent", descriptor.get("targetTangent"))
+	beam.set_meta("source_beam_source_strength", descriptor.get("sourceStrength", 0.0))
+	beam.set_meta("source_beam_target_strength", descriptor.get("targetStrength", 0.0))
+	beam.set_meta("source_beam_taper_factor", descriptor.get("taperFactor", 1.0))
+	beam.set_meta("source_beam_taper_scale", descriptor.get("taperScale", 1.0))
+	beam.set_meta("source_beam_noise_runtime_exact", false)
+	beam.set_meta("source_beam_width_runtime_exact", false)
 	anchor.add_child(beam)
 
 	return {
