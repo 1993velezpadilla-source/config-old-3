@@ -17,6 +17,49 @@ func _read_json(path: String) -> Dictionary:
 	return parsed as Dictionary if parsed is Dictionary else {}
 
 
+func _source_particle_component_runtime_state(
+	actor_name: String,
+	component_name: String
+) -> Dictionary:
+	var matches := 0
+	var active_matches := 0
+	var reset_matches := 0
+	for raw_anchor: Node in get_nodes_in_group(
+		"nacht_source_particle_semantic"
+	):
+		if not (raw_anchor is Node3D):
+			continue
+		var anchor := raw_anchor as Node3D
+		if str(anchor.get_meta("source_actor_name", "")) != actor_name:
+			continue
+		if str(anchor.get_meta("source_component_name", "")) != component_name:
+			continue
+		matches += 1
+		if bool(
+			anchor.get_meta(
+				"source_particle_component_runtime_active",
+				false
+			)
+		):
+			active_matches += 1
+		if bool(
+			anchor.get_meta(
+				"source_particle_component_last_reset",
+				false
+			)
+		):
+			reset_matches += 1
+	return {
+		"ready": matches > 0,
+		"matches": matches,
+		"activeMatches": active_matches,
+		"resetMatches": reset_matches,
+		"allActive": matches > 0 and active_matches == matches,
+		"allInactive": matches > 0 and active_matches == 0,
+		"allReset": matches > 0 and reset_matches == matches,
+	}
+
+
 func _particle_material_rows() -> Array[Material]:
 	var result: Array[Material] = []
 	for raw: Node in get_nodes_in_group("nacht_source_particle_visual"):
@@ -1455,6 +1498,116 @@ func _run() -> void:
 			"XZOGOT_NACHT_PARTICLE_EVENT_REPLAY_GREEN ",
 			"events=3 gumball_open=15.0 gumball_close=5.0 "
 			"pap=0.0 pap_anchors=4"
+		)
+
+		# Execute the replay-safe Gumball timers against live runtime state.
+		# Close and Open use separate source event generations, so running both
+		# concurrently proves the authored 5.0s OFF transition followed by the
+		# authored 15.0s Activate(reset=true) transition without extending CI
+		# to 20+ seconds.
+		for component_name: String in ["Fog", "mysteryParticles"]:
+			var prime_raw: Variant = scene.call(
+				"set_source_particle_component_active",
+				"MachineGumball_2",
+				component_name,
+				true,
+				false
+			)
+			var prime := (
+				prime_raw as Dictionary
+				if prime_raw is Dictionary
+				else {}
+			)
+			if not bool(prime.get("ready", false)):
+				_fail(
+					35,
+					"Gumball timed replay prime failed component="
+					+ component_name + " report=" + str(prime)
+				)
+				return
+
+		var close_trigger_raw: Variant = scene.call(
+			"trigger_source_blueprint_particle_event",
+			"MachineGumball_2",
+			"CloseLidMulticast"
+		)
+		var open_trigger_raw: Variant = scene.call(
+			"trigger_source_blueprint_particle_event",
+			"MachineGumball_2",
+			"OpenLidMulticast"
+		)
+		var close_trigger := (
+			close_trigger_raw as Dictionary
+			if close_trigger_raw is Dictionary
+			else {}
+		)
+		var open_trigger := (
+			open_trigger_raw as Dictionary
+			if open_trigger_raw is Dictionary
+			else {}
+		)
+		for trigger: Dictionary in [close_trigger, open_trigger]:
+			if (
+				not bool(trigger.get("ready", false))
+				or int(trigger.get("immediateStepCount", -1)) != 0
+				or int(trigger.get("scheduledStepCount", -1)) != 1
+			):
+				_fail(
+					35,
+					"Gumball replay-safe scheduling failed "
+					+ str(trigger)
+				)
+				return
+
+		await create_timer(5.25).timeout
+		for component_name: String in ["Fog", "mysteryParticles"]:
+			var off_state := _source_particle_component_runtime_state(
+				"MachineGumball_2",
+				component_name
+			)
+			if (
+				not bool(off_state.get("ready", false))
+				or int(off_state.get("matches", -1)) != 1
+				or not bool(off_state.get("allInactive", false))
+			):
+				_fail(
+					35,
+					"Gumball CloseLidMulticast 5s runtime transition failed "
+					+ component_name + " state=" + str(off_state)
+				)
+				return
+
+		await create_timer(10.25).timeout
+		for component_name: String in ["Fog", "mysteryParticles"]:
+			var on_state := _source_particle_component_runtime_state(
+				"MachineGumball_2",
+				component_name
+			)
+			if (
+				not bool(on_state.get("ready", false))
+				or int(on_state.get("matches", -1)) != 1
+				or not bool(on_state.get("allActive", false))
+				or not bool(on_state.get("allReset", false))
+			):
+				_fail(
+					35,
+					"Gumball OpenLidMulticast 15s runtime transition failed "
+					+ component_name + " state=" + str(on_state)
+				)
+				return
+
+		for component_name: String in ["Fog", "mysteryParticles"]:
+			scene.call(
+				"set_source_particle_component_active",
+				"MachineGumball_2",
+				component_name,
+				false,
+				false
+			)
+		print(
+			"XZOGOT_NACHT_PARTICLE_EVENT_TIMING_GREEN ",
+			"actor=MachineGumball_2 close_off_s=5.0 "
+			"open_on_s=15.0 components=2 reset=true"
 		)
 
 		if not particle_visual_mounted:
