@@ -755,6 +755,75 @@ static func _emitter_size_bounds(
 	return {"ready": true, "min": lo, "max": hi}
 
 
+static func _speed_scale_curve(
+	speed_scale: float,
+	max_scale: float,
+	max_speed_mps: float
+) -> Curve:
+	var curve := Curve.new()
+	curve.min_value = 0.0
+	curve.max_value = maxf(1.0, max_scale)
+	if max_speed_mps <= 0.0 or speed_scale <= 0.0:
+		curve.add_point(Vector2(0.0, 1.0))
+		curve.add_point(Vector2(1.0, 1.0))
+		return curve
+	var clamp_speed_mps := max_scale / (speed_scale * 100.0)
+	var clamp_t := clampf(clamp_speed_mps / max_speed_mps, 0.0, 1.0)
+	curve.add_point(Vector2(0.0, 0.0))
+	if clamp_t > 0.0 and clamp_t < 1.0:
+		curve.add_point(Vector2(clamp_t, max_scale))
+	curve.add_point(Vector2(
+		1.0,
+		minf(max_scale, max_speed_mps * speed_scale * 100.0)
+	))
+	return curve
+
+
+static func _apply_size_scale_by_speed(
+	process: ParticleProcessMaterial,
+	emitter: Dictionary
+) -> void:
+	var modules := _enabled_emitter_modules(
+		emitter,
+		["ParticleModuleSizeScaleBySpeed"]
+	)
+	if modules.size() != 1:
+		return
+	var props := ParticleSource.properties(modules[0])
+	var speed_scale := ParticleSource.vector2(
+		props.get("SpeedScale"),
+		Vector2.INF
+	)
+	var max_scale := ParticleSource.vector2(
+		props.get("MaxScale"),
+		Vector2.INF
+	)
+	if (
+		speed_scale.is_equal_approx(Vector2.INF)
+		or max_scale.is_equal_approx(Vector2.INF)
+	):
+		return
+	var max_speed_mps := 0.0
+	for value: float in [
+		(max_scale.x / (speed_scale.x * 100.0)) if speed_scale.x > 0.0 else 0.0,
+		(max_scale.y / (speed_scale.y * 100.0)) if speed_scale.y > 0.0 else 0.0,
+	]:
+		max_speed_mps = maxf(max_speed_mps, value)
+	if max_speed_mps <= 0.0:
+		return
+	var texture := CurveXYZTexture.new()
+	texture.width = 256
+	texture.curve_x = _speed_scale_curve(speed_scale.x, max_scale.x, max_speed_mps)
+	texture.curve_y = _speed_scale_curve(speed_scale.y, max_scale.y, max_speed_mps)
+	var z_curve := Curve.new()
+	z_curve.add_point(Vector2(0.0, 1.0))
+	z_curve.add_point(Vector2(1.0, 1.0))
+	texture.curve_z = z_curve
+	process.scale_over_velocity_min = 0.0
+	process.scale_over_velocity_max = max_speed_mps
+	process.scale_over_velocity_curve = texture
+
+
 static func _apply_emitter_start_scale(
 	process: ParticleProcessMaterial,
 	system: Dictionary,
@@ -1209,6 +1278,7 @@ static func _build_source_sprite_emitter(
 		emitter,
 		true
 	)
+	_apply_size_scale_by_speed(process, emitter)
 	_apply_emitter_life_curves(process, emitter)
 
 	var grid := _emitter_subuv_grid(emitter)
