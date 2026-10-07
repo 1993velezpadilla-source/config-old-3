@@ -63,7 +63,26 @@ string? ReferencePath(FPackageIndex index)
     return index.ResolvedObject?.GetPathName() ?? index.Name;
 }
 
-List<object> BuildHierarchy(USceneComponent start)
+bool HasSerializedProperty(UObject source, string name) =>
+    source.Properties.Any(property =>
+        property.Name.Text.Equals(name, StringComparison.Ordinal));
+
+T InheritedValue<T>(
+    UParticleSystemComponent instance,
+    UParticleSystemComponent? authority,
+    string name,
+    T fallback)
+{
+    if (HasSerializedProperty(instance, name))
+        return instance.GetOrDefault<T>(name, fallback);
+    if (authority is not null && HasSerializedProperty(authority, name))
+        return authority.GetOrDefault<T>(name, fallback);
+    return fallback;
+}
+
+List<object> BuildHierarchy(
+    USceneComponent start,
+    UParticleSystemComponent? startAuthority)
 {
     var rows = new List<object>();
     var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -75,9 +94,34 @@ List<object> BuildHierarchy(USceneComponent start)
         if (!seen.Add(path))
             throw new InvalidOperationException("particle component attachment cycle: " + path);
 
-        var location = current.GetRelativeLocation();
-        var rotation = current.GetRelativeRotation();
-        var scale = current.GetRelativeScale3D();
+        // Cooked map instances omit Blueprint component-template values when
+        // they are unchanged. CUE4Parse's convenience getters then return the
+        // native identity/default, which is not the authored Blueprint value.
+        // For the particle component itself, inherit every omitted local
+        // transform channel from the resolved component template.
+        var authority = depth == 0 ? startAuthority : null;
+        var locationFromTemplate =
+            authority is not null &&
+            !HasSerializedProperty(current, "RelativeLocation") &&
+            HasSerializedProperty(authority, "RelativeLocation");
+        var rotationFromTemplate =
+            authority is not null &&
+            !HasSerializedProperty(current, "RelativeRotation") &&
+            HasSerializedProperty(authority, "RelativeRotation");
+        var scaleFromTemplate =
+            authority is not null &&
+            !HasSerializedProperty(current, "RelativeScale3D") &&
+            HasSerializedProperty(authority, "RelativeScale3D");
+
+        var location = locationFromTemplate
+            ? authority!.GetRelativeLocation()
+            : current.GetRelativeLocation();
+        var rotation = rotationFromTemplate
+            ? authority!.GetRelativeRotation()
+            : current.GetRelativeRotation();
+        var scale = scaleFromTemplate
+            ? authority!.GetRelativeScale3D()
+            : current.GetRelativeScale3D();
 
         rows.Add(new
         {
@@ -86,7 +130,13 @@ List<object> BuildHierarchy(USceneComponent start)
             componentName = current.Name,
             locationUEcm = new { X = location.X, Y = location.Y, Z = location.Z },
             rotationUE = new { Pitch = rotation.Pitch, Yaw = rotation.Yaw, Roll = rotation.Roll },
-            scale = new { X = scale.X, Y = scale.Y, Z = scale.Z }
+            scale = new { X = scale.X, Y = scale.Y, Z = scale.Z },
+            transformProvenance = new
+            {
+                location = locationFromTemplate ? "component_template" : "instance_or_native_default",
+                rotation = rotationFromTemplate ? "component_template" : "instance_or_native_default",
+                scale = scaleFromTemplate ? "component_template" : "instance_or_native_default"
+            }
         });
 
         USceneComponent? parent = null;
@@ -251,7 +301,7 @@ UBlueprintGeneratedClass? ResolveGeneratedClassByExportType(
     return null;
 }
 
-(FPackageIndex? index, string? provenance)
+(UParticleSystemComponent? component, string? provenance)
 ResolveCookedParticleComponentExport(
     DefaultFileProvider provider,
     UBlueprintGeneratedClass generated,
@@ -294,12 +344,10 @@ ResolveCookedParticleComponentExport(
             if (!ComponentAuthorityNameMatches(candidate.Name, instanceName))
                 continue;
 
-            var index = ReadParticleTemplateIndex(candidate);
-            if (index is { IsNull: false })
-                return (
-                    index,
-                    "cooked_package_component_export:" +
-                    candidate.GetPathName());
+            return (
+                candidate,
+                "cooked_package_component_export:" +
+                candidate.GetPathName());
         }
     }
     catch
@@ -323,8 +371,8 @@ FPackageIndex? ReadParticleTemplateIndex(UParticleSystemComponent candidate)
     }
 }
 
-(FPackageIndex? index, string? provenance)
-ResolveBlueprintParticleTemplate(
+(UParticleSystemComponent? component, string? provenance)
+ResolveBlueprintParticleComponentAuthority(
     DefaultFileProvider provider,
     UParticleSystemComponent component)
 {
@@ -369,7 +417,7 @@ ResolveBlueprintParticleTemplate(
             provider,
             current,
             component.Name);
-        if (cookedExport.index is { IsNull: false })
+        if (cookedExport.component is not null)
             return cookedExport;
 
         foreach (var templateRef in current.ComponentTemplates)
@@ -382,9 +430,9 @@ ResolveBlueprintParticleTemplate(
                     !ComponentAuthorityNameMatches(template.Name, component.Name))
                     continue;
 
-                var index = ReadParticleTemplateIndex(template);
-                if (index is { IsNull: false })
-                    return (index, "generated_class_component_template:" + template.GetPathName());
+                return (
+                    template,
+                    "generated_class_component_template:" + template.GetPathName());
             }
             catch { }
         }
@@ -406,9 +454,9 @@ ResolveBlueprintParticleTemplate(
                     if (template is null)
                         continue;
 
-                    var index = ReadParticleTemplateIndex(template);
-                    if (index is { IsNull: false })
-                        return (index, "scs_component_template:" + template.GetPathName());
+                    return (
+                        template,
+                        "scs_component_template:" + template.GetPathName());
                 }
             }
         }
@@ -432,9 +480,9 @@ ResolveBlueprintParticleTemplate(
                         template is null)
                         continue;
 
-                    var index = ReadParticleTemplateIndex(template);
-                    if (index is { IsNull: false })
-                        return (index, "inheritable_component_template:" + template.GetPathName());
+                    return (
+                        template,
+                        "inheritable_component_template:" + template.GetPathName());
                 }
             }
         }
@@ -502,16 +550,21 @@ foreach (var logicalPackage in mapPackages)
         {
             try
             {
+            var componentAuthority =
+                ResolveBlueprintParticleComponentAuthority(provider, component);
+            var authorityComponent = componentAuthority.component;
+
             FPackageIndex? templateIndex = ReadParticleTemplateIndex(component);
             string? templateProvenance = templateIndex is { IsNull: false }
                 ? "instance:property"
                 : null;
 
-            if (templateIndex is null)
+            if (templateIndex is null && authorityComponent is not null)
             {
-                var inherited = ResolveBlueprintParticleTemplate(provider, component);
-                templateIndex = inherited.index;
-                templateProvenance = inherited.provenance;
+                templateIndex = ReadParticleTemplateIndex(authorityComponent);
+                if (templateIndex is { IsNull: false })
+                    templateProvenance =
+                        componentAuthority.provenance + ":Template";
             }
 
             string? templatePath = null;
@@ -571,15 +624,71 @@ foreach (var logicalPackage in mapPackages)
             }
             catch { }
 
-            var explicitVisible =
-                component.GetOrDefault<bool?>("bVisible");
-            var hiddenInGame =
-                component.GetOrDefault<bool?>("bHiddenInGame");
+            bool? explicitVisible = null;
+            if (HasSerializedProperty(component, "bVisible"))
+                explicitVisible = component.GetOrDefault<bool>("bVisible", true);
+            else if (
+                authorityComponent is not null &&
+                HasSerializedProperty(authorityComponent, "bVisible"))
+                explicitVisible =
+                    authorityComponent.GetOrDefault<bool>("bVisible", true);
+
+            bool? hiddenInGame = null;
+            if (HasSerializedProperty(component, "bHiddenInGame"))
+                hiddenInGame =
+                    component.GetOrDefault<bool>("bHiddenInGame", false);
+            else if (
+                authorityComponent is not null &&
+                HasSerializedProperty(authorityComponent, "bHiddenInGame"))
+                hiddenInGame =
+                    authorityComponent.GetOrDefault<bool>("bHiddenInGame", false);
+
             var effectiveVisible =
                 explicitVisible ??
                 (hiddenInGame is not null
                     ? !hiddenInGame.Value
                     : true);
+
+            var autoActivate = InheritedValue(
+                component,
+                authorityComponent,
+                "bAutoActivate",
+                true);
+            var secondsBeforeInactive = InheritedValue(
+                component,
+                authorityComponent,
+                "SecondsBeforeInactive",
+                1.0f);
+            var customTimeDilation = InheritedValue(
+                component,
+                authorityComponent,
+                "CustomTimeDilation",
+                1.0f);
+            var warmupTime = InheritedValue(
+                component,
+                authorityComponent,
+                "WarmupTime",
+                0.0f);
+            var warmupTickRate = InheritedValue(
+                component,
+                authorityComponent,
+                "WarmupTickRate",
+                0.0f);
+            var allowRecycling = InheritedValue(
+                component,
+                authorityComponent,
+                "bAllowRecycling",
+                false);
+            var resetOnDetach = InheritedValue(
+                component,
+                authorityComponent,
+                "bResetOnDetach",
+                false);
+            var skipUpdateDynamicDataDuringTick = InheritedValue(
+                component,
+                authorityComponent,
+                "bSkipUpdateDynamicDataDuringTick",
+                false);
 
             rows.Add(new
             {
@@ -590,7 +699,12 @@ foreach (var logicalPackage in mapPackages)
                 ownerClassPath,
                 componentName = component.Name,
                 sourcePath = componentPath,
-                hierarchy = BuildHierarchy(component),
+                hierarchy = BuildHierarchy(component, authorityComponent),
+                componentAuthority = new
+                {
+                    objectPath = authorityComponent?.GetPathName(),
+                    provenance = componentAuthority.provenance
+                },
                 template = new
                 {
                     objectPath = templatePath,
@@ -601,23 +715,33 @@ foreach (var logicalPackage in mapPackages)
                 },
                 properties = new
                 {
-                    autoActivate = component.GetOrDefault<bool>("bAutoActivate", true),
+                    autoActivate,
                     effectiveVisible,
                     hiddenInGame = hiddenInGame ?? false,
-                    secondsBeforeInactive =
-                        component.GetOrDefault<float>("SecondsBeforeInactive", 1.0f),
-                    customTimeDilation =
-                        component.GetOrDefault<float>("CustomTimeDilation", 1.0f),
-                    warmupTime =
-                        component.GetOrDefault<float>("WarmupTime", 0.0f),
-                    warmupTickRate =
-                        component.GetOrDefault<float>("WarmupTickRate", 0.0f),
-                    allowRecycling =
-                        component.GetOrDefault<bool>("bAllowRecycling", false),
-                    resetOnDetach =
-                        component.GetOrDefault<bool>("bResetOnDetach", false),
-                    skipUpdateDynamicDataDuringTick =
-                        component.GetOrDefault<bool>("bSkipUpdateDynamicDataDuringTick", false)
+                    secondsBeforeInactive,
+                    customTimeDilation,
+                    warmupTime,
+                    warmupTickRate,
+                    allowRecycling,
+                    resetOnDetach,
+                    skipUpdateDynamicDataDuringTick,
+                    provenance = new
+                    {
+                        autoActivate = HasSerializedProperty(component, "bAutoActivate")
+                            ? "instance"
+                            : authorityComponent is not null &&
+                              HasSerializedProperty(authorityComponent, "bAutoActivate")
+                                ? "component_template"
+                                : "native_default",
+                        visibility = explicitVisible is not null || hiddenInGame is not null
+                            ? (
+                                HasSerializedProperty(component, "bVisible") ||
+                                HasSerializedProperty(component, "bHiddenInGame")
+                                    ? "instance"
+                                    : "component_template"
+                              )
+                            : "native_default"
+                    }
                 }
             });
             }
@@ -651,7 +775,7 @@ var ready =
 
 var output = new
 {
-    schemaVersion = 1,
+    schemaVersion = 2,
     sourceGame = sourceGameName,
     coordinateSystem = new
     {
