@@ -1669,6 +1669,28 @@ jobs:
               json.dumps(make_transform_trace,separators=(",",":"))
           )
 
+          transform_symbols=[
+              "export:319:CallFunc_Add_VectorVector_ReturnValue",
+              "export:325:CallFunc_K2_GetComponentRotation_ReturnValue",
+          ]
+          gumball_transform_upstream=[]
+          for offset in sorted(gumball_top):
+              expr=gumball_top[offset]
+              blob=json.dumps(expr,sort_keys=True)
+              hits=[symbol for symbol in transform_symbols if symbol in blob]
+              if hits:
+                  gumball_transform_upstream.append({
+                      "startOffset":offset,
+                      "matches":hits,
+                      "expression":expr,
+                  })
+          if not gumball_transform_upstream:
+              raise SystemExit("MachineGumball transform upstream trace is empty")
+          print(
+              "XZOGOT_NACHT_GUMBALL_TRANSFORM_UPSTREAM_GREEN",
+              json.dumps(gumball_transform_upstream,separators=(",",":"))
+          )
+
           gumball_contract={
               "fileName":"MachineGumball.uasset",
               "blueprintName":"MachineGumball",
@@ -1707,6 +1729,7 @@ jobs:
               "spawnStructTrace":gumball_spawn_struct_trace,
               "spawnRule":gumball_spawn_rule,
               "makeTransformTrace":make_transform_trace,
+              "transformUpstreamTrace":gumball_transform_upstream,
           }
           source_interaction_contracts=[gumball_contract]
           print(
