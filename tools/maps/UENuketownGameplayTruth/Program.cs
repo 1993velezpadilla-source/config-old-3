@@ -358,10 +358,69 @@ static string? ResolveProviderPackagePath(
     if (provider.TryGetGameFile(logicalPath, out _))
         return logicalPath;
 
-    var normalized = logicalPath.Replace('\\', '/');
+    var normalized = logicalPath.Replace('\\', '/').TrimStart('/');
+    var suffix = "/" + normalized;
 
-    return provider.Files.Keys.FirstOrDefault(
-        key => key.EndsWith(
-            normalized,
-            StringComparison.OrdinalIgnoreCase));
+    foreach (var file in provider.Files.Values)
+    {
+        var candidate = file.Path.Replace('\\', '/').TrimStart('/');
+        if (candidate.Equals(normalized, StringComparison.OrdinalIgnoreCase) ||
+            candidate.EndsWith(suffix, StringComparison.OrdinalIgnoreCase) ||
+            normalized.EndsWith("/" + candidate, StringComparison.OrdinalIgnoreCase))
+            return file.Path;
+    }
+
+    // UE5 IoStore virtual roots can drop or rewrite the project/content prefix.
+    // Fall back to a unique package filename; these authority packages have
+    // unique cooked names in Project Aether.
+    var fileName = Path.GetFileName(normalized);
+    var fileNameMatches = provider.Files.Values
+        .Where(file =>
+            Path.GetFileName(file.Path.Replace('\\', '/'))
+                .Equals(fileName, StringComparison.OrdinalIgnoreCase))
+        .Select(file => file.Path)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+
+    if (fileNameMatches.Length == 1)
+        return fileNameMatches[0];
+
+    if (fileNameMatches.Length > 1)
+    {
+        // Prefer the candidate sharing the longest directory suffix with the
+        // requested logical path instead of guessing by first enumeration.
+        var wantedParts = normalized.Split('/');
+        var ranked = fileNameMatches
+            .Select(path => new
+            {
+                path,
+                score = CommonSuffixParts(
+                    wantedParts,
+                    path.Replace('\\', '/').Split('/'))
+            })
+            .OrderByDescending(row => row.score)
+            .ThenBy(row => row.path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (ranked.Length > 0 &&
+            (ranked.Length == 1 || ranked[0].score > ranked[1].score))
+            return ranked[0].path;
+    }
+
+    return null;
+}
+
+static int CommonSuffixParts(string[] wanted, string[] candidate)
+{
+    var count = 0;
+    var wi = wanted.Length - 1;
+    var ci = candidate.Length - 1;
+    while (wi >= 0 && ci >= 0 &&
+           wanted[wi].Equals(candidate[ci], StringComparison.OrdinalIgnoreCase))
+    {
+        count++;
+        wi--;
+        ci--;
+    }
+    return count;
 }
