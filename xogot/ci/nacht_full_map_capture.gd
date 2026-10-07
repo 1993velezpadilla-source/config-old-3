@@ -86,9 +86,10 @@ func _prepare_structural_visual_proof(scene: Node3D) -> void:
 func _save_view(
 	path: String,
 	label: String,
-	require_visual_detail: bool = true
+	require_visual_detail: bool = true,
+	settle_frames: int = 2
 ) -> bool:
-	for _i in range(12):
+	for _i in range(maxi(1, settle_frames)):
 		await process_frame
 	var image := root.get_texture().get_image()
 	if image == null or image.is_empty():
