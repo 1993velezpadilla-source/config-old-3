@@ -107,6 +107,65 @@ func _gate_particle_blend_runtime() -> Dictionary:
 		"violations": [],
 	}
 
+
+const MONSTER_FIRE_MATERIAL := "/Game/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Materials/Fire/M_Fire_Sheet_01_INST.M_Fire_Sheet_01_INST"
+
+func _gate_monster_fire_material_runtime() -> Dictionary:
+	var matches: Array[Dictionary] = []
+	for material: Material in _particle_material_rows():
+		if not (material is StandardMaterial3D):
+			continue
+		var standard := material as StandardMaterial3D
+		if str(standard.get_meta("source_material_path", "")) != MONSTER_FIRE_MATERIAL:
+			continue
+		matches.append({
+			"blend": standard.blend_mode,
+			"transparency": standard.transparency,
+			"shading": standard.shading_mode,
+			"albedoTexture": standard.albedo_texture != null,
+			"emissionEnabled": standard.emission_enabled,
+			"emissionTexture": standard.emission_texture != null,
+			"resolvedDiffuse": str(
+				standard.get_meta("source_resolved_diffuse_path", "")
+			),
+			"resolvedEmissive": str(
+				standard.get_meta("source_resolved_emissive_path", "")
+			),
+			"graphEmissiveAsColor": bool(
+				standard.get_meta(
+					"source_graph_emissive_as_unshaded_color",
+					false
+				)
+			),
+		})
+	if matches.is_empty():
+		return {
+			"ready": false,
+			"error": "monster fire material missing",
+			"matches": matches,
+		}
+	for row: Dictionary in matches:
+		if (
+			int(row["blend"]) != BaseMaterial3D.BLEND_MODE_ADD
+			or int(row["transparency"]) == BaseMaterial3D.TRANSPARENCY_DISABLED
+			or int(row["shading"]) != BaseMaterial3D.SHADING_MODE_UNSHADED
+			or not bool(row["albedoTexture"])
+			or bool(row["emissionEnabled"])
+			or bool(row["emissionTexture"])
+			or not bool(row["graphEmissiveAsColor"])
+			or not str(row["resolvedDiffuse"]).contains("T_FireBlastTile")
+			or not str(row["resolvedEmissive"]).is_empty()
+		):
+			return {
+				"ready": false,
+				"error": "monster fire material translation mismatch",
+				"matches": matches,
+			}
+	return {
+		"ready": true,
+		"matches": matches,
+	}
+
 func _run() -> void:
 	var packed := load("res://nacht_full_map.tscn") as PackedScene
 	if packed == null:
@@ -136,6 +195,18 @@ func _run() -> void:
 	print(
 		"XZOGOT_NACHT_PARTICLE_BLEND_RUNTIME_GREEN ",
 		JSON.stringify(particle_blend_gate)
+	)
+
+	var monster_fire_gate := _gate_monster_fire_material_runtime()
+	if not bool(monster_fire_gate.get("ready", false)):
+		_fail(
+			35,
+			"monster fire runtime mismatch " + JSON.stringify(monster_fire_gate)
+		)
+		return
+	print(
+		"XZOGOT_NACHT_MONSTER_FIRE_RUNTIME_GREEN ",
+		JSON.stringify(monster_fire_gate)
 	)
 
 	var packages := int(scene.get_meta("source_package_count", -1))
