@@ -28,11 +28,12 @@ jobs:
           ref: feature/godot-aaa-rebuild-v1
           fetch-depth: 1
 
-      - name: Unit-test Reflection-compatible decoder
+      - name: Unit-test UE bridge decoders
         shell: bash
         run: |
           set -euo pipefail
           python3 tools/ue_bridge/test_cascade_distribution_decoder.py
+          python3 tools/ue_bridge/test_material_graph_resolver.py
 
       - name: Download proven Nacht particle authority
         shell: bash
@@ -45,6 +46,7 @@ jobs:
             --name "$SOURCE_ARTIFACT" \
             --dir "$RUNNER_TEMP/nacht-authority"
           test -s "$RUNNER_TEMP/nacht-authority/nacht-particle-graphs.json"
+          test -s "$RUNNER_TEMP/nacht-authority/nacht-materials.json"
 
       - name: Decode all Nacht cooked Cascade distributions
         shell: bash
@@ -60,6 +62,22 @@ jobs:
             exit 1
           fi
 
+      - name: Resolve Monster Fire material through source graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/ue_bridge/material_graph_resolver.py \
+            --materials "$RUNNER_TEMP/nacht-authority/nacht-materials.json" \
+            --target "/Game/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Materials/Fire/M_Fire_Sheet_01_INST.M_Fire_Sheet_01_INST" \
+            --out build/ue-bridge/monster-fire-material-graph.json \
+            --strict \
+            2>&1 | tee build/ue-bridge/material-bridge.log
+          grep -q "XZOGOT_UE_BRIDGE_MATERIAL_GREEN" build/ue-bridge/material-bridge.log
+          grep -q "T_FireBlastTile" build/ue-bridge/material-bridge.log
+          if grep -q "XZOGOT_UE_BRIDGE_MATERIAL_FAILURE" build/ue-bridge/material-bridge.log; then
+            exit 1
+          fi
+
       - name: Upload UE bridge report
         uses: actions/upload-artifact@v4
         with:
@@ -67,5 +85,7 @@ jobs:
           path: |
             build/ue-bridge/nacht-cascade-distributions.json
             build/ue-bridge/cascade-bridge.log
+            build/ue-bridge/monster-fire-material-graph.json
+            build/ue-bridge/material-bridge.log
           if-no-files-found: error
           retention-days: 7
