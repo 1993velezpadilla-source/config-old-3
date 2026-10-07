@@ -2,7 +2,9 @@ class_name WeaponViewmodelSourcePresentation
 extends RefCounted
 
 const DATA_PATH := "res://data/weapon_viewmodel_source_presentation.json"
+const MOVEMENT_DATA_PATH := "res://data/weapon_source_movement.json"
 static var _cache: Dictionary = {}
+static var _movement_cache: Dictionary = {}
 
 static func _data() -> Dictionary:
 	if not _cache.is_empty():
@@ -16,6 +18,28 @@ static func _data() -> Dictionary:
 	if parsed is Dictionary:
 		_cache = parsed as Dictionary
 	return _cache
+
+static func _movement_data() -> Dictionary:
+	if not _movement_cache.is_empty():
+		return _movement_cache
+	if not FileAccess.file_exists(MOVEMENT_DATA_PATH):
+		return {}
+	var f := FileAccess.open(MOVEMENT_DATA_PATH, FileAccess.READ)
+	if f == null:
+		return {}
+	var parsed: Variant = JSON.parse_string(f.get_as_text())
+	if parsed is Dictionary:
+		_movement_cache = parsed as Dictionary
+	return _movement_cache
+
+static func movement_record(id: String) -> Dictionary:
+	var weapons: Dictionary = _movement_data().get("weapons", {}) as Dictionary
+	if not weapons.has(id):
+		return {}
+	return (weapons[id] as Dictionary).duplicate(true)
+
+static func has_source_movement(id: String) -> bool:
+	return not movement_record(id).is_empty()
 
 static func record(id: String) -> Dictionary:
 	var weapons: Dictionary = _data().get("weapons", {}) as Dictionary
@@ -63,12 +87,21 @@ static func ads_rotation(id: String) -> Quaternion:
 	return _quat(t.get("rotation_xyzw", []))
 
 static func ads_in_time(id: String, fallback: float = 0.20) -> float:
+	var source := movement_record(id)
+	if source.has("ads_in"):
+		return maxf(0.001, float(source["ads_in"]))
 	return maxf(0.001, float(record(id).get("ads_in_time_s", fallback)))
 
 static func ads_out_time(id: String, fallback: float = 0.20) -> float:
+	var source := movement_record(id)
+	if source.has("ads_out"):
+		return maxf(0.001, float(source["ads_out"]))
 	return maxf(0.001, float(record(id).get("ads_out_time_s", fallback)))
 
 static func ads_fov_multiplier(id: String, fallback: float = 1.0) -> float:
+	var source := movement_record(id)
+	if source.has("ads_fov_mult"):
+		return float(source["ads_fov_mult"])
 	return float(record(id).get("ads_fov_multiplier", fallback))
 
 static func source_table(id: String) -> String:
@@ -83,22 +116,25 @@ static func source_runtime_profile(id: String) -> Dictionary:
 	return (profile as Dictionary).duplicate(true) if profile is Dictionary else {}
 
 static func source_movement_profile(id: String) -> Dictionary:
+	var compact := movement_record(id)
+	if not compact.is_empty():
+		return {
+			"MoveSpeedScale": float(compact.get("move_speed_scale", 1.0)),
+			"AdsMoveSpeedScale": float(compact.get("ads_move_speed_scale", 1.0)),
+			"SprintScale": float(compact.get("sprint_scale", 1.0)),
+		}
 	var profile := source_runtime_profile(id)
 	var movement: Variant = profile.get("Movement", {})
 	return (movement as Dictionary).duplicate(true) if movement is Dictionary else {}
 
-static func source_ads_move_multiplier(id: String) -> float:
+static func source_ads_move_scale_raw(id: String) -> float:
 	var movement := source_movement_profile(id)
-	# Exact source property names only. If the source table does not expose one,
-	# return -1 so runtime uses neutral movement rather than inventing a value.
-	for key: String in [
-		"AdsMoveSpeedMultiplier",
-		"ADSMoveSpeedMultiplier",
-		"AdsMoveSpeedScale",
-		"ADSMoveSpeedScale",
-		"AimMoveSpeedMultiplier",
-		"AimMoveSpeedScale",
-	]:
-		if movement.has(key):
-			return float(movement[key])
-	return -1.0
+	return float(movement.get("AdsMoveSpeedScale", -1.0))
+
+static func source_ads_move_multiplier(id: String) -> float:
+	var source_scale := source_ads_move_scale_raw(id)
+	if source_scale <= 0.0:
+		return -1.0
+	# World at War applies a 50% ADS movement baseline; the per-weapon
+	# adsMoveSpeedScale modifies it. Pistols carry 2.0, cancelling that loss.
+	return 0.5 * source_scale
