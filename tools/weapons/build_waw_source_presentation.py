@@ -191,6 +191,11 @@ def build_record(runtime_id: str, row_index: int, row: dict[str, Any]) -> dict[s
 
     if not hand_transform:
         raise RuntimeError(f"{runtime_id}: WeaponStats.Misc.HandTransform missing")
+    for required_movement_key in ("AdsInTime", "AdsOutTime"):
+        if required_movement_key not in movement:
+            raise RuntimeError(
+                f"{runtime_id}: WeaponStats.Movement.{required_movement_key} missing"
+            )
 
     hand_anims = readable_object_fields(hand_anims_raw)
     t7_armature = bool(
@@ -211,8 +216,8 @@ def build_record(runtime_id: str, row_index: int, row: dict[str, Any]) -> dict[s
         "hand_transform_godot": godot_transform(hand_transform),
         "ads_transform_ue_cm": ue_transform(ads),
         "ads_transform_godot": godot_transform(ads),
-        "ads_in_time_s": float(movement.get("AdsInTime", 0.20)),
-        "ads_out_time_s": float(movement.get("AdsOutTime", 0.20)),
+        "ads_in_time_s": float(movement["AdsInTime"]),
+        "ads_out_time_s": float(movement["AdsOutTime"]),
         "ads_fov_multiplier": float(misc.get("ADSFOVMultiplier", 1.0)),
         "t7_armature": t7_armature,
         "hand_animation_sources": hand_anims,

@@ -1797,6 +1797,16 @@ func get_display_name() -> String:
 func get_family() -> String:
 	return _family
 
+func get_source_ads_move_multiplier() -> float:
+	var source_value := WeaponViewmodelSourcePresentation.source_ads_move_multiplier(_weapon_id)
+	if source_value > 0.0:
+		set_meta("weapon_source_ads_move_multiplier", source_value)
+		set_meta("weapon_source_ads_move_authority", "DT_Weapons.WeaponStats.Movement")
+		return source_value
+	set_meta("weapon_source_ads_move_multiplier", 1.0)
+	set_meta("weapon_source_ads_move_authority", "SOURCE_PENDING_NEUTRAL")
+	return 1.0
+
 func get_ads_fov() -> float:
 	return _ads_fov
 

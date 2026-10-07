@@ -76,3 +76,29 @@ static func source_table(id: String) -> String:
 
 static func source_row_index(id: String) -> int:
 	return int(record(id).get("source_row_index", -1))
+
+static func source_runtime_profile(id: String) -> Dictionary:
+	var rec := record(id)
+	var profile: Variant = rec.get("source_runtime_profile", {})
+	return (profile as Dictionary).duplicate(true) if profile is Dictionary else {}
+
+static func source_movement_profile(id: String) -> Dictionary:
+	var profile := source_runtime_profile(id)
+	var movement: Variant = profile.get("Movement", {})
+	return (movement as Dictionary).duplicate(true) if movement is Dictionary else {}
+
+static func source_ads_move_multiplier(id: String) -> float:
+	var movement := source_movement_profile(id)
+	# Exact source property names only. If the source table does not expose one,
+	# return -1 so runtime uses neutral movement rather than inventing a value.
+	for key: String in [
+		"AdsMoveSpeedMultiplier",
+		"ADSMoveSpeedMultiplier",
+		"AdsMoveSpeedScale",
+		"ADSMoveSpeedScale",
+		"AimMoveSpeedMultiplier",
+		"AimMoveSpeedScale",
+	]:
+		if movement.has(key):
+			return float(movement[key])
+	return -1.0

@@ -20,11 +20,11 @@ const NAV_PATH := "res://data/nav_skeleton.json"
 @export var mouse_sensitivity := 0.0022
 @export var touch_sensitivity := 0.0028
 @export var gyro_enabled := true
-@export var gyro_mode: int = 1 # 0=OFF, 1=ALWAYS, 2=ADS ONLY
+@export var gyro_mode: int = 2 # 0=OFF, 2=ADS ONLY
 @export var gyro_sensitivity := 0.70
 @export var gyro_sensitivity_x := 0.70
 @export var gyro_sensitivity_y := 0.70
-@export var gyro_ads_multiplier := CODSourceContract.GYRO_ADS_MULTIPLIER
+@export var gyro_ads_multiplier := 1.0
 @export var gyro_deadzone := 0.05
 @export var gyro_smoothing := 0.18
 @export var gyro_invert_x := false
@@ -33,7 +33,6 @@ const NAV_PATH := "res://data/nav_skeleton.json"
 @export var fire_touch_multiplier := CODSourceContract.TOUCH_LOOK_MULTIPLIER
 @export var ads_toggle_mode := false
 @export var mobile_sprint_zone := 1.10
-@export var ads_move_multiplier := 0.90
 @export var auto_knife_enabled := true
 @export var knife_button_range_only := true
 @export var knife_range_m := 1.65
@@ -341,9 +340,8 @@ func apply_mobile_settings(settings: Node) -> void:
 		return
 	ads_toggle_mode = bool(settings.call("get_setting_value", "ads_toggle_mode"))
 	mobile_sprint_zone = float(settings.call("get_setting_value", "mobile_sprint_zone"))
-	ads_move_multiplier = float(settings.call("get_setting_value", "ads_move_multiplier"))
-	gyro_mode = int(settings.call("get_setting_value", "gyro_mode"))
-	gyro_enabled = gyro_mode != 0
+	gyro_mode = 0 if int(settings.call("get_setting_value", "gyro_mode")) == 0 else 2
+	gyro_enabled = gyro_mode == 2
 	gyro_invert_x = bool(settings.call("get_setting_value", "gyro_invert_x"))
 	gyro_invert_y = bool(settings.call("get_setting_value", "gyro_invert_y"))
 	gyro_sensitivity_x = float(settings.call("get_setting_value", "gyro_sensitivity_x"))
@@ -982,6 +980,19 @@ func _update_camera_fov(delta: float) -> void:
 func is_ads_active() -> bool:
 	return _is_ads_active()
 
+func _current_ads_move_multiplier() -> float:
+	if _weapon != null and _weapon.has_method("get_source_ads_move_multiplier"):
+		return float(_weapon.call("get_source_ads_move_multiplier"))
+	return 1.0
+
+func gyro_should_apply(mobile_feature: bool = OS.has_feature("mobile")) -> bool:
+	return (
+		gyro_enabled
+		and gyro_mode == 2
+		and mobile_feature
+		and _is_ads_active()
+	)
+
 func _update_stance(delta: float, crouch_pressed: bool) -> void:
 	_update_landing_spring(delta)
 	var slide_pose: float = _slide_visual_pose()
@@ -1014,9 +1025,7 @@ func _physics_process(delta: float) -> void:
 	if _slide_cooldown_timer > 0.0:
 		_slide_cooldown_timer = maxf(0.0, _slide_cooldown_timer - delta)
 
-	var gyro_active: bool = gyro_enabled and gyro_mode != 0 and OS.has_feature("mobile")
-	if gyro_mode == 2 and not _is_ads_active():
-		gyro_active = false
+	var gyro_active: bool = gyro_should_apply()
 	if gyro_active:
 		var gyro: Vector3 = Input.get_gyroscope()
 		var raw := Vector2(gyro.y, gyro.x)
@@ -1128,7 +1137,7 @@ func _physics_process(delta: float) -> void:
 		var speed: float = crouch_speed if _crouched else (sprint_speed if _sprinting else walk_speed)
 		speed *= get_move_speed_multiplier()
 		if _is_ads_active():
-			speed *= ads_move_multiplier
+			speed *= _current_ads_move_multiplier()
 		if downed:
 			speed *= downed_move_multiplier
 		if eliminated:

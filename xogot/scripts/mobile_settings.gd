@@ -11,13 +11,12 @@ const CONFIG_PATH := "user://xogot_mobile_settings.cfg"
 
 var ads_toggle_mode: bool = false
 var mobile_sprint_zone: float = 1.10
-var ads_move_multiplier: float = 0.90
-var gyro_mode: int = 1 # 0=OFF, 1=ALWAYS, 2=ADS ONLY
+var gyro_mode: int = 2 # 0=OFF, 2=ADS ONLY
 var gyro_invert_x: bool = false
 var gyro_invert_y: bool = false
 var gyro_sensitivity_x: float = 0.70
 var gyro_sensitivity_y: float = 0.70
-var gyro_ads_multiplier: float = 0.65
+var gyro_ads_multiplier: float = 1.00
 var gyro_deadzone: float = 0.05
 var gyro_smoothing: float = 0.18
 var auto_knife: bool = true
@@ -80,8 +79,8 @@ func _load_settings() -> void:
 		return
 	ads_toggle_mode = bool(cfg.get_value("aim", "ads_toggle_mode", ads_toggle_mode))
 	mobile_sprint_zone = float(cfg.get_value("gameplay", "sprint_zone", mobile_sprint_zone))
-	ads_move_multiplier = float(cfg.get_value("aim", "ads_move_multiplier", ads_move_multiplier))
 	gyro_mode = int(cfg.get_value("gyro", "mode", gyro_mode))
+	gyro_mode = 0 if gyro_mode == 0 else 2
 	gyro_invert_x = bool(cfg.get_value("gyro", "invert_x", gyro_invert_x))
 	gyro_invert_y = bool(cfg.get_value("gyro", "invert_y", gyro_invert_y))
 	gyro_sensitivity_x = float(cfg.get_value("gyro", "sensitivity_x", gyro_sensitivity_x))
@@ -102,7 +101,6 @@ func _save_settings() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("aim", "ads_toggle_mode", ads_toggle_mode)
 	cfg.set_value("gameplay", "sprint_zone", mobile_sprint_zone)
-	cfg.set_value("aim", "ads_move_multiplier", ads_move_multiplier)
 	cfg.set_value("gyro", "mode", gyro_mode)
 	cfg.set_value("gyro", "invert_x", gyro_invert_x)
 	cfg.set_value("gyro", "invert_y", gyro_invert_y)
@@ -223,7 +221,6 @@ func _build_settings_page() -> void:
 	_title(_page_settings, "SETTINGS", "Touch, aim, gyroscope and mobile assists")
 	_add_setting("ads_mode", _cycle_ads_mode)
 	_add_setting("sprint_zone", _cycle_sprint_zone)
-	_add_setting("ads_move_multiplier", _cycle_ads_move_multiplier)
 	_add_setting("gyro_mode", _cycle_gyro_mode)
 	_add_setting("gyro_invert_x", _toggle_gyro_invert_x)
 	_add_setting("gyro_invert_y", _toggle_gyro_invert_y)
@@ -793,9 +790,7 @@ func _refresh_labels() -> void:
 		return
 	(_rows["ads_mode"] as Button).text = "ADS MODE: " + ("TAP / TOGGLE" if ads_toggle_mode else "HOLD")
 	(_rows["sprint_zone"] as Button).text = "SPRINT ACTIVATION HEIGHT: %.2f" % mobile_sprint_zone
-	(_rows["ads_move_multiplier"] as Button).text = "ADS WALK SPEED: %.2f" % ads_move_multiplier
-	var gyro_names := ["OFF", "ALWAYS ON", "ADS ONLY"]
-	(_rows["gyro_mode"] as Button).text = "GYROSCOPE: " + gyro_names[clampi(gyro_mode, 0, 2)]
+	(_rows["gyro_mode"] as Button).text = "GYROSCOPE: " + ("OFF" if gyro_mode == 0 else "ADS ONLY")
 	(_rows["gyro_invert_x"] as Button).text = "GYRO INVERT X: " + ("ON" if gyro_invert_x else "OFF")
 	(_rows["gyro_invert_y"] as Button).text = "GYRO INVERT Y: " + ("ON" if gyro_invert_y else "OFF")
 	(_rows["gyro_sensitivity_x"] as Button).text = "GYRO HORIZONTAL: %.2f" % gyro_sensitivity_x
@@ -958,7 +953,6 @@ func get_setting_value(key: String) -> Variant:
 	match key:
 		"ads_toggle_mode": return ads_toggle_mode
 		"mobile_sprint_zone": return mobile_sprint_zone
-		"ads_move_multiplier": return ads_move_multiplier
 		"gyro_mode": return gyro_mode
 		"gyro_invert_x": return gyro_invert_x
 		"gyro_invert_y": return gyro_invert_y
@@ -985,12 +979,8 @@ func _cycle_sprint_zone() -> void:
 	mobile_sprint_zone = _cycle_value(mobile_sprint_zone, 0.05, 1.10, 1.85)
 	_commit()
 
-func _cycle_ads_move_multiplier() -> void:
-	ads_move_multiplier = _cycle_value(ads_move_multiplier, 0.05, 0.35, 1.75)
-	_commit()
-
 func _cycle_gyro_mode() -> void:
-	gyro_mode = (gyro_mode + 1) % 3
+	gyro_mode = 0 if gyro_mode == 2 else 2
 	_commit()
 
 func _toggle_gyro_invert_x() -> void:

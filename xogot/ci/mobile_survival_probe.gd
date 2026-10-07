@@ -187,7 +187,8 @@ func _run() -> void:
 	for i in range(8):
 		player.call("_physics_process", 0.05)
 	var horizontal_speed := Vector2(player.velocity.x, player.velocity.z).length()
-	var expected_ads_speed: float = float(player.get("walk_speed")) * float(player.get("ads_move_multiplier")) * float(player.call("get_move_speed_multiplier"))
+	var source_ads_move: float = float(weapon.call("get_source_ads_move_multiplier"))
+	var expected_ads_speed: float = float(player.get("walk_speed")) * source_ads_move * float(player.call("get_move_speed_multiplier"))
 	if absf(horizontal_speed - expected_ads_speed) > 0.08:
 		_fail(40, "ADS walk speed multiplier mismatch: %.3f vs %.3f" % [horizontal_speed, expected_ads_speed])
 		return
@@ -195,7 +196,8 @@ func _run() -> void:
 	player.set("_move_touch", -1)
 	player.set("_move_raw_vector", Vector2.ZERO)
 	player.set("_move_vector", Vector2.ZERO)
-	print("XZOGOT_MOBILE_ADS_WALK_SPEED_GREEN speed=", horizontal_speed)
+	print("XZOGOT_MOBILE_ADS_WALK_SPEED_GREEN speed=", horizontal_speed, " source_mult=", source_ads_move)
+	print("XZOGOT_ADS_MOVE_SOURCE_POLICY_GREEN authority=", weapon.get_meta("weapon_source_ads_move_authority", ""))
 
 	# Restore the Settings-owned ADS mode after the forced toggle-ADS runtime
 	# test above so the settings propagation test starts from canonical state.
@@ -210,10 +212,27 @@ func _run() -> void:
 		return
 
 	var gyro_before: int = int(player.get("gyro_mode"))
-	settings.call("_cycle_gyro_mode")
-	if int(player.get("gyro_mode")) == gyro_before:
-		_fail(5, "gyro mode setting did not reach player")
+	if gyro_before != 0 and gyro_before != 2:
+		_fail(5, "gyro exposed a forbidden non-ADS-only mode")
 		return
+	settings.call("_cycle_gyro_mode")
+	var gyro_after: int = int(player.get("gyro_mode"))
+	if gyro_after == gyro_before or (gyro_after != 0 and gyro_after != 2):
+		_fail(5, "gyro OFF/ADS ONLY setting did not reach player")
+		return
+	# Restore ADS ONLY and prove it cannot apply from the hip.
+	if gyro_after == 0:
+		settings.call("_cycle_gyro_mode")
+	player.set_meta("ads_toggled", false)
+	if bool(player.call("gyro_should_apply", true)):
+		_fail(41, "gyro applied while hip-fire")
+		return
+	player.set_meta("ads_toggled", true)
+	if not bool(player.call("gyro_should_apply", true)):
+		_fail(42, "gyro did not apply while ADS")
+		return
+	player.set_meta("ads_toggled", false)
+	print("XZOGOT_GYRO_ADS_ONLY_GREEN")
 
 	var auto_knife_before: bool = bool(player.get("auto_knife_enabled"))
 	settings.call("_toggle_auto_knife")

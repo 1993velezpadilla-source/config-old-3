@@ -7,6 +7,7 @@ on:
       - feature/godot-aaa-rebuild-v1
     paths:
       - ".github/workflows/xogot-aether-presentation-metadata.yml"
+      - "tools/weapons/build_waw_source_presentation.py"
 
 permissions:
   contents: read
