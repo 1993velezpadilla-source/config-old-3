@@ -2157,6 +2157,17 @@ func _build_source_particle_semantic_runtime() -> bool:
 		"source_particle_quad_smoke_peak_active",
 		int(_source_particle_quad_smoke_descriptor.get("peakActiveParticles", -1))
 	)
+	set_meta("source_particle_monster_emitter_count", int(_source_particle_monster_descriptor.get("emitterCount", -1)))
+	set_meta("source_particle_monster_lod_count", int(_source_particle_monster_descriptor.get("lodCount", -1)))
+	set_meta("source_particle_monster_burst_only_emitters", int(_source_particle_monster_descriptor.get("burstOnlyEmitterCount", -1)))
+	set_meta("source_particle_monster_continuous_emitters", int(_source_particle_monster_descriptor.get("continuousRate15EmitterCount", -1)))
+	set_meta("source_particle_monster_lifetime_ranges", _source_particle_monster_descriptor.get("lifetimeRanges", []))
+	set_meta("source_particle_monster_size_life_modules", int(_source_particle_monster_descriptor.get("resolvedSizeLifeModuleCount", -1)))
+	set_meta("source_particle_monster_color_modules", int(_source_particle_monster_descriptor.get("resolvedColorModuleCount", -1)))
+	set_meta("source_particle_monster_velocity_min_ue_cm", _source_particle_monster_descriptor.get("velocityMinUEcm", Vector3.INF))
+	set_meta("source_particle_monster_velocity_max_ue_cm", _source_particle_monster_descriptor.get("velocityMaxUEcm", Vector3.INF))
+	set_meta("source_particle_monster_subuv_sample_count", int(_source_particle_monster_descriptor.get("subUVSampleCount", -1)))
+	set_meta("source_particle_monster_lod_peaks", _source_particle_monster_descriptor.get("lodPeaks", []))
 
 	print(
 		"XZOGOT_NACHT_CASCADE_SEMANTIC_RUNTIME_GREEN systems=",
