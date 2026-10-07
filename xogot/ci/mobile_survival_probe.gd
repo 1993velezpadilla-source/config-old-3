@@ -178,6 +178,22 @@ func _run() -> void:
 		return
 	print("XZOGOT_WALTHER_PAP_AUTO_SOURCE_GREEN hyperburst_pending=5@500")
 
+	for source_auto_id: String in ["m1a1", "svt40"]:
+		if not bool(weapon.call("equip_weapon", source_auto_id, true)):
+			_fail(77, "could not equip source PaP auto weapon " + source_auto_id)
+			return
+		if not bool(weapon.call("upgrade_current_weapon")):
+			_fail(78, "could not Pack-a-Punch source auto weapon " + source_auto_id)
+			return
+		var source_auto_stats: Dictionary = weapon.call("get_runtime_stats") as Dictionary
+		if (
+			str(source_auto_stats.get("pack_fire_type", "")) != "E_FireType::NewEnumerator1"
+			or not bool(weapon.call("is_automatic"))
+		):
+			_fail(79, "PaP source full-auto SelectFire mismatch " + source_auto_id)
+			return
+	print("XZOGOT_PAP_SELECTFIRE_SOURCE_GREEN m1a1=auto svt40=auto")
+
 	for skin_path: String in [
 		"res://assets/hud/latest_12/hud_ads.webp",
 		"res://assets/hud/latest_12/hud_ads_fire.webp",

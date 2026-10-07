@@ -105,9 +105,13 @@
       "clip_ammo": 30,
       "reserve_ammo": 210,
       "pellet_count": 8,
-      "unsupported_changed_fields": [
-        "Enums.SelectFire"
-      ]
+      "unsupported_changed_fields": [],
+      "fire_type_enum": "E_FireType::NewEnumerator1",
+      "burst_delay_s": 0,
+      "shot_delay_s": 0,
+      "burst_shots": 0,
+      "hyperburst_rpm": 0,
+      "hyperburst_bullets": 0
     },
     "kar98k": {
       "row": 7,
@@ -351,9 +355,14 @@
       "reserve_ammo": 160,
       "pellet_count": 8,
       "unsupported_changed_fields": [
-        "Enums.SelectFire",
         "WeaponStats.Damage.MaxPenetration"
-      ]
+      ],
+      "fire_type_enum": "E_FireType::NewEnumerator1",
+      "burst_delay_s": 0,
+      "shot_delay_s": 0,
+      "burst_shots": 0,
+      "hyperburst_rpm": 0,
+      "hyperburst_bullets": 0
     },
     "tt33": {
       "row": 178,

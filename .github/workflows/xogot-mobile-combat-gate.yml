@@ -70,6 +70,7 @@ jobs:
           grep -q "XZOGOT_PACK_SOURCE_TABLE_GREEN" build/xogot-mobile/mobile-survival-probe.log
           grep -q "XZOGOT_TT33_PAP_BURST_SOURCE_GREEN" build/xogot-mobile/mobile-survival-probe.log
           grep -q "XZOGOT_WALTHER_PAP_AUTO_SOURCE_GREEN" build/xogot-mobile/mobile-survival-probe.log
+          grep -q "XZOGOT_PAP_SELECTFIRE_SOURCE_GREEN" build/xogot-mobile/mobile-survival-probe.log
           grep -q "XZOGOT_MOBILE_PISTOL_AUTOFIRE_GREEN" build/xogot-mobile/mobile-survival-probe.log
           grep -q "XZOGOT_MOBILE_RELEASE_FIRE_GREEN" build/xogot-mobile/mobile-survival-probe.log
           grep -q "XZOGOT_SPRINT_RELOAD_PRESERVED_GREEN" build/xogot-mobile/mobile-survival-probe.log
