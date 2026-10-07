@@ -165,9 +165,9 @@ static func _material_paths(system: Dictionary, descriptor: Dictionary) -> Array
 
 
 static func _source_material(loader: Node, path: String) -> StandardMaterial3D:
-	if loader == null or path.is_empty() or not loader.has_method("_material_for_path"):
+	if loader == null or path.is_empty() or not loader.has_method("resolve_source_material"):
 		return null
-	var raw: Variant = loader.call("_material_for_path", path)
+	var raw: Variant = loader.call("resolve_source_material", path)
 	if not (raw is StandardMaterial3D):
 		return null
 	var duplicated: Resource = (raw as StandardMaterial3D).duplicate(true)
