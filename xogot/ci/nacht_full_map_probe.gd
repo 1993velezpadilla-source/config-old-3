@@ -687,6 +687,16 @@ func _run() -> void:
 	var particle_fire00_light_count := int(scene.get_meta("source_particle_fire00_light_count", -1))
 	var particle_fire00_disabled_skel := int(scene.get_meta("source_particle_fire00_disabled_skel_surface_count", -1))
 	var particle_fire00_peaks: Array = scene.get_meta("source_particle_fire00_lod_peaks", []) as Array
+	var particle_fire14_emitters := int(scene.get_meta("source_particle_fire14_emitter_count", -1))
+	var particle_fire14_lods := int(scene.get_meta("source_particle_fire14_lod_count", -1))
+	var particle_fire14_materials: Array = scene.get_meta("source_particle_fire14_material_paths", []) as Array
+	var particle_fire14_lifetimes: Array = scene.get_meta("source_particle_fire14_lifetime_ranges", []) as Array
+	var particle_fire14_spawn_rates: Array = scene.get_meta("source_particle_fire14_spawn_rates", []) as Array
+	var particle_fire14_dynamic_modules := int(scene.get_meta("source_particle_fire14_dynamic_module_count", -1))
+	var particle_fire14_dynamic_params := int(scene.get_meta("source_particle_fire14_dynamic_parameter_count", -1))
+	var particle_fire14_light_count := int(scene.get_meta("source_particle_fire14_light_count", -1))
+	var particle_fire14_disabled_skel := int(scene.get_meta("source_particle_fire14_disabled_skel_surface_count", -1))
+	var particle_fire14_peaks: Array = scene.get_meta("source_particle_fire14_lod_peaks", []) as Array
 	var source_particles := int(scene.get_meta("source_particle_component_count", -1))
 	var particle_authority := int(scene.get_meta("runtime_particle_authority_count", -1))
 	var source_particle_systems := int(scene.get_meta("source_particle_system_count", -1))
@@ -799,14 +809,14 @@ func _run() -> void:
 		if not particle_semantic_ready:
 			_fail(34, "source-complete Cascade semantic runtime is not ready")
 			return
-		if particle_semantic_systems != 15 or particle_semantic_placements != 27:
+		if particle_semantic_systems != 16 or particle_semantic_placements != 29:
 			_fail(
 				34,
 				"Cascade semantic runtime coverage mismatch systems=%d placements=%d"
 				% [particle_semantic_systems, particle_semantic_placements]
 			)
 			return
-		if get_nodes_in_group("nacht_source_particle_semantic").size() != 27:
+		if get_nodes_in_group("nacht_source_particle_semantic").size() != 29:
 			_fail(34, "Cascade semantic placement group mismatch")
 			return
 		if (
@@ -1458,6 +1468,67 @@ func _run() -> void:
 					particle_fire00_light_count,
 					particle_fire00_disabled_skel,
 					particle_fire00_peaks,
+				]
+			)
+			return
+		var fire14_spawn_expected := [
+			0.29999998, 0.99999994, 1.4999999, 1.9999999,
+			3.0, 4.9999995, 4.9999995, 10.0, 15.0, 20.0, 30.0, 50.0,
+		]
+		var fire14_spawn_ok := particle_fire14_spawn_rates.size() == fire14_spawn_expected.size()
+		if fire14_spawn_ok:
+			for i in range(fire14_spawn_expected.size()):
+				if not is_equal_approx(float(particle_fire14_spawn_rates[i]), float(fire14_spawn_expected[i])):
+					fire14_spawn_ok = false
+					break
+		var fire14_lifetimes_ok := (
+			particle_fire14_lifetimes.size() == 6
+			and particle_fire14_lifetimes[0] is Vector2
+			and (particle_fire14_lifetimes[0] as Vector2).is_equal_approx(Vector2(0.5, 1.0))
+			and particle_fire14_lifetimes[1] is Vector2
+			and (particle_fire14_lifetimes[1] as Vector2).is_equal_approx(Vector2(0.5, 1.0))
+			and particle_fire14_lifetimes[2] is Vector2
+			and (particle_fire14_lifetimes[2] as Vector2).is_equal_approx(Vector2(0.75, 1.25))
+			and particle_fire14_lifetimes[3] is Vector2
+			and (particle_fire14_lifetimes[3] as Vector2).is_equal_approx(Vector2(0.75, 2.0))
+			and particle_fire14_lifetimes[4] is Vector2
+			and (particle_fire14_lifetimes[4] as Vector2).is_equal_approx(Vector2(3.0, 5.0))
+			and particle_fire14_lifetimes[5] is Vector2
+			and (particle_fire14_lifetimes[5] as Vector2).is_equal_approx(Vector2(3.0, 5.0))
+		)
+		var fire14_peaks_expected := [4, 4, 7, 7, 12, 12, 15, 17, 22, 32, 77, 102]
+		var fire14_peaks_ok := particle_fire14_peaks.size() == fire14_peaks_expected.size()
+		if fire14_peaks_ok:
+			for i in range(fire14_peaks_expected.size()):
+				if int(particle_fire14_peaks[i]) != int(fire14_peaks_expected[i]):
+					fire14_peaks_ok = false
+					break
+		if (
+			particle_fire14_emitters != 6
+			or particle_fire14_lods != 12
+			or particle_fire14_materials.size() != 6
+			or not fire14_lifetimes_ok
+			or not fire14_spawn_ok
+			or particle_fire14_dynamic_modules != 2
+			or particle_fire14_dynamic_params != 8
+			or particle_fire14_light_count != 1
+			or particle_fire14_disabled_skel != 1
+			or not fire14_peaks_ok
+		):
+			_fail(
+				34,
+				"Fire_14 Cascade summary mismatch emitters=%d lods=%d materials=%d lifetimes=%s spawn=%s dynamic=%d/%d light=%d disabled_skel=%d peaks=%s"
+				% [
+					particle_fire14_emitters,
+					particle_fire14_lods,
+					particle_fire14_materials.size(),
+					particle_fire14_lifetimes,
+					particle_fire14_spawn_rates,
+					particle_fire14_dynamic_modules,
+					particle_fire14_dynamic_params,
+					particle_fire14_light_count,
+					particle_fire14_disabled_skel,
+					particle_fire14_peaks,
 				]
 			)
 			return
