@@ -222,6 +222,79 @@ class MaterialGraphResolverTests(unittest.TestCase):
             "/Game/Test/T_Fire.T_Fire",
         )
 
+    def test_unique_direct_uv_texture_candidate(self):
+        root = {
+            "materials": [
+                {
+                    "objectPath": "/Game/Test/M.M",
+                    "exportType": "Material",
+                    "semanticBaseMaterialPath": "/Game/Test/M.M",
+                    "blendMode": "BLEND_Translucent",
+                    "shadingModel": "MSM_Unlit",
+                    "rawMaterialProperties": [
+                        {
+                            "name": "EmissiveColor",
+                            "value": {
+                                "kind": "FExpressionInput",
+                                "expressionName": "MaterialExpressionMultiply_1",
+                                "resolvedExpression": None,
+                            },
+                        },
+                    ],
+                    "expressionGraph": [
+                        {
+                            "loaded": True,
+                            "exportType": "MaterialExpressionTextureSample",
+                            "objectPath": "/Game/Test/M.M:Primary",
+                            "properties": [
+                                {
+                                    "name": "Texture",
+                                    "value": {
+                                        "kind": "FPackageIndex",
+                                        "path": "Texture2D'/Game/Test/Primary.Primary'",
+                                    },
+                                },
+                            ],
+                        },
+                        {
+                            "loaded": True,
+                            "exportType": "MaterialExpressionTextureSample",
+                            "objectPath": "/Game/Test/M.M:Panned",
+                            "properties": [
+                                {
+                                    "name": "Coordinates",
+                                    "value": {
+                                        "kind": "FExpressionInput",
+                                        "expressionName": "MaterialExpressionPanner_0",
+                                    },
+                                },
+                                {
+                                    "name": "Texture",
+                                    "value": {
+                                        "kind": "FPackageIndex",
+                                        "path": "Texture2D'/Game/Test/Ripple.Ripple'",
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                    "textures": [
+                        {"parameter": "ExpressionTexture_0_Texture", "objectPath": "/Game/Test/Primary.Primary"},
+                        {"parameter": "ExpressionTexture_1_Texture", "objectPath": "/Game/Test/Ripple.Ripple"},
+                    ],
+                    "colors": [],
+                    "scalars": [],
+                    "switches": [],
+                },
+            ]
+        }
+        resolved = resolve_instance(root, "/Game/Test/M.M")
+        self.assertEqual(resolved["graphStatus"], "partial")
+        self.assertEqual(
+            resolved["partialPrimaryTextureCandidate"],
+            "/game/test/primary.primary",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
