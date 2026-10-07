@@ -1,0 +1,76 @@
+name: Xogot Nacht Particle Material Audit
+
+on:
+  push:
+    branches:
+      - wip/nacht-cascade-system-isolation-v1
+    paths:
+      - ".github/workflows/xogot-nacht-particle-material-audit.yml"
+      - "xogot/ci/nacht_particle_material_audit.gd"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: "37623273042"
+      SOURCE_ARTIFACT: "Xogot-Nacht-Chronicles-Godot-Runtime"
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Download corrected staged runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf wip-stage xogot/assets/benchmarks/nacht_chronicles
+          mkdir -p wip-stage xogot/assets/benchmarks/nacht_chronicles
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
+            --name "$SOURCE_ARTIFACT" --dir wip-stage
+          manifest=$(find wip-stage -type f -name source_manifest.json -print -quit)
+          test -n "$manifest"
+          artifact_root=$(dirname "$manifest")
+          cp -a "$artifact_root/." xogot/assets/benchmarks/nacht_chronicles/
+
+      - name: Install Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq unzip curl libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+
+      - name: Import corrected runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 1200 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit 2>&1 | tee /tmp/nacht-material-import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|MAX_MESH_SURFACES" \
+            /tmp/nacht-material-import.log
+
+      - name: Audit all particle draw materials
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 600 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot \
+            --script res://ci/nacht_particle_material_audit.gd \
+            2>&1 | tee /tmp/nacht-particle-material-audit.log
+          grep -q "XZOGOT_NACHT_PARTICLE_MATERIAL_AUDIT_GREEN" /tmp/nacht-particle-material-audit.log
+          ! grep -E "SCRIPT ERROR|Parse Error|XZOGOT_NACHT_PARTICLE_MATERIAL_AUDIT_FAILURE" \
+            /tmp/nacht-particle-material-audit.log
