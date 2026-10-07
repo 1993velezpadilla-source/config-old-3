@@ -44,6 +44,7 @@ var _material_cache: Dictionary = {}
 var _texture_cache: Dictionary = {}
 var _material_records: Dictionary = {}
 var _texture_runtime_files: Dictionary = {}
+var _texture_runtime_files_canonical: Dictionary = {}
 var _source_srgb_texture_paths: Array[String] = []
 var _source_effective_material_paths: Dictionary = {}
 var _source_material_alias_diffuse: Dictionary = {}
@@ -389,6 +390,7 @@ func _read_json(path: String) -> Dictionary:
 func _prepare_material_authority() -> void:
 	_material_records.clear()
 	_texture_runtime_files.clear()
+	_texture_runtime_files_canonical.clear()
 	_source_srgb_texture_paths.clear()
 	_source_effective_material_paths.clear()
 	_source_material_alias_diffuse.clear()
@@ -455,9 +457,25 @@ func _prepare_material_authority() -> void:
 				var source_path := str(texture_row.get("sourcePath", ""))
 				if source_path.is_empty():
 					continue
-				_texture_runtime_files[source_path] = str(
-					texture_row.get("runtimeFile", "")
-				)
+				var runtime_file := str(texture_row.get("runtimeFile", ""))
+				_texture_runtime_files[source_path] = runtime_file
+				var canonical_texture_path := _canonical_source_object_path(source_path)
+				if not canonical_texture_path.is_empty():
+					var previous_runtime := str(
+						_texture_runtime_files_canonical.get(
+							canonical_texture_path,
+							""
+						)
+					)
+					if previous_runtime.is_empty() or previous_runtime == runtime_file:
+						_texture_runtime_files_canonical[canonical_texture_path] = runtime_file
+					else:
+						push_error(
+							"XZIEL benchmark canonical texture collision "
+							+ canonical_texture_path
+							+ " previous=" + previous_runtime
+							+ " current=" + runtime_file
+						)
 				if bool(texture_row.get("srgb", false)) and not _source_srgb_texture_paths.has(source_path):
 					_source_srgb_texture_paths.append(source_path)
 	set_meta("xziel_benchmark_complete_texture_catalog_count", _texture_runtime_files.size())
@@ -1511,9 +1529,19 @@ func _source_scalar(record: Dictionary, token: String, fallback: float) -> float
 func _texture_for_source(source_path: String) -> Texture2D:
 	if source_path.is_empty():
 		return null
+	var canonical_path := _canonical_source_object_path(source_path)
 	if _texture_cache.has(source_path):
 		return _texture_cache[source_path] as Texture2D
+	if not canonical_path.is_empty() and _texture_cache.has(canonical_path):
+		var canonical_cached := _texture_cache[canonical_path] as Texture2D
+		_texture_cache[source_path] = canonical_cached
+		return canonical_cached
+
 	var runtime_file := str(_texture_runtime_files.get(source_path, ""))
+	if runtime_file.is_empty() and not canonical_path.is_empty():
+		runtime_file = str(
+			_texture_runtime_files_canonical.get(canonical_path, "")
+		)
 	if runtime_file.is_empty():
 		return null
 
@@ -1525,6 +1553,8 @@ func _texture_for_source(source_path: String) -> Texture2D:
 		texture = _load_xztexture(runtime_file)
 	if texture != null:
 		_texture_cache[source_path] = texture
+		if not canonical_path.is_empty():
+			_texture_cache[canonical_path] = texture
 	return texture
 
 func _load_decoded_texture(runtime_file: String) -> Texture2D:
