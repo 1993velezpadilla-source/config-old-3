@@ -222,5 +222,36 @@ class CascadeDistributionDecoderTests(unittest.TestCase):
 
 
 
+    def test_vector_table_uses_ue_constructor_defaults_when_omitted(self):
+        table = {
+            "EntryCount": 1,
+            "EntryStride": 3,
+            "Op": RDO_NONE,
+            "Values": [13.0, 13.0, 1.0],
+        }
+        decoded = decode_lookup_table(table)
+        self.assertEqual(decoded["dimension"], 3)
+        self.assertEqual(decoded["subEntryStride"], 0)
+        self.assertEqual(decoded["timeScale"], 0.0)
+        self.assertEqual(decoded["timeBias"], 0.0)
+        self.assertEqual(decoded["kind"], "constant_curve")
+        self.assertEqual(
+            decoded["keys"][0]["value"],
+            [13.0, 13.0, 1.0],
+        )
+
+    def test_scalar_table_uses_ue_constructor_defaults_when_omitted(self):
+        table = {
+            "EntryCount": 1,
+            "EntryStride": 1,
+            "Op": RDO_NONE,
+            "Values": [2.75],
+        }
+        decoded = decode_lookup_table(table)
+        self.assertEqual(decoded["dimension"], 1)
+        self.assertEqual(decoded["keys"][0]["value"], 2.75)
+
+
+
 if __name__ == "__main__":
     unittest.main()
