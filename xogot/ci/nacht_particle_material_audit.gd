@@ -5,6 +5,8 @@ const PARTICLE_GRAPHS := "res://assets/benchmarks/nacht_chronicles/nacht-particl
 const PARTICLE_RUNTIME_AUTHORITY := "res://assets/benchmarks/nacht_chronicles/nacht-particle-runtime-authority.json"
 const MATERIAL_BINDINGS_PATH := "res://assets/benchmarks/nacht_chronicles/material-binding-manifest.json"
 const MONSTER_FIRE_MATERIAL := "/Game/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Materials/Fire/M_Fire_Sheet_01_INST.M_Fire_Sheet_01_INST"
+const MONSTER_FIRE_DIFFUSE := "/Game/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Textures/Fire/T_FireBlastTile.T_FireBlastTile"
+const MONSTER_FIRE_EMISSIVE := "/Game/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Textures/Tile/T_Black_32.T_Black_32"
 
 func _init() -> void:
 	call_deferred("_audit")
@@ -419,6 +421,56 @@ func _audit_activation_runtime() -> bool:
 	print("XZOGOT_NACHT_PARTICLE_ACTIVATION_RUNTIME_GREEN")
 	return true
 
+
+func _gate_monster_fire_runtime(visuals: Array[Node]) -> bool:
+	var matches := 0
+	for raw: Node in visuals:
+		if not (raw is GPUParticles3D):
+			continue
+		var particles := raw as GPUParticles3D
+		if str(particles.get_meta("source_particle_material_path", "")) != MONSTER_FIRE_MATERIAL:
+			continue
+		var mesh := particles.draw_pass_1
+		if mesh == null or mesh.get_surface_count() <= 0:
+			continue
+		var material := mesh.surface_get_material(0) as StandardMaterial3D
+		if material == null:
+			continue
+		matches += 1
+		var diffuse_path := str(material.get_meta("source_resolved_diffuse_path", ""))
+		var emissive_path := str(material.get_meta("source_resolved_emissive_path", ""))
+		var good := (
+			diffuse_path == MONSTER_FIRE_DIFFUSE
+			and emissive_path == MONSTER_FIRE_EMISSIVE
+			and material.albedo_texture != null
+			and material.emission_texture != null
+			and material.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED
+			and material.blend_mode == BaseMaterial3D.BLEND_MODE_ADD
+			and str(material.get_meta("source_blend_mode", "")) == "BLEND_Additive"
+		)
+		print(
+			"XZOGOT_NACHT_MONSTER_FIRE_RUNTIME ",
+			"node=", particles.name,
+			" diffuse=", diffuse_path,
+			" emissive=", emissive_path,
+			" albedo_texture=", material.albedo_texture != null,
+			" emission_texture=", material.emission_texture != null,
+			" transparency=", int(material.transparency),
+			" blend=", int(material.blend_mode),
+			" good=", good
+		)
+		if not good:
+			push_error("XZOGOT_NACHT_PARTICLE_MATERIAL_AUDIT_FAILURE monster_fire_runtime_binding")
+			return false
+	if matches != 1:
+		push_error(
+			"XZOGOT_NACHT_PARTICLE_MATERIAL_AUDIT_FAILURE monster_fire_match_count="
+			+ str(matches)
+		)
+		return false
+	print("XZOGOT_NACHT_MONSTER_FIRE_RUNTIME_GREEN")
+	return true
+
 func _audit() -> void:
 	var packed := load("res://nacht_full_map.tscn") as PackedScene
 	if packed == null:
@@ -448,6 +500,9 @@ func _audit() -> void:
 		return
 
 	var visuals := get_nodes_in_group("nacht_source_particle_visual")
+	if not _gate_monster_fire_runtime(visuals):
+		quit(5)
+		return
 	var rows := 0
 	for raw: Node in visuals:
 		var parent := raw.get_parent()
