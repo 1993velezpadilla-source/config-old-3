@@ -1,0 +1,287 @@
+{
+  "schema": 1,
+  "source": "Project Aether UE5.7 /Game/Assets/Data/DataTables/DT_Weapons",
+  "weapon_count": 28,
+  "weapons": {
+    "357": {
+      "row": 15,
+      "name": ".357 Magnum",
+      "ads_in": 0.15,
+      "ads_out": 0.15,
+      "ads_fov_mult": 1,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 2,
+      "sprint_scale": 0.9
+    },
+    "colt": {
+      "row": 1,
+      "name": "Colt M1911",
+      "ads_in": 0.1,
+      "ads_out": 0.1,
+      "ads_fov_mult": 1,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 2,
+      "sprint_scale": 0.9
+    },
+    "stg": {
+      "row": 2,
+      "name": "STG-44",
+      "ads_in": 0.25,
+      "ads_out": 0.25,
+      "ads_fov_mult": 1,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 1,
+      "sprint_scale": 0.9
+    },
+    "trench": {
+      "row": 3,
+      "name": "M1897 Trench Gun",
+      "ads_in": 0.2,
+      "ads_out": 0.2,
+      "ads_fov_mult": 1,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 1,
+      "sprint_scale": 0.85
+    },
+    "browning": {
+      "row": 4,
+      "name": "Browning M1919",
+      "ads_in": 0.5,
+      "ads_out": 0.5,
+      "ads_fov_mult": 1,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 1,
+      "sprint_scale": 0.9
+    },
+    "mp40": {
+      "row": 5,
+      "name": "MP40",
+      "ads_in": 0.2,
+      "ads_out": 0.2,
+      "ads_fov_mult": 1,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 1,
+      "sprint_scale": 0.9
+    },
+    "m1a1": {
+      "row": 6,
+      "name": "M1A1 Carbine",
+      "ads_in": 0.25,
+      "ads_out": 0.25,
+      "ads_fov_mult": 1,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 1,
+      "sprint_scale": 0.9
+    },
+    "kar98k": {
+      "row": 7,
+      "name": "Kar98k",
+      "ads_in": 0.25,
+      "ads_out": 0.25,
+      "ads_fov_mult": 1.33,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 1,
+      "sprint_scale": 0.9
+    },
+    "thompson": {
+      "row": 8,
+      "name": "Thompson",
+      "ads_in": 0.2,
+      "ads_out": 0.2,
+      "ads_fov_mult": 1,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 1,
+      "sprint_scale": 0.9
+    },
+    "doublebarrel": {
+      "row": 9,
+      "name": "Double Barrel Shotgun",
+      "ads_in": 0.2,
+      "ads_out": 0.2,
+      "ads_fov_mult": 1,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 1,
+      "sprint_scale": 0.9
+    },
+    "sawnoff": {
+      "row": 10,
+      "name": "Sawed-Off Shotgun",
+      "ads_in": 0.2,
+      "ads_out": 0.2,
+      "ads_fov_mult": 1,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 1,
+      "sprint_scale": 0.9
+    },
+    "bar": {
+      "row": 11,
+      "name": "BAR",
+      "ads_in": 0.35,
+      "ads_out": 0.35,
+      "ads_fov_mult": 1,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 1,
+      "sprint_scale": 0.85
+    },
+    "m1": {
+      "row": 14,
+      "name": "M1 Garand",
+      "ads_in": 0.25,
+      "ads_out": 0.25,
+      "ads_fov_mult": 1,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 1,
+      "sprint_scale": 0.9
+    },
+    "ptrs": {
+      "row": 16,
+      "name": "PTRS-41",
+      "ads_in": 0.4,
+      "ads_out": 0.6,
+      "ads_fov_mult": 1,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 1,
+      "sprint_scale": 0.82
+    },
+    "gewehr": {
+      "row": 17,
+      "name": "Gewehr 43",
+      "ads_in": 0.25,
+      "ads_out": 0.25,
+      "ads_fov_mult": 1,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 1,
+      "sprint_scale": 0.9
+    },
+    "ppsh": {
+      "row": 18,
+      "name": "PPSh-41",
+      "ads_in": 0.2,
+      "ads_out": 0.2,
+      "ads_fov_mult": 1,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 1,
+      "sprint_scale": 0.9
+    },
+    "type100": {
+      "row": 19,
+      "name": "Type 100",
+      "ads_in": 0.2,
+      "ads_out": 0.2,
+      "ads_fov_mult": 1,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 1,
+      "sprint_scale": 0.85
+    },
+    "fg42": {
+      "row": 20,
+      "name": "FG42",
+      "ads_in": 0.35,
+      "ads_out": 0.35,
+      "ads_fov_mult": 1,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 1,
+      "sprint_scale": 0.85
+    },
+    "mg42": {
+      "row": 21,
+      "name": "MG42",
+      "ads_in": 0.5,
+      "ads_out": 0.5,
+      "ads_fov_mult": 1,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 1,
+      "sprint_scale": 0.85
+    },
+    "dp28": {
+      "row": 171,
+      "name": "DP-28",
+      "ads_in": 0.35,
+      "ads_out": 0.35,
+      "ads_fov_mult": 1,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 1,
+      "sprint_scale": 0.85
+    },
+    "type99": {
+      "row": 172,
+      "name": "Type 99",
+      "ads_in": 0.35,
+      "ads_out": 0.35,
+      "ads_fov_mult": 1,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 1,
+      "sprint_scale": 0.85
+    },
+    "nambu": {
+      "row": 173,
+      "name": "Nambu",
+      "ads_in": 0.1,
+      "ads_out": 0.1,
+      "ads_fov_mult": 1,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 2,
+      "sprint_scale": 0.9
+    },
+    "springfield": {
+      "row": 174,
+      "name": "Springfield",
+      "ads_in": 0.25,
+      "ads_out": 0.25,
+      "ads_fov_mult": 1.33,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 1,
+      "sprint_scale": 0.85
+    },
+    "arisaka": {
+      "row": 175,
+      "name": "Arisaka",
+      "ads_in": 0.4,
+      "ads_out": 0.6,
+      "ads_fov_mult": 1.33,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 1,
+      "sprint_scale": 0.9
+    },
+    "mosin": {
+      "row": 176,
+      "name": "Mosin-Nagant",
+      "ads_in": 0.4,
+      "ads_out": 0.6,
+      "ads_fov_mult": 1.33,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 1,
+      "sprint_scale": 0.9
+    },
+    "svt40": {
+      "row": 177,
+      "name": "SVT-40",
+      "ads_in": 0.25,
+      "ads_out": 0.25,
+      "ads_fov_mult": 1,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 1,
+      "sprint_scale": 0.9
+    },
+    "tt33": {
+      "row": 178,
+      "name": "Tokarev TT-33",
+      "ads_in": 0.1,
+      "ads_out": 0.1,
+      "ads_fov_mult": 1,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 2,
+      "sprint_scale": 0.9
+    },
+    "walther": {
+      "row": 179,
+      "name": "Walther P38",
+      "ads_in": 0.1,
+      "ads_out": 0.1,
+      "ads_fov_mult": 1,
+      "move_speed_scale": 1,
+      "ads_move_speed_scale": 2,
+      "sprint_scale": 0.9
+    }
+  }
+}
