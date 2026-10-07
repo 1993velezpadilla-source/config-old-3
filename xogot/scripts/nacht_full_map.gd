@@ -1606,11 +1606,11 @@ func _run_source_blueprint_particle_event_timeline(
 		if not (raw_step is Dictionary):
 			continue
 		var step := raw_step as Dictionary
-		var at_seconds := max(
+		var at_seconds: float = maxf(
 			0.0,
 			float(step.get("atSeconds", 0.0))
 		)
-		var delay := max(0.0, at_seconds - elapsed)
+		var delay: float = maxf(0.0, at_seconds - elapsed)
 		if delay > 0.0:
 			await get_tree().create_timer(delay).timeout
 		if int(_source_particle_event_generation.get(key, 0)) != generation:
