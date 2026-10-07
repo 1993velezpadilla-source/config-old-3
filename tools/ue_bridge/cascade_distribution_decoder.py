@@ -23,14 +23,17 @@ RDO_NONE = 1
 RDO_RANDOM = 2
 RDO_EXTREME = 3
 UNIFORM_OPS = {RDO_RANDOM, RDO_EXTREME}
-TABLE_KEYS = {
+REQUIRED_TABLE_KEYS = {
     "EntryCount",
     "EntryStride",
-    "SubEntryStride",
     "Op",
-    "TimeScale",
-    "TimeBias",
     "Values",
+}
+UE_TABLE_DEFAULTS = {
+    "SubEntryStride": 0,
+    "TimeScale": 0.0,
+    "TimeBias": 0.0,
+    "LockFlag": 0,
 }
 
 
@@ -103,10 +106,15 @@ def _table_dict(raw: Any) -> dict[str, Any]:
     table = unwrap(raw)
     if not isinstance(table, dict):
         raise DistributionDecodeError("lookup table is not an object")
-    missing = TABLE_KEYS.difference(table)
+    missing = REQUIRED_TABLE_KEYS.difference(table)
     if missing:
-        raise DistributionDecodeError("lookup table missing " + ",".join(sorted(missing)))
-    return table
+        raise DistributionDecodeError(
+            "lookup table missing " + ",".join(sorted(missing))
+        )
+    normalized = dict(table)
+    for key, value in UE_TABLE_DEFAULTS.items():
+        normalized.setdefault(key, value)
+    return normalized
 
 
 def infer_dimension(table: dict[str, Any]) -> int:
@@ -211,8 +219,8 @@ def iter_lookup_tables(root: Any, path: str = "$") -> Iterable[tuple[str, dict[s
 
     def visit(value: Any, current: str) -> Iterable[tuple[str, dict[str, Any]]]:
         if isinstance(value, dict):
-            if TABLE_KEYS.issubset(value):
-                yield current, value
+            if REQUIRED_TABLE_KEYS.issubset(value):
+                yield current, _table_dict(value)
                 return
             for key, child in value.items():
                 yield from visit(child, current + "." + str(key))
