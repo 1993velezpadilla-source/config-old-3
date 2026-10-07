@@ -32,39 +32,43 @@ jobs:
       - name: Reuse proven UE5.7 mappings
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
+          $ErrorActionPreference='Stop'
           $dir="$env:RUNNER_TEMP\mapping-artifact"
           New-Item -ItemType Directory -Force -Path $dir | Out-Null
           gh run download "$env:SOURCE_MAPPING_RUN" -n aether-waw-usmap-real-weapons -D $dir
+          if($LASTEXITCODE -ne 0){throw 'mapping artifact download failed'}
           $map=Get-ChildItem $dir -Filter 'Mappings.usmap' -Recurse | Select-Object -First 1
-          if (-not $map) { throw 'Mappings.usmap missing' }
+          if(-not $map){throw 'Mappings.usmap missing'}
           Copy-Item $map.FullName "$PWD\Mappings.usmap"
           Write-Host "XZOGOT_AETHER_KISMET_USMAP_READY"
 
       - name: Download Project Aether source runtime
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
+          $ErrorActionPreference='Stop'
           $downloadDir="$env:RUNNER_TEMP\aether-download"
           New-Item -ItemType Directory -Force -Path $downloadDir | Out-Null
           $zip=$null
-          for ($attempt=1; $attempt -le 6; $attempt++) {
+          for($attempt=1;$attempt -le 6;$attempt++){
             Write-Host "XZOGOT_AETHER_DOWNLOAD_ATTEMPT $attempt"
             npx --yes itchio-downloader --url "https://verrial.itch.io/projectaether" --downloadDirectory $downloadDir
             $rc=$LASTEXITCODE
             $zip=Get-ChildItem $downloadDir -Filter '*.zip' -Recurse |
               Sort-Object Length -Descending | Select-Object -First 1
-            if ($rc -eq 0 -and $zip) { break }
-            if ($attempt -lt 6) { Start-Sleep -Seconds (45 + ($attempt * 30)) }
+            if($rc -eq 0 -and $zip){break}
+            if($attempt -lt 6){Start-Sleep -Seconds (45 + ($attempt * 30))}
           }
-          if (-not $zip) { throw 'Aether ZIP missing' }
+          if(-not $zip){throw 'Aether ZIP missing'}
           $pakRoot="$env:RUNNER_TEMP\aether-paks"
           New-Item -ItemType Directory -Force -Path $pakRoot | Out-Null
           7z x -y $zip.FullName 'ProjectAether/Content/Paks/*' "-o$pakRoot" | Out-Host
           $pakDir=Get-ChildItem $pakRoot -Directory -Recurse |
-            Where-Object { $_.Name -eq 'Paks' -and (Get-ChildItem $_.FullName -Filter '*.utoc' -ErrorAction SilentlyContinue) } |
+            Where-Object {
+              $_.Name -eq 'Paks' -and
+              (Get-ChildItem $_.FullName -Filter '*.utoc' -ErrorAction SilentlyContinue)
+            } |
             Select-Object -First 1
-          if (-not $pakDir) { throw 'Aether IoStore Paks missing' }
+          if(-not $pakDir){throw 'Aether IoStore Paks missing'}
           "AETHER_PAKDIR=$($pakDir.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "XZOGOT_AETHER_KISMET_PAKS_READY"
 
@@ -74,107 +78,15 @@ jobs:
           $ErrorActionPreference='Stop'
           $release=Invoke-RestMethod -Headers @{ 'User-Agent'='xogot-ci' } 'https://api.github.com/repos/trumank/retoc/releases/latest'
           $asset=$release.assets |
-            Where-Object { $_.name -match '(?i)(windows|pc-windows-msvc).*\.zip
-        with:
-          dotnet-version: "10.0.x"
-
-      - name: Build CUE4Parse Blueprint truth extractor
-        shell: pwsh
-        run: |
-          $ErrorActionPreference='Stop'
-          dotnet restore tools/maps/UENuketownGameplayTruth/UENuketownGameplayTruth.csproj
-          dotnet build tools/maps/UENuketownGameplayTruth/UENuketownGameplayTruth.csproj -c Release --no-restore
-          if($LASTEXITCODE -ne 0){throw 'CUE4Parse Blueprint truth build failed'}
-
-      - name: Decompile weapon Kismet authority from loose UE5.7 assets
-        shell: pwsh
-        run: |
-          $ErrorActionPreference='Stop'
-          New-Item -ItemType Directory -Force -Path build/aether-kismet | Out-Null
-          $app='tools/maps/UENuketownGameplayTruth/bin/Release/net10.0/UENuketownGameplayTruth.dll'
-          $toolArgs=@(
-            "$env:AETHER_LEGACY_ROOT",
-            'Mappings.usmap',
-            'build/aether-kismet/weapon-kismet.json',
-            'BP_WeaponBase.uasset',
-            'BP_ExplosiveTracer.uasset',
-            'BP_Master_SplashDamage.uasset'
-          )
-          & dotnet $app @toolArgs 2>&1 | Tee-Object build/aether-kismet/extract.log
-          $rc=$LASTEXITCODE
-          if($rc -ne 0){throw "CUE4Parse loose Kismet extraction failed $rc"}
-
-      - name: Prove burst hyperburst and splash source graph
-        shell: pwsh
-        run: |
-          @'
-          import json,re
-          from pathlib import Path
-          p=Path("build/aether-kismet/weapon-kismet.json")
-          d=json.loads(p.read_text())
-          assert d["ready"] is True,d
-          assert d["packageSuccessCount"]==3,d
-          assert d["packageFailureCount"]==0,d
-          assert d["dumpedFunctionsWithBytecode"]>0,d
-
-          proof={}
-          for pkg in d["packages"]:
-              key=Path(pkg["packagePath"]).stem
-              functions={}
-              pseudos=[]
-              for ex in pkg["exports"]:
-                  name=ex.get("name","")
-                  if int(ex.get("scriptStatementCount") or 0)>0:
-                      functions[name]={
-                          "scriptStatementCount":ex["scriptStatementCount"],
-                          "scriptBytecode":ex.get("scriptBytecode"),
-                      }
-                  for fn in ex.get("classFunctions") or []:
-                      fn_name=fn.get("name","")
-                      if int(fn.get("scriptStatementCount") or 0)>0:
-                          functions[fn_name]=fn
-                  pseudo=ex.get("decompiledPseudo")
-                  if pseudo:
-                      pseudos.append(pseudo)
-              proof[key]={
-                  "packagePath":pkg["packagePath"],
-                  "functions":functions,
-                  "decompiledPseudo":"\n\n".join(pseudos),
-              }
-
-          base=proof.get("BP_WeaponBase",{})
-          names=set(base.get("functions",{}))
-          required={"TryFire","TryBurst","BurstStep","FinishBurst","OnFireReleased","DoubleTapFireRate","AutoFireTick"}
-          missing=sorted(required-names)
-          assert not missing,{"missing":missing,"available":sorted(names)}
-          assert "BP_ExplosiveTracer" in proof,proof.keys()
-          assert "BP_Master_SplashDamage" in proof,proof.keys()
-
-          Path("build/aether-kismet/weapon-kismet-proof.json").write_text(
-              json.dumps(proof,indent=2)+"\n")
-          print("XZOGOT_AETHER_WEAPON_KISMET_GREEN functions=",len(names))
-          '@ | python -
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: Xogot-Aether-Weapon-Kismet-Authority
-          path: |
-            build/aether-kismet/weapon-kismet.json
-            build/aether-kismet/weapon-kismet-proof.json
-            build/aether-kismet/extract.log
-            build/aether-kismet/retoc-loose.log
-          if-no-files-found: warn
-          retention-days: 14
- } |
+            Where-Object { $_.name -match '(?i)(windows|pc-windows-msvc).*\.zip$' } |
             Select-Object -First 1
           if(-not $asset){throw 'retoc Windows zip asset not found'}
-          $zip="$env:RUNNER_TEMP\retoc.zip"
-          Invoke-WebRequest $asset.browser_download_url -OutFile $zip
-          $dir="$env:RUNNER_TEMP\retoc"
-          Expand-Archive $zip -DestinationPath $dir -Force
-          $exe=Get-ChildItem $dir -Filter 'retoc*.exe' -Recurse | Select-Object -First 1
-          if(-not $exe){throw 'retoc.exe missing'}
+          $retocZip="$env:RUNNER_TEMP\retoc.zip"
+          Invoke-WebRequest $asset.browser_download_url -OutFile $retocZip
+          $retocDir="$env:RUNNER_TEMP\retoc"
+          Expand-Archive $retocZip -DestinationPath $retocDir -Force
+          $retoc=Get-ChildItem $retocDir -Filter 'retoc*.exe' -Recurse | Select-Object -First 1
+          if(-not $retoc){throw 'retoc.exe missing'}
 
           $out="$PWD\build\aether-kismet\legacy"
           Remove-Item $out -Recurse -Force -ErrorAction SilentlyContinue
@@ -187,8 +99,9 @@ jobs:
           $args=@('to-legacy','--no-shaders',"$env:AETHER_PAKDIR")
           foreach($filter in $filters){$args += @('--filter',$filter)}
           $args += $out
-          & $exe.FullName @args 2>&1 | Tee-Object build/aether-kismet/retoc-loose.log
+          & $retoc.FullName @args 2>&1 | Tee-Object build/aether-kismet/retoc-loose.log
           if($LASTEXITCODE -ne 0){throw "retoc loose conversion failed $LASTEXITCODE"}
+
           foreach($needle in @('BP_WeaponBase.uasset','BP_ExplosiveTracer.uasset','BP_Master_SplashDamage.uasset')){
             $assetFile=Get-ChildItem $out -Recurse -File -Filter $needle | Select-Object -First 1
             if(-not $assetFile){throw "retoc loose asset missing $needle"}
@@ -208,33 +121,33 @@ jobs:
           dotnet restore tools/maps/UENuketownGameplayTruth/UENuketownGameplayTruth.csproj
           dotnet build tools/maps/UENuketownGameplayTruth/UENuketownGameplayTruth.csproj -c Release --no-restore
           if($LASTEXITCODE -ne 0){throw 'CUE4Parse Blueprint truth build failed'}
+          Write-Host "XZOGOT_AETHER_KISMET_EXTRACTOR_BUILD_GREEN"
 
-      - name: Decompile weapon Kismet authority directly from IoStore
+      - name: Decompile weapon Kismet authority from loose UE5.7 assets
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
-          New-Item -ItemType Directory -Force -Path build/aether-kismet | Out-Null
           $app='tools/maps/UENuketownGameplayTruth/bin/Release/net10.0/UENuketownGameplayTruth.dll'
           $toolArgs=@(
-            "$env:AETHER_PAKDIR",
+            "$env:AETHER_LEGACY_ROOT",
             'Mappings.usmap',
             'build/aether-kismet/weapon-kismet.json',
-            'ProjectAether/Content/Assets/BP/Weapons/BP_WeaponBase.uasset',
-            'ProjectAether/Content/FirstPerson/Blueprints/Weapons/Misc/WonderWeapons/BP_ExplosiveTracer.uasset',
-            'ProjectAether/Content/Assets/BP/Lethals/BP_Master_SplashDamage.uasset'
+            'BP_WeaponBase.uasset',
+            'BP_ExplosiveTracer.uasset',
+            'BP_Master_SplashDamage.uasset'
           )
           & dotnet $app @toolArgs 2>&1 | Tee-Object build/aether-kismet/extract.log
           $rc=$LASTEXITCODE
-          if($rc -ne 0){throw "CUE4Parse Kismet extraction failed $rc"}
+          if($rc -ne 0){throw "CUE4Parse loose Kismet extraction failed $rc"}
 
       - name: Prove burst hyperburst and splash source graph
         shell: pwsh
         run: |
           @'
-          import json,re
+          import json
           from pathlib import Path
-          p=Path("build/aether-kismet/weapon-kismet.json")
-          d=json.loads(p.read_text())
+
+          d=json.loads(Path("build/aether-kismet/weapon-kismet.json").read_text())
           assert d["ready"] is True,d
           assert d["packageSuccessCount"]==3,d
           assert d["packageFailureCount"]==0,d
@@ -275,7 +188,7 @@ jobs:
 
           Path("build/aether-kismet/weapon-kismet-proof.json").write_text(
               json.dumps(proof,indent=2)+"\n")
-          print("XZOGOT_AETHER_WEAPON_KISMET_GREEN functions=",len(names))
+          print("XZOGOT_AETHER_WEAPON_KISMET_GREEN",{"functions":len(names)})
           '@ | python -
 
       - uses: actions/upload-artifact@v4
@@ -286,5 +199,6 @@ jobs:
             build/aether-kismet/weapon-kismet.json
             build/aether-kismet/weapon-kismet-proof.json
             build/aether-kismet/extract.log
+            build/aether-kismet/retoc-loose.log
           if-no-files-found: warn
           retention-days: 14
