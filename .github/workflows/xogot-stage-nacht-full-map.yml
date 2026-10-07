@@ -119,6 +119,51 @@ jobs:
           echo "AUDIO_BYTECODE=$AUDIO_BYTECODE" >> "$GITHUB_ENV"
           echo "XZOGOT_NACHT_STAGE_AUDIO_BYTECODE_GREEN run=$AUDIO_BYTECODE_RUN"
 
+          PARTICLE_BYTECODE_RUN=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/actions/workflows/xogot-nacht-interactive-particle-bytecode.yml/runs?branch=feature%2Fgodot-aaa-rebuild-v1&status=success&per_page=20" \
+            --jq '.workflow_runs[0].id // empty' || true)
+          if [ -z "$PARTICLE_BYTECODE_RUN" ]; then
+            for PAGE in 1 2 3 4 5 6 7 8 9 10; do
+              PARTICLE_BYTECODE_RUN=$(gh api \
+                -H "Accept: application/vnd.github+json" \
+                "/repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100&page=$PAGE" \
+                --jq '[.workflow_runs[] | select(.head_branch=="feature/godot-aaa-rebuild-v1" and .name=="Xogot Nacht Interactive Particle Bytecode" and .conclusion=="success")][0].id // empty' || true)
+              if [ -n "$PARTICLE_BYTECODE_RUN" ]; then
+                echo "XZOGOT_NACHT_STAGE_PARTICLE_BYTECODE_FALLBACK_PAGE_GREEN page=$PAGE run=$PARTICLE_BYTECODE_RUN"
+                break
+              fi
+            done
+          fi
+          test -n "$PARTICLE_BYTECODE_RUN"
+          rm -rf "$RUNNER_TEMP/nacht-particle-bytecode"
+          mkdir -p "$RUNNER_TEMP/nacht-particle-bytecode"
+          gh run download "$PARTICLE_BYTECODE_RUN" \
+            -n "Xogot-Nacht-Interactive-Particle-Bytecode" \
+            -D "$RUNNER_TEMP/nacht-particle-bytecode"
+          PARTICLE_ACTIVATION_AUTHORITY=$(find \
+            "$RUNNER_TEMP/nacht-particle-bytecode" -type f \
+            -name particle-activation-authority.json -print -quit)
+          test -n "$PARTICLE_ACTIVATION_AUTHORITY"
+          test -s "$PARTICLE_ACTIVATION_AUTHORITY"
+          export PARTICLE_ACTIVATION_AUTHORITY
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          p=Path(os.environ["PARTICLE_ACTIVATION_AUTHORITY"])
+          d=json.loads(p.read_text())
+          actions=d.get("normalizedActions",[])
+          assert d.get("ready") is True,d
+          assert int(d.get("schemaVersion",0))==2,d
+          assert int(d.get("normalizedActionCount",0))==17,d
+          assert len(actions)==17,len(actions)
+          assert sum(a.get("targetMode")=="named_component" for a in actions)==16,actions
+          assert sum(a.get("targetMode")=="all_particle_components" for a in actions)==1,actions
+          print("XZOGOT_NACHT_STAGE_PARTICLE_ACTIVATION_SOURCE_GREEN actions=17")
+          PY
+          echo "PARTICLE_ACTIVATION_AUTHORITY=$PARTICLE_ACTIVATION_AUTHORITY" >> "$GITHUB_ENV"
+          echo "XZOGOT_NACHT_STAGE_PARTICLE_BYTECODE_GREEN run=$PARTICLE_BYTECODE_RUN"
+
           AUTH="$RUNNER_TEMP/nacht-authority"
           test -s "$AUTH/nacht-full-map-handoff.json"
           test -s "$AUTH/nacht-full-map-authority.json"
@@ -212,6 +257,8 @@ jobs:
           cp "$AUTH/nacht-audio-scene.json" "$root/"
           cp "$AUTH/nacht-audio-cues.json" "$root/"
           cp "$AUTH/nacht-materials.json" "$root/"
+          cp "$PARTICLE_ACTIVATION_AUTHORITY" "$root/nacht-particle-activation-authority.json"
+          echo "XZOGOT_NACHT_STAGE_PARTICLE_ACTIVATION_MOUNT_GREEN"
 
           python3 tools/maps/compile_nacht_environment_runtime_authority.py \
             --source "$root/nacht-environment-scene.json" \
@@ -442,6 +489,7 @@ jobs:
           lights=json.loads((root/"nacht-environment-report.json").read_text())
           particles=json.loads((root/"nacht-particles.json").read_text())
           particle_runtime_authority=json.loads((root/"nacht-particle-runtime-authority.json").read_text())
+          particle_activation_authority=json.loads((root/"nacht-particle-activation-authority.json").read_text())
           particle_graph=json.loads((root/"nacht-particle-graphs.json").read_text())
           particle_graphs=json.loads((root/"nacht-particle-graphs.json").read_text())
           particle_runtime=json.loads((root/"particle-runtime-manifest.json").read_text())
@@ -532,6 +580,33 @@ jobs:
               "monsterDeath":monster_activation,
           })
 
+          actions=particle_activation_authority.get("normalizedActions",[])
+          assert particle_activation_authority.get("ready") is True, particle_activation_authority
+          assert particle_activation_authority.get("schemaVersion")==2, particle_activation_authority
+          assert particle_activation_authority.get("normalizedActionCount")==17, particle_activation_authority
+          assert len(actions)==17, actions
+          assert sum(a.get("targetMode")=="named_component" for a in actions)==16, actions
+          assert sum(a.get("targetMode")=="all_particle_components" for a in actions)==1, actions
+
+          placed_pairs={
+              (
+                  str(row.get("ownerExportType","")).removesuffix("_C")+".uasset",
+                  str(row.get("componentName","")),
+              )
+              for row in particle_runtime_authority["placements"]
+          }
+          for action in actions:
+              if action.get("targetMode")!="named_component":
+                  continue
+              key=(str(action.get("fileName","")),str(action.get("componentName","")))
+              assert key in placed_pairs,(key,sorted(placed_pairs))
+          generic=[a for a in actions if a.get("targetMode")=="all_particle_components"]
+          assert len(generic)==1 and generic[0].get("fileName")=="PunchAPackMachine.uasset",generic
+          print(
+              "XZOGOT_NACHT_PARTICLE_ACTIVATION_AUTHORITY_GREEN",
+              {"actions":len(actions),"named":16,"all_components":1},
+          )
+
           assert environment["ready"] is True, environment
           assert environment_runtime_authority["ready"] is True, environment_runtime_authority
           assert environment_runtime_authority["componentCount"] == 2, environment_runtime_authority
@@ -582,6 +657,7 @@ jobs:
               "sourceLights":lights["lightCount"],
               "sourceEnvironmentComponents":environment_runtime_authority["componentCount"],
               "sourceParticlePlacements":particle_runtime_authority["resolvedPlacementCount"],
+              "sourceParticleActivationActions":particle_activation_authority["normalizedActionCount"],
               "sourcePlacedParticleSystems":particle_runtime_authority["uniquePlacedSystemCount"],
               "sourceParticleMeshes":particle_mesh_bindings["meshCount"],
               "sourceMaterials":mats["summary"]["usedMaterialCount"],

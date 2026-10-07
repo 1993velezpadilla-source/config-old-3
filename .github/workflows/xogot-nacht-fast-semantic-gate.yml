@@ -78,6 +78,38 @@ jobs:
           test -s xogot/assets/benchmarks/nacht_chronicles/nacht-particle-runtime-authority.json
           echo "XZOGOT_NACHT_FAST_SEMANTIC_STAGE_GREEN run=$SOURCE_RUN"
 
+      - name: Inject current particle activation authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTIVATION_RUN=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/actions/workflows/xogot-nacht-interactive-particle-bytecode.yml/runs?branch=feature%2Fgodot-aaa-rebuild-v1&status=success&per_page=20" \
+            --jq '.workflow_runs[0].id // empty' || true)
+          test -n "$ACTIVATION_RUN"
+          rm -rf fast-particle-activation
+          mkdir -p fast-particle-activation
+          gh run download "$ACTIVATION_RUN" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "Xogot-Nacht-Interactive-Particle-Bytecode" \
+            --dir fast-particle-activation
+          authority=$(find fast-particle-activation -type f \
+            -name particle-activation-authority.json -print -quit)
+          test -n "$authority"
+          cp "$authority" \
+            xogot/assets/benchmarks/nacht_chronicles/nacht-particle-activation-authority.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("xogot/assets/benchmarks/nacht_chronicles/nacht-particle-activation-authority.json")
+          d=json.loads(p.read_text())
+          assert d.get("ready") is True,d
+          assert d.get("schemaVersion")==2,d
+          assert d.get("normalizedActionCount")==17,d
+          assert len(d.get("normalizedActions",[]))==17,d
+          print("XZOGOT_NACHT_FAST_PARTICLE_ACTIVATION_AUTHORITY_GREEN actions=17")
+          PY
+
       - name: Recompile current particle authority schema
         shell: bash
         run: |

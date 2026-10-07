@@ -1024,6 +1024,12 @@ func _run() -> void:
 	var particle_visual_mounted_emitters := int(scene.get_meta("source_particle_visual_mounted_emitter_count", 0))
 	var particle_visual_resolved_meshes := int(scene.get_meta("source_particle_visual_resolved_mesh_count", 0))
 	var particle_visual_unresolved_meshes := int(scene.get_meta("source_particle_visual_unresolved_mesh_count", 0))
+	var particle_activation_ready := bool(
+		scene.get_meta("source_particle_activation_authority_ready", false)
+	)
+	var particle_activation_actions := int(
+		scene.get_meta("source_particle_activation_action_count", 0)
+	)
 	var runtime_environment_components := int(scene.get_meta("runtime_environment_component_count", 0))
 	var runtime_environment_visual_nodes := int(scene.get_meta("runtime_environment_visual_node_count", 0))
 	var source_environment_runtime := bool(scene.get_meta("source_environment_runtime_ready", false))
@@ -1097,6 +1103,13 @@ func _run() -> void:
 		_fail(20, "SoundCue authority coverage mismatch %d/%d expected=102" % [cue_authority, source_cues])
 		return
 	if staged_runtime:
+		if not particle_activation_ready or particle_activation_actions != 17:
+			_fail(
+				35,
+				"particle activation authority mismatch ready=%s actions=%d/17"
+				% [particle_activation_ready, particle_activation_actions]
+			)
+			return
 		if not particle_decoder_ready:
 			_fail(32, "Cascade source-value decoder did not become runtime-ready")
 			return
@@ -1168,6 +1181,132 @@ func _run() -> void:
 			return
 		print(
 			"XZOGOT_NACHT_PARTICLE_VISIBILITY_GREEN hidden=3 placements=29"
+		)
+
+		# Replay the exact source bytecode windows recovered from the four
+		# interactive Blueprint classes. This validates both named component
+		# targets and PaP's GetComponentsByClass(ParticleSystemComponent) loop.
+		var source_windows := [
+			{
+				"actor": "Box_complete_6",
+				"function": "ExecuteUbergraph_Box_complete",
+				"start": 5874,
+				"end": 5950,
+				"actions": 2,
+				"anchors": 2,
+			},
+			{
+				"actor": "MachineGumball_2",
+				"function": "ExecuteUbergraph_MachineGumball",
+				"start": 8226,
+				"end": 8300,
+				"actions": 2,
+				"anchors": 2,
+			},
+			{
+				"actor": "WonderFizz_2",
+				"function": "ExecuteUbergraph_WonderFizz",
+				"start": 11400,
+				"end": 11585,
+				"actions": 5,
+				"anchors": 5,
+			},
+			{
+				"actor": "PunchAPackMachine_2",
+				"function": "ExecuteUbergraph_PunchAPackMachine",
+				"start": 10677,
+				"end": 10715,
+				"actions": 1,
+				"anchors": 4,
+			},
+		]
+		for window: Dictionary in source_windows:
+			var report_raw: Variant = scene.call(
+				"apply_source_particle_activation_window",
+				str(window["actor"]),
+				str(window["function"]),
+				int(window["start"]),
+				int(window["end"])
+			)
+			var report: Dictionary = (
+				report_raw as Dictionary
+				if report_raw is Dictionary
+				else {}
+			)
+			if (
+				not bool(report.get("ready", false))
+				or int(report.get("actionCount", -1)) != int(window["actions"])
+				or int(report.get("matchedAnchorCount", -1)) != int(window["anchors"])
+			):
+				_fail(
+					35,
+					"source particle bytecode window failed " + str(window)
+					+ " report=" + str(report)
+				)
+				return
+
+		var machine_off_raw: Variant = scene.call(
+			"apply_source_particle_activation_window",
+			"MachineGumball_2",
+			"ExecuteUbergraph_MachineGumball",
+			5723,
+			5795
+		)
+		var machine_off := (
+			machine_off_raw as Dictionary
+			if machine_off_raw is Dictionary
+			else {}
+		)
+		if (
+			not bool(machine_off.get("ready", false))
+			or int(machine_off.get("actionCount", -1)) != 2
+		):
+			_fail(35, "MachineGumball source Deactivate window failed")
+			return
+
+		var fizz_off_raw: Variant = scene.call(
+			"apply_source_particle_activation_window",
+			"WonderFizz_2",
+			"ExecuteUbergraph_WonderFizz",
+			10016,
+			10273
+		)
+		var fizz_off := (
+			fizz_off_raw as Dictionary
+			if fizz_off_raw is Dictionary
+			else {}
+		)
+		if (
+			not bool(fizz_off.get("ready", false))
+			or int(fizz_off.get("actionCount", -1)) != 5
+		):
+			_fail(35, "WonderFizz source Deactivate window failed")
+			return
+
+		# Cleanup transient activation tests before the probe exits.
+		scene.call(
+			"set_source_particle_component_active",
+			"Box_complete_6",
+			"P_Monster_Death_XLarge",
+			false,
+			false
+		)
+		scene.call(
+			"set_source_particle_component_active",
+			"Box_complete_6",
+			"quadExplodeSmoke1",
+			false,
+			false
+		)
+		scene.call(
+			"set_source_actor_particles_active",
+			"PunchAPackMachine_2",
+			false,
+			false
+		)
+		print(
+			"XZOGOT_NACHT_PARTICLE_ACTIVATION_RUNTIME_GREEN ",
+			"actions=17 named=16 all_components=1 windows=6"
 		)
 
 		if not particle_visual_mounted:
@@ -2161,6 +2300,8 @@ func _run() -> void:
 		" particle_visual_unresolved_materials=", particle_visual_unresolved_materials,
 		" particle_visual_resolved_meshes=", particle_visual_resolved_meshes,
 		" particle_visual_unresolved_meshes=", particle_visual_unresolved_meshes,
+		" particle_activation_ready=", particle_activation_ready,
+		" particle_activation_actions=", particle_activation_actions,
 		" source_audio_stream_mount=", source_audio_stream_mount,
 		" source_audio_runtime=", source_audio_runtime,
 		" source_audio_players=", source_audio_players,

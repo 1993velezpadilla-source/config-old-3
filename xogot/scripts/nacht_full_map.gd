@@ -30,6 +30,7 @@ const ENVIRONMENT_REPORT_FILE := "nacht-environment-report.json"
 const PARTICLES_FILE := "nacht-particles.json"
 const PARTICLE_GRAPHS_FILE := "nacht-particle-graphs.json"
 const PARTICLE_RUNTIME_AUTHORITY_FILE := "nacht-particle-runtime-authority.json"
+const PARTICLE_ACTIVATION_AUTHORITY_FILE := "nacht-particle-activation-authority.json"
 const ENVIRONMENT_SCENE_FILE := "nacht-environment-scene.json"
 const ENVIRONMENT_RUNTIME_AUTHORITY_FILE := "nacht-environment-runtime-authority.json"
 const AUDIO_SCENE_FILE := "nacht-audio-scene.json"
@@ -63,6 +64,7 @@ var _environment_report: Dictionary = {}
 var _particle_scene: Dictionary = {}
 var _particle_graphs: Dictionary = {}
 var _particle_runtime_authority: Dictionary = {}
+var _particle_activation_authority: Dictionary = {}
 var _environment_scene: Dictionary = {}
 var _environment_runtime_authority: Dictionary = {}
 var _audio_scene: Dictionary = {}
@@ -142,6 +144,9 @@ func _boot() -> void:
 	_particle_scene = _read_json(_source_path(PARTICLES_FILE))
 	_particle_graphs = _read_json(_source_path(PARTICLE_GRAPHS_FILE))
 	_particle_runtime_authority = _read_json(_source_path(PARTICLE_RUNTIME_AUTHORITY_FILE))
+	_particle_activation_authority = _read_json(
+		_source_path(PARTICLE_ACTIVATION_AUTHORITY_FILE)
+	)
 	_environment_scene = _read_json(_source_path(ENVIRONMENT_SCENE_FILE))
 	_environment_runtime_authority = _read_json(_source_path(ENVIRONMENT_RUNTIME_AUTHORITY_FILE))
 	_audio_scene = _read_json(_source_path(AUDIO_SCENE_FILE))
@@ -205,6 +210,14 @@ func _boot() -> void:
 	set_meta("runtime_particle_graph_authority_count", (_particle_graphs.get("systems", []) as Array).size())
 	set_meta("runtime_placed_particle_system_count", int(_particle_runtime_authority.get("uniquePlacedSystemCount", 0)))
 	set_meta("runtime_placed_particle_node_type_count", (_particle_runtime_authority.get("placedNodeTypeCounts", {}) as Dictionary).size())
+	set_meta(
+		"source_particle_activation_authority_ready",
+		bool(_particle_activation_authority.get("ready", false))
+	)
+	set_meta(
+		"source_particle_activation_action_count",
+		int(_particle_activation_authority.get("normalizedActionCount", 0))
+	)
 	set_meta("source_environment_component_count", int(_environment_scene.get("environmentComponentCount", -1)))
 	set_meta("runtime_environment_authority_count", (_environment_scene.get("components", []) as Array).size())
 	set_meta("runtime_environment_component_count", int(_environment_runtime_authority.get("componentCount", 0)))
@@ -502,6 +515,26 @@ func _validate_authority() -> bool:
 		if int(_particle_runtime_authority.get("resolvedPlacementCount", 0)) != 29:
 			push_error("NACHT_FULL_MAP: placed particle graph coverage mismatch")
 			return false
+	if _particle_activation_authority.is_empty():
+		push_error("NACHT_FULL_MAP: particle activation bytecode authority missing")
+		return false
+	if not bool(_particle_activation_authority.get("ready", false)):
+		push_error("NACHT_FULL_MAP: particle activation bytecode authority is not ready")
+		return false
+	if int(_particle_activation_authority.get("schemaVersion", 0)) != 2:
+		push_error("NACHT_FULL_MAP: particle activation authority schema mismatch")
+		return false
+	if int(_particle_activation_authority.get("normalizedActionCount", 0)) != 17:
+		push_error("NACHT_FULL_MAP: particle activation action count mismatch")
+		return false
+	var activation_actions_raw: Variant = _particle_activation_authority.get(
+		"normalizedActions",
+		[]
+	)
+	if not (activation_actions_raw is Array) or (activation_actions_raw as Array).size() != 17:
+		push_error("NACHT_FULL_MAP: particle activation action authority incomplete")
+		return false
+
 	if _environment_scene.is_empty() or not bool(_environment_scene.get("ready", false)):
 		push_error("NACHT_FULL_MAP: source environment authority missing")
 		return false
@@ -1248,6 +1281,186 @@ func set_source_particle_component_active(
 	return result
 
 
+func set_source_actor_particles_active(
+	actor_name: String,
+	active: bool,
+	reset: bool = false
+) -> Dictionary:
+	var matched_anchors := 0
+	var visual_nodes := 0
+	var particle_emitters := 0
+	var beam_nodes := 0
+
+	for raw_anchor: Node in get_tree().get_nodes_in_group(
+		"nacht_source_particle_semantic"
+	):
+		if not (raw_anchor is Node3D):
+			continue
+		var anchor := raw_anchor as Node3D
+		if str(anchor.get_meta("source_actor_name", "")) != actor_name:
+			continue
+		var report := NachtCascadeVisualRuntime.set_anchor_active(
+			anchor,
+			active,
+			reset
+		)
+		if not bool(report.get("matched", false)):
+			continue
+		matched_anchors += 1
+		visual_nodes += int(report.get("visualNodeCount", 0))
+		particle_emitters += int(report.get("particleEmitterCount", 0))
+		beam_nodes += int(report.get("beamNodeCount", 0))
+
+	var ready := matched_anchors > 0
+	var result := {
+		"ready": ready,
+		"actorName": actor_name,
+		"active": active,
+		"reset": reset,
+		"matchedAnchorCount": matched_anchors,
+		"visualNodeCount": visual_nodes,
+		"particleEmitterCount": particle_emitters,
+		"beamNodeCount": beam_nodes,
+	}
+	if ready:
+		print(
+			"XZOGOT_NACHT_PARTICLE_ACTOR_ACTIVE ",
+			"actor=", actor_name,
+			" active=", active,
+			" reset=", reset,
+			" anchors=", matched_anchors,
+			" particles=", particle_emitters,
+			" beams=", beam_nodes
+		)
+	return result
+
+
+func _source_particle_blueprint_file_for_actor(actor_name: String) -> String:
+	for raw_anchor: Node in get_tree().get_nodes_in_group(
+		"nacht_source_particle_semantic"
+	):
+		if not (raw_anchor is Node3D):
+			continue
+		var anchor := raw_anchor as Node3D
+		if str(anchor.get_meta("source_actor_name", "")) != actor_name:
+			continue
+		var owner_type := str(anchor.get_meta("source_owner_export_type", ""))
+		if owner_type.ends_with("_C") and owner_type.length() > 2:
+			owner_type = owner_type.substr(0, owner_type.length() - 2)
+		if not owner_type.is_empty():
+			return owner_type + ".uasset"
+	return ""
+
+
+func apply_source_particle_activation_action(
+	actor_name: String,
+	action: Dictionary
+) -> Dictionary:
+	var target_mode := str(action.get("targetMode", ""))
+	var active := bool(action.get("active", false))
+	var reset := bool(action.get("reset", false))
+	var report: Dictionary = {}
+	if target_mode == "named_component":
+		report = set_source_particle_component_active(
+			actor_name,
+			str(action.get("componentName", "")),
+			active,
+			reset
+		)
+	elif target_mode == "all_particle_components":
+		report = set_source_actor_particles_active(
+			actor_name,
+			active,
+			reset
+		)
+	else:
+		return {
+			"ready": false,
+			"error": "unsupported targetMode " + target_mode,
+			"actorName": actor_name,
+		}
+	report["sourceAction"] = action.duplicate(true)
+	return report
+
+
+func apply_source_particle_activation_window(
+	actor_name: String,
+	function_name: String,
+	start_offset: int,
+	end_offset: int
+) -> Dictionary:
+	var blueprint_file := _source_particle_blueprint_file_for_actor(actor_name)
+	if blueprint_file.is_empty():
+		return {
+			"ready": false,
+			"error": "source Blueprint owner missing",
+			"actorName": actor_name,
+		}
+	var raw_actions: Variant = _particle_activation_authority.get(
+		"normalizedActions",
+		[]
+	)
+	if not (raw_actions is Array):
+		return {
+			"ready": false,
+			"error": "particle activation actions missing",
+			"actorName": actor_name,
+		}
+
+	var actions: Array[Dictionary] = []
+	for raw_action: Variant in raw_actions as Array:
+		if not (raw_action is Dictionary):
+			continue
+		var action := raw_action as Dictionary
+		if str(action.get("fileName", "")) != blueprint_file:
+			continue
+		if str(action.get("function", "")) != function_name:
+			continue
+		var action_start := int(action.get("startOffset", -1))
+		var action_end := int(action.get("endOffset", -1))
+		if action_start < start_offset or action_end > end_offset:
+			continue
+		actions.append(action)
+
+	actions.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			return int(a.get("startOffset", 0)) < int(b.get("startOffset", 0))
+	)
+
+	var matched_anchors := 0
+	var all_ready := not actions.is_empty()
+	var reports: Array[Dictionary] = []
+	for action: Dictionary in actions:
+		var report := apply_source_particle_activation_action(actor_name, action)
+		reports.append(report)
+		if not bool(report.get("ready", false)):
+			all_ready = false
+		matched_anchors += int(report.get("matchedAnchorCount", 0))
+
+	var result := {
+		"ready": all_ready,
+		"actorName": actor_name,
+		"blueprintFile": blueprint_file,
+		"function": function_name,
+		"startOffset": start_offset,
+		"endOffset": end_offset,
+		"actionCount": actions.size(),
+		"matchedAnchorCount": matched_anchors,
+		"reports": reports,
+	}
+	if all_ready:
+		print(
+			"XZOGOT_NACHT_PARTICLE_BYTECODE_WINDOW_GREEN ",
+			"actor=", actor_name,
+			" blueprint=", blueprint_file,
+			" function=", function_name,
+			" offsets=", start_offset, "..", end_offset,
+			" actions=", actions.size(),
+			" anchors=", matched_anchors
+		)
+	return result
+
+
 
 func _mount_source_particle_semantic_anchors(
 	descriptor: Dictionary,
@@ -1292,6 +1505,14 @@ func _mount_source_particle_semantic_anchors(
 		anchor.set_meta("source_actor_name", str(raw.get("actorName", "")))
 		anchor.set_meta("source_component_name", str(raw.get("componentName", "")))
 		anchor.set_meta("source_component_path", str(raw.get("sourcePath", "")))
+		anchor.set_meta(
+			"source_owner_export_type",
+			str(raw.get("ownerExportType", ""))
+		)
+		anchor.set_meta(
+			"source_owner_class_path",
+			str(raw.get("ownerClassPath", ""))
+		)
 		anchor.set_meta(
 			"source_particle_system_path",
 			str(descriptor.get("systemPath", ""))
