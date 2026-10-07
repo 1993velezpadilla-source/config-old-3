@@ -1073,6 +1073,72 @@ static func _emitter_local_space(emitter: Dictionary) -> bool:
 	return bool(ParticleSource.properties(required_raw as Dictionary).get("bUseLocalSpace", false))
 
 
+static func _emitter_delay_seconds(emitter: Dictionary) -> float:
+	var required_raw: Variant = emitter.get("required", {})
+	if not (required_raw is Dictionary):
+		return 0.0
+	return maxf(
+		0.0,
+		float(
+			ParticleSource.properties(required_raw as Dictionary).get(
+				"EmitterDelay",
+				0.0
+			)
+		)
+	)
+
+
+static func _emitter_duration_seconds(emitter: Dictionary) -> float:
+	var required_raw: Variant = emitter.get("required", {})
+	if not (required_raw is Dictionary):
+		return 0.0
+	return maxf(
+		0.0,
+		float(
+			ParticleSource.properties(required_raw as Dictionary).get(
+				"EmitterDuration",
+				0.0
+			)
+		)
+	)
+
+
+static func _apply_emitter_activation(
+	anchor: Node3D,
+	particles: GPUParticles3D,
+	emitter: Dictionary,
+	auto_activate: bool,
+	index: int
+) -> void:
+	var delay := _emitter_delay_seconds(emitter)
+	particles.set_meta("source_emitter_delay_seconds", delay)
+	particles.set_meta(
+		"source_emitter_duration_seconds",
+		_emitter_duration_seconds(emitter)
+	)
+	if not auto_activate:
+		particles.emitting = false
+		return
+	if delay <= 0.0:
+		particles.emitting = true
+		return
+	particles.emitting = false
+	var timer := Timer.new()
+	timer.name = "CascadeEmitterDelay_%02d" % index
+	timer.wait_time = delay
+	timer.one_shot = true
+	timer.autostart = true
+	anchor.add_child(timer)
+	timer.timeout.connect(
+		func() -> void:
+			if is_instance_valid(particles):
+				particles.restart()
+				particles.emitting = true
+			if is_instance_valid(timer):
+				timer.queue_free()
+	)
+
+
 static func _apply_sprite_axis_lock(
 	material: StandardMaterial3D,
 	emitter: Dictionary
@@ -1185,7 +1251,7 @@ static func _build_source_sprite_emitter(
 	particles.draw_pass_1 = quad
 	particles.visibility_aabb = AABB(Vector3(-8.0, -8.0, -8.0), Vector3(16.0, 16.0, 16.0))
 	particles.fixed_fps = 30
-	particles.emitting = auto_activate
+	_apply_emitter_activation(anchor, particles, emitter, auto_activate, index)
 	var burst_count := _emitter_burst_count(emitter)
 	var spawn_rate := _emitter_spawn_rate(system, emitter)
 	var required_raw: Variant = emitter.get("required", {})
@@ -1305,7 +1371,7 @@ static func _build_source_mesh_emitter(
 		particles.set("draw_pass_%d" % (chunk_index + 1), chunks[chunk_index])
 	particles.visibility_aabb = AABB(Vector3(-8.0, -8.0, -8.0), Vector3(16.0, 16.0, 16.0))
 	particles.fixed_fps = 30
-	particles.emitting = auto_activate
+	_apply_emitter_activation(anchor, particles, emitter, auto_activate, index)
 	var burst_count := _emitter_burst_count(emitter)
 	var spawn_rate := _emitter_spawn_rate(system, emitter)
 	var required_raw: Variant = emitter.get("required", {})
