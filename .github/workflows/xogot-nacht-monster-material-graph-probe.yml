@@ -1,0 +1,194 @@
+name: Xogot Nacht Monster Material Graph Probe
+
+on:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-nacht-monster-material-graph-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xogot-nacht-monster-material-graph-probe
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env:
+      WORKSHOP_APP_ID: "555160"
+      WORKSHOP_ITEM_ID: "2755515831"
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/godot-aaa-rebuild-v1
+          fetch-depth: 1
+
+      - name: Restore proven UE4.21 material stack
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $old='055f0d0721eb212e3f4713e149d1e2ace5c53674'
+          git fetch origin $old --depth=1
+          git checkout $old -- engine/xz tools/maps/UEMaterialAudit
+          if($LASTEXITCODE -ne 0){throw 'material stack restore failed'}
+          git checkout $env:GITHUB_SHA -- tools/maps/UEMaterialAudit/Program.cs
+          if($LASTEXITCODE -ne 0){throw 'current UEMaterialAudit restore failed'}
+          python tools/patches/patch_ue421_material_texture_refs.py
+          if($LASTEXITCODE -ne 0){throw 'UE4.21 material texture patch failed'}
+          Write-Host "XZOGOT_NACHT_MONSTER_MATERIAL_STACK_GREEN"
+
+      - name: Download exact Nacht workshop package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $steam=Join-Path $env:RUNNER_TEMP 'steamcmd'
+          New-Item -ItemType Directory -Force -Path $steam | Out-Null
+          Invoke-WebRequest 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip' -OutFile "$env:RUNNER_TEMP\steamcmd.zip"
+          Expand-Archive "$env:RUNNER_TEMP\steamcmd.zip" -DestinationPath $steam -Force
+          & (Join-Path $steam 'steamcmd.exe') +login anonymous +workshop_download_item $env:WORKSHOP_APP_ID $env:WORKSHOP_ITEM_ID validate +quit
+          $root=Get-ChildItem $steam,$env:RUNNER_TEMP -Directory -Recurse -ErrorAction SilentlyContinue |
+            Where-Object {$_.FullName -like "*steamapps\workshop\content\$env:WORKSHOP_APP_ID\$env:WORKSHOP_ITEM_ID"} |
+            Select-Object -First 1
+          if(-not $root){throw 'Nacht workshop payload not found'}
+          $pak=Join-Path $root.FullName 'WindowsNoEditor.pak'
+          if(-not (Test-Path $pak)){throw 'Nacht PAK missing'}
+          "NACHT_PAK=$pak" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "XZOGOT_NACHT_MONSTER_MATERIAL_PAK_GREEN bytes=$((Get-Item $pak).Length)"
+
+      - name: Unpack exact source PAK
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          Invoke-WebRequest 'https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-pc-windows-msvc.zip' -OutFile "$env:RUNNER_TEMP\repak.zip"
+          $repakDir="$env:RUNNER_TEMP\repak"
+          Expand-Archive "$env:RUNNER_TEMP\repak.zip" -DestinationPath $repakDir -Force
+          $repak=Get-ChildItem $repakDir -Filter repak.exe -Recurse | Select-Object -First 1
+          if(-not $repak){throw 'repak.exe missing'}
+          Remove-Item nacht-source -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path nacht-source | Out-Null
+          & $repak.FullName unpack "$env:NACHT_PAK" -o nacht-source --force
+          if($LASTEXITCODE -ne 0){throw "repak unpack failed $LASTEXITCODE"}
+          $contentRoot=Join-Path $PWD 'nacht-source\Pavlov\Content'
+          if(-not (Test-Path $contentRoot)){throw "Pavlov Content root missing: $contentRoot"}
+          "NACHT_CONTENT_ROOT=$contentRoot" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "XZOGOT_NACHT_MONSTER_MATERIAL_UNPACK_GREEN"
+
+      - name: Pin Pavlov mappings
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          Invoke-WebRequest 'https://raw.githubusercontent.com/THW-Reaper/PavlovVRMappings/4976647b4f3a209042460bc55a7a3122662d05b7/PavMappings.usmap' -OutFile PavMappings.usmap
+          $hash=(Get-FileHash PavMappings.usmap -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($hash -ne '6d19f9731cc3fbaba34ca8e0833e81e4ffdf1b407edf24de48b1ccb5c63b060c'){
+            throw "PavMappings hash mismatch $hash"
+          }
+          Write-Host "XZOGOT_NACHT_MONSTER_MATERIAL_MAPPINGS_GREEN"
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build focused material audit
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $project='tools/maps/UEMaterialAudit/UEMaterialAudit.csproj'
+          dotnet restore $project
+          if($LASTEXITCODE -ne 0){throw 'material audit restore failed'}
+          dotnet build $project -c Release --no-restore
+          if($LASTEXITCODE -ne 0){throw 'material audit build failed'}
+          Write-Host "XZOGOT_NACHT_MONSTER_MATERIAL_BUILD_GREEN"
+
+      - name: Write focused material census
+        shell: pwsh
+        run: |
+          @'
+          import json
+          from pathlib import Path
+          packages=[
+            ("Content/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Materials/Misc/M_DeathPlane_01.uasset","Material"),
+            ("Content/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Materials/ICE/M_IceBlastBase.uasset","Material"),
+            ("Content/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Materials/Smoke/M_Smoke_01_8X8_INST.uasset","MaterialInstanceConstant"),
+            ("Content/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Materials/Fire/M_Fire_Sheet_01_INST.uasset","MaterialInstanceConstant"),
+          ]
+          payload={
+            "classCounts":{"Material":2,"MaterialInstanceConstant":2},
+            "packages":[{"packagePath":path,"classes":{cls:1}} for path,cls in packages],
+          }
+          Path("monster-material-census.json").write_text(json.dumps(payload,indent=2)+"\n")
+          print("XZOGOT_NACHT_MONSTER_MATERIAL_CENSUS_GREEN packages=4")
+          '@ | python -
+
+      - name: Extract exact suspect material graphs
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $app='tools/maps/UEMaterialAudit/bin/Release/net10.0/UEMaterialAudit.dll'
+          dotnet $app $env:NACHT_CONTENT_ROOT PavMappings.usmap monster-material-census.json monster-material-graphs.json ue4.21 |
+            Tee-Object monster-material-graphs.log
+          if($LASTEXITCODE -ne 0){throw "focused material audit failed $LASTEXITCODE"}
+          @'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("monster-material-graphs.json").read_text())
+          if not d.get("summary",{}).get("ready"):
+              raise SystemExit("focused material authority not ready")
+          wanted=("m_deathplane_01","m_iceblastbase","m_smoke_01_8x8_inst","m_fire_sheet_01_inst")
+          rows=[r for r in d.get("materials",[]) if any(x in str(r.get("objectPath","")).lower() for x in wanted)]
+          if len(rows)!=4:
+              raise SystemExit(f"suspect material coverage mismatch {len(rows)}/4")
+          out=[]
+          for r in rows:
+              types=sorted({
+                  str(x.get("exportType",""))
+                  for x in r.get("packageExpressionGraph",[])
+                  if isinstance(x,dict)
+              })
+              particle=[x for x in types if "ParticleColor" in x or "ParticleSubUV" in x]
+              item={
+                  "objectPath":r.get("objectPath"),
+                  "exportType":r.get("exportType"),
+                  "blendMode":r.get("blendMode"),
+                  "shadingModel":r.get("shadingModel"),
+                  "rawExpressionCount":r.get("rawExpressionCount"),
+                  "packageExpressionCount":r.get("packageExpressionCount"),
+                  "packageExpressionTypes":types,
+                  "particleExpressionTypes":particle,
+                  "rawMaterialProperties":r.get("rawMaterialProperties",[]),
+                  "expressionGraph":r.get("expressionGraph",[]),
+                  "packageExpressionGraph":r.get("packageExpressionGraph",[]),
+                  "textures":r.get("textures",[]),
+                  "scalars":r.get("scalars",[]),
+                  "colors":r.get("colors",[]),
+                  "switches":r.get("switches",[]),
+              }
+              out.append(item)
+              print("XZOGOT_NACHT_MONSTER_MATERIAL_GRAPH",json.dumps({
+                  "objectPath":item["objectPath"],
+                  "packageExpressionCount":item["packageExpressionCount"],
+                  "particleExpressionTypes":particle,
+                  "packageExpressionTypes":types,
+              },separators=(",",":")))
+          Path("monster-material-focused.json").write_text(json.dumps({
+              "schemaVersion":1,"materials":out,"ready":True
+          },indent=2)+"\n")
+          print("XZOGOT_NACHT_MONSTER_MATERIAL_GRAPH_GREEN materials=4")
+          '@ | python -
+
+      - name: Upload focused material authority
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nacht-Monster-Material-Graph-Probe
+          path: |
+            monster-material-focused.json
+            monster-material-graphs.json
+            monster-material-graphs.log
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 9
