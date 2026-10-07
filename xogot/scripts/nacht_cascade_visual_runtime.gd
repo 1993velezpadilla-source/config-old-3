@@ -1774,7 +1774,8 @@ static func _build_beam(
 	system: Dictionary,
 	descriptor: Dictionary,
 	material_path: String,
-	loader: Node
+	loader: Node,
+	auto_activate: bool
 ) -> Dictionary:
 	var material := _source_material(loader, material_path)
 	if material == null:
@@ -1796,6 +1797,8 @@ static func _build_beam(
 	var beam := MeshInstance3D.new()
 	beam.name = "CascadeBeam"
 	beam.mesh = immediate
+	beam.visible = auto_activate
+	beam.set_meta("source_particle_auto_activate", auto_activate)
 	beam.add_to_group("nacht_source_particle_visual")
 	beam.set_meta("source_particle_material_path", material_path)
 	beam.set_meta("source_beam_target_ue_cm", descriptor.get("targetUEcm"))
@@ -1857,7 +1860,8 @@ static func mount_anchor(
 				system,
 				descriptor,
 				paths[0],
-				loader
+				loader,
+				auto_activate
 			)
 			visual_nodes += int(beam_report.get("nodeCount", 0))
 			if bool(beam_report.get("materialResolved", false)):
