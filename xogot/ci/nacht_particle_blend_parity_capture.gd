@@ -84,6 +84,33 @@ func _set_only_system(
 		)
 		(raw as Node3D).visible = original_visibility[index] and matches
 
+
+func _monster_visual_nodes(particle_visuals: Array[Node]) -> Array[Node3D]:
+	var result: Array[Node3D] = []
+	for raw in particle_visuals:
+		if not (raw is Node3D):
+			continue
+		var parent := raw.get_parent()
+		if (
+			parent != null
+			and str(parent.get_meta("source_particle_system_path", "")) == TARGET_MONSTER
+		):
+			result.append(raw as Node3D)
+	return result
+
+func _set_only_visual_node(
+	particle_visuals: Array[Node],
+	original_visibility: Array[bool],
+	target: Node3D
+) -> void:
+	for index in range(particle_visuals.size()):
+		var raw := particle_visuals[index]
+		if raw is Node3D:
+			(raw as Node3D).visible = original_visibility[index] and raw == target
+
+func _safe_capture_token(value: String) -> String:
+	return value.to_lower().replace("/", "_").replace(" ", "_")
+
 func _restore_visibility(
 	particle_visuals: Array[Node],
 	original_visibility: Array[bool]
@@ -246,6 +273,34 @@ func _run() -> void:
 		0.10
 	)):
 		return
+
+	var monster_nodes := _monster_visual_nodes(particle_visuals)
+	if monster_nodes.size() != 4:
+		_fail("monster visual node count=" + str(monster_nodes.size()))
+		return
+	for monster_index in range(monster_nodes.size()):
+		var monster_node := monster_nodes[monster_index]
+		_set_only_visual_node(particle_visuals, original_visibility, monster_node)
+		await _freeze_particles(particle_visuals)
+		var node_token := _safe_capture_token(monster_node.name)
+		print(
+			"XZOGOT_NACHT_MONSTER_EMITTER_ISOLATION ",
+			"index=", monster_index,
+			" node=", monster_node.name,
+			" renderer=", str(monster_node.get_meta("source_particle_renderer_mode", "")),
+			" emitter_path=", str(monster_node.get_meta("source_particle_emitter_path", "")),
+			" mesh_path=", str(monster_node.get_meta("source_particle_mesh_path", "")),
+			" material_path=", str(monster_node.get_meta("source_particle_material_path", ""))
+		)
+		if not (await _capture(
+			"/tmp/xogot-nacht-blend-parity-monster-emitter-%02d-%s.png" % [
+				monster_index,
+				node_token
+			],
+			"monster_emitter_%02d" % monster_index,
+			0.10
+		)):
+			return
 
 	_set_only_system(particle_visuals, original_visibility, TARGET_BONEFIRE)
 	await _freeze_particles(particle_visuals)
