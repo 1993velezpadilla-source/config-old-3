@@ -823,16 +823,11 @@ jobs:
                                   tuple(stack[:-1]),
                                   label="pop_if_return_constant",
                               )
-                      elif (
-                          stack
-                          and return_target==continue_target
-                      ):
-                          add(
-                              continue_target,
-                              stack,
-                              label="pop_if_converged",
-                          )
                       else:
+                          # Even when both bytecode offsets converge, the two
+                          # states differ because the return branch pops the
+                          # execution-flow stack. Preserve the predicate unless
+                          # the complete target+stack state is identical.
                           next_preds=tuple(predicates)+(offset,)
                           add(
                               continue_target,
