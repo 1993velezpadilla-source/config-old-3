@@ -971,10 +971,11 @@ func _update_camera_fov(delta: float) -> void:
 	if entering_ads:
 		target_fov = ads_fov
 		if _weapon != null:
+			var source_target: float = -1.0
 			if _weapon.has_method("get_source_ads_target_fov"):
-				var source_target := float(_weapon.call("get_source_ads_target_fov", base_fov))
-				if source_target > 0.0:
-					target_fov = source_target
+				source_target = float(_weapon.call("get_source_ads_target_fov", base_fov))
+			if source_target > 0.0:
+				target_fov = source_target
 			elif _weapon.has_method("get_ads_fov"):
 				target_fov = float(_weapon.call("get_ads_fov"))
 			if _weapon.has_method("get_source_ads_transition_time"):
