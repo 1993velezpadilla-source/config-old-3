@@ -1045,6 +1045,34 @@ static func _emitter_spawn_rate(system: Dictionary, emitter: Dictionary) -> floa
 	return maxf(0.0, result)
 
 
+static func _emitter_spawn_rate_scale(
+	system: Dictionary,
+	emitter: Dictionary
+) -> float:
+	var spawn_raw: Variant = emitter.get("spawn", {})
+	if not (spawn_raw is Dictionary):
+		return 1.0
+	var props := ParticleSource.properties(spawn_raw as Dictionary)
+	var samples := _float_samples(system, props.get("RateScale"))
+	if samples.is_empty():
+		# Cascade's FRawDistributionFloat RateScale defaults to 1.
+		return 1.0
+	var result := 0.0
+	for sample: float in samples:
+		result = maxf(result, sample)
+	return maxf(0.0, result)
+
+
+static func _emitter_effective_spawn_rate(
+	system: Dictionary,
+	emitter: Dictionary
+) -> float:
+	return (
+		_emitter_spawn_rate(system, emitter)
+		* _emitter_spawn_rate_scale(system, emitter)
+	)
+
+
 static func _emitter_burst_count(emitter: Dictionary) -> int:
 	var spawn_raw: Variant = emitter.get("spawn", {})
 	if not (spawn_raw is Dictionary):
@@ -1057,6 +1085,38 @@ static func _emitter_burst_count(emitter: Dictionary) -> int:
 		if burst_raw is Dictionary:
 			result += maxi(0, int((burst_raw as Dictionary).get("Count", 0)))
 	return result
+
+
+static func _emitter_runtime_amount(
+	source_peak: int,
+	effective_spawn_rate: float,
+	burst_count: int,
+	particle_lifetime: float,
+	source_duration: float,
+	source_loops: int
+) -> int:
+	var amount := maxi(1, source_peak)
+	# Godot couples emission cadence to GPUParticles3D.lifetime, while Cascade
+	# has a separate emitter duration and particle lifetime. Allocate enough GPU
+	# slots to preserve the authored rate, then stop emission on the Cascade
+	# duration timer. This keeps already-spawned particles alive for their full
+	# lifetime instead of stretching the emission window to that lifetime.
+	if (
+		source_loops == 1
+		and source_duration > 0.0
+		and effective_spawn_rate > 0.0
+	):
+		var source_total := (
+			effective_spawn_rate * source_duration
+			+ float(burst_count)
+		)
+		var slots := int(ceil(
+			maxf(1.0, source_total)
+			* particle_lifetime
+			/ source_duration
+		))
+		amount = maxi(amount, slots)
+	return clampi(amount, 1, 4096)
 
 
 static func _enabled_emitter_modules(
@@ -1312,18 +1372,53 @@ static func _emitter_delay_seconds(emitter: Dictionary) -> float:
 	)
 
 
+static func _emitter_loops(emitter: Dictionary) -> int:
+	var required_raw: Variant = emitter.get("required", {})
+	if not (required_raw is Dictionary):
+		return 0
+	return int(
+		ParticleSource.properties(required_raw as Dictionary).get(
+			"EmitterLoops",
+			0
+		)
+	)
+
+
 static func _emitter_duration_seconds(emitter: Dictionary) -> float:
 	var required_raw: Variant = emitter.get("required", {})
 	if not (required_raw is Dictionary):
 		return 0.0
-	return maxf(
-		0.0,
-		float(
-			ParticleSource.properties(required_raw as Dictionary).get(
-				"EmitterDuration",
-				0.0
-			)
-		)
+	var props := ParticleSource.properties(required_raw as Dictionary)
+	if props.has("EmitterDuration"):
+		return maxf(0.0, float(props.get("EmitterDuration", 0.0)))
+	# UE Cascade's ParticleModuleRequired default is 1.0 s. Cooked assets omit
+	# constructor-default properties, so absence is positive authority for 1.0,
+	# not zero.
+	return 1.0
+
+
+static func _schedule_emitter_stop(
+	anchor: Node3D,
+	particles: GPUParticles3D,
+	duration: float,
+	index: int
+) -> void:
+	if duration <= 0.0:
+		return
+	var stop_timer := Timer.new()
+	stop_timer.name = "CascadeEmitterStop_%02d" % index
+	stop_timer.wait_time = duration
+	stop_timer.one_shot = true
+	stop_timer.autostart = true
+	anchor.add_child(stop_timer)
+	stop_timer.timeout.connect(
+		func() -> void:
+			if is_instance_valid(particles):
+				# Stopping emission does not kill particles already alive; they
+				# continue for GPUParticles3D.lifetime, matching Cascade.
+				particles.emitting = false
+			if is_instance_valid(stop_timer):
+				stop_timer.queue_free()
 	)
 
 
@@ -1335,16 +1430,24 @@ static func _apply_emitter_activation(
 	index: int
 ) -> void:
 	var delay := _emitter_delay_seconds(emitter)
-	particles.set_meta("source_emitter_delay_seconds", delay)
-	particles.set_meta(
-		"source_emitter_duration_seconds",
-		_emitter_duration_seconds(emitter)
+	var duration := _emitter_duration_seconds(emitter)
+	var loops := _emitter_loops(emitter)
+	var timed_single_loop := (
+		loops == 1
+		and not particles.one_shot
+		and duration > 0.0
 	)
+	particles.set_meta("source_emitter_delay_seconds", delay)
+	particles.set_meta("source_emitter_duration_seconds", duration)
+	particles.set_meta("source_emitter_loops", loops)
+	particles.set_meta("source_emitter_timed_single_loop", timed_single_loop)
 	if not auto_activate:
 		particles.emitting = false
 		return
 	if delay <= 0.0:
 		particles.emitting = true
+		if timed_single_loop:
+			_schedule_emitter_stop(anchor, particles, duration, index)
 		return
 	particles.emitting = false
 	var timer := Timer.new()
@@ -1358,6 +1461,13 @@ static func _apply_emitter_activation(
 			if is_instance_valid(particles):
 				particles.restart()
 				particles.emitting = true
+				if timed_single_loop:
+					_schedule_emitter_stop(
+						anchor,
+						particles,
+						duration,
+						index
+					)
 			if is_instance_valid(timer):
 				timer.queue_free()
 	)
@@ -1506,9 +1616,21 @@ static func _build_source_sprite_emitter(
 	_apply_sprite_pivot(quad, emitter)
 	quad.material = material
 
+	var burst_count := _emitter_burst_count(emitter)
+	var spawn_rate := _emitter_spawn_rate(system, emitter)
+	var effective_spawn_rate := _emitter_effective_spawn_rate(system, emitter)
+	var source_loops := _emitter_loops(emitter)
+	var source_duration := _emitter_duration_seconds(emitter)
 	var particles := GPUParticles3D.new()
 	particles.name = "CascadeSpriteEmitter_%02d" % index
-	particles.amount = clampi(int(emitter.get("peak", 1)), 1, 4096)
+	particles.amount = _emitter_runtime_amount(
+		int(emitter.get("peak", 1)),
+		effective_spawn_rate,
+		burst_count,
+		lifetime.y,
+		source_duration,
+		source_loops
+	)
 	particles.lifetime = lifetime.y
 	particles.randomness = clampf(1.0 - (lifetime.x / lifetime.y), 0.0, 1.0)
 	particles.local_coords = _emitter_local_space(emitter)
@@ -1516,14 +1638,10 @@ static func _build_source_sprite_emitter(
 	particles.draw_pass_1 = quad
 	particles.visibility_aabb = AABB(Vector3(-8.0, -8.0, -8.0), Vector3(16.0, 16.0, 16.0))
 	particles.fixed_fps = 30
-	var burst_count := _emitter_burst_count(emitter)
-	var spawn_rate := _emitter_spawn_rate(system, emitter)
-	var required_raw: Variant = emitter.get("required", {})
-	if required_raw is Dictionary:
-		var required_props := ParticleSource.properties(required_raw as Dictionary)
-		if int(required_props.get("EmitterLoops", 0)) == 1:
-			particles.one_shot = true
-	if spawn_rate <= 0.0 and burst_count > 0:
+	# Burst-only single-loop Cascade emitters map cleanly to Godot one_shot.
+	# Emitters with a continuous rate need separate Cascade emitter-duration
+	# timing, so they stay non-one-shot and are stopped by the source timer.
+	if source_loops == 1 and effective_spawn_rate <= 0.0 and burst_count > 0:
 		particles.one_shot = true
 		particles.explosiveness = 1.0
 	# Timing flags must be committed before the first emission. Starting an
@@ -1547,6 +1665,9 @@ static func _build_source_sprite_emitter(
 		"lodLevel": float(emitter.get("level", 0.0)),
 		"peak": particles.amount,
 		"spawnRate": spawn_rate,
+		"effectiveSpawnRate": effective_spawn_rate,
+		"sourceEmitterDuration": source_duration,
+		"sourceEmitterLoops": source_loops,
 		"burstCount": burst_count,
 	}
 
@@ -1627,9 +1748,21 @@ static func _build_source_mesh_emitter(
 	_apply_emitter_start_scale(process, system, emitter, false)
 	_apply_emitter_life_curves(process, emitter)
 
+	var burst_count := _emitter_burst_count(emitter)
+	var spawn_rate := _emitter_spawn_rate(system, emitter)
+	var effective_spawn_rate := _emitter_effective_spawn_rate(system, emitter)
+	var source_loops := _emitter_loops(emitter)
+	var source_duration := _emitter_duration_seconds(emitter)
 	var particles := GPUParticles3D.new()
 	particles.name = "CascadeMeshEmitter_%02d" % index
-	particles.amount = clampi(int(emitter.get("peak", 1)), 1, 4096)
+	particles.amount = _emitter_runtime_amount(
+		int(emitter.get("peak", 1)),
+		effective_spawn_rate,
+		burst_count,
+		lifetime.y,
+		source_duration,
+		source_loops
+	)
 	particles.lifetime = lifetime.y
 	particles.randomness = clampf(1.0 - (lifetime.x / lifetime.y), 0.0, 1.0)
 	particles.local_coords = _emitter_local_space(emitter)
@@ -1639,14 +1772,7 @@ static func _build_source_mesh_emitter(
 		particles.set("draw_pass_%d" % (chunk_index + 1), chunks[chunk_index])
 	particles.visibility_aabb = AABB(Vector3(-8.0, -8.0, -8.0), Vector3(16.0, 16.0, 16.0))
 	particles.fixed_fps = 30
-	var burst_count := _emitter_burst_count(emitter)
-	var spawn_rate := _emitter_spawn_rate(system, emitter)
-	var required_raw: Variant = emitter.get("required", {})
-	if required_raw is Dictionary:
-		var required_props := ParticleSource.properties(required_raw as Dictionary)
-		if int(required_props.get("EmitterLoops", 0)) == 1:
-			particles.one_shot = true
-	if spawn_rate <= 0.0 and burst_count > 0:
+	if source_loops == 1 and effective_spawn_rate <= 0.0 and burst_count > 0:
 		particles.one_shot = true
 		particles.explosiveness = 1.0
 	# Timing flags must be committed before the first emission. Starting an
