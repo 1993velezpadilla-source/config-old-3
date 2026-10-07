@@ -185,6 +185,9 @@ jobs:
               "bonefire2b_fwd2_inst",
               "bonefire3_inst",
               "bonefire_fwd4_inst",
+              "sequence_mat",
+              "bonefire2b_fwd2",
+              "candlefire_d",
           )
 
           def canonical(raw):
