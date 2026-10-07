@@ -583,8 +583,13 @@ def main() -> int:
             base_material.get("exportType") == "Material"
             and not material.get("semanticBlendOverride", False)
             and "BlendMode" not in base_source_property_names
+            and runtime_blend_mode == "BLEND_Opaque"
         ):
-            runtime_blend_mode = "BLEND_Opaque"
+            # UE4.21.2's UMaterial ctor default is BLEND_Opaque, but that
+            # default can only explain an already-opaque semantic result.
+            # A resolved non-default mode (Translucent/Additive/etc.) is
+            # positive inheritance/source authority and must never be erased
+            # merely because a partial cooked-property view omitted BlendMode.
             runtime_default_sources.append(
                 "UE4.21.2 UMaterial ctor BlendMode=BLEND_Opaque"
             )
