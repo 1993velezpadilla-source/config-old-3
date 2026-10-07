@@ -255,8 +255,13 @@ static func _build_sprite_emitter(
 	var lifetime_min := 1.0
 	var lifetime_max := 1.0
 	if not lifetimes.is_empty():
-		lifetime_min = maxf(0.001, lifetimes.min())
-		lifetime_max = maxf(lifetime_min, lifetimes.max())
+		lifetime_min = INF
+		lifetime_max = 0.0
+		for sample: float in lifetimes:
+			lifetime_min = minf(lifetime_min, sample)
+			lifetime_max = maxf(lifetime_max, sample)
+		lifetime_min = maxf(0.001, lifetime_min)
+		lifetime_max = maxf(lifetime_min, lifetime_max)
 
 	var sizes := _all_vector_samples(system, "ParticleModuleSize", "StartSize")
 	var size_ue := _max_abs_component(sizes)
@@ -271,7 +276,10 @@ static func _build_sprite_emitter(
 	var acceleration := _mean_vector(accelerations) * 0.01
 
 	var spawn_rates := _all_float_samples(system, "ParticleModuleSpawn", "Rate")
-	var spawn_rate := 0.0 if spawn_rates.is_empty() else maxf(0.0, spawn_rates.max())
+	var spawn_rate := 0.0
+	for sample: float in spawn_rates:
+		spawn_rate = maxf(spawn_rate, sample)
+	spawn_rate = maxf(0.0, spawn_rate)
 	var burst_count := _burst_count(system)
 	var amount := _peak_active(system)
 	if amount <= 0:
@@ -353,7 +361,9 @@ static func _build_beam(
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 
 	var target_raw: Variant = descriptor.get("targetUEcm", Vector3.ZERO)
-	var target := target_raw as Vector3 if target_raw is Vector3 else Vector3.ZERO
+	var target := Vector3.ZERO
+	if target_raw is Vector3:
+		target = target_raw as Vector3
 	target *= 0.01
 	if target.length_squared() < 0.000001:
 		return {"mounted": false, "materialResolved": true, "nodeCount": 0}
