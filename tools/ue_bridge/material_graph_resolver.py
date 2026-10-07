@@ -86,24 +86,92 @@ def expression_kind(export_type: str) -> str | None:
     return None
 
 
-def _resolved_expression_inputs(value: Any):
+def _expression_aliases(expression: dict[str, Any]) -> set[str]:
+    aliases: set[str] = set()
+    object_path = str(expression.get("objectPath", "")).strip()
+    if object_path:
+        aliases.add(canonical_path(object_path))
+        tail = object_path.rsplit(":", 1)[-1].rsplit(".", 1)[-1]
+        if tail:
+            aliases.add(tail.lower())
+    reference = str(expression.get("reference", "")).strip()
+    if reference:
+        aliases.add(canonical_path(reference))
+        tail = reference.rsplit(":", 1)[-1].rsplit(".", 1)[-1]
+        if tail:
+            aliases.add(tail.lower())
+    return {alias for alias in aliases if alias}
+
+
+def expression_index(base_material: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    for raw in base_material.get("expressionGraph", []):
+        if not isinstance(raw, dict) or not raw.get("loaded", False):
+            continue
+        for alias in _expression_aliases(raw):
+            buckets.setdefault(alias, []).append(raw)
+
+    result: dict[str, dict[str, Any]] = {}
+    for alias, rows in buckets.items():
+        unique = {
+            canonical_path(row.get("objectPath")): row
+            for row in rows
+        }
+        if len(unique) == 1:
+            result[alias] = next(iter(unique.values()))
+    return result
+
+
+def _resolve_input_expression(
+    raw_input: Any,
+    index: dict[str, dict[str, Any]],
+) -> dict[str, Any] | None:
+    if not isinstance(raw_input, dict):
+        return None
+    if raw_input.get("kind") != "FExpressionInput":
+        return None
+
+    direct = raw_input.get("resolvedExpression")
+    if isinstance(direct, dict):
+        return direct
+
+    for key in ("expressionPath", "expressionName"):
+        raw = str(raw_input.get(key, "")).strip()
+        if not raw:
+            continue
+        candidates = [
+            canonical_path(raw),
+            raw.rsplit(":", 1)[-1].rsplit(".", 1)[-1].lower(),
+        ]
+        for candidate in candidates:
+            if candidate and candidate in index:
+                return index[candidate]
+    return None
+
+
+def _resolved_expression_inputs(
+    value: Any,
+    index: dict[str, dict[str, Any]],
+):
     if isinstance(value, dict):
         if value.get("kind") == "FExpressionInput":
-            expression = value.get("resolvedExpression")
+            expression = _resolve_input_expression(value, index)
             if isinstance(expression, dict):
                 yield expression
         for child in value.values():
-            yield from _resolved_expression_inputs(child)
+            yield from _resolved_expression_inputs(child, index)
     elif isinstance(value, list):
         for child in value:
-            yield from _resolved_expression_inputs(child)
+            yield from _resolved_expression_inputs(child, index)
 
 
 def collect_parameters(
     expression: dict[str, Any],
     *,
+    index: dict[str, dict[str, Any]] | None = None,
     _seen: set[str] | None = None,
 ) -> list[dict[str, str]]:
+    index = {} if index is None else index
     seen = set() if _seen is None else _seen
     object_path = str(expression.get("objectPath", ""))
     identity = canonical_path(object_path) or f"id:{id(expression)}"
@@ -123,10 +191,18 @@ def collect_parameters(
             "objectPath": object_path,
         })
 
-    for child in _resolved_expression_inputs(expression.get("properties", [])):
-        result.extend(collect_parameters(child, _seen=seen))
+    for child in _resolved_expression_inputs(
+        expression.get("properties", []),
+        index,
+    ):
+        result.extend(
+            collect_parameters(
+                child,
+                index=index,
+                _seen=seen,
+            )
+        )
 
-    # Stable unique order.
     unique: dict[tuple[str, str], dict[str, str]] = {}
     for row in result:
         unique[(row["kind"], row["parameter"].lower())] = row
@@ -135,17 +211,14 @@ def collect_parameters(
 
 def output_pin_parameters(base_material: dict[str, Any]) -> dict[str, list[dict[str, str]]]:
     props = property_map(base_material.get("rawMaterialProperties", []))
+    index = expression_index(base_material)
     result: dict[str, list[dict[str, str]]] = {}
     for pin in OUTPUT_PINS:
         raw_input = props.get(pin)
-        if not isinstance(raw_input, dict):
-            continue
-        if raw_input.get("kind") != "FExpressionInput":
-            continue
-        expression = raw_input.get("resolvedExpression")
+        expression = _resolve_input_expression(raw_input, index)
         if not isinstance(expression, dict):
             continue
-        rows = collect_parameters(expression)
+        rows = collect_parameters(expression, index=index)
         if rows:
             result[pin] = rows
     return result
@@ -174,6 +247,7 @@ def base_parameter_candidates(base_material: dict[str, Any]) -> list[dict[str, s
 
 def unresolved_output_inputs(base_material: dict[str, Any]) -> dict[str, str]:
     props = property_map(base_material.get("rawMaterialProperties", []))
+    index = expression_index(base_material)
     result: dict[str, str] = {}
     for pin in OUTPUT_PINS:
         raw_input = props.get(pin)
@@ -181,9 +255,13 @@ def unresolved_output_inputs(base_material: dict[str, Any]) -> dict[str, str]:
             continue
         if raw_input.get("kind") != "FExpressionInput":
             continue
-        if isinstance(raw_input.get("resolvedExpression"), dict):
+        if _resolve_input_expression(raw_input, index) is not None:
             continue
-        expression_name = str(raw_input.get("expressionName", ""))
+        expression_name = str(
+            raw_input.get("expressionName")
+            or raw_input.get("expressionPath")
+            or ""
+        )
         if expression_name:
             result[pin] = expression_name
     return result
