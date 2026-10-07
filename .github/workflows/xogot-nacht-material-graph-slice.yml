@@ -247,6 +247,65 @@ jobs:
           })
           PY
 
+      - name: Slice exact fire native textures
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, shutil
+          from pathlib import Path
+
+          root=Path("full")
+          out=Path("slice/native-textures")
+          out.mkdir(parents=True,exist_ok=True)
+
+          report_path=next(root.rglob("nacht-native/textures/report.json"),None)
+          if report_path is None:
+              raise SystemExit("native texture report missing")
+          report=json.loads(report_path.read_text())
+
+          needles=(
+              "bonefire2b_fwd2",
+              "candlefire_d",
+          )
+          selected=[]
+          texture_dir=report_path.parent
+          for row in report.get("textures",[]):
+              object_path=str(row.get("objectPath",""))
+              if not any(n in object_path.lower() for n in needles):
+                  continue
+              src=texture_dir/str(row.get("file",""))
+              if not src.is_file():
+                  raise SystemExit(f"native texture payload missing: {src}")
+              dst=out/src.name
+              shutil.copy2(src,dst)
+              selected.append({
+                  **row,
+                  "sliceFile":str(dst.relative_to(Path("slice"))),
+              })
+
+          if not any("bonefire2b_fwd2" in str(r.get("objectPath","")).lower() for r in selected):
+              raise SystemExit("bonefire2B native texture missing")
+
+          payload={
+              "schemaVersion":1,
+              "sourceFormat":report.get("format"),
+              "textures":selected,
+          }
+          (out/"report.json").write_text(json.dumps(payload,indent=2)+"\n")
+          print("XZOGOT_NACHT_FIRE_NATIVE_TEXTURE_GREEN",{
+              "count":len(selected),
+              "textures":[{
+                  "objectPath":r.get("objectPath"),
+                  "format":r.get("format"),
+                  "srgb":r.get("srgb"),
+                  "width":r.get("width"),
+                  "height":r.get("height"),
+                  "mipCount":r.get("mipCount"),
+              } for r in selected],
+          })
+          PY
+
       - name: Slice portable source material exports
         shell: bash
         run: |
