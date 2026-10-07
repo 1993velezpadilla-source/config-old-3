@@ -197,6 +197,11 @@ func _run() -> void:
 	player.set("_move_vector", Vector2.ZERO)
 	print("XZOGOT_MOBILE_ADS_WALK_SPEED_GREEN speed=", horizontal_speed)
 
+	# Restore the Settings-owned ADS mode after the forced toggle-ADS runtime
+	# test above so the settings propagation test starts from canonical state.
+	player.set("ads_toggle_mode", bool(settings.call("get_setting_value", "ads_toggle_mode")))
+	player.set_meta("ads_toggled", false)
+
 	# Settings must be live, not decorative.
 	var original_ads: bool = bool(player.get("ads_toggle_mode"))
 	settings.call("_cycle_ads_mode")
