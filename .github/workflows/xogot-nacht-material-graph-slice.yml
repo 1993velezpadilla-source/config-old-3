@@ -102,6 +102,9 @@ jobs:
               "mtl_p7_zm_gen_debris_concrete_rubble_lg_03",
               "t7_water_cp_bio_muddy_waterfall",
               "mysterBoxVerticalMat",
+              "BoneFire2B_fwd2_Inst",
+              "BoneFire3_Inst",
+              "BoneFire_fwd4_Inst",
           ]
           rows=source.get("materials",[])
           selected=[]
@@ -182,6 +185,9 @@ jobs:
               "mysteryboxverticalrippleparticle",
               "mysteryboxverticalmaskparticlethin",
               "mtl_p7_zm_gen_debris_concrete_rubble_lg_03",
+              "bonefire2b_fwd2_inst",
+              "bonefire3_inst",
+              "bonefire_fwd4_inst",
           )
           copied=[]
           for source in root.rglob("*"):
