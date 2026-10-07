@@ -7,11 +7,85 @@ const PARTICLE_RUNTIME_AUTHORITY := "res://assets/benchmarks/nacht_chronicles/na
 func _init() -> void:
 	call_deferred("_audit")
 
+
+func _texture_alpha_summary(texture: Texture2D) -> Dictionary:
+	if texture == null:
+		return {"present": false}
+	var image := texture.get_image()
+	if image == null or image.is_empty():
+		return {
+			"present": true,
+			"resource_path": texture.resource_path,
+			"image": false
+		}
+	var compressed := image.is_compressed()
+	if compressed:
+		var err := image.decompress()
+		if err != OK:
+			return {
+				"present": true,
+				"resource_path": texture.resource_path,
+				"image": true,
+				"compressed": true,
+				"decompress_error": int(err)
+			}
+	var min_alpha := 1.0
+	var max_alpha := 0.0
+	var below_half := 0
+	var samples := 0
+	var step_x := maxi(1, image.get_width() / 32)
+	var step_y := maxi(1, image.get_height() / 32)
+	for y in range(0, image.get_height(), step_y):
+		for x in range(0, image.get_width(), step_x):
+			var alpha := image.get_pixel(x, y).a
+			min_alpha = minf(min_alpha, alpha)
+			max_alpha = maxf(max_alpha, alpha)
+			if alpha < 0.5:
+				below_half += 1
+			samples += 1
+	return {
+		"present": true,
+		"resource_path": texture.resource_path,
+		"width": image.get_width(),
+		"height": image.get_height(),
+		"compressed": compressed,
+		"min_alpha": min_alpha,
+		"max_alpha": max_alpha,
+		"below_half": below_half,
+		"samples": samples
+	}
+
+func _monster_material_detail(
+	system_path: String,
+	node_name: String,
+	material: Material
+) -> void:
+	if system_path != TARGET_MONSTER or not (material is StandardMaterial3D):
+		return
+	var standard := material as StandardMaterial3D
+	print(
+		"XZOGOT_NACHT_MONSTER_MATERIAL_DETAIL ",
+		"node=", node_name,
+		" source=", str(material.get_meta("source_material_path", "")),
+		" blend=", str(material.get_meta("source_blend_mode", "")),
+		" albedo_color=", standard.albedo_color,
+		" albedo_texture=", JSON.stringify(_texture_alpha_summary(standard.albedo_texture)),
+		" emission_enabled=", standard.emission_enabled,
+		" emission=", standard.emission,
+		" emission_texture=", JSON.stringify(_texture_alpha_summary(standard.emission_texture)),
+		" vertex_color_as_albedo=", standard.vertex_color_use_as_albedo,
+		" billboard=", int(standard.billboard_mode),
+		" transparency=", int(standard.transparency),
+		" blend_mode=", int(standard.blend_mode),
+		" shading_mode=", int(standard.shading_mode)
+	)
+
 func _material_row(system_path: String, node_name: String, material: Material) -> void:
 	if material == null:
 		print("XZOGOT_NACHT_PARTICLE_MATERIAL_AUDIT system=", system_path,
 			" node=", node_name, " material=null")
 		return
+	_monster_material_detail(system_path, node_name, material)
 	var source_path := str(material.get_meta("source_material_path", ""))
 	var source_blend := str(material.get_meta("source_blend_mode", ""))
 	var transparency := -1
