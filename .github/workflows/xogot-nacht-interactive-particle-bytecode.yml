@@ -566,6 +566,81 @@ jobs:
               json.dumps(delay_counts,separators=(",",":"))
           )
 
+          visibility_actions=[]
+          for package in data.get("packages",[]):
+              package_name=str(package.get("fileName",""))
+              for fn in package.get("functions",[]):
+                  fn_name=str(fn.get("name",""))
+                  for top in fn.get("topLevelExpressions",[]) or []:
+                      expr=top.get("expression") or {}
+                      if expr.get("$type")!="EX_Context":
+                          continue
+                      ctx=expr.get("ContextExpression") or {}
+                      if not str(ctx.get("StackNode","")).endswith(
+                          "SceneComponent.SetVisibility"
+                      ):
+                          continue
+                      obj=expr.get("ObjectExpression") or {}
+                      target_ptr=ptr_old(obj)
+                      target_name=ptr_name(target_ptr)
+                      params=ctx.get("Parameters") or []
+                      visible=None
+                      propagate=None
+                      if params:
+                          if isinstance(params[0],dict):
+                              if params[0].get("$type")=="EX_True":
+                                  visible=True
+                              elif params[0].get("$type")=="EX_False":
+                                  visible=False
+                      if len(params)>1 and isinstance(params[1],dict):
+                          if params[1].get("$type")=="EX_True":
+                              propagate=True
+                          elif params[1].get("$type")=="EX_False":
+                              propagate=False
+                      visibility_actions.append({
+                          "fileName":package_name,
+                          "function":fn_name,
+                          "startOffset":int(top.get("startOffset",-1)),
+                          "endOffset":int(top.get("endOffset",-1)),
+                          "targetExpressionType":str(obj.get("$type","")),
+                          "targetPointer":target_ptr,
+                          "componentName":target_name,
+                          "visible":visible,
+                          "propagateToChildren":propagate,
+                          "constantVisibility":visible is not None,
+                      })
+          visibility_actions.sort(
+              key=lambda r:(r["fileName"],r["function"],r["startOffset"])
+          )
+          visibility_counts={
+              name:sum(1 for r in visibility_actions if r["fileName"]==name)
+              for name in sorted({r["fileName"] for r in visibility_actions})
+          }
+          expected_visibility_counts={
+              "Box5.uasset":1,
+              "MachineGumball.uasset":28,
+              "PunchAPackMachine.uasset":5,
+              "WonderFizz.uasset":31,
+          }
+          if visibility_counts!=expected_visibility_counts:
+              raise SystemExit(
+                  f"SetVisibility authority mismatch actual={visibility_counts} "
+                  f"expected={expected_visibility_counts}"
+              )
+          constant_visibility=sum(
+              1 for r in visibility_actions if r["constantVisibility"]
+          )
+          if len(visibility_actions)!=65 or constant_visibility!=63:
+              raise SystemExit(
+                  f"SetVisibility coverage mismatch total={len(visibility_actions)} "
+                  f"constant={constant_visibility} expected=65/63"
+              )
+          print(
+              "XZOGOT_NACHT_INTERACTIVE_VISIBILITY_GREEN",
+              f"actions={len(visibility_actions)} constant={constant_visibility} dynamic=2",
+              json.dumps(visibility_counts,separators=(",",":"))
+          )
+
           out={
               "schemaVersion":2,
               "source":"Nacht workshop 2755515831 UE4.21 Blueprint bytecode",
@@ -578,6 +653,8 @@ jobs:
               "entryPoints":entry_points,
               "latentDelayCount":len(latent_delays),
               "latentDelays":latent_delays,
+              "componentVisibilityActionCount":len(visibility_actions),
+              "componentVisibilityActions":visibility_actions,
               "packages":rows,
               "ready":True,
           }
