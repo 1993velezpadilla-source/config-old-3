@@ -1,7 +1,9 @@
 extends SceneTree
 
-const AUTHORITY_PATH := "res://assets/benchmarks/nacht_particle_slice/placed-particle-material-authority.json"
-const DDS_ROOT := "res://assets/benchmarks/nacht_particle_slice/textures_dds"
+const FULL_AUTHORITY_PATH := "res://assets/benchmarks/nacht_particle_slice/placed-particle-material-authority.json"
+const FULL_DDS_ROOT := "res://assets/benchmarks/nacht_particle_slice/textures_dds"
+const MINI_AUTHORITY_PATH := "res://placed-particle-material-authority.json"
+const MINI_DDS_ROOT := "res://textures_dds"
 const TARGET_TOKEN := "bonefire2b_fwd2"
 
 func _fail(message: String) -> void:
@@ -9,10 +11,20 @@ func _fail(message: String) -> void:
 	quit(2)
 
 func _init() -> void:
-	if not FileAccess.file_exists(AUTHORITY_PATH):
+	var authority_path := (
+		MINI_AUTHORITY_PATH
+		if FileAccess.file_exists(MINI_AUTHORITY_PATH)
+		else FULL_AUTHORITY_PATH
+	)
+	var dds_root := (
+		MINI_DDS_ROOT
+		if FileAccess.file_exists(MINI_AUTHORITY_PATH)
+		else FULL_DDS_ROOT
+	)
+	if not FileAccess.file_exists(authority_path):
 		_fail("placed particle material authority missing")
 		return
-	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(AUTHORITY_PATH))
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(authority_path))
 	if not (parsed is Dictionary):
 		_fail("authority JSON invalid")
 		return
@@ -33,7 +45,7 @@ func _init() -> void:
 	if source_file.is_empty():
 		_fail("BoneFire2B runtime source file missing")
 		return
-	var dds_path := DDS_ROOT.path_join(source_file.get_basename() + ".dds")
+	var dds_path := dds_root.path_join(source_file.get_basename() + ".dds")
 	if not FileAccess.file_exists(dds_path):
 		_fail("DDS missing " + dds_path)
 		return
