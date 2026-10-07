@@ -1832,6 +1832,7 @@ static func mount_anchor(
 			if bool(report.get("mounted", false)):
 				mounted_emitters += 1
 
+	anchor.set_meta("source_particle_system_path", system_path)
 	anchor.set_meta("source_particle_visual_node_count", visual_nodes)
 	anchor.set_meta("source_particle_visual_material_count", resolved_materials)
 	anchor.set_meta("source_particle_visual_unresolved_material_count", unresolved_materials)
