@@ -1,8 +1,19 @@
 extends SceneTree
 
-const NachtCascadeVisualRuntime = preload("res://scripts/nacht_cascade_visual_runtime.gd")
+const VISUAL_RUNTIME_PATH := "res://scripts/nacht_cascade_visual_runtime.gd"
 
 func _init() -> void:
+	# Load at runtime instead of preloading at parser time so Godot reports the
+	# exact source file/line when the Cascade runtime itself has a parse error.
+	var runtime_resource: Resource = load(VISUAL_RUNTIME_PATH)
+	if runtime_resource == null:
+		push_error(
+			"NACHT_CASCADE_VISUAL_COMPILE_PROBE: runtime load failed "
+			+ VISUAL_RUNTIME_PATH
+		)
+		quit(2)
+		return
+
 	var material := StandardMaterial3D.new()
 	material.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	material.billboard_keep_scale = true
@@ -50,9 +61,5 @@ func _init() -> void:
 	anchor.add_child(beam)
 	root.add_child(anchor)
 
-	if NachtCascadeVisualRuntime == null:
-		push_error("NACHT_CASCADE_VISUAL_COMPILE_PROBE: visual runtime preload failed")
-		quit(2)
-		return
 	print("XZOGOT_NACHT_CASCADE_VISUAL_API_GREEN")
 	quit()
