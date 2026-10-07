@@ -1838,6 +1838,34 @@ jobs:
               json.dumps(gumball_presentation_rule,separators=(",",":"))
           )
 
+          up_symbol="export:320:CallFunc_GetActorUpVector_ReturnValue"
+          gumball_up_vector_trace=[]
+          for offset in sorted(gumball_top):
+              expr=gumball_top[offset]
+              blob=json.dumps(expr,sort_keys=True)
+              if up_symbol in blob:
+                  gumball_up_vector_trace.append({
+                      "startOffset":offset,
+                      "expression":expr,
+                  })
+          if not gumball_up_vector_trace:
+              raise SystemExit("MachineGumball GetActorUpVector trace is empty")
+
+          gunpos_exports=[
+              row for row in gumball_package.get("normalExportProperties",[])
+              if "gunpos" in str(row.get("objectName","")).lower()
+          ]
+          if not gunpos_exports:
+              raise SystemExit("MachineGumball GunPos export is missing")
+          print(
+              "XZOGOT_NACHT_GUMBALL_UP_VECTOR_GREEN",
+              json.dumps(gumball_up_vector_trace,separators=(",",":"))
+          )
+          print(
+              "XZOGOT_NACHT_GUMBALL_GUNPOS_AUTHORITY_GREEN",
+              json.dumps(gunpos_exports,separators=(",",":"))
+          )
+
           gumball_contract={
               "fileName":"MachineGumball.uasset",
               "blueprintName":"MachineGumball",
@@ -1879,6 +1907,8 @@ jobs:
               "transformUpstreamTrace":gumball_transform_upstream,
               "transformPositionTrace":gumball_transform_position_trace,
               "presentationRule":gumball_presentation_rule,
+              "upVectorTrace":gumball_up_vector_trace,
+              "gunPosExports":gunpos_exports,
           }
           source_interaction_contracts=[gumball_contract]
           print(
