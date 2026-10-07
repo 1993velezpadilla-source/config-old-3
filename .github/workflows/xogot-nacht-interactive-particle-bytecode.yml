@@ -1125,6 +1125,176 @@ jobs:
               )
           )
 
+          # Source interaction contract for the placed Gumball machine. Keep this
+          # as bytecode authority, not gameplay guesswork: every constant,
+          # predicate and success mutation below is asserted against the
+          # UE4.21 cooked Blueprint before it is emitted.
+          gumball_package=packages_by_name["MachineGumball.uasset"]
+          gumball_uber=next(
+              fn for fn in gumball_package.get("functions",[])
+              if fn.get("name")=="ExecuteUbergraph_MachineGumball"
+          )
+          gumball_top={
+              int(row.get("startOffset",-1)):row.get("expression") or {}
+              for row in gumball_uber.get("topLevelExpressions",[]) or []
+          }
+          gumball_cdo=next(
+              row for row in gumball_package.get("normalExportProperties",[])
+              if row.get("objectName")=="Default__MachineGumball_C"
+          )
+          def cdo_prop(name):
+              rows=[
+                  row for row in gumball_cdo.get("properties",[])
+                  if row.get("Name")==name
+              ]
+              if len(rows)!=1:
+                  raise SystemExit(
+                      f"MachineGumball CDO property mismatch {name} rows={rows}"
+                  )
+              return rows[0].get("Value")
+
+          base_cost=int(cdo_prop("Cost"))
+          time_to_raise=float(cdo_prop("TimetoRaise"))
+          time_to_fall=float(cdo_prop("TimetoFall"))
+          cycle_time=float(cdo_prop("time"))
+          gum_rows=cdo_prop("Gobblegum")
+          gum_pool=[
+              str(row.get("Value",""))
+              for row in gum_rows
+              if isinstance(row,dict)
+          ]
+          if (
+              base_cost!=950
+              or abs(time_to_raise-5.5)>0.001
+              or abs(time_to_fall-8.0)>0.001
+              or abs(cycle_time-10.0)>0.001
+              or gum_pool!=[
+                  "ammo","Firesale1","Instagum",
+                  "nuke","DoublePointsDrop","Weapon",
+              ]
+          ):
+              raise SystemExit(
+                  "MachineGumball source defaults mismatch "
+                  f"cost={base_cost} raise={time_to_raise} "
+                  f"fall={time_to_fall} time={cycle_time} pool={gum_pool}"
+              )
+
+          server_event=next(
+              row for row in entry_points
+              if row["fileName"]=="MachineGumball.uasset"
+              and row["function"]==
+                  "BndEvt__Pavlov_InteractBox_K2Node_ComponentBoundEvent_3_"
+                  "OnInteractBoxServerSignature__DelegateSignature"
+          )
+          if int(server_event["entryOffset"])!=6892:
+              raise SystemExit(
+                  f"MachineGumball server entry mismatch {server_event}"
+              )
+
+          def gumball_blob(offset):
+              if offset not in gumball_top:
+                  raise SystemExit(
+                      f"MachineGumball source opcode missing offset={offset}"
+                  )
+              return json.dumps(gumball_top[offset],sort_keys=True)
+
+          predicate_1=gumball_blob(7433)
+          predicate_2=gumball_blob(7786)
+          precondition_blob=" ".join(
+              gumball_blob(offset)
+              for offset in [
+                  6976,7053,7130,7168,7197,7256,
+                  7290,7328,7357,7395,7433,
+              ]
+          )
+          cash_blob=" ".join(
+              gumball_blob(offset)
+              for offset in [7631,7654,7695,7786]
+          )
+          success_blob=" ".join(
+              gumball_blob(offset)
+              for offset in [4446,4564,4663,4722,4736,4750,4787]
+          )
+          for token in [
+              "Zombie","Downed","PowerSwitchFlags","Powered","Inuse?",
+              "BooleanAND","BooleanOR","Not_PreBool",
+          ]:
+              if token not in precondition_blob:
+                  raise SystemExit(
+                      f"MachineGumball precondition token missing {token}"
+                  )
+          for token in [
+              "FireSaleActive?","PavlovPlayerStatus.Cash",
+              "GreaterEqual_IntInt","Cost",
+          ]:
+              if token not in cash_blob:
+                  raise SystemExit(
+                      f"MachineGumball cash predicate token missing {token}"
+                  )
+          if '"Value": 10' not in cash_blob:
+              raise SystemExit("MachineGumball Fire Sale cost 10 missing")
+          for token in [
+              "Inuse?","Subtract_IntInt","SetPlayerCash",
+              "OpenLidMulticast","OpenMystreyBoxSound",
+              "KismetSystemLibrary.Delay",
+          ]:
+              if token not in success_blob:
+                  raise SystemExit(
+                      f"MachineGumball success token missing {token}"
+                  )
+          delay_expr=gumball_top[4787]
+          delay_ctx=delay_expr.get("ContextExpression") or {}
+          delay_params=delay_ctx.get("Parameters") or []
+          if (
+              len(delay_params)<3
+              or abs(float(delay_params[1].get("Value",-1.0))-0.5)>0.001
+          ):
+              raise SystemExit(
+                  f"MachineGumball post-open Delay mismatch {delay_expr}"
+              )
+          latent=delay_params[2].get("Value",[]) or []
+          resume_offsets=[
+              int(row.get("Value",-1))
+              for row in latent
+              if isinstance(row,dict)
+              and row.get("$type")=="EX_SkipOffsetConst"
+          ]
+          if resume_offsets!=[794]:
+              raise SystemExit(
+                  f"MachineGumball post-open resume mismatch {resume_offsets}"
+              )
+
+          gumball_contract={
+              "fileName":"MachineGumball.uasset",
+              "blueprintName":"MachineGumball",
+              "serverInteractFunction":server_event["function"],
+              "serverEntryOffset":6892,
+              "baseCost":base_cost,
+              "fireSaleCost":10,
+              "powerSwitchRule":"PowerSwitchFlags_empty_or_Powered",
+              "denyPlayerTags":["Downed","Zombie"],
+              "requiresNotInUse":True,
+              "cashRule":"Cash >= (FireSaleActive ? fireSaleCost : baseCost)",
+              "successSequence":[
+                  "set Inuse? true",
+                  "SetPlayerCash(Cash - selectedCost)",
+                  "Test",
+                  "OpenLidMulticast",
+                  "OpenMystreyBoxSound",
+                  "Delay 0.5s -> resume 794",
+              ],
+              "predicateOffsets":[7433,7786],
+              "timeToRaiseSeconds":time_to_raise,
+              "timeToFallSeconds":time_to_fall,
+              "cycleTimeSeconds":cycle_time,
+              "gobblegumPool":gum_pool,
+          }
+          source_interaction_contracts=[gumball_contract]
+          print(
+              "XZOGOT_NACHT_GUMBALL_INTERACTION_AUTHORITY_GREEN",
+              json.dumps(gumball_contract,separators=(",",":"))
+          )
+
           out={
               "schemaVersion":2,
               "source":"Nacht workshop 2755515831 UE4.21 Blueprint bytecode",
@@ -1143,6 +1313,8 @@ jobs:
               "eventActionBindings":event_action_bindings,
               "replaySafeEventCount":len(replay_safe_events),
               "replaySafeEvents":replay_safe_events,
+              "sourceInteractionContractCount":len(source_interaction_contracts),
+              "sourceInteractionContracts":source_interaction_contracts,
               "cfgLinkedActionCount":len(linked_action_keys),
               "packages":rows,
               "ready":True,
