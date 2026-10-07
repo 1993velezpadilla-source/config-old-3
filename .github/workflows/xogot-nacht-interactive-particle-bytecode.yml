@@ -1718,6 +1718,126 @@ jobs:
               json.dumps(gumball_transform_position_trace,separators=(",",":"))
           )
 
+          def require_gumball_tokens(offset,tokens,label):
+              expr=gumball_top.get(offset,{})
+              blob=json.dumps(expr,sort_keys=True)
+              for token in tokens:
+                  if token not in blob:
+                      raise SystemExit(
+                          f"MachineGumball {label} missing {token} "
+                          f"offset={offset} expr={expr}"
+                      )
+              return expr
+
+          require_gumball_tokens(
+              808,["Temp_int_Variable1",'"Value": 0'],"preview counter init"
+          )
+          require_gumball_tokens(
+              831,["LessEqual_IntInt","Temp_int_Variable1",'"Value": 28'],
+              "preview loop condition"
+          )
+          preview_jump=gumball_top.get(865,{})
+          if (
+              preview_jump.get("$type")!="EX_JumpIfNot"
+              or int(preview_jump.get("CodeOffset",-1))!=2131
+          ):
+              raise SystemExit(
+                  f"MachineGumball preview exit mismatch {preview_jump}"
+              )
+          preview_push=gumball_top.get(879,{})
+          if (
+              preview_push.get("$type")!="EX_PushExecutionFlow"
+              or int(preview_push.get("PushingAddress",-1))!=1980
+          ):
+              raise SystemExit(
+                  f"MachineGumball preview delay flow mismatch {preview_push}"
+              )
+          require_gumball_tokens(
+              1942,["SetSimulatePhysics","EX_False"],"preview physics"
+          )
+          require_gumball_tokens(
+              2057,["Add_IntInt","Temp_int_Variable1",'"Value": 1'],
+              "preview counter increment"
+          )
+          preview_back=gumball_top.get(2126,{})
+          if (
+              preview_back.get("$type")!="EX_Jump"
+              or int(preview_back.get("CodeOffset",-1))!=831
+          ):
+              raise SystemExit(
+                  f"MachineGumball preview loop-back mismatch {preview_back}"
+              )
+          require_gumball_tokens(
+              3189,["SetSimulatePhysics","EX_False"],"final physics"
+          )
+          require_gumball_tokens(
+              3301,["K2_AttachToComponent","GunPos",'"Value": "None"'],
+              "final attach"
+          )
+          require_gumball_tokens(
+              3362,["CheckForGunGrabbedLoop","CallFunc_SpawnItemWRef_Item1"],
+              "final grab loop"
+          )
+          require_gumball_tokens(
+              3385,["Actor.FlushNetDormancy"],"final dormancy flush"
+          )
+          require_gumball_tokens(
+              3395,["GunFloatingDown","EX_True"],"final floating state"
+          )
+          require_gumball_tokens(
+              3483,["SetActorEnableCollision","EX_False"],"preview collision"
+          )
+          require_gumball_tokens(
+              3516,["K2_AttachToComponent","GunPos",'"Value": "None"'],
+              "preview attach"
+          )
+          require_gumball_tokens(
+              3577,["SetLifeSpan",'"Value": 0.1666'],"preview lifespan"
+          )
+
+          def exact_delay(start_offset,duration,resume_offset):
+              rows=[
+                  row for row in gumball_latent_delays
+                  if int(row.get("startOffset",-1))==start_offset
+              ]
+              return (
+                  len(rows)==1
+                  and abs(float(rows[0].get("durationSeconds",-1.0))-duration)<0.0001
+                  and int(rows[0].get("resumeOffset",-1))==resume_offset
+              )
+          if not exact_delay(1980,0.1666,2057):
+              raise SystemExit("MachineGumball preview delay authority mismatch")
+          if not exact_delay(3406,2.0,42):
+              raise SystemExit("MachineGumball final delay authority mismatch")
+
+          gumball_presentation_rule={
+              "previewCount":29,
+              "previewCounterMin":0,
+              "previewCounterMaxInclusive":28,
+              "previewRandomOffset":884,
+              "previewSpawnOffset":1517,
+              "previewSimulatePhysics":False,
+              "previewCollisionEnabled":False,
+              "previewAttachComponent":"GunPos",
+              "previewLifeSpanSeconds":0.1666,
+              "previewDelaySeconds":0.1666,
+              "previewDelayResumeOffset":2057,
+              "previewLoopBackOffset":831,
+              "finalRandomOffset":2131,
+              "finalSpawnOffset":2764,
+              "finalSimulatePhysics":False,
+              "finalAttachComponent":"GunPos",
+              "finalCheckForGrabbed":True,
+              "finalFlushNetDormancy":True,
+              "finalGunFloatingDown":True,
+              "finalDelaySeconds":2.0,
+              "finalDelayResumeOffset":42,
+          }
+          print(
+              "XZOGOT_NACHT_GUMBALL_PRESENTATION_RULE_GREEN",
+              json.dumps(gumball_presentation_rule,separators=(",",":"))
+          )
+
           gumball_contract={
               "fileName":"MachineGumball.uasset",
               "blueprintName":"MachineGumball",
@@ -1758,6 +1878,7 @@ jobs:
               "makeTransformTrace":make_transform_trace,
               "transformUpstreamTrace":gumball_transform_upstream,
               "transformPositionTrace":gumball_transform_position_trace,
+              "presentationRule":gumball_presentation_rule,
           }
           source_interaction_contracts=[gumball_contract]
           print(
