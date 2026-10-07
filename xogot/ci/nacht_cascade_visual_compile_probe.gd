@@ -68,7 +68,7 @@ func _init() -> void:
 		)
 		quit(3)
 		return
-	var loader := loader_script.new()
+	var loader: Object = loader_script.new()
 	loader.set("load_on_ready", false)
 
 	var blend_green := (
