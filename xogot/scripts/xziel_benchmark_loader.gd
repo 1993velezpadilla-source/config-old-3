@@ -826,7 +826,7 @@ func _material_for_path(material_path: String) -> Material:
 			and not is_source_color
 			and not raw_property_keys.has("BaseColor")
 		)
-		if is_engine_default_base_color:
+		if is_default_surface or is_engine_default_base_color:
 			var ue_default_channel := 128.0 / 255.0
 			material.albedo_color = Color(
 				ue_default_channel,
@@ -834,7 +834,13 @@ func _material_for_path(material_path: String) -> Material:
 				ue_default_channel,
 				1.0
 			)
-			material.set_meta("source_ue421_default_base_color", true)
+			material.metallic = 0.0
+			material.roughness = 0.5
+			material.set("metallic_specular", 0.5)
+			if is_default_surface:
+				material.set_meta("source_ue421_default_surface_material", true)
+			else:
+				material.set_meta("source_ue421_default_base_color", true)
 		if _source_effective_material_paths.has(material_path):
 			_source_effective_material_flat_fallback_count += 1
 			if is_source_color:
