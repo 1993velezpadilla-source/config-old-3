@@ -190,6 +190,7 @@ def main() -> int:
     scene_mesh_bindings = []
     total_submeshes = 0
     null_base_material_bindings = 0
+    null_base_material_binding_rows = []
     resolved_engine_default_surface_path = None
     for candidate in UE_ENGINE_DEFAULT_SURFACE_PATHS:
         resolved = material_by_path.get(canonical_ue_path(candidate))
@@ -257,6 +258,13 @@ def main() -> int:
                     used_material_paths.add(material_path)
             else:
                 null_base_material_bindings += 1
+                null_base_material_binding_rows.append({
+                    "sceneMeshIndex": int(scene_mesh["index"]),
+                    "sourceMeshPath": mesh_path,
+                    "runtimeFile": scene_mesh["runtimeFile"],
+                    "submeshIndex": submesh_index,
+                    "slotIndex": slot_index,
+                })
                 material_path = (
                     resolved_engine_default_surface_path
                     or UE_DEFAULT_SURFACE_MATERIAL
@@ -643,6 +651,8 @@ def main() -> int:
             resolved_engine_default_surface_path is not None,
         "engineDefaultSurfacePath":
             resolved_engine_default_surface_path,
+        "nullBaseMaterialBindings":
+            null_base_material_binding_rows,
         "instanceOverrideRecordCount":
             len(instance_override_rows),
         "effectiveOverrideSlotCount":
@@ -700,6 +710,8 @@ def main() -> int:
     )
 
     print("XZIEL_UE_MATERIAL_BINDING_MANIFEST", summary)
+    for row in null_base_material_binding_rows:
+        print("XZIEL_UE_DEFAULT_SURFACE_BINDING", row)
 
     for row in invalid_material_slots[:40]:
         print("XZIEL_UE_MATERIAL_BINDING_SLOT_FAILURE", row)
