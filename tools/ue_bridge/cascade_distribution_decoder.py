@@ -242,7 +242,7 @@ def raw_distribution_census(root: Any) -> dict[str, Any]:
         if isinstance(value, dict):
             kind = str(value.get("kind", ""))
             struct_type = str(value.get("structType", ""))
-            label = kind or struct_type
+            label = kind + " " + struct_type
             if "RawDistributionFloat" in label:
                 counts["float"] += 1
                 decoded = unwrap(value)
