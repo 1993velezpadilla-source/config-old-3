@@ -81,17 +81,39 @@ jobs:
           ]
           if not uassets:
               raise SystemExit("no interactive Blueprint uassets selected")
-          bases={re.sub(r"(?i)\.uasset$","",x) for x in uassets}
+
+          base_wanted={"powered_object_basen.uasset"}
+          base_uassets=[
+              x for x in lines
+              if Path(x).name.lower() in base_wanted
+              and "/Blueprints/Objects/" in x.replace("\\","/")
+          ]
+          if len(base_uassets)!=1:
+              raise SystemExit(
+                  f"Powered_Object_BaseN source mismatch {base_uassets}"
+              )
+
+          all_uassets=uassets+base_uassets
+          bases={re.sub(r"(?i)\.uasset$","",x) for x in all_uassets}
           selected=[
               x for x in lines
               if any(x.lower().startswith(base.lower()+".") for base in bases)
           ]
-          Path("interactive-blueprint-uassets.txt").write_text("\n".join(uassets)+"\n",encoding="utf-8")
-          Path("interactive-blueprint-files.txt").write_text("\n".join(selected)+"\n",encoding="utf-8")
+          Path("interactive-blueprint-uassets.txt").write_text(
+              "\n".join(uassets)+"\n",encoding="utf-8"
+          )
+          Path("interaction-base-uassets.txt").write_text(
+              "\n".join(base_uassets)+"\n",encoding="utf-8"
+          )
+          Path("interactive-blueprint-files.txt").write_text(
+              "\n".join(selected)+"\n",encoding="utf-8"
+          )
           print("XZOGOT_NACHT_INTERACTIVE_PARTICLE_SELECT",{
               "uassets":len(uassets),
+              "base_uassets":len(base_uassets),
               "files":len(selected),
               "names":[Path(x).name for x in uassets],
+              "base_names":[Path(x).name for x in base_uassets],
           })
           selected_names={Path(x).name.lower() for x in uassets}
           assert "machinegumball.uasset" in selected_names,selected_names
@@ -160,6 +182,31 @@ jobs:
             $index++
           }
 
+          $baseAssets=@(
+            Get-Content interaction-base-uassets.txt | ForEach-Object {
+              $relative=$_.Replace('/','\\')
+              $full=Join-Path (Resolve-Path nacht-interactive-bytecode).Path $relative
+              if(-not (Test-Path $full)){throw "selected base Blueprint missing after unpack: $_"}
+              Get-Item $full
+            }
+          )
+          if($baseAssets.Count -ne 1){
+            throw "Powered_Object_BaseN asset count mismatch: $($baseAssets.Count)"
+          }
+          $baseIndex=0
+          foreach($asset in $baseAssets){
+            $stem=[IO.Path]::GetFileNameWithoutExtension($asset.Name)
+            $out="build/nacht-interactive-particle-bytecode/base-$('{0:D2}' -f $baseIndex)-$stem.json"
+            $log="build/nacht-interactive-particle-bytecode/base-$('{0:D2}' -f $baseIndex)-$stem.log"
+            dotnet $app PavMappings.usmap $out $asset.FullName 2>&1 | Tee-Object $log
+            if($LASTEXITCODE -ne 0){throw "base bytecode extractor failed $LASTEXITCODE asset=$($asset.FullName)"}
+            if(-not (Select-String -Path $log -Pattern 'XZOGOT_NUKETOWN_WALLBUY_BYTECODE_GREEN' -Quiet)){
+              throw "base bytecode green marker missing asset=$($asset.FullName)"
+            }
+            $baseIndex++
+          }
+          Write-Host "XZOGOT_NACHT_POWERED_BASE_BYTECODE_GREEN assets=$($baseAssets.Count)"
+
           @'
           import json
           from pathlib import Path
@@ -206,6 +253,67 @@ jobs:
           data=json.loads(src.read_text())
           assert data.get("ready") is True,data
           assert int(data.get("packageSuccessCount",0)) >= 3,data
+
+          base_files=sorted(
+              Path("build/nacht-interactive-particle-bytecode")
+              .glob("base-*-Powered_Object_BaseN.json")
+          )
+          if len(base_files)!=1:
+              raise SystemExit(
+                  f"Powered_Object_BaseN bytecode artifact mismatch {base_files}"
+              )
+          base_doc=json.loads(base_files[0].read_text())
+          if (
+              base_doc.get("ready") is not True
+              or int(base_doc.get("failureCount",0))!=0
+              or int(base_doc.get("packageSuccessCount",0))!=1
+          ):
+              raise SystemExit(
+                  f"Powered_Object_BaseN bytecode not GREEN {base_doc}"
+              )
+          base_packages=base_doc.get("packages",[])
+          if len(base_packages)!=1:
+              raise SystemExit(
+                  f"Powered_Object_BaseN package count mismatch {len(base_packages)}"
+              )
+          powered_base=base_packages[0]
+          if str(powered_base.get("fileName",""))!="Powered_Object_BaseN.uasset":
+              raise SystemExit(
+                  f"Powered_Object_BaseN filename mismatch {powered_base.get('fileName')}"
+              )
+          powered_base_defaults=[
+              row for row in powered_base.get("normalExportProperties",[])
+              if str(row.get("objectName",""))=="Default__Powered_Object_BaseN_C"
+          ]
+          if len(powered_base_defaults)!=1:
+              raise SystemExit(
+                  "Powered_Object_BaseN CDO authority missing "
+                  + repr(powered_base_defaults)
+              )
+          powered_base_authority={
+              "fileName":"Powered_Object_BaseN.uasset",
+              "defaultObject":powered_base_defaults[0],
+              "imports":[
+                  row for row in powered_base.get("imports",[])
+                  if str(row.get("objectName","")) in {
+                      "PowerSwitchFlags","Powered","On Powered",
+                  }
+              ],
+          }
+          print(
+              "XZOGOT_NACHT_POWERED_BASE_AUTHORITY_GREEN",
+              json.dumps({
+                  "fileName":powered_base_authority["fileName"],
+                  "defaultPropertyNames":[
+                      str(row.get("Name",""))
+                      for row in powered_base_defaults[0].get("properties",[])
+                  ],
+                  "importNames":[
+                      str(row.get("objectName",""))
+                      for row in powered_base_authority["imports"]
+                  ],
+              },separators=(",",":"))
+          )
 
           call_rx=re.compile(r"(activate|deactivate|setactive|toggleactive|resetparticlesystem|play|stop)",re.I)
           component_rx=re.compile(
@@ -1409,6 +1517,7 @@ jobs:
               "replaySafeEvents":replay_safe_events,
               "sourceInteractionContractCount":len(source_interaction_contracts),
               "sourceInteractionContracts":source_interaction_contracts,
+              "poweredObjectBaseAuthority":powered_base_authority,
               "cfgLinkedActionCount":len(linked_action_keys),
               "packages":rows,
               "ready":True,
@@ -1434,5 +1543,6 @@ jobs:
           path: |
             build/nacht-interactive-particle-bytecode/
             interactive-blueprint-uassets.txt
+            interaction-base-uassets.txt
           if-no-files-found: error
           retention-days: 7
