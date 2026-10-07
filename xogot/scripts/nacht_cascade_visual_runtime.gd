@@ -1809,7 +1809,8 @@ static func _build_beam(
 	system: Dictionary,
 	descriptor: Dictionary,
 	material_path: String,
-	loader: Node
+	loader: Node,
+	auto_activate: bool
 ) -> Dictionary:
 	var material := _source_material(loader, material_path)
 	if material == null:
@@ -1831,6 +1832,8 @@ static func _build_beam(
 	var beam := MeshInstance3D.new()
 	beam.name = "CascadeBeam"
 	beam.mesh = immediate
+	beam.visible = auto_activate
+	beam.set_meta("source_particle_auto_activate", auto_activate)
 	beam.add_to_group("nacht_source_particle_visual")
 	beam.set_meta("source_particle_material_path", material_path)
 	beam.set_meta("source_beam_target_ue_cm", descriptor.get("targetUEcm"))
@@ -1884,6 +1887,7 @@ static func mount_anchor(
 	var mounted_emitters := 0
 	var emitter_rows := _source_emitters(system)
 	var auto_activate := _auto_activate(placement)
+	anchor.set_meta("source_particle_auto_activate", auto_activate)
 
 	if descriptor.has("targetUEcm") and descriptor.has("noiseFrequency"):
 		if not paths.is_empty():
@@ -1892,7 +1896,8 @@ static func mount_anchor(
 				system,
 				descriptor,
 				paths[0],
-				loader
+				loader,
+				auto_activate
 			)
 			visual_nodes += int(beam_report.get("nodeCount", 0))
 			if bool(beam_report.get("materialResolved", false)):
@@ -1941,6 +1946,7 @@ static func mount_anchor(
 			if bool(report.get("mounted", false)):
 				mounted_emitters += 1
 
+	anchor.set_meta("source_particle_system_path", system_path)
 	anchor.set_meta("source_particle_visual_node_count", visual_nodes)
 	anchor.set_meta("source_particle_visual_material_count", resolved_materials)
 	anchor.set_meta("source_particle_visual_unresolved_material_count", unresolved_materials)
@@ -1964,4 +1970,5 @@ static func mount_anchor(
 		"mountedEmitterCount": mounted_emitters,
 		"materialPathCount": paths.size(),
 		"systemPath": system_path,
+		"autoActivate": auto_activate,
 	}
