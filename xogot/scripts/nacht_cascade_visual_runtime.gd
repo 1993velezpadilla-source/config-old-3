@@ -1240,6 +1240,33 @@ static func _apply_sprite_axis_lock(
 		material.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
 
 
+static func _apply_sprite_pivot(
+	quad: QuadMesh,
+	emitter: Dictionary
+) -> void:
+	var modules := _enabled_emitter_modules(
+		emitter,
+		["ParticleModulePivotOffset"]
+	)
+	if modules.size() != 1:
+		return
+	var pivot := ParticleSource.vector2(
+		ParticleSource.properties(modules[0]).get("PivotOffset"),
+		Vector2.INF
+	)
+	if pivot.is_equal_approx(Vector2.INF):
+		return
+	# UE Cascade applies PivotOffset in UV-sized sprite space. The documented
+	# default (0.5, 0.5) is the centered pivot, while QuadMesh center_offset=0
+	# is centered. The mesh is one UE centimeter before particle StartSize
+	# scaling, so this offset stays source-literal after scale_3d.
+	quad.center_offset = Vector3(
+		(pivot.x - 0.5) * 0.01,
+		(pivot.y - 0.5) * 0.01,
+		0.0
+	)
+
+
 static func _apply_sprite_screen_alignment(
 	material: StandardMaterial3D,
 	process: ParticleProcessMaterial,
@@ -1325,6 +1352,7 @@ static func _build_source_sprite_emitter(
 	# StartSize now lives in ParticleProcessMaterial scale_3d. Keep the mesh at
 	# one UE centimeter so the source size vectors remain literal.
 	quad.size = Vector2(0.01, 0.01)
+	_apply_sprite_pivot(quad, emitter)
 	quad.material = material
 
 	var particles := GPUParticles3D.new()
