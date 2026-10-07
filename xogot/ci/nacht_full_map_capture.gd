@@ -144,6 +144,16 @@ func _texture_alpha_probe(texture: Texture2D) -> Dictionary:
 			"width": texture.get_width(),
 			"height": texture.get_height(),
 		}
+	if image.is_compressed():
+		var decompress_error := image.decompress()
+		if decompress_error != OK:
+			return {
+				"ready": false,
+				"width": image.get_width(),
+				"height": image.get_height(),
+				"compressed": true,
+				"decompressError": int(decompress_error),
+			}
 	var min_alpha := 1.0
 	var max_alpha := 0.0
 	var below_half := 0
