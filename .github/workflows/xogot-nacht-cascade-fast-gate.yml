@@ -77,6 +77,12 @@ jobs:
           cp "$matrix" xogot/assets/benchmarks/nacht_particle_slice/particle-candidate-matrix.json
           echo "XZOGOT_NACHT_CASCADE_FAST_SLICE_GREEN"
 
+      - name: Validate material compiler Python
+        shell: bash
+        run: |
+          python3 -m py_compile tools/maps/compile_ue_material_bindings.py
+          echo "XZOGOT_NACHT_MATERIAL_COMPILER_PY_GREEN"
+
       - name: Install Godot 4.6.1
         shell: bash
         run: |
