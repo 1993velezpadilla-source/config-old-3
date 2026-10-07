@@ -16,6 +16,97 @@ func _read_json(path: String) -> Dictionary:
 	var parsed: Variant = JSON.parse_string(file.get_as_text())
 	return parsed as Dictionary if parsed is Dictionary else {}
 
+
+func _particle_material_rows() -> Array[Material]:
+	var result: Array[Material] = []
+	for raw: Node in get_nodes_in_group("nacht_source_particle_visual"):
+		if raw is GPUParticles3D:
+			var particles := raw as GPUParticles3D
+			for pass_index in range(1, particles.draw_passes + 1):
+				var mesh := particles.get("draw_pass_%d" % pass_index) as Mesh
+				if mesh == null:
+					continue
+				for surface_index in range(mesh.get_surface_count()):
+					var material := mesh.surface_get_material(surface_index)
+					if material != null:
+						result.append(material)
+		elif raw is MeshInstance3D:
+			var instance := raw as MeshInstance3D
+			if instance.mesh == null:
+				continue
+			for surface_index in range(instance.mesh.get_surface_count()):
+				var material := instance.mesh.surface_get_material(surface_index)
+				if material != null:
+					result.append(material)
+	return result
+
+func _gate_particle_blend_runtime() -> Dictionary:
+	var rows := _particle_material_rows()
+	var violations: Array[String] = []
+	var counts := {
+		"opaque": 0,
+		"masked": 0,
+		"translucent": 0,
+		"additive": 0,
+		"modulate": 0,
+		"alphaComposite": 0,
+	}
+	for material: Material in rows:
+		if not (material is StandardMaterial3D):
+			violations.append("non_standard:" + material.get_class())
+			continue
+		var standard := material as StandardMaterial3D
+		var source_path := str(standard.get_meta("source_material_path", ""))
+		var source_blend := str(standard.get_meta("source_blend_mode", ""))
+		match source_blend:
+			"BLEND_Opaque":
+				counts["opaque"] = int(counts["opaque"]) + 1
+			"BLEND_Masked":
+				counts["masked"] = int(counts["masked"]) + 1
+				if standard.transparency != BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR:
+					violations.append(source_path + ":masked")
+			"BLEND_Translucent":
+				counts["translucent"] = int(counts["translucent"]) + 1
+				if (
+					standard.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED
+					or standard.blend_mode != BaseMaterial3D.BLEND_MODE_MIX
+				):
+					violations.append(source_path + ":translucent")
+			"BLEND_Additive":
+				counts["additive"] = int(counts["additive"]) + 1
+				if (
+					standard.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED
+					or standard.blend_mode != BaseMaterial3D.BLEND_MODE_ADD
+				):
+					violations.append(source_path + ":additive")
+			"BLEND_Modulate":
+				counts["modulate"] = int(counts["modulate"]) + 1
+				if (
+					standard.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED
+					or standard.blend_mode != BaseMaterial3D.BLEND_MODE_MUL
+				):
+					violations.append(source_path + ":modulate")
+			"BLEND_AlphaComposite":
+				counts["alphaComposite"] = int(counts["alphaComposite"]) + 1
+				if (
+					standard.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED
+					or standard.blend_mode != BaseMaterial3D.BLEND_MODE_PREMULT_ALPHA
+				):
+					violations.append(source_path + ":alpha_composite")
+	if not violations.is_empty():
+		return {
+			"ready": false,
+			"rows": rows.size(),
+			"counts": counts,
+			"violations": violations,
+		}
+	return {
+		"ready": true,
+		"rows": rows.size(),
+		"counts": counts,
+		"violations": [],
+	}
+
 func _run() -> void:
 	var packed := load("res://nacht_full_map.tscn") as PackedScene
 	if packed == null:
@@ -34,6 +125,18 @@ func _run() -> void:
 	if not ready:
 		_fail(3, "full map did not become ready")
 		return
+
+	var particle_blend_gate := _gate_particle_blend_runtime()
+	if not bool(particle_blend_gate.get("ready", false)):
+		_fail(
+			34,
+			"particle blend runtime mismatch " + JSON.stringify(particle_blend_gate)
+		)
+		return
+	print(
+		"XZOGOT_NACHT_PARTICLE_BLEND_RUNTIME_GREEN ",
+		JSON.stringify(particle_blend_gate)
+	)
 
 	var packages := int(scene.get_meta("source_package_count", -1))
 	var meshes := int(scene.get_meta("source_mesh_count", -1))
