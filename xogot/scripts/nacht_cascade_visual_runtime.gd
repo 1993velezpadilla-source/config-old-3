@@ -836,6 +836,24 @@ static func _apply_size_scale_by_speed(
 	process.scale_over_velocity_curve = texture
 
 
+static func _object_has_property(object: Object, property_name: String) -> bool:
+	for property_raw: Variant in object.get_property_list():
+		if not (property_raw is Dictionary):
+			continue
+		if str((property_raw as Dictionary).get("name", "")) == property_name:
+			return true
+	return false
+
+
+static func _scale_vector_to_46_scalar(value: Vector3, sprite: bool) -> float:
+	if sprite:
+		return maxf(0.0001, (absf(value.x) + absf(value.y)) * 0.5)
+	return maxf(
+		0.0001,
+		(absf(value.x) + absf(value.y) + absf(value.z)) / 3.0
+	)
+
+
 static func _apply_emitter_start_scale(
 	process: ParticleProcessMaterial,
 	system: Dictionary,
@@ -848,13 +866,41 @@ static func _apply_emitter_start_scale(
 	var lo := bounds.get("min", Vector3.ONE) as Vector3
 	var hi := bounds.get("max", Vector3.ONE) as Vector3
 	if sprite:
-		# A 1 cm source quad lets Cascade StartSize map directly to per-axis
-		# particle scale while preserving independent X/Y randomization.
+		# A 1 cm source quad lets Cascade StartSize map directly to particle
+		# scale. Godot 4.7+ exposes vector start-scale. Xogot currently targets
+		# Godot 4.6.1, whose ParticleProcessMaterial only has scalar scale_min /
+		# scale_max, so use the exact scalar path for symmetric Cascade sprites
+		# and retain the source vectors as metadata for the custom shader bridge.
 		lo.z = 1.0 if is_zero_approx(lo.z) else lo.z
 		hi.z = 1.0 if is_zero_approx(hi.z) else hi.z
-	process.use_scale_3d = true
-	process.scale_3d_min = lo
-	process.scale_3d_max = hi
+
+	process.set_meta("source_start_scale_min", lo)
+	process.set_meta("source_start_scale_max", hi)
+
+	if _object_has_property(process, "use_scale_3d"):
+		process.set("use_scale_3d", true)
+		process.set("scale_3d_min", lo)
+		process.set("scale_3d_max", hi)
+		process.set_meta("source_start_scale_bridge", "native_vector")
+		return true
+
+	var scalar_lo := _scale_vector_to_46_scalar(lo, sprite)
+	var scalar_hi := _scale_vector_to_46_scalar(hi, sprite)
+	process.scale_min = minf(scalar_lo, scalar_hi)
+	process.scale_max = maxf(scalar_lo, scalar_hi)
+	process.set_meta("source_start_scale_bridge", "godot46_scalar")
+	process.set_meta(
+		"source_start_scale_vector_exact",
+		is_equal_approx(lo.x, lo.y)
+		and is_equal_approx(hi.x, hi.y)
+		if sprite
+		else (
+			is_equal_approx(lo.x, lo.y)
+			and is_equal_approx(lo.y, lo.z)
+			and is_equal_approx(hi.x, hi.y)
+			and is_equal_approx(hi.y, hi.z)
+		)
+	)
 	return true
 
 
@@ -1003,9 +1049,22 @@ static func _apply_mesh_rotation(
 		if bool(bounds.get("ready", false)):
 			var lo := bounds.get("min", Vector3.ZERO) as Vector3
 			var hi := bounds.get("max", Vector3.ZERO) as Vector3
-			process.use_rotation_3d = true
-			process.rotation_3d_min = lo * 360.0
-			process.rotation_3d_max = hi * 360.0
+			process.set_meta("source_mesh_rotation_min_turns", lo)
+			process.set_meta("source_mesh_rotation_max_turns", hi)
+			if _object_has_property(process, "use_rotation_3d"):
+				process.set("use_rotation_3d", true)
+				process.set("rotation_3d_min", lo * 360.0)
+				process.set("rotation_3d_max", hi * 360.0)
+				process.set_meta("source_mesh_rotation_bridge", "native_vector")
+			else:
+				# Godot 4.6 has no per-particle 3D orientation range. Preserve
+				# UE yaw (source Z-up -> Godot Y-up) through the scalar angle
+				# channel and keep all source axes in metadata for the custom
+				# process-shader parity pass.
+				process.particle_flag_rotate_y = true
+				process.angle_min = lo.z * 360.0
+				process.angle_max = hi.z * 360.0
+				process.set_meta("source_mesh_rotation_bridge", "godot46_yaw")
 
 	var rate := _first_emitter_module(emitter, "ParticleModuleMeshRotationRate")
 	if not rate.is_empty():
@@ -1017,9 +1076,18 @@ static func _apply_mesh_rotation(
 		if bool(rate_bounds.get("ready", false)):
 			var rate_lo := rate_bounds.get("min", Vector3.ZERO) as Vector3
 			var rate_hi := rate_bounds.get("max", Vector3.ZERO) as Vector3
-			process.use_rotation_velocity_3d = true
-			process.rotation_velocity_3d_min = rate_lo * 360.0
-			process.rotation_velocity_3d_max = rate_hi * 360.0
+			process.set_meta("source_mesh_rotation_rate_min_turns", rate_lo)
+			process.set_meta("source_mesh_rotation_rate_max_turns", rate_hi)
+			if _object_has_property(process, "use_rotation_velocity_3d"):
+				process.set("use_rotation_velocity_3d", true)
+				process.set("rotation_velocity_3d_min", rate_lo * 360.0)
+				process.set("rotation_velocity_3d_max", rate_hi * 360.0)
+				process.set_meta("source_mesh_rotation_rate_bridge", "native_vector")
+			else:
+				process.particle_flag_rotate_y = true
+				process.angular_velocity_min = rate_lo.z * 360.0
+				process.angular_velocity_max = rate_hi.z * 360.0
+				process.set_meta("source_mesh_rotation_rate_bridge", "godot46_yaw")
 
 
 static func _apply_emitter_rotation(
