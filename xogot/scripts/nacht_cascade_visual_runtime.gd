@@ -1001,6 +1001,26 @@ static func _apply_sprite_axis_lock(
 		material.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
 
 
+static func _apply_sprite_screen_alignment(
+	material: StandardMaterial3D,
+	process: ParticleProcessMaterial,
+	emitter: Dictionary
+) -> void:
+	var required_raw: Variant = emitter.get("required", {})
+	if not (required_raw is Dictionary):
+		return
+	var alignment := str(
+		ParticleSource.properties(required_raw as Dictionary).get(
+			"ScreenAlignment",
+			""
+		)
+	)
+	if alignment == "PSA_Velocity":
+		# Particle billboard + Align Y matches UE velocity-facing sprite intent.
+		material.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		process.particle_flag_align_y = true
+
+
 static func _build_source_sprite_emitter(
 	anchor: Node3D,
 	system: Dictionary,
@@ -1024,6 +1044,7 @@ static func _build_source_sprite_emitter(
 	var lifetime := _emitter_lifetime(system, emitter)
 	var process := ParticleProcessMaterial.new()
 	_configure_process_from_emitter(process, system, emitter)
+	_apply_sprite_screen_alignment(material, process, emitter)
 	_apply_emitter_start_scale(
 		process,
 		system,
