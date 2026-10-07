@@ -147,5 +147,80 @@ class CascadeDistributionDecoderTests(unittest.TestCase):
         self.assertEqual(report["properties"]["Lifetime"], 1)
 
 
+    def test_census_accepts_dictionary_properties_like_nacht_authority(self):
+        table = {
+            "EntryCount": 1,
+            "EntryStride": 2,
+            "SubEntryStride": 1,
+            "Op": RDO_RANDOM,
+            "TimeScale": 0.0,
+            "TimeBias": 0.0,
+            "Values": [2.7, 2.8],
+        }
+        graphs = {
+            "systems": [
+                {
+                    "objectPath": "/Game/Test/P.P",
+                    "nodes": [
+                        {
+                            "objectPath": "/Game/Test/P.P:ParticleModuleLifetime_0",
+                            "exportType": "ParticleModuleLifetime",
+                            "properties": {
+                                "LODValidity": 1.0,
+                                "Lifetime": {
+                                    "expanded": True,
+                                    "kind": "FScriptStruct",
+                                    "structType": "CUE4Parse.UE4.Assets.Objects.FStructFallback",
+                                    "value": {
+                                        "kind": "FStructFallback",
+                                        "properties": [
+                                            {
+                                                "name": "Distribution",
+                                                "value": {
+                                                    "kind": "FPackageIndex",
+                                                    "index": 0,
+                                                    "path": None,
+                                                },
+                                            },
+                                            {"name": "MinValue", "value": 2.7},
+                                            {"name": "MaxValue", "value": 2.8},
+                                            {
+                                                "name": "Table",
+                                                "value": {
+                                                    "kind": "FScriptStruct",
+                                                    "value": {
+                                                        "kind": "FStructFallback",
+                                                        "properties": [
+                                                            {"name": "EntryCount", "value": 1},
+                                                            {"name": "EntryStride", "value": 2},
+                                                            {"name": "SubEntryStride", "value": 1},
+                                                            {"name": "Op", "value": RDO_RANDOM},
+                                                            {"name": "TimeScale", "value": 0.0},
+                                                            {"name": "TimeBias", "value": 0.0},
+                                                            {"name": "Values", "value": [2.7, 2.8]},
+                                                        ],
+                                                    },
+                                                },
+                                            },
+                                        ],
+                                    },
+                                },
+                            },
+                        },
+                    ],
+                },
+            ],
+        }
+        report = census_graphs(graphs)
+        self.assertEqual(report["total"], 1)
+        self.assertEqual(report["counts"]["uniform"], 1)
+        self.assertEqual(report["properties"]["Lifetime"], 1)
+        self.assertEqual(
+            report["rows"][0]["systemPath"],
+            "/Game/Test/P.P",
+        )
+
+
+
 if __name__ == "__main__":
     unittest.main()
