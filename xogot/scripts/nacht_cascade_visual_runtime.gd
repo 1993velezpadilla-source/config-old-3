@@ -235,6 +235,408 @@ static func _auto_activate(placement: Dictionary) -> bool:
 	return true
 
 
+static func _emitter_key(lod_node: Dictionary) -> String:
+	var path := str(lod_node.get("objectPath", ""))
+	var marker := ".ParticleLODLevel_"
+	var index := path.find(marker)
+	if index < 0:
+		return path
+	return path.substr(0, index)
+
+
+static func _lod_level(props: Dictionary) -> float:
+	var raw: Variant = props.get("Level", 0.0)
+	if raw is float or raw is int:
+		return float(raw)
+	return 0.0
+
+
+static func _source_emitters(system: Dictionary) -> Array[Dictionary]:
+	var chosen: Dictionary = {}
+	for lod: Dictionary in ParticleSource.nodes_by_type(system, "ParticleLODLevel"):
+		var props := ParticleSource.properties(lod)
+		if not bool(props.get("bEnabled", true)):
+			continue
+		var key := _emitter_key(lod)
+		var level := _lod_level(props)
+		if chosen.has(key):
+			var existing := chosen[key] as Dictionary
+			if float(existing.get("level", INF)) <= level:
+				continue
+		var module_nodes: Array[Dictionary] = []
+		var raw_modules: Variant = props.get("Modules", [])
+		if raw_modules is Array:
+			for raw_path: Variant in raw_modules:
+				var module := _node_by_path(system, str(raw_path))
+				if not module.is_empty():
+					module_nodes.append(module)
+		chosen[key] = {
+			"key": key,
+			"level": level,
+			"peak": maxi(1, int(props.get("PeakActiveParticles", 1))),
+			"required": _node_by_path(system, str(props.get("RequiredModule", ""))),
+			"spawn": _node_by_path(system, str(props.get("SpawnModule", ""))),
+			"typeData": _node_by_path(system, str(props.get("TypeDataModule", ""))),
+			"modules": module_nodes,
+			"lodPath": str(lod.get("objectPath", "")),
+		}
+	var keys: Array = chosen.keys()
+	keys.sort()
+	var result: Array[Dictionary] = []
+	for raw_key: Variant in keys:
+		result.append(chosen[raw_key] as Dictionary)
+	return result
+
+
+static func _first_emitter_module(emitter: Dictionary, export_type: String) -> Dictionary:
+	var raw_modules: Variant = emitter.get("modules", [])
+	if not (raw_modules is Array):
+		return {}
+	for raw: Variant in raw_modules:
+		if raw is Dictionary and str((raw as Dictionary).get("exportType", "")) == export_type:
+			return raw as Dictionary
+	return {}
+
+
+static func _emitter_lifetime(system: Dictionary, emitter: Dictionary) -> Vector2:
+	var module := _first_emitter_module(emitter, "ParticleModuleLifetime")
+	if module.is_empty():
+		return Vector2(1.0, 1.0)
+	var samples := _float_samples(system, ParticleSource.properties(module).get("Lifetime"))
+	if samples.is_empty():
+		return Vector2(1.0, 1.0)
+	var lo := INF
+	var hi := 0.0
+	for sample: float in samples:
+		lo = minf(lo, sample)
+		hi = maxf(hi, sample)
+	lo = maxf(0.001, lo)
+	return Vector2(lo, maxf(lo, hi))
+
+
+static func _emitter_size_samples(system: Dictionary, emitter: Dictionary) -> Array[Vector3]:
+	var module := _first_emitter_module(emitter, "ParticleModuleSize")
+	if module.is_empty():
+		return []
+	return _vector_samples(system, ParticleSource.properties(module).get("StartSize"))
+
+
+static func _emitter_velocity_samples(system: Dictionary, emitter: Dictionary) -> Array[Vector3]:
+	var module := _first_emitter_module(emitter, "ParticleModuleVelocity")
+	if module.is_empty():
+		return []
+	return _vector_samples(system, ParticleSource.properties(module).get("StartVelocity"))
+
+
+static func _emitter_acceleration_samples(system: Dictionary, emitter: Dictionary) -> Array[Vector3]:
+	var module := _first_emitter_module(emitter, "ParticleModuleAcceleration")
+	if module.is_empty():
+		return []
+	return _vector_samples(system, ParticleSource.properties(module).get("Acceleration"))
+
+
+static func _emitter_spawn_rate(system: Dictionary, emitter: Dictionary) -> float:
+	var spawn_raw: Variant = emitter.get("spawn", {})
+	if not (spawn_raw is Dictionary):
+		return 0.0
+	var samples := _float_samples(
+		system,
+		ParticleSource.properties(spawn_raw as Dictionary).get("Rate")
+	)
+	var result := 0.0
+	for sample: float in samples:
+		result = maxf(result, sample)
+	return maxf(0.0, result)
+
+
+static func _emitter_burst_count(emitter: Dictionary) -> int:
+	var spawn_raw: Variant = emitter.get("spawn", {})
+	if not (spawn_raw is Dictionary):
+		return 0
+	var raw: Variant = ParticleSource.properties(spawn_raw as Dictionary).get("BurstList", [])
+	if not (raw is Array):
+		return 0
+	var result := 0
+	for burst_raw: Variant in raw:
+		if burst_raw is Dictionary:
+			result += maxi(0, int((burst_raw as Dictionary).get("Count", 0)))
+	return result
+
+
+static func _configure_process_from_emitter(
+	process: ParticleProcessMaterial,
+	system: Dictionary,
+	emitter: Dictionary
+) -> void:
+	var velocities := _emitter_velocity_samples(system, emitter)
+	var velocity_lengths := _min_max_length(velocities)
+	var velocity_mean := _mean_vector(velocities)
+	if velocity_lengths.y > 0.0:
+		process.initial_velocity_min = velocity_lengths.x * 0.01
+		process.initial_velocity_max = velocity_lengths.y * 0.01
+		if velocity_mean.length_squared() > 0.000001:
+			process.direction = velocity_mean.normalized()
+			process.spread = 45.0
+		else:
+			process.spread = 180.0
+	var accelerations := _emitter_acceleration_samples(system, emitter)
+	process.gravity = _mean_vector(accelerations) * 0.01
+
+
+static func _emitter_material_path(emitter: Dictionary) -> String:
+	var required_raw: Variant = emitter.get("required", {})
+	if not (required_raw is Dictionary):
+		return ""
+	return str(ParticleSource.properties(required_raw as Dictionary).get("Material", ""))
+
+
+static func _emitter_subuv_grid(emitter: Dictionary) -> Vector2i:
+	var required_raw: Variant = emitter.get("required", {})
+	if not (required_raw is Dictionary):
+		return Vector2i.ONE
+	var props := ParticleSource.properties(required_raw as Dictionary)
+	return Vector2i(
+		maxi(1, int(props.get("SubImages_Horizontal", 1))),
+		maxi(1, int(props.get("SubImages_Vertical", 1)))
+	)
+
+
+static func _emitter_subuv_frame_rate(system: Dictionary, emitter: Dictionary) -> float:
+	var movie := _first_emitter_module(emitter, "ParticleModuleSubUVMovie")
+	if movie.is_empty():
+		return 0.0
+	var result := 0.0
+	for sample: float in _float_samples(system, ParticleSource.properties(movie).get("FrameRate")):
+		result = maxf(result, sample)
+	return result
+
+
+static func _emitter_local_space(emitter: Dictionary) -> bool:
+	var required_raw: Variant = emitter.get("required", {})
+	if not (required_raw is Dictionary):
+		return false
+	return bool(ParticleSource.properties(required_raw as Dictionary).get("bUseLocalSpace", false))
+
+
+static func _build_source_sprite_emitter(
+	anchor: Node3D,
+	system: Dictionary,
+	emitter: Dictionary,
+	loader: Node,
+	auto_activate: bool,
+	index: int
+) -> Dictionary:
+	var material_path := _emitter_material_path(emitter)
+	var material := _source_material(loader, material_path)
+	if material == null:
+		return {
+			"mounted": false,
+			"materialResolved": false,
+			"meshResolved": true,
+			"nodeCount": 0,
+			"error": "sprite material unresolved",
+		}
+
+	var lifetime := _emitter_lifetime(system, emitter)
+	var sizes := _emitter_size_samples(system, emitter)
+	var size_ue := _max_abs_component(sizes)
+	if size_ue <= 0.0:
+		size_ue = 1.0
+	var process := ParticleProcessMaterial.new()
+	_configure_process_from_emitter(process, system, emitter)
+
+	var grid := _emitter_subuv_grid(emitter)
+	material.particles_anim_h_frames = grid.x
+	material.particles_anim_v_frames = grid.y
+	material.particles_anim_loop = true
+	if grid.x * grid.y > 1:
+		var source_fps := _emitter_subuv_frame_rate(system, emitter)
+		var cycles := 1.0
+		if source_fps > 0.0:
+			cycles = source_fps * lifetime.y / float(grid.x * grid.y)
+		process.anim_speed_min = cycles
+		process.anim_speed_max = cycles
+		process.anim_offset_min = 0.0
+		process.anim_offset_max = 1.0
+
+	var quad := QuadMesh.new()
+	var size_m := maxf(0.001, size_ue * 0.01)
+	quad.size = Vector2(size_m, size_m)
+	quad.material = material
+
+	var particles := GPUParticles3D.new()
+	particles.name = "CascadeSpriteEmitter_%02d" % index
+	particles.amount = clampi(int(emitter.get("peak", 1)), 1, 4096)
+	particles.lifetime = lifetime.y
+	particles.randomness = clampf(1.0 - (lifetime.x / lifetime.y), 0.0, 1.0)
+	particles.local_coords = _emitter_local_space(emitter)
+	particles.process_material = process
+	particles.draw_pass_1 = quad
+	particles.visibility_aabb = AABB(Vector3(-8.0, -8.0, -8.0), Vector3(16.0, 16.0, 16.0))
+	particles.fixed_fps = 30
+	particles.emitting = auto_activate
+	var burst_count := _emitter_burst_count(emitter)
+	var spawn_rate := _emitter_spawn_rate(system, emitter)
+	var required_raw: Variant = emitter.get("required", {})
+	if required_raw is Dictionary:
+		var required_props := ParticleSource.properties(required_raw as Dictionary)
+		if int(required_props.get("EmitterLoops", 0)) == 1:
+			particles.one_shot = true
+	if spawn_rate <= 0.0 and burst_count > 0:
+		particles.one_shot = true
+		particles.explosiveness = 1.0
+	particles.add_to_group("nacht_source_particle_visual")
+	particles.set_meta("source_particle_material_path", material_path)
+	particles.set_meta("source_particle_emitter_path", str(emitter.get("key", "")))
+	particles.set_meta("source_particle_lod_path", str(emitter.get("lodPath", "")))
+	particles.set_meta("source_particle_lod_level", float(emitter.get("level", 0.0)))
+	particles.set_meta("source_particle_renderer_mode", "sprite_lod0")
+	anchor.add_child(particles)
+
+	return {
+		"mounted": true,
+		"materialResolved": true,
+		"meshResolved": true,
+		"nodeCount": 1,
+		"emitterPath": str(emitter.get("key", "")),
+		"lodLevel": float(emitter.get("level", 0.0)),
+		"peak": particles.amount,
+		"spawnRate": spawn_rate,
+		"burstCount": burst_count,
+	}
+
+
+static func _mesh_material_path(emitter: Dictionary) -> String:
+	var module := _first_emitter_module(emitter, "ParticleModuleMeshMaterial")
+	if module.is_empty():
+		return _emitter_material_path(emitter)
+	var raw: Variant = ParticleSource.properties(module).get("MeshMaterials", [])
+	if raw is Array and not (raw as Array).is_empty():
+		return str((raw as Array)[0])
+	return _emitter_material_path(emitter)
+
+
+static func _build_source_mesh_emitter(
+	anchor: Node3D,
+	system: Dictionary,
+	emitter: Dictionary,
+	loader: Node,
+	auto_activate: bool,
+	index: int
+) -> Dictionary:
+	var type_raw: Variant = emitter.get("typeData", {})
+	if not (type_raw is Dictionary) or (type_raw as Dictionary).is_empty():
+		return {
+			"mounted": false,
+			"materialResolved": false,
+			"meshResolved": false,
+			"nodeCount": 0,
+			"error": "mesh type data missing",
+		}
+	var mesh_path := str(ParticleSource.properties(type_raw as Dictionary).get("Mesh", ""))
+	if mesh_path.is_empty() or loader == null or not loader.has_method("resolve_particle_mesh_chunks"):
+		return {
+			"mounted": false,
+			"materialResolved": false,
+			"meshResolved": false,
+			"nodeCount": 0,
+			"error": "mesh resolver unavailable",
+		}
+	var chunks_raw: Variant = loader.call("resolve_particle_mesh_chunks", mesh_path)
+	var chunks: Array[ArrayMesh] = []
+	if chunks_raw is Array:
+		for raw: Variant in chunks_raw:
+			if raw is ArrayMesh:
+				chunks.append(raw as ArrayMesh)
+	if chunks.is_empty() or chunks.size() > 4:
+		return {
+			"mounted": false,
+			"materialResolved": false,
+			"meshResolved": false,
+			"nodeCount": 0,
+			"meshPath": mesh_path,
+			"error": "mesh chunk count unsupported " + str(chunks.size()),
+		}
+
+	var material_path := _mesh_material_path(emitter)
+	var material := _source_material(loader, material_path)
+	if material == null:
+		return {
+			"mounted": false,
+			"materialResolved": false,
+			"meshResolved": true,
+			"nodeCount": 0,
+			"meshPath": mesh_path,
+			"error": "mesh material unresolved",
+		}
+	material.billboard_mode = BaseMaterial3D.BILLBOARD_DISABLED
+
+	for mesh: ArrayMesh in chunks:
+		for surface_index in range(mesh.get_surface_count()):
+			mesh.surface_set_material(surface_index, material)
+
+	var lifetime := _emitter_lifetime(system, emitter)
+	var process := ParticleProcessMaterial.new()
+	_configure_process_from_emitter(process, system, emitter)
+	var size_samples := _emitter_size_samples(system, emitter)
+	if not size_samples.is_empty():
+		var min_scale := INF
+		var max_scale := 0.0
+		for size: Vector3 in size_samples:
+			var scalar := maxf(absf(size.x), maxf(absf(size.y), absf(size.z)))
+			min_scale = minf(min_scale, scalar)
+			max_scale = maxf(max_scale, scalar)
+		if not is_inf(min_scale):
+			process.scale_min = maxf(0.001, min_scale)
+			process.scale_max = maxf(process.scale_min, max_scale)
+
+	var particles := GPUParticles3D.new()
+	particles.name = "CascadeMeshEmitter_%02d" % index
+	particles.amount = clampi(int(emitter.get("peak", 1)), 1, 4096)
+	particles.lifetime = lifetime.y
+	particles.randomness = clampf(1.0 - (lifetime.x / lifetime.y), 0.0, 1.0)
+	particles.local_coords = _emitter_local_space(emitter)
+	particles.process_material = process
+	particles.draw_passes = chunks.size()
+	for chunk_index in range(chunks.size()):
+		particles.set("draw_pass_%d" % (chunk_index + 1), chunks[chunk_index])
+	particles.visibility_aabb = AABB(Vector3(-8.0, -8.0, -8.0), Vector3(16.0, 16.0, 16.0))
+	particles.fixed_fps = 30
+	particles.emitting = auto_activate
+	var burst_count := _emitter_burst_count(emitter)
+	var spawn_rate := _emitter_spawn_rate(system, emitter)
+	var required_raw: Variant = emitter.get("required", {})
+	if required_raw is Dictionary:
+		var required_props := ParticleSource.properties(required_raw as Dictionary)
+		if int(required_props.get("EmitterLoops", 0)) == 1:
+			particles.one_shot = true
+	if spawn_rate <= 0.0 and burst_count > 0:
+		particles.one_shot = true
+		particles.explosiveness = 1.0
+	particles.add_to_group("nacht_source_particle_visual")
+	particles.set_meta("source_particle_material_path", material_path)
+	particles.set_meta("source_particle_mesh_path", mesh_path)
+	particles.set_meta("source_particle_emitter_path", str(emitter.get("key", "")))
+	particles.set_meta("source_particle_lod_path", str(emitter.get("lodPath", "")))
+	particles.set_meta("source_particle_lod_level", float(emitter.get("level", 0.0)))
+	particles.set_meta("source_particle_renderer_mode", "mesh_lod0")
+	anchor.add_child(particles)
+
+	return {
+		"mounted": true,
+		"materialResolved": true,
+		"meshResolved": true,
+		"nodeCount": 1,
+		"meshPath": mesh_path,
+		"meshChunkCount": chunks.size(),
+		"emitterPath": str(emitter.get("key", "")),
+		"lodLevel": float(emitter.get("level", 0.0)),
+		"peak": particles.amount,
+		"spawnRate": spawn_rate,
+		"burstCount": burst_count,
+	}
+
+
 static func _build_sprite_emitter(
 	anchor: Node3D,
 	system: Dictionary,
@@ -412,7 +814,11 @@ static func mount_anchor(
 	var paths := _material_paths(system, descriptor)
 	var resolved_materials := 0
 	var unresolved_materials := 0
+	var resolved_meshes := 0
+	var unresolved_meshes := 0
 	var visual_nodes := 0
+	var mounted_emitters := 0
+	var emitter_rows := _source_emitters(system)
 	var auto_activate := _auto_activate(placement)
 
 	if descriptor.has("targetUEcm") and descriptor.has("noiseFrequency"):
@@ -429,25 +835,55 @@ static func mount_anchor(
 				resolved_materials += 1
 			else:
 				unresolved_materials += 1
+			if bool(beam_report.get("mounted", false)):
+				mounted_emitters += 1
 	else:
-		for index in range(paths.size()):
-			var report := _build_sprite_emitter(
-				anchor,
-				system,
-				paths[index],
-				loader,
-				auto_activate,
-				index
+		for index in range(emitter_rows.size()):
+			var emitter := emitter_rows[index]
+			var type_raw: Variant = emitter.get("typeData", {})
+			var is_mesh := (
+				type_raw is Dictionary
+				and str((type_raw as Dictionary).get("exportType", "")) == "ParticleModuleTypeDataMesh"
+			)
+			var report := (
+				_build_source_mesh_emitter(
+					anchor,
+					system,
+					emitter,
+					loader,
+					auto_activate,
+					index
+				)
+				if is_mesh
+				else _build_source_sprite_emitter(
+					anchor,
+					system,
+					emitter,
+					loader,
+					auto_activate,
+					index
+				)
 			)
 			visual_nodes += int(report.get("nodeCount", 0))
 			if bool(report.get("materialResolved", false)):
 				resolved_materials += 1
 			else:
 				unresolved_materials += 1
+			if is_mesh:
+				if bool(report.get("meshResolved", false)):
+					resolved_meshes += 1
+				else:
+					unresolved_meshes += 1
+			if bool(report.get("mounted", false)):
+				mounted_emitters += 1
 
 	anchor.set_meta("source_particle_visual_node_count", visual_nodes)
 	anchor.set_meta("source_particle_visual_material_count", resolved_materials)
 	anchor.set_meta("source_particle_visual_unresolved_material_count", unresolved_materials)
+	anchor.set_meta("source_particle_visual_resolved_mesh_count", resolved_meshes)
+	anchor.set_meta("source_particle_visual_unresolved_mesh_count", unresolved_meshes)
+	anchor.set_meta("source_particle_visual_emitter_count", emitter_rows.size())
+	anchor.set_meta("source_particle_visual_mounted_emitter_count", mounted_emitters)
 	anchor.set_meta("source_particle_visual_exact", false)
 
 	return {
@@ -458,6 +894,10 @@ static func mount_anchor(
 		"visualNodeCount": visual_nodes,
 		"resolvedMaterialCount": resolved_materials,
 		"unresolvedMaterialCount": unresolved_materials,
+		"resolvedMeshCount": resolved_meshes,
+		"unresolvedMeshCount": unresolved_meshes,
+		"emitterCount": emitter_rows.size(),
+		"mountedEmitterCount": mounted_emitters,
 		"materialPathCount": paths.size(),
 		"systemPath": system_path,
 	}
