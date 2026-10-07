@@ -1,0 +1,104 @@
+name: Xogot BoneFire Godot Alpha Probe
+
+on:
+  push:
+    branches:
+      - wip/nacht-cascade-system-isolation-v1
+    paths:
+      - ".github/workflows/xogot-bonefire-godot-alpha-probe.yml"
+      - "xogot/ci/nacht_bonefire_texture_alpha_probe.gd"
+      - "tools/maps/xztx_to_dds.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-bonefire-alpha-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MATERIAL_SLICE_RUN: "37617868912"
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Download exact fire material slice
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/fire-slice
+          mkdir -p /tmp/fire-slice
+          gh run download "$MATERIAL_SLICE_RUN" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "Xogot-Nacht-Material-Graph-Slice" \
+            --dir /tmp/fire-slice
+          test -s /tmp/fire-slice/native-textures/report.json
+
+      - name: Build exact BoneFire DDS
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("/tmp/fire-slice")
+          report=json.loads((root/"native-textures/report.json").read_text())
+          rows=[r for r in report["textures"] if "bonefire2b_fwd2" in r["objectPath"].lower()]
+          assert len(rows)==1, rows
+          row=rows[0]
+          assert row["format"]=="PF_DXT5", row
+          assert row["width"]==2048 and row["height"]==1024, row
+          print(root/row["sliceFile"])
+          PY
+          )
+          rm -rf /tmp/bonefire-xzt /tmp/bonefire-dds
+          mkdir -p /tmp/bonefire-xzt /tmp/bonefire-dds xogot/assets/ci
+          cp "$src" /tmp/bonefire-xzt/bonefire_alpha.xzt
+          python3 tools/maps/xztx_to_dds.py \
+            /tmp/bonefire-xzt /tmp/bonefire-dds \
+            --report /tmp/bonefire-dds/report.json
+          cp /tmp/bonefire-dds/bonefire_alpha.dds xogot/assets/ci/bonefire_alpha.dds
+          test -s xogot/assets/ci/bonefire_alpha.dds
+          echo "XZOGOT_BONEFIRE_DDS_READY"
+
+      - name: Install Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq unzip curl libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+
+      - name: Import BoneFire DDS
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 600 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit 2>&1 | tee /tmp/bonefire-import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" /tmp/bonefire-import.log
+
+      - name: Probe Godot alpha
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 300 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot \
+            --script res://ci/nacht_bonefire_texture_alpha_probe.gd \
+            2>&1 | tee /tmp/bonefire-alpha.log
+          grep -q "XZOGOT_BONEFIRE_GODOT_ALPHA_GREEN" /tmp/bonefire-alpha.log
+          ! grep -E "SCRIPT ERROR|Parse Error|XZOGOT_BONEFIRE_GODOT_ALPHA_FAILURE" /tmp/bonefire-alpha.log
