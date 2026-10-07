@@ -60,8 +60,11 @@ jobs:
           set -euo pipefail
           timeout 1200 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
             --headless --editor --path xogot --quit 2>&1 | tee /tmp/nacht-material-import.log
-          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|MAX_MESH_SURFACES" \
-            /tmp/nacht-material-import.log
+          if grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|MAX_MESH_SURFACES" \
+            /tmp/nacht-material-import.log; then
+            echo "XZOGOT_NACHT_PARTICLE_MATERIAL_IMPORT_FAILURE forbidden_error_in_log"
+            exit 1
+          fi
 
       - name: Audit all particle draw materials
         shell: bash
@@ -72,5 +75,8 @@ jobs:
             --script res://ci/nacht_particle_material_audit.gd \
             2>&1 | tee /tmp/nacht-particle-material-audit.log
           grep -q "XZOGOT_NACHT_PARTICLE_MATERIAL_AUDIT_GREEN" /tmp/nacht-particle-material-audit.log
-          ! grep -E "SCRIPT ERROR|Parse Error|XZOGOT_NACHT_PARTICLE_MATERIAL_AUDIT_FAILURE" \
-            /tmp/nacht-particle-material-audit.log
+          if grep -E "SCRIPT ERROR|Parse Error|XZOGOT_NACHT_PARTICLE_MATERIAL_AUDIT_FAILURE" \
+            /tmp/nacht-particle-material-audit.log; then
+            echo "XZOGOT_NACHT_PARTICLE_MATERIAL_AUDIT_HARD_FAILURE"
+            exit 1
+          fi
