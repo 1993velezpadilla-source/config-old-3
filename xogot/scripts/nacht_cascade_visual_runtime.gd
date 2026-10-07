@@ -736,6 +736,47 @@ static func _emitter_size_samples(system: Dictionary, emitter: Dictionary) -> Ar
 	return _vector_samples(system, ParticleSource.properties(module).get("StartSize"))
 
 
+static func _emitter_size_bounds(
+	system: Dictionary,
+	emitter: Dictionary
+) -> Dictionary:
+	var samples := _emitter_size_samples(system, emitter)
+	if samples.is_empty():
+		return {"ready": false}
+	var lo := samples[0]
+	var hi := samples[0]
+	for sample: Vector3 in samples:
+		lo.x = minf(lo.x, sample.x)
+		lo.y = minf(lo.y, sample.y)
+		lo.z = minf(lo.z, sample.z)
+		hi.x = maxf(hi.x, sample.x)
+		hi.y = maxf(hi.y, sample.y)
+		hi.z = maxf(hi.z, sample.z)
+	return {"ready": true, "min": lo, "max": hi}
+
+
+static func _apply_emitter_start_scale(
+	process: ParticleProcessMaterial,
+	system: Dictionary,
+	emitter: Dictionary,
+	sprite: bool
+) -> bool:
+	var bounds := _emitter_size_bounds(system, emitter)
+	if not bool(bounds.get("ready", false)):
+		return false
+	var lo := bounds.get("min", Vector3.ONE) as Vector3
+	var hi := bounds.get("max", Vector3.ONE) as Vector3
+	if sprite:
+		# A 1 cm source quad lets Cascade StartSize map directly to per-axis
+		# particle scale while preserving independent X/Y randomization.
+		lo.z = 1.0 if is_zero_approx(lo.z) else lo.z
+		hi.z = 1.0 if is_zero_approx(hi.z) else hi.z
+	process.use_scale_3d = true
+	process.scale_3d_min = lo
+	process.scale_3d_max = hi
+	return true
+
+
 static func _emitter_velocity_samples(system: Dictionary, emitter: Dictionary) -> Array[Vector3]:
 	var module := _first_emitter_module(emitter, "ParticleModuleVelocity")
 	if module.is_empty():
@@ -981,12 +1022,14 @@ static func _build_source_sprite_emitter(
 	_apply_sprite_axis_lock(material, emitter)
 
 	var lifetime := _emitter_lifetime(system, emitter)
-	var sizes := _emitter_size_samples(system, emitter)
-	var size_ue := _max_abs_component(sizes)
-	if size_ue <= 0.0:
-		size_ue = 1.0
 	var process := ParticleProcessMaterial.new()
 	_configure_process_from_emitter(process, system, emitter)
+	var has_source_scale := _apply_emitter_start_scale(
+		process,
+		system,
+		emitter,
+		true
+	)
 	_apply_emitter_life_curves(process, emitter)
 
 	var grid := _emitter_subuv_grid(emitter)
@@ -1004,8 +1047,9 @@ static func _build_source_sprite_emitter(
 		process.anim_offset_max = 1.0
 
 	var quad := QuadMesh.new()
-	var size_m := maxf(0.001, size_ue * 0.01)
-	quad.size = Vector2(size_m, size_m)
+	# StartSize now lives in ParticleProcessMaterial scale_3d. Keep the mesh at
+	# one UE centimeter so the source size vectors remain literal.
+	quad.size = Vector2(0.01, 0.01) if has_source_scale else Vector2(0.01, 0.01)
 	quad.material = material
 
 	var particles := GPUParticles3D.new()
@@ -1122,18 +1166,8 @@ static func _build_source_mesh_emitter(
 	var lifetime := _emitter_lifetime(system, emitter)
 	var process := ParticleProcessMaterial.new()
 	_configure_process_from_emitter(process, system, emitter)
+	_apply_emitter_start_scale(process, system, emitter, false)
 	_apply_emitter_life_curves(process, emitter)
-	var size_samples := _emitter_size_samples(system, emitter)
-	if not size_samples.is_empty():
-		var min_scale := INF
-		var max_scale := 0.0
-		for size: Vector3 in size_samples:
-			var scalar := maxf(absf(size.x), maxf(absf(size.y), absf(size.z)))
-			min_scale = minf(min_scale, scalar)
-			max_scale = maxf(max_scale, scalar)
-		if not is_inf(min_scale):
-			process.scale_min = maxf(0.001, min_scale)
-			process.scale_max = maxf(process.scale_min, max_scale)
 
 	var particles := GPUParticles3D.new()
 	particles.name = "CascadeMeshEmitter_%02d" % index
