@@ -96,7 +96,11 @@ jobs:
           grep -q "XZOGOT_NACHT_CAPTURE_WORLD_GREEN" build/nacht-wip-capture/capture.log
           grep -q "XZOGOT_NACHT_SPAWN_SCREENSHOT_GREEN" build/nacht-wip-capture/capture.log
           grep -q "XZOGOT_NACHT_OVERVIEW_SCREENSHOT_GREEN" build/nacht-wip-capture/capture.log
-          ! grep -E "NACHT_CAPTURE:|SCRIPT ERROR|Parse Error|MAX_MESH_SURFACES"             build/nacht-wip-capture/capture.log
+          grep -q "XZOGOT_NACHT_OVERVIEW_PARTICLE_AB_GREEN" build/nacht-wip-capture/capture.log
+          if grep -E "NACHT_CAPTURE:|SCRIPT ERROR|Parse Error|MAX_MESH_SURFACES" build/nacht-wip-capture/capture.log; then
+            echo "XZOGOT_NACHT_WIP_CAPTURE_FAILURE forbidden_error_in_log"
+            exit 1
+          fi
           mkdir -p build/nacht-wip-capture/screenshots
           cp /tmp/xogot-nacht-*.png build/nacht-wip-capture/screenshots/
           echo "XZOGOT_NACHT_WIP_CAPTURE_GREEN head=${GITHUB_SHA} source_run=$SOURCE_RUN"
