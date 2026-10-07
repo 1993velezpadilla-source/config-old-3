@@ -21,6 +21,12 @@ static func _canonical(raw: String) -> String:
 	return value.to_lower()
 
 
+static func _ue_vector_to_xziel(value: Vector3) -> Vector3:
+	# Same basis used by NachtSourceActorsAndLights:
+	# UE +X -> Godot -Z, UE +Y -> Godot -X, UE +Z -> Godot +Y.
+	return Vector3(-value.y, value.z, -value.x)
+
+
 static func _find_system(graphs: Dictionary, object_path: String) -> Dictionary:
 	var wanted := _canonical(object_path)
 	for raw: Variant in graphs.get("systems", []):
@@ -679,10 +685,27 @@ static func _emitter_velocity_samples(system: Dictionary, emitter: Dictionary) -
 
 
 static func _emitter_acceleration_samples(system: Dictionary, emitter: Dictionary) -> Array[Vector3]:
+	var result: Array[Vector3] = []
 	var module := _first_emitter_module(emitter, "ParticleModuleAcceleration")
-	if module.is_empty():
-		return []
-	return _vector_samples(system, ParticleSource.properties(module).get("Acceleration"))
+	if not module.is_empty():
+		var props := ParticleSource.properties(module)
+		for sample: Vector3 in _vector_samples(system, props.get("Acceleration")):
+			if bool(props.get("bAlwaysInWorldSpace", false)):
+				result.append(_ue_vector_to_xziel(sample))
+			else:
+				result.append(sample)
+	var constant := _first_emitter_module(emitter, "ParticleModuleAccelerationConstant")
+	if not constant.is_empty():
+		var constant_props := ParticleSource.properties(constant)
+		var sample := ParticleSource.vector3(
+			constant_props.get("Acceleration"),
+			Vector3.INF
+		)
+		if not sample.is_equal_approx(Vector3.INF):
+			if bool(constant_props.get("bAlwaysInWorldSpace", false)):
+				sample = _ue_vector_to_xziel(sample)
+			result.append(sample)
+	return result
 
 
 static func _emitter_spawn_rate(system: Dictionary, emitter: Dictionary) -> float:
@@ -841,6 +864,22 @@ static func _emitter_local_space(emitter: Dictionary) -> bool:
 	return bool(ParticleSource.properties(required_raw as Dictionary).get("bUseLocalSpace", false))
 
 
+static func _apply_sprite_axis_lock(
+	material: StandardMaterial3D,
+	emitter: Dictionary
+) -> void:
+	var modules := _enabled_emitter_modules(
+		emitter,
+		["ParticleModuleOrientationAxisLock"]
+	)
+	if modules.size() != 1:
+		return
+	var flag := str(ParticleSource.properties(modules[0]).get("LockAxisFlags", ""))
+	if flag == "EPAL_ROTATE_Z":
+		# UE Z-up is Godot Y-up after the Nacht source-root basis conversion.
+		material.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
+
+
 static func _build_source_sprite_emitter(
 	anchor: Node3D,
 	system: Dictionary,
@@ -859,6 +898,7 @@ static func _build_source_sprite_emitter(
 			"nodeCount": 0,
 			"error": "sprite material unresolved",
 		}
+	_apply_sprite_axis_lock(material, emitter)
 
 	var lifetime := _emitter_lifetime(system, emitter)
 	var sizes := _emitter_size_samples(system, emitter)
