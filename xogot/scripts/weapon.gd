@@ -3,6 +3,7 @@ extends Node
 const WeaponCatalog = preload("res://scripts/weapon_catalog.gd")
 const WeaponAssetRegistry = preload("res://scripts/weapon_asset_registry.gd")
 const WeaponBalanceAAA = preload("res://scripts/weapon_balance_aaa.gd")
+const WeaponSourceCombat = preload("res://scripts/weapon_source_combat.gd")
 const WeaponTextureRegistry = preload("res://scripts/weapon_texture_registry.gd")
 const WeaponViewmodelSourcePose = preload("res://scripts/weapon_viewmodel_source_pose.gd")
 const WeaponViewmodelSourcePresentation = preload("res://scripts/weapon_viewmodel_source_presentation.gd")
@@ -72,6 +73,8 @@ var _dev_infinite_ammo: bool = false
 var _mobile_trigger_autofire: bool = false
 var _upgraded_ids: Dictionary = {}
 var _upgraded: bool = false
+var _source_base_reserve_ammo: int = -1
+var _source_base_fire_type_enum: String = ""
 var _source_pack_reserve_ammo: int = -1
 var _source_fire_type_enum: String = ""
 var _source_burst_shots: int = 0
@@ -1418,6 +1421,12 @@ func get_runtime_stats() -> Dictionary:
 		"ads_spread_deg": _ads_spread_deg,
 		"visual_recoil_deg": _visual_recoil_deg,
 		"upgraded": _upgraded,
+		"base_source_data_driven": WeaponSourceCombat.has_data(_weapon_id),
+		"base_source_authority": WeaponSourceCombat.SOURCE_AUTHORITY if WeaponSourceCombat.has_data(_weapon_id) else "NONE",
+		"base_source_row": WeaponSourceCombat.source_row(_weapon_id),
+		"base_source_name": WeaponSourceCombat.source_name(_weapon_id, _display_name),
+		"base_source_min_damage": WeaponSourceCombat.base_min_damage(_weapon_id, damage),
+		"base_source_select_fire": _source_base_fire_type_enum,
 		"pack_balance_data_driven": WeaponBalanceAAA.has_data(_weapon_id),
 		"pack_balance_authority": WeaponBalanceAAA.SOURCE_AUTHORITY if WeaponBalanceAAA.has_data(_weapon_id) else "NONE",
 		"pack_handling_authority": str(get_meta("weapon_pack_handling_authority", "NONE")),
@@ -1472,6 +1481,30 @@ func equip_weapon(id: String, refill: bool = true) -> bool:
 	_hip_spread_deg = float(def.get("hip_spread_deg", 1.5))
 	_ads_spread_deg = float(def.get("ads_spread_deg", 0.25))
 	_visual_recoil_deg = float(def.get("visual_recoil_deg", 1.2))
+	_source_base_reserve_ammo = -1
+	_source_base_fire_type_enum = ""
+	if WeaponSourceCombat.has_data(id):
+		damage = WeaponSourceCombat.base_damage(id, damage)
+		fire_interval = WeaponSourceCombat.base_fire_interval(id, fire_interval)
+		magazine_size = WeaponSourceCombat.base_magazine(id, magazine_size)
+		_source_base_reserve_ammo = WeaponSourceCombat.base_reserve(
+			id,
+			int(def.get("reserve", magazine_size * 4))
+		)
+		_source_base_fire_type_enum = WeaponSourceCombat.base_select_fire(id)
+		_automatic = WeaponSourceCombat.base_is_automatic(id, _automatic)
+		if _family == "shotgun":
+			_pellets = WeaponSourceCombat.base_pellets(id, _pellets)
+		set_meta("weapon_base_source_authority", WeaponSourceCombat.SOURCE_AUTHORITY)
+		set_meta("weapon_base_source_row", WeaponSourceCombat.source_row(id))
+		set_meta("weapon_base_source_name", WeaponSourceCombat.source_name(id, _display_name))
+		set_meta("weapon_base_source_min_damage", WeaponSourceCombat.base_min_damage(id, damage))
+		set_meta("weapon_base_source_select_fire", _source_base_fire_type_enum)
+		set_meta("weapon_base_source_runtime_bound", true)
+	else:
+		set_meta("weapon_base_source_authority", "NONE")
+		set_meta("weapon_base_source_row", -1)
+		set_meta("weapon_base_source_runtime_bound", false)
 	_upgraded = bool(_upgraded_ids.get(id, false))
 	_source_pack_reserve_ammo = -1
 	_source_fire_type_enum = ""
@@ -1490,7 +1523,11 @@ func equip_weapon(id: String, refill: bool = true) -> bool:
 		reserve_ammo = (
 			_source_pack_reserve_ammo
 			if _upgraded and _source_pack_reserve_ammo >= 0
-			else int(def.get("reserve", magazine_size * 4))
+			else (
+				_source_base_reserve_ammo
+				if _source_base_reserve_ammo >= 0
+				else int(def.get("reserve", magazine_size * 4))
+			)
 		)
 	else:
 		_magazine = mini(_magazine, magazine_size)
@@ -1563,7 +1600,11 @@ func buy_wall_weapon(id: String, player: Node) -> bool:
 		return false
 
 	if same_weapon:
-		reserve_ammo += int(def.get("reserve", magazine_size * 4))
+		var refill_amount := WeaponSourceCombat.base_reserve(
+			id,
+			int(def.get("reserve", magazine_size * 4))
+		)
+		reserve_ammo += refill_amount
 		print("XZOGOT_WALLBUY_AMMO ", id, " cost=", cost)
 	else:
 		equip_weapon(id, true)
@@ -1884,10 +1925,14 @@ func refill_max_ammo() -> void:
 		return
 	var def: Dictionary = WeaponCatalog.get_weapon(_weapon_id)
 	_magazine = magazine_size
+	var base_reserve := WeaponSourceCombat.base_reserve(
+		_weapon_id,
+		int(def.get("reserve", magazine_size * 4))
+	)
 	reserve_ammo = (
-		WeaponBalanceAAA.pack_reserve(_weapon_id, int(def.get("reserve", magazine_size * 4)))
+		WeaponBalanceAAA.pack_reserve(_weapon_id, base_reserve)
 		if _upgraded and WeaponBalanceAAA.has_data(_weapon_id)
-		else int(def.get("reserve", magazine_size * 4))
+		else base_reserve
 	)
 	_reloading = false
 	_reload_timer = 0.0

@@ -3,6 +3,7 @@ extends SceneTree
 const WeaponCatalog = preload("res://scripts/weapon_catalog.gd")
 const WeaponAssetRegistry = preload("res://scripts/weapon_asset_registry.gd")
 const WeaponBalanceAAA = preload("res://scripts/weapon_balance_aaa.gd")
+const WeaponSourceCombat = preload("res://scripts/weapon_source_combat.gd")
 const WeaponViewmodelSourcePose = preload("res://scripts/weapon_viewmodel_source_pose.gd")
 
 const FIREARMS: Array[String] = ["colt","walther","nambu","tt33","357","mp40","thompson","ppsh","type100","stg","m1","m1a1","gewehr","svt40","arisaka","kar98k","springfield","mosin","ptrs","trench","doublebarrel","sawnoff","bar","fg42","mg42","browning","dp28","type99"]
@@ -49,7 +50,10 @@ func _run_probe() -> void:
 		return
 
 	if WeaponBalanceAAA.firearm_ids().size() != FIREARMS.size():
-		_fail(4, "AAA balance table must cover exactly 28 firearms")
+		_fail(4, "PaP source table must cover exactly 28 firearms")
+		return
+	if WeaponSourceCombat.firearm_ids().size() != FIREARMS.size():
+		_fail(53, "base DT_Weapons source table must cover exactly 28 firearms")
 		return
 
 	for id: String in FIREARMS:
@@ -57,7 +61,10 @@ func _run_probe() -> void:
 			_fail(10, "catalog missing " + id)
 			return
 		if not WeaponBalanceAAA.has_data(id):
-			_fail(11, "AAA balance missing " + id)
+			_fail(11, "PaP source row missing " + id)
+			return
+		if not WeaponSourceCombat.has_data(id):
+			_fail(54, "base DT_Weapons source row missing " + id)
 			return
 
 		var viewmodel_path := WeaponAssetRegistry.preferred_viewmodel_path(id)
@@ -218,6 +225,33 @@ func _run_probe() -> void:
 			return
 
 		var base_stats: Dictionary = weapon.call("get_runtime_stats") as Dictionary
+		var expected_base_damage := WeaponSourceCombat.base_damage(id, -1.0)
+		var expected_base_mag := WeaponSourceCombat.base_magazine(id, -1)
+		var expected_base_reserve := WeaponSourceCombat.base_reserve(id, -1)
+		var expected_base_interval := WeaponSourceCombat.base_fire_interval(id, -1.0)
+		var expected_base_auto := WeaponSourceCombat.base_is_automatic(id, false)
+		if absf(float(base_stats.get("damage", -1.0)) - expected_base_damage) > 0.001:
+			_fail(55, "base DT_Weapons damage mismatch " + id)
+			return
+		if int(base_stats.get("magazine_size", -1)) != expected_base_mag:
+			_fail(56, "base DT_Weapons magazine mismatch " + id)
+			return
+		if int(weapon.get("reserve_ammo")) != expected_base_reserve:
+			_fail(57, "base DT_Weapons reserve mismatch " + id)
+			return
+		if absf(float(base_stats.get("fire_interval", -1.0)) - expected_base_interval) > 0.0001:
+			_fail(58, "base DT_Weapons RPM/fire interval mismatch " + id)
+			return
+		if bool(weapon.call("is_automatic")) != expected_base_auto:
+			_fail(59, "base DT_Weapons SelectFire mismatch " + id)
+			return
+		if str(base_stats.get("base_source_authority", "")) != WeaponSourceCombat.SOURCE_AUTHORITY:
+			_fail(60, "base DT_Weapons authority missing " + id)
+			return
+		if int(base_stats.get("base_source_row", -1)) != WeaponSourceCombat.source_row(id):
+			_fail(61, "base DT_Weapons source row mismatch " + id)
+			return
+
 		var expected_pack_damage := WeaponBalanceAAA.pack_damage(id, -1.0)
 		var expected_pack_mag := WeaponBalanceAAA.pack_magazine(id, -1)
 		var expected_pack_reserve := WeaponBalanceAAA.pack_reserve(id, -1)
@@ -277,6 +311,7 @@ func _run_probe() -> void:
 			" pap=", expected_pack_damage
 		)
 
+	print("XZOGOT_AAA_28_BASE_DT_WEAPONS_GREEN 28")
 	print("XZOGOT_AAA_28_FIREARMS_GREEN 28")
 	print("XZOGOT_AAA_WEAPON_RUNTIME_GATE_GREEN")
 	scene.queue_free()

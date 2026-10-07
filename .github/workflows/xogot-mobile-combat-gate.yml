@@ -10,6 +10,8 @@ on:
       - "xogot/scripts/weapon.gd"
       - "xogot/scripts/weapon_balance_aaa.gd"
       - "xogot/data/weapon_balance_aaa.json"
+      - "xogot/scripts/weapon_source_combat.gd"
+      - "xogot/data/weapon_source_combat.json"
       - "xogot/scripts/perk_catalog.gd"
       - "xogot/scripts/source_modifier_policy.gd"
       - "xogot/scripts/mobile_*.gd"
