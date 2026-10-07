@@ -180,15 +180,6 @@ func _gate_monster_fire_material_runtime() -> Dictionary:
 			and str(row["graphEmissiveResolution"])
 				== "partial_unique_parent_texture_override"
 		)
-		var partial_parameter_route := (
-			authority == "partial_graph_parameter:DIFF"
-			and str(row["graphStatus"]) == "partial"
-			and str(row["diffuseBindingRoute"]) == "parameter:DIFF"
-		)
-		var legacy_explicit_route := (
-			authority == "explicit_parameter:DIFF"
-			and str(row["diffuseBindingRoute"]) == "parameter:DIFF"
-		)
 		if (
 			int(row["blend"]) != BaseMaterial3D.BLEND_MODE_ADD
 			or int(row["transparency"]) == BaseMaterial3D.TRANSPARENCY_DISABLED
@@ -196,12 +187,7 @@ func _gate_monster_fire_material_runtime() -> Dictionary:
 			or not bool(row["albedoTexture"])
 			or bool(row["emissionEnabled"])
 			or bool(row["emissionTexture"])
-			or not (
-				exact_graph_route
-				or partial_parent_route
-				or partial_parameter_route
-				or legacy_explicit_route
-			)
+			or not (exact_graph_route or partial_parent_route)
 			or not str(row["resolvedDiffuse"]).contains("T_FireBlastTile")
 		):
 			return {
