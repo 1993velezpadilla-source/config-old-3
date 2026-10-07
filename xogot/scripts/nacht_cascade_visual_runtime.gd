@@ -713,12 +713,84 @@ static func _emitter_burst_count(emitter: Dictionary) -> int:
 	return result
 
 
+static func _enabled_emitter_modules(
+	emitter: Dictionary,
+	export_types: Array[String]
+) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var raw_modules: Variant = emitter.get("modules", [])
+	if not (raw_modules is Array):
+		return result
+	for raw: Variant in raw_modules:
+		if not (raw is Dictionary):
+			continue
+		var module := raw as Dictionary
+		if str(module.get("exportType", "")) not in export_types:
+			continue
+		if not bool(ParticleSource.properties(module).get("bEnabled", true)):
+			continue
+		result.append(module)
+	return result
+
+
+static func _float_sample_range(
+	system: Dictionary,
+	value: Variant
+) -> Vector2:
+	var samples := _float_samples(system, value)
+	if samples.is_empty():
+		return Vector2.ZERO
+	var lo := INF
+	var hi := -INF
+	for sample: float in samples:
+		lo = minf(lo, sample)
+		hi = maxf(hi, sample)
+	return Vector2(lo, hi)
+
+
+static func _apply_emitter_rotation(
+	process: ParticleProcessMaterial,
+	system: Dictionary,
+	emitter: Dictionary
+) -> void:
+	var rotation_modules := _enabled_emitter_modules(
+		emitter,
+		["ParticleModuleRotation", "ParticleModuleRotation_Seeded"]
+	)
+	# Multiple enabled rotation modules are additive in Cascade. Leave those for
+	# the custom particle shader instead of collapsing them into one range.
+	if rotation_modules.size() == 1:
+		var rotation_props := ParticleSource.properties(rotation_modules[0])
+		var rotation_range := _float_sample_range(
+			system,
+			rotation_props.get("StartRotation")
+		)
+		# Cascade particle rotations are authored in turns; Godot expects
+		# degrees for billboard angle.
+		process.angle_min = rotation_range.x * 360.0
+		process.angle_max = rotation_range.y * 360.0
+
+	var rate_modules := _enabled_emitter_modules(
+		emitter,
+		["ParticleModuleRotationRate"]
+	)
+	if rate_modules.size() == 1:
+		var rate_props := ParticleSource.properties(rate_modules[0])
+		var rate_range := _float_sample_range(
+			system,
+			rate_props.get("StartRotationRate")
+		)
+		process.angular_velocity_min = rate_range.x * 360.0
+		process.angular_velocity_max = rate_range.y * 360.0
+
+
 static func _configure_process_from_emitter(
 	process: ParticleProcessMaterial,
 	system: Dictionary,
 	emitter: Dictionary
 ) -> void:
 	_apply_emitter_spawn_shape(process, emitter)
+	_apply_emitter_rotation(process, system, emitter)
 	var velocities := _emitter_velocity_samples(system, emitter)
 	var velocity_lengths := _min_max_length(velocities)
 	var velocity_mean := _mean_vector(velocities)
