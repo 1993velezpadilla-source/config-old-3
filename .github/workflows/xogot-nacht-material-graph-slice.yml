@@ -10,6 +10,7 @@ on:
   push:
     branches:
       - feature/godot-aaa-rebuild-v1
+      - wip/nacht-cascade-module-parity-v2
     paths:
       - ".github/workflows/xogot-nacht-material-graph-slice.yml"
 
@@ -102,6 +103,7 @@ jobs:
               "mtl_p7_zm_gen_debris_concrete_rubble_lg_03",
               "t7_water_cp_bio_muddy_waterfall",
               "mysterBoxVerticalMat",
+              "unlit_smoke",
           ]
           rows=source.get("materials",[])
           selected=[]
@@ -178,6 +180,7 @@ jobs:
           out=Path("slice/portable")
           needles=(
               "mysterboxverticalmat",
+              "unlit_smoke",
               "mysteryboxverticalparticle",
               "mysteryboxverticalrippleparticle",
               "mysteryboxverticalmaskparticlethin",
