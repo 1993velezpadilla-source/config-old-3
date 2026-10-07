@@ -38,10 +38,16 @@ func _init() -> void:
 		_fail("DDS missing " + dds_path)
 		return
 
-	var image := Image.new()
-	var error := image.load(dds_path)
-	if error != OK or image.is_empty():
-		_fail("Godot DDS load failed error=" + str(error))
+	var texture_raw: Resource = load(dds_path)
+	if not (texture_raw is Texture2D):
+		_fail(
+			"Godot DDS resource load failed class="
+			+ ("null" if texture_raw == null else texture_raw.get_class())
+		)
+		return
+	var image := (texture_raw as Texture2D).get_image()
+	if image == null or image.is_empty():
+		_fail("Godot DDS Texture2D image unavailable")
 		return
 	if image.get_width() != int(target.get("width", -1)):
 		_fail("width mismatch")
