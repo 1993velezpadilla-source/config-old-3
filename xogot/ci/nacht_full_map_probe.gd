@@ -150,6 +150,15 @@ func _gate_monster_fire_material_runtime() -> Dictionary:
 					false
 				)
 			),
+			"partialParentOverrideAsColor": bool(
+				standard.get_meta(
+					"source_partial_parent_override_emissive_as_unshaded_color",
+					false
+				)
+			),
+			"graphEmissiveResolution": str(
+				standard.get_meta("source_graph_emissive_resolution", "")
+			),
 		})
 	if matches.is_empty():
 		return {
@@ -158,6 +167,28 @@ func _gate_monster_fire_material_runtime() -> Dictionary:
 			"matches": matches,
 		}
 	for row: Dictionary in matches:
+		var authority := str(row["diffuseBindingAuthority"])
+		var exact_graph_route := (
+			authority == "graph:EmissiveColor->unshaded_color"
+			and str(row["graphStatus"]) == "exact"
+			and bool(row["graphEmissiveAsColor"])
+		)
+		var partial_parent_route := (
+			authority == "partial_graph_parent_override:EmissiveColor"
+			and str(row["graphStatus"]) == "partial"
+			and bool(row["partialParentOverrideAsColor"])
+			and str(row["graphEmissiveResolution"])
+				== "partial_unique_parent_texture_override"
+		)
+		var partial_parameter_route := (
+			authority == "partial_graph_parameter:DIFF"
+			and str(row["graphStatus"]) == "partial"
+			and str(row["diffuseBindingRoute"]) == "parameter:DIFF"
+		)
+		var legacy_explicit_route := (
+			authority == "explicit_parameter:DIFF"
+			and str(row["diffuseBindingRoute"]) == "parameter:DIFF"
+		)
 		if (
 			int(row["blend"]) != BaseMaterial3D.BLEND_MODE_ADD
 			or int(row["transparency"]) == BaseMaterial3D.TRANSPARENCY_DISABLED
@@ -166,15 +197,10 @@ func _gate_monster_fire_material_runtime() -> Dictionary:
 			or bool(row["emissionEnabled"])
 			or bool(row["emissionTexture"])
 			or not (
-				str(row["diffuseBindingAuthority"]) in [
-					"graph:EmissiveColor->unshaded_color",
-					"partial_graph_parameter:DIFF",
-					"explicit_parameter:DIFF",
-				]
-			)
-			or (
-				str(row["diffuseBindingAuthority"]) == "partial_graph_parameter:DIFF"
-				and str(row["graphStatus"]) != "partial"
+				exact_graph_route
+				or partial_parent_route
+				or partial_parameter_route
+				or legacy_explicit_route
 			)
 			or not str(row["resolvedDiffuse"]).contains("T_FireBlastTile")
 		):
@@ -183,6 +209,7 @@ func _gate_monster_fire_material_runtime() -> Dictionary:
 				"error": "monster fire material translation mismatch",
 				"matches": matches,
 			}
+
 	return {
 		"ready": true,
 		"matches": matches,
