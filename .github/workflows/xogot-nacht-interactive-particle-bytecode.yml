@@ -108,6 +108,26 @@ jobs:
                   or "gumball" in x.lower()
               )
           ]
+          support_specs={
+              "powerupbase.uasset":"/Blueprints/PowerUps/",
+              "zombiegamelogic.uasset":"/Blueprints/ProxiesAndGameLogics/",
+              "mysterybox.uasset":"/Blueprints/Objects/",
+              "limitedammomarker.uasset":"/Blueprints/KillerJimslimitedAmmo/",
+              "grenadevaluedatatable.uasset":"/Blueprints/CustomItems/",
+              "bp_codz_playerproxy.uasset":"/Blueprints/ProxiesAndGameLogics/",
+          }
+          support_uassets=[]
+          for name,path_fragment in support_specs.items():
+              matches=[
+                  x for x in lines
+                  if Path(x).name.lower()==name
+                  and path_fragment.lower() in x.replace("\\","/").lower()
+              ]
+              if len(matches)!=1:
+                  raise SystemExit(
+                      f"Gumball support source mismatch {name} {matches}"
+                  )
+              support_uassets.extend(matches)
           Path("gumball-reward-uassets.txt").write_text(
               "\n".join(reward_uassets)+("\n" if reward_uassets else ""),
               encoding="utf-8",
@@ -118,6 +138,10 @@ jobs:
           )
           Path("gumball-reward-drop-uassets.txt").write_text(
               "\n".join(reward_drop_uassets)+("\n" if reward_drop_uassets else ""),
+              encoding="utf-8",
+          )
+          Path("gumball-support-uassets.txt").write_text(
+              "\n".join(support_uassets)+"\n",
               encoding="utf-8",
           )
           print("XZOGOT_NACHT_GUMBALL_REWARD_PATH_DISCOVERY",{
@@ -157,7 +181,10 @@ jobs:
                   f"Gumball downstream drop asset set mismatch {reward_drop_uassets}"
               )
 
-          all_uassets=uassets+base_uassets+reward_uassets+reward_drop_uassets
+          all_uassets=(
+              uassets+base_uassets+reward_uassets+reward_drop_uassets
+              +support_uassets
+          )
           bases={re.sub(r"(?i)\.uasset$","",x) for x in all_uassets}
           selected=[
               x for x in lines
@@ -178,6 +205,7 @@ jobs:
               "files":len(selected),
               "names":[Path(x).name for x in uassets],
               "base_names":[Path(x).name for x in base_uassets],
+              "support_names":[Path(x).name for x in support_uassets],
           })
           selected_names={Path(x).name.lower() for x in uassets}
           assert "machinegumball.uasset" in selected_names,selected_names
@@ -320,6 +348,31 @@ jobs:
             $dropIndex++
           }
           Write-Host "XZOGOT_NACHT_GUMBALL_REWARD_DROP_BYTECODE_GREEN assets=$($dropAssets.Count)"
+
+          $supportAssets=@(
+            Get-Content gumball-support-uassets.txt | ForEach-Object {
+              $relative=$_.Replace('/','\\')
+              $full=Join-Path (Resolve-Path nacht-interactive-bytecode).Path $relative
+              if(-not (Test-Path $full)){throw "selected Gumball support asset missing after unpack: $_"}
+              Get-Item $full
+            }
+          )
+          if($supportAssets.Count -ne 6){
+            throw "Gumball support asset count mismatch: $($supportAssets.Count)"
+          }
+          $supportIndex=0
+          foreach($asset in $supportAssets){
+            $stem=[IO.Path]::GetFileNameWithoutExtension($asset.Name)
+            $out="build/nacht-interactive-particle-bytecode/support-$('{0:D2}' -f $supportIndex)-$stem.json"
+            $log="build/nacht-interactive-particle-bytecode/support-$('{0:D2}' -f $supportIndex)-$stem.log"
+            dotnet $app PavMappings.usmap $out $asset.FullName 2>&1 | Tee-Object $log
+            if($LASTEXITCODE -ne 0){throw "support bytecode extractor failed $LASTEXITCODE asset=$($asset.FullName)"}
+            if(-not (Select-String -Path $log -Pattern 'XZOGOT_NUKETOWN_WALLBUY_BYTECODE_GREEN' -Quiet)){
+              throw "support bytecode green marker missing asset=$($asset.FullName)"
+            }
+            $supportIndex++
+          }
+          Write-Host "XZOGOT_NACHT_GUMBALL_SUPPORT_BYTECODE_GREEN assets=$($supportAssets.Count)"
 
           @'
           import json
