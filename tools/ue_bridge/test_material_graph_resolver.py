@@ -296,5 +296,114 @@ class MaterialGraphResolverTests(unittest.TestCase):
         )
 
 
+    def test_partial_graph_unique_parent_texture_override(self):
+        root = {
+            "materials": [
+                {
+                    "objectPath": "/Game/Test/M.M",
+                    "exportType": "Material",
+                    "rawMaterialProperties": [
+                        {
+                            "name": "EmissiveColor",
+                            "value": {
+                                "kind": "FExpressionInput",
+                                "expressionName": "MaterialExpressionDepthFade_2",
+                                "resolvedExpression": None,
+                            },
+                        },
+                    ],
+                    "expressionGraph": [
+                        {
+                            "loaded": True,
+                            "exportType": "MaterialExpressionTextureSampleParameter2D",
+                            "objectPath": "/Game/Test/M.M:Diff",
+                            "properties": [
+                                {"name": "ParameterName", "value": "DIFF"},
+                            ],
+                        },
+                        {
+                            "loaded": True,
+                            "exportType": "MaterialExpressionTextureSampleParameter2D",
+                            "objectPath": "/Game/Test/M.M:Emiss",
+                            "properties": [
+                                {"name": "ParameterName", "value": "EMISS"},
+                            ],
+                        },
+                    ],
+                    "textures": [
+                        {"parameter": "DIFF", "objectPath": "/Engine/Black.Black"},
+                        {"parameter": "EMISS", "objectPath": "/Game/Test/Black.Black"},
+                    ],
+                },
+                {
+                    "objectPath": "/Game/Test/MI.MI",
+                    "exportType": "MaterialInstanceConstant",
+                    "semanticBaseMaterialPath": "/Game/Test/M.M",
+                    "blendMode": "BLEND_Additive",
+                    "shadingModel": "MSM_Unlit",
+                    "textures": [
+                        {"parameter": "DIFF", "objectPath": "/Game/Test/Fire.Fire"},
+                        {"parameter": "EMISS", "objectPath": "/Game/Test/Black.Black"},
+                    ],
+                    "colors": [],
+                    "scalars": [],
+                    "switches": [],
+                },
+            ]
+        }
+        resolved = resolve_instance(root, "/Game/Test/MI.MI")
+        self.assertEqual(resolved["graphStatus"], "partial")
+        self.assertEqual(
+            resolved["partialChangedTextureCandidate"],
+            {
+                "parameter": "diff",
+                "baseValue": "/Engine/Black.Black",
+                "boundValue": "/Game/Test/Fire.Fire",
+            },
+        )
+
+    def test_partial_graph_multiple_parent_texture_overrides_are_ambiguous(self):
+        root = {
+            "materials": [
+                {
+                    "objectPath": "/Game/Test/M.M",
+                    "exportType": "Material",
+                    "rawMaterialProperties": [
+                        {
+                            "name": "EmissiveColor",
+                            "value": {
+                                "kind": "FExpressionInput",
+                                "expressionName": "Missing",
+                                "resolvedExpression": None,
+                            },
+                        },
+                    ],
+                    "expressionGraph": [],
+                    "textures": [
+                        {"parameter": "A", "objectPath": "/Game/Test/A0.A0"},
+                        {"parameter": "B", "objectPath": "/Game/Test/B0.B0"},
+                    ],
+                },
+                {
+                    "objectPath": "/Game/Test/MI.MI",
+                    "exportType": "MaterialInstanceConstant",
+                    "semanticBaseMaterialPath": "/Game/Test/M.M",
+                    "blendMode": "BLEND_Additive",
+                    "shadingModel": "MSM_Unlit",
+                    "textures": [
+                        {"parameter": "A", "objectPath": "/Game/Test/A1.A1"},
+                        {"parameter": "B", "objectPath": "/Game/Test/B1.B1"},
+                    ],
+                    "colors": [],
+                    "scalars": [],
+                    "switches": [],
+                },
+            ]
+        }
+        resolved = resolve_instance(root, "/Game/Test/MI.MI")
+        self.assertIsNone(resolved["partialChangedTextureCandidate"])
+
+
+
 if __name__ == "__main__":
     unittest.main()
