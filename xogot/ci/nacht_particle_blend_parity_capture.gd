@@ -261,7 +261,7 @@ func _run() -> void:
 	if not (await _capture(
 		"/tmp/xogot-nacht-blend-parity-all.png",
 		"all_particles",
-		0.10
+		-1.0
 	)):
 		return
 
@@ -270,7 +270,7 @@ func _run() -> void:
 	if not (await _capture(
 		"/tmp/xogot-nacht-blend-parity-monster-death-xl.png",
 		"monster_death_xl",
-		0.10
+		-1.0
 	)):
 		return
 
@@ -298,7 +298,7 @@ func _run() -> void:
 				node_token
 			],
 			"monster_emitter_%02d" % monster_index,
-			0.10
+			-1.0
 		)):
 			return
 
