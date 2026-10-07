@@ -39,16 +39,32 @@ jobs:
           python3 tools/ue_bridge/test_cascade_distribution_decoder.py
           python3 tools/ue_bridge/test_material_graph_resolver.py
 
-      - name: Download proven Nacht particle authority
+      - name: Download compact Nacht bridge authority
         shell: bash
         run: |
           set -euo pipefail
           rm -rf "$RUNNER_TEMP/nacht-authority" build/ue-bridge
           mkdir -p "$RUNNER_TEMP/nacht-authority" build/ue-bridge
-          gh run download "$SOURCE_RUN" \
-            --repo "$GITHUB_REPOSITORY" \
-            --name "$SOURCE_ARTIFACT" \
-            --dir "$RUNNER_TEMP/nacht-authority"
+
+          CACHE_RUN=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/actions/workflows/xogot-ue-bridge-authority-cache.yml/runs?branch=feature%2Fgodot-aaa-rebuild-v1&status=success&per_page=10" \
+            --jq '.workflow_runs[0].id // empty' || true)
+
+          if [ -n "$CACHE_RUN" ]; then
+            echo "XZOGOT_UE_BRIDGE_CACHE_SELECTED run=$CACHE_RUN"
+            gh run download "$CACHE_RUN" \
+              --repo "$GITHUB_REPOSITORY" \
+              --name "Xogot-UE-Bridge-Nacht-Authority-Cache" \
+              --dir "$RUNNER_TEMP/nacht-authority"
+          else
+            echo "XZOGOT_UE_BRIDGE_CACHE_FALLBACK source_run=$SOURCE_RUN"
+            gh run download "$SOURCE_RUN" \
+              --repo "$GITHUB_REPOSITORY" \
+              --name "$SOURCE_ARTIFACT" \
+              --dir "$RUNNER_TEMP/nacht-authority"
+          fi
+
           test -s "$RUNNER_TEMP/nacht-authority/nacht-particle-graphs.json"
           test -s "$RUNNER_TEMP/nacht-authority/nacht-materials.json"
 
