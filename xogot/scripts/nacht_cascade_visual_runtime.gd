@@ -1516,7 +1516,6 @@ static func _build_source_sprite_emitter(
 	particles.draw_pass_1 = quad
 	particles.visibility_aabb = AABB(Vector3(-8.0, -8.0, -8.0), Vector3(16.0, 16.0, 16.0))
 	particles.fixed_fps = 30
-	_apply_emitter_activation(anchor, particles, emitter, auto_activate, index)
 	var burst_count := _emitter_burst_count(emitter)
 	var spawn_rate := _emitter_spawn_rate(system, emitter)
 	var required_raw: Variant = emitter.get("required", {})
@@ -1527,6 +1526,10 @@ static func _build_source_sprite_emitter(
 	if spawn_rate <= 0.0 and burst_count > 0:
 		particles.one_shot = true
 		particles.explosiveness = 1.0
+	# Timing flags must be committed before the first emission. Starting an
+	# immediate Cascade emitter and only then setting one_shot lets Godot begin
+	# its first cycle with looping semantics.
+	_apply_emitter_activation(anchor, particles, emitter, auto_activate, index)
 	particles.add_to_group("nacht_source_particle_visual")
 	particles.set_meta("source_particle_material_path", material_path)
 	particles.set_meta("source_particle_emitter_path", str(emitter.get("key", "")))
@@ -1636,7 +1639,6 @@ static func _build_source_mesh_emitter(
 		particles.set("draw_pass_%d" % (chunk_index + 1), chunks[chunk_index])
 	particles.visibility_aabb = AABB(Vector3(-8.0, -8.0, -8.0), Vector3(16.0, 16.0, 16.0))
 	particles.fixed_fps = 30
-	_apply_emitter_activation(anchor, particles, emitter, auto_activate, index)
 	var burst_count := _emitter_burst_count(emitter)
 	var spawn_rate := _emitter_spawn_rate(system, emitter)
 	var required_raw: Variant = emitter.get("required", {})
@@ -1647,6 +1649,10 @@ static func _build_source_mesh_emitter(
 	if spawn_rate <= 0.0 and burst_count > 0:
 		particles.one_shot = true
 		particles.explosiveness = 1.0
+	# Timing flags must be committed before the first emission. Starting an
+	# immediate Cascade emitter and only then setting one_shot lets Godot begin
+	# its first cycle with looping semantics.
+	_apply_emitter_activation(anchor, particles, emitter, auto_activate, index)
 	particles.add_to_group("nacht_source_particle_visual")
 	particles.set_meta("source_particle_material_path", material_path)
 	particles.set_meta("source_particle_mesh_path", mesh_path)
