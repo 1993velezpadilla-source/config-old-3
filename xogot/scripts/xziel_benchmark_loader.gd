@@ -898,11 +898,24 @@ func _material_for_path(material_path: String) -> Material:
 	)
 
 	var blend_mode := str(record.get("blendMode", "BLEND_Opaque"))
-	if bool(record.get("isMasked", false)):
+	if bool(record.get("isMasked", false)) or blend_mode == "BLEND_Masked":
 		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 		material.alpha_scissor_threshold = float(record.get("opacityMaskClipValue", 0.333))
 	elif blend_mode == "BLEND_Translucent":
 		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		material.blend_mode = BaseMaterial3D.BLEND_MODE_MIX
+	elif blend_mode == "BLEND_Additive":
+		# UE additive Cascade materials must never fall through as opaque quads.
+		# Godot still needs transparency enabled so texture/vertex alpha can
+		# participate in the particle edge mask before additive accumulation.
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	elif blend_mode == "BLEND_Modulate":
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		material.blend_mode = BaseMaterial3D.BLEND_MODE_MUL
+	elif blend_mode == "BLEND_AlphaComposite":
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		material.blend_mode = BaseMaterial3D.BLEND_MODE_PREMULT_ALPHA
 
 	if str(record.get("shadingModel", "")) == "MSM_Unlit":
 		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
