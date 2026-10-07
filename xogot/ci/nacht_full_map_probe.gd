@@ -1494,12 +1494,18 @@ func _run() -> void:
 			return
 		var fizz_step0: Dictionary = fizz_timeline[0] as Dictionary
 		var fizz_step1: Dictionary = fizz_timeline[1] as Dictionary
-		var fizz_offsets0: Array = (
+		var fizz_offsets0_raw: Array = (
 			fizz_step0.get("actionStartOffsets", []) as Array
 		)
-		var fizz_offsets1: Array = (
+		var fizz_offsets1_raw: Array = (
 			fizz_step1.get("actionStartOffsets", []) as Array
 		)
+		var fizz_offsets0: Array[int] = []
+		for raw_offset: Variant in fizz_offsets0_raw:
+			fizz_offsets0.append(int(raw_offset))
+		var fizz_offsets1: Array[int] = []
+		for raw_offset: Variant in fizz_offsets1_raw:
+			fizz_offsets1.append(int(raw_offset))
 		if (
 			abs(float(fizz_step0.get("atSeconds", -1.0)) - 18.0) > 0.001
 			or abs(float(fizz_step1.get("atSeconds", -1.0)) - 20.0) > 0.001
