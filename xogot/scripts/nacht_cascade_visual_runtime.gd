@@ -704,6 +704,18 @@ static func _apply_emitter_spawn_shape(
 		) * 0.01
 		if radius <= 0.0:
 			return
+		if bool(primitive_props.get("SurfaceOnly", false)):
+			# Godot's ring emitter is a volume/annulus primitive. Do not turn
+			# UE Cascade's surface-only cylindrical shell into a filled volume.
+			# Keep the source dependency explicit until the custom particle
+			# shader can sample the cylinder surface exactly.
+			process.set_meta(
+				"cascade_unresolved_spawn_shape",
+				"surface_only_cylinder"
+			)
+			process.set_meta("cascade_source_cylinder_radius_m", radius)
+			process.set_meta("cascade_source_cylinder_height_m", height)
+			return
 		process.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
 		process.emission_ring_axis = Vector3(0.0, 0.0, 1.0)
 		process.emission_ring_radius = radius
