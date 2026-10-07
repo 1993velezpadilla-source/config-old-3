@@ -1377,6 +1377,18 @@ func _build_source_particle_semantic_runtime() -> bool:
 		return false
 	_source_particle_semantic_runtime_count += 1
 
+	_source_particle_monster_descriptor = NachtCascadeRuntime.monster_death_xl_descriptor(_particle_graphs)
+	if not bool(_source_particle_monster_descriptor.get("ready", false)):
+		push_error("NACHT_FULL_MAP: monster XL Cascade semantics unresolved " + str(_source_particle_monster_descriptor.get("error", "unknown")))
+		return false
+	if not _mount_source_particle_semantic_anchors(
+		_source_particle_monster_descriptor,
+		1,
+		"monster XL"
+	):
+		return false
+	_source_particle_semantic_runtime_count += 1
+
 	set_meta(
 		"source_particle_mystery_spawn_rate",
 		float(_source_particle_mystery_descriptor.get("spawnRateMin", -1.0))
