@@ -131,6 +131,97 @@ class MaterialGraphResolverTests(unittest.TestCase):
         self.assertEqual(texture_rows[0]["parameter"], "DIFF")
         self.assertEqual(texture_rows[0]["boundValue"], "/Game/Test/T.T")
 
+    def test_reconnects_expression_name_through_expression_graph(self):
+        root = {
+            "materials": [
+                {
+                    "objectPath": "/Game/Test/M.M",
+                    "exportType": "Material",
+                    "rawMaterialProperties": [
+                        {
+                            "name": "EmissiveColor",
+                            "value": {
+                                "kind": "FExpressionInput",
+                                "expressionName": "MaterialExpressionDepthFade_2",
+                                "resolvedExpression": None,
+                            },
+                        },
+                    ],
+                    "expressionGraph": [
+                        {
+                            "loaded": True,
+                            "exportType": "MaterialExpressionDepthFade",
+                            "objectPath": "/Game/Test/M.M:MaterialExpressionDepthFade_2",
+                            "properties": [
+                                {
+                                    "name": "Opacity",
+                                    "value": {
+                                        "kind": "FExpressionInput",
+                                        "expressionName": "MaterialExpressionMultiply_0",
+                                        "resolvedExpression": None,
+                                    },
+                                },
+                            ],
+                        },
+                        {
+                            "loaded": True,
+                            "exportType": "MaterialExpressionMultiply",
+                            "objectPath": "/Game/Test/M.M:MaterialExpressionMultiply_0",
+                            "properties": [
+                                {
+                                    "name": "A",
+                                    "value": {
+                                        "kind": "FExpressionInput",
+                                        "expressionName": "MaterialExpressionTextureSampleParameter2D_0",
+                                        "resolvedExpression": None,
+                                    },
+                                },
+                            ],
+                        },
+                        {
+                            "loaded": True,
+                            "exportType": "MaterialExpressionTextureSampleParameter2D",
+                            "objectPath": "/Game/Test/M.M:MaterialExpressionTextureSampleParameter2D_0",
+                            "properties": [
+                                {"name": "ParameterName", "value": "DIFF"},
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "objectPath": "/Game/Test/MI.MI",
+                    "exportType": "MaterialInstanceConstant",
+                    "semanticBaseMaterialPath": "/Game/Test/M.M",
+                    "blendMode": "BLEND_Additive",
+                    "shadingModel": "MSM_Unlit",
+                    "textures": [
+                        {
+                            "parameter": "DIFF",
+                            "objectPath": "/Game/Test/T_Fire.T_Fire",
+                        }
+                    ],
+                    "colors": [],
+                    "scalars": [],
+                    "switches": [],
+                },
+            ]
+        }
+
+        resolved = resolve_instance(root, "/Game/Test/MI.MI")
+        self.assertEqual(resolved["graphStatus"], "exact")
+        self.assertTrue(resolved["exactPinBindings"])
+        self.assertEqual(resolved["unresolvedOutputInputs"], {})
+        emissive = resolved["pins"]["EmissiveColor"]
+        texture_rows = [
+            row for row in emissive
+            if row["kind"] == "texture"
+        ]
+        self.assertEqual(texture_rows[0]["parameter"], "DIFF")
+        self.assertEqual(
+            texture_rows[0]["boundValue"],
+            "/Game/Test/T_Fire.T_Fire",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
