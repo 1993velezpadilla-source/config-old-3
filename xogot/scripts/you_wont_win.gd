@@ -331,19 +331,30 @@ func _build_side_rooms_v1(stone: Color, dark_stone: Color, timber: Color) -> voi
 	# 3.10m segments collapsed the apparent 2.9m doorway to ~0.72m in world.
 	_box("ReliquaryEastWallA", Vector3(0.52, 3.3, 2.00), Vector3(14.75, -1.30, -29.70), dark_stone)
 	_box("ReliquaryEastWallB", Vector3(0.52, 3.3, 2.00), Vector3(14.75, -1.30, -22.30), dark_stone)
-	for i in range(3):
+	var reliquary_sarcophagi: Array[Vector3] = [
+		Vector3(3.0, -2.47, -26.2),
+		Vector3(7.65, -2.47, -26.2),
+		# Keep the third tomb clear of the east-door landing. The previous
+		# straight row put its collision directly behind the doorway and trapped
+		# a touch-sized player capsule immediately after entry.
+		Vector3(11.0, -2.47, -23.5),
+	]
+	for i in range(reliquary_sarcophagi.size()):
+		var sarcophagus_pos: Vector3 = reliquary_sarcophagi[i]
 		_box(
 			"ReliquarySarcophagus_%02d" % i,
 			Vector3(1.30, 0.82, 2.70),
-			Vector3(3.0 + float(i) * 4.65, -2.47, -26.2),
+			sarcophagus_pos,
 			Color(0.092, 0.086, 0.078)
 		)
 		_visual_box(
 			"ReliquaryLid_%02d" % i,
 			Vector3(1.48, 0.18, 2.88),
-			Vector3(3.0 + float(i) * 4.65, -2.00, -26.2),
+			sarcophagus_pos + Vector3(0.0, 0.47, 0.0),
 			Color(0.135, 0.122, 0.105)
 		)
+	set_meta("reliquary_touch_safe_entry", true)
+	print("XZOGOT_RELIQUARY_TOUCH_SAFE_ENTRY_GREEN")
 	print("XZOGOT_RELIQUARY_OSSUARY_READY")
 	print("XZOGOT_SIDE_ROOMS_V1_READY")
 
