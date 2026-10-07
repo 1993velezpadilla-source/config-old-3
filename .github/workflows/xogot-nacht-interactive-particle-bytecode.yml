@@ -1718,6 +1718,93 @@ jobs:
               json.dumps(gumball_transform_position_trace,separators=(",",":"))
           )
 
+          up_vector_symbol="export:320:CallFunc_GetActorUpVector_ReturnValue"
+          gumball_up_vector_trace=[]
+          for offset in sorted(gumball_top):
+              expr=gumball_top[offset]
+              blob=json.dumps(expr,sort_keys=True)
+              if up_vector_symbol in blob:
+                  gumball_up_vector_trace.append({
+                      "startOffset":offset,
+                      "expression":expr,
+                  })
+          if not gumball_up_vector_trace:
+              raise SystemExit("MachineGumball actor-up trace is empty")
+
+          transform_paths=[
+              {
+                  "rotationOffset":922,
+                  "multiplyOffset":1084,
+                  "actorLocationOffset":1126,
+                  "addOffset":1154,
+                  "makeTransformOffset":1200,
+              },
+              {
+                  "rotationOffset":2169,
+                  "multiplyOffset":2331,
+                  "actorLocationOffset":2373,
+                  "addOffset":2401,
+                  "makeTransformOffset":2447,
+              },
+          ]
+          for path in transform_paths:
+              checks=[
+                  (
+                      path["rotationOffset"],
+                      ["GunPos","K2_GetComponentRotation"],
+                  ),
+                  (
+                      path["multiplyOffset"],
+                      [
+                          "Multiply_VectorFloat",
+                          up_vector_symbol,
+                          '"Value": 125.0',
+                      ],
+                  ),
+                  (
+                      path["actorLocationOffset"],
+                      ["K2_GetActorLocation"],
+                  ),
+                  (
+                      path["addOffset"],
+                      [
+                          "Add_VectorVector",
+                          "CallFunc_K2_GetActorLocation_ReturnValue1",
+                          "CallFunc_Multiply_VectorFloat_ReturnValue",
+                      ],
+                  ),
+                  (
+                      path["makeTransformOffset"],
+                      [
+                          "KismetMathLibrary.MakeTransform",
+                          "CallFunc_Add_VectorVector_ReturnValue",
+                          "CallFunc_K2_GetComponentRotation_ReturnValue",
+                      ],
+                  ),
+              ]
+              for offset,tokens in checks:
+                  expr=gumball_top.get(offset,{})
+                  blob=json.dumps(expr,sort_keys=True)
+                  for token in tokens:
+                      if token not in blob:
+                          raise SystemExit(
+                              f"MachineGumball transform rule missing {token} "
+                              f"offset={offset} expr={expr}"
+                          )
+
+          gumball_spawn_transform_rule={
+              "locationFormula":"ActorLocation + ActorUpVector * 125.0 UEcm",
+              "upOffsetUEcm":125.0,
+              "rotationSource":"GunPos.K2_GetComponentRotation",
+              "scaleSource":"EX_VectorConst_unexpanded",
+              "paths":transform_paths,
+              "upVectorTrace":gumball_up_vector_trace,
+          }
+          print(
+              "XZOGOT_NACHT_GUMBALL_SPAWN_TRANSFORM_RULE_GREEN",
+              json.dumps(gumball_spawn_transform_rule,separators=(",",":"))
+          )
+
           def require_gumball_tokens(offset,tokens,label):
               expr=gumball_top.get(offset,{})
               blob=json.dumps(expr,sort_keys=True)
@@ -1906,6 +1993,7 @@ jobs:
               "makeTransformTrace":make_transform_trace,
               "transformUpstreamTrace":gumball_transform_upstream,
               "transformPositionTrace":gumball_transform_position_trace,
+              "spawnTransformRule":gumball_spawn_transform_rule,
               "presentationRule":gumball_presentation_rule,
               "upVectorTrace":gumball_up_vector_trace,
               "gunPosExports":gunpos_exports,
