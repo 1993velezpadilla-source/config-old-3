@@ -527,6 +527,150 @@ jobs:
           })
           PY
 
+      - name: Slice all placed particle material authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, shutil
+          from pathlib import Path
+
+          root=Path("full")
+          out=Path("slice")
+          graphs=json.loads((out/"particle-candidate-graphs.json").read_text())
+          materials_path=next(root.rglob("nacht-materials.json"),None)
+          textures_path=next(root.rglob("nacht-native/textures/report.json"),None)
+          if materials_path is None or textures_path is None:
+              raise SystemExit("placed particle material authority inputs missing")
+          materials=json.loads(materials_path.read_text())
+          textures=json.loads(textures_path.read_text())
+
+          def canonical(raw):
+              value=str(raw or "").strip().replace("\\","/")
+              if "'" in value and value.endswith("'"):
+                  value=value.split("'",1)[1][:-1]
+              if value.startswith("Content/"):
+                  value="/Game/"+value[8:]
+              elif value.startswith("Game/"):
+                  value="/"+value
+              return value.lower()
+
+          def package_paths(value):
+              if isinstance(value,list):
+                  for item in value:
+                      yield from package_paths(item)
+                  return
+              if not isinstance(value,dict):
+                  return
+              if value.get("kind")=="FPackageIndex" and value.get("path"):
+                  yield str(value["path"])
+              for item in value.values():
+                  yield from package_paths(item)
+
+          by_material={
+              canonical(row.get("objectPath")):row
+              for row in materials.get("materials",[])
+              if row.get("objectPath")
+          }
+          by_texture={
+              canonical(row.get("objectPath")):row
+              for row in textures.get("textures",[])
+              if row.get("objectPath")
+          }
+
+          direct={}
+          system_materials={}
+          for system in graphs.get("systems",[]):
+              system_path=str(system.get("objectPath",""))
+              refs=[]
+              refs.extend(system.get("references",[]))
+              for node in system.get("nodes",[]):
+                  refs.extend(node.get("references",[]))
+                  refs.extend(package_paths(node.get("properties",[])))
+              matched={}
+              for ref in refs:
+                  key=canonical(ref)
+                  material=by_material.get(key)
+                  if material is None:
+                      continue
+                  direct[key]=material
+                  matched[key]=material.get("objectPath")
+              system_materials[system_path]=sorted(
+                  matched.values(),
+                  key=lambda value:str(value).lower(),
+              )
+
+          selected=dict(direct)
+          pending=list(selected.values())
+          while pending:
+              row=pending.pop()
+              parent_key=canonical(row.get("semanticBaseMaterialPath"))
+              if not parent_key or parent_key in selected:
+                  continue
+              parent=by_material.get(parent_key)
+              if parent is None:
+                  continue
+              selected[parent_key]=parent
+              pending.append(parent)
+
+          texture_keys={}
+          for row in selected.values():
+              for tex in row.get("textures",[]):
+                  key=canonical(tex.get("objectPath"))
+                  if key and key in by_texture:
+                      texture_keys[key]=by_texture[key]
+
+          native_dir=textures_path.parent
+          native_out=out/"placed-particle-native-textures"
+          native_out.mkdir(parents=True,exist_ok=True)
+          texture_rows=[]
+          for key,row in sorted(texture_keys.items()):
+              src=native_dir/str(row.get("file",""))
+              if not src.is_file():
+                  raise SystemExit(f"placed particle native texture missing: {src}")
+              dst=native_out/src.name
+              shutil.copy2(src,dst)
+              texture_rows.append({
+                  **row,
+                  "sliceFile":str(dst.relative_to(out)),
+              })
+
+          payload={
+              "schemaVersion":1,
+              "sourceRun":int(os.environ["SOURCE_RUN"]),
+              "placedSystemCount":int(graphs.get("systemCount",0)),
+              "directMaterialCount":len(direct),
+              "materialWithParentCount":len(selected),
+              "nativeTextureCount":len(texture_rows),
+              "systemMaterials":system_materials,
+              "materials":sorted(
+                  selected.values(),
+                  key=lambda row:str(row.get("objectPath","")).lower(),
+              ),
+              "nativeTextures":texture_rows,
+          }
+          (out/"placed-particle-material-authority.json").write_text(
+              json.dumps(payload,indent=2)+"\n"
+          )
+          if payload["placedSystemCount"] != 16:
+              raise SystemExit(
+                  f"placed system coverage mismatch {payload['placedSystemCount']}/16"
+              )
+          if payload["directMaterialCount"] <= 0 or payload["nativeTextureCount"] <= 0:
+              raise SystemExit("placed particle material slice empty")
+          if not any(
+              "bonefire2b_fwd2_inst" in str(row.get("objectPath","")).lower()
+              for row in payload["materials"]
+          ):
+              raise SystemExit("BoneFire2B absent from placed particle material authority")
+          print("XZOGOT_NACHT_PLACED_PARTICLE_MATERIAL_AUTHORITY_GREEN",{
+              "systems":payload["placedSystemCount"],
+              "directMaterials":payload["directMaterialCount"],
+              "materialsWithParents":payload["materialWithParentCount"],
+              "nativeTextures":payload["nativeTextureCount"],
+          })
+          PY
+
       - name: Upload material graph slice
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
