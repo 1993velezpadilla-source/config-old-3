@@ -1497,7 +1497,7 @@ func _run() -> void:
 		print(
 			"XZOGOT_NACHT_PARTICLE_EVENT_REPLAY_GREEN ",
 			"events=3 gumball_open=15.0 gumball_close=5.0 "
-			"pap=0.0 pap_anchors=4"
+			+ "pap=0.0 pap_anchors=4"
 		)
 
 		# Execute the replay-safe Gumball timers against live runtime state.
@@ -1607,7 +1607,7 @@ func _run() -> void:
 		print(
 			"XZOGOT_NACHT_PARTICLE_EVENT_TIMING_GREEN ",
 			"actor=MachineGumball_2 close_off_s=5.0 "
-			"open_on_s=15.0 components=2 reset=true"
+			+ "open_on_s=15.0 components=2 reset=true"
 		)
 
 		if not particle_visual_mounted:
