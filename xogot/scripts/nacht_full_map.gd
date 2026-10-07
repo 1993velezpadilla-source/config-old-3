@@ -1623,7 +1623,7 @@ func evaluate_source_gumball_interaction(
 	power_switch_flags_empty: bool,
 	powered: bool,
 	in_use: bool,
-	player_tags: Array[String]
+	player_tags: Array
 ) -> Dictionary:
 	var desc := describe_source_gumball_interaction(actor_name)
 	if not bool(desc.get("ready", false)):
@@ -1640,7 +1640,8 @@ func evaluate_source_gumball_interaction(
 		for raw_tag: Variant in deny_tags_raw as Array:
 			deny_tags.append(str(raw_tag))
 	var blocked_tag := ""
-	for tag: String in player_tags:
+	for raw_tag: Variant in player_tags:
+		var tag := str(raw_tag)
 		if tag in deny_tags:
 			blocked_tag = tag
 			break
