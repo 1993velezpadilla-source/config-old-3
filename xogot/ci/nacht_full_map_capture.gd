@@ -320,60 +320,63 @@ func _capture() -> void:
 	player.velocity = saved_player_velocity
 	player.set_physics_process(true)
 
-	var xs: Array[float] = []
-	var ys: Array[float] = []
-	var zs: Array[float] = []
-	for raw: Node in anchors:
-		if raw is Node3D:
-			var p := (raw as Node3D).global_position
-			xs.append(p.x)
-			ys.append(p.y)
-			zs.append(p.z)
-	if xs.size() < 100:
-		_fail(14, "not enough source actor positions for overview")
+	# Build the diagnostic overview from the densest horizontal cluster of
+	# source player spawns instead of all 11k actor anchors. The actor catalog
+	# contains background foliage and non-playable outliers that previously
+	# pulled the overview camera outside Nacht.
+	var best_cluster: Array[Node3D] = []
+	for candidate: Node3D in spawn_candidates:
+		var cluster: Array[Node3D] = []
+		for other: Node3D in spawn_candidates:
+			var delta := other.global_position - candidate.global_position
+			if Vector2(delta.x, delta.z).length() <= 5.0:
+				cluster.append(other)
+		if cluster.size() > best_cluster.size():
+			best_cluster = cluster
+	if best_cluster.size() < 3:
+		_fail(14, "playable spawn cluster unresolved")
 		return
 
-	# Use 5th-95th percentile bounds so source-authored background/outlier
-	# anchors do not pull the overview camera miles away from the playable core.
-	var low := Vector3(
-		_percentile(xs.duplicate(), 0.05),
-		_percentile(ys.duplicate(), 0.05),
-		_percentile(zs.duplicate(), 0.05)
-	)
-	var high := Vector3(
-		_percentile(xs.duplicate(), 0.95),
-		_percentile(ys.duplicate(), 0.95),
-		_percentile(zs.duplicate(), 0.95)
-	)
-	var center := (low + high) * 0.5
-	var span := high - low
-	var horizontal_radius := maxf(maxf(span.x, span.z) * 0.5, 12.0)
-	var vertical_span := maxf(span.y, 8.0)
+	var center := Vector3.ZERO
+	for candidate: Node3D in best_cluster:
+		center += candidate.global_position
+	center /= float(best_cluster.size())
 
-	var overview_camera := Camera3D.new()
-	overview_camera.name = "NachtSourceOverviewCamera"
-	overview_camera.fov = 58.0
-	overview_camera.near = 0.05
-	overview_camera.far = maxf(1200.0, horizontal_radius * 12.0)
-	scene.add_child(overview_camera)
-	overview_camera.global_position = center + Vector3(
-		horizontal_radius * 0.9,
-		maxf(horizontal_radius * 1.15, vertical_span * 1.8),
-		horizontal_radius * 0.9
+	var representative := best_cluster[0]
+	var representative_distance := INF
+	for candidate: Node3D in best_cluster:
+		var delta := candidate.global_position - center
+		var distance := Vector2(delta.x, delta.z).length()
+		if distance < representative_distance:
+			representative_distance = distance
+			representative = candidate
+
+	var overview_basis := _capture_player_basis_from_source_anchor(representative)
+	player.global_basis = overview_basis
+	player.global_position = (
+		representative.global_position
+		- overview_basis * collision.position
 	)
-	overview_camera.look_at(center, Vector3.UP)
-	overview_camera.current = true
+	player.velocity = Vector3.ZERO
+	var saved_fov := spawn_camera.fov
+	spawn_camera.fov = 86.0
+	spawn_camera.current = true
 
 	print(
-		"XZOGOT_NACHT_CAPTURE_OVERVIEW_BOUNDS ",
-		"low=", low,
-		" high=", high,
+		"XZOGOT_NACHT_CAPTURE_OVERVIEW_SPAWN_CLUSTER ",
+		"members=", best_cluster.size(),
 		" center=", center,
-		" camera=", overview_camera.global_position
+		" representative=",
+		representative.get_meta("source_object_path", "")
 	)
 
 	if not (await _save_view("/tmp/xogot-nacht-overview.png", "overview")):
 		return
+
+	spawn_camera.fov = saved_fov
+	player.global_transform = saved_player_transform
+	player.velocity = saved_player_velocity
+	player.set_physics_process(true)
 
 	scene.queue_free()
 	await process_frame
