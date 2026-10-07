@@ -69,6 +69,7 @@ var _shell_particles: GPUParticles3D
 var _muzzle_flash_timer: float = 0.0
 var _last_ads_state: bool = false
 var _dev_infinite_ammo: bool = false
+var _mobile_trigger_autofire: bool = false
 var _upgraded_ids: Dictionary = {}
 var _upgraded: bool = false
 var _source_external_item_id: String = ""
@@ -93,7 +94,10 @@ func _process(delta: float) -> void:
 		if _reload_timer <= 0.0:
 			_finish_reload()
 	else:
-		if _trigger_held and _automatic:
+		# NZP-mobile parity: touch FIRE holds automatic weapons normally and
+		# translates semi-auto pistols into repeated native trigger attempts.
+		# request_fire() keeps the weapon's authored fire_interval authoritative.
+		if _trigger_held and (_automatic or (_mobile_trigger_autofire and _family == "pistol")):
 			request_fire()
 
 	if _melee_overlay_timer > 0.0:
@@ -1411,6 +1415,7 @@ func equip_weapon(id: String, refill: bool = true) -> bool:
 	_reload_timer = 0.0
 	_cooldown = 0.0
 	_trigger_held = false
+	_mobile_trigger_autofire = false
 	_refresh_view_assets(def)
 	_ads_pose_alpha = 0.0
 	_view_pose_position = _hip_pose_position
@@ -1565,6 +1570,22 @@ func set_trigger_held(held: bool) -> void:
 	_trigger_held = held
 	if pressed_now:
 		request_fire()
+
+func set_mobile_trigger_held(held: bool) -> void:
+	_mobile_trigger_autofire = held
+	set_trigger_held(held)
+
+func mobile_adsfire_release_mode() -> bool:
+	# Matches the last NZPortable AUTO BY WEAPON behavior: scoped/sniper and
+	# shotgun classes release-to-fire, plus the iron-sight bolt rifles.
+	if _family == "sniper" or _family == "shotgun":
+		return true
+	return _weapon_id in ["kar98k", "springfield", "arisaka", "mosin"]
+
+func request_mobile_release_fire() -> bool:
+	var before: int = _shots_fired
+	request_fire()
+	return _shots_fired > before
 
 func request_fire() -> void:
 	if _reloading or _cooldown > 0.0:

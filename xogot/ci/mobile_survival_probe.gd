@@ -27,6 +27,89 @@ func _run() -> void:
 		return
 	round_manager.set("auto_start", false)
 
+	for skin_path: String in [
+		"res://assets/hud/latest_12/hud_ads.webp",
+		"res://assets/hud/latest_12/hud_ads_fire.webp",
+		"res://assets/hud/latest_12/hud_fire.png",
+		"res://assets/hud/latest_12/hud_reload.webp",
+		"res://assets/hud/latest_12/hud_knife.webp",
+		"res://assets/hud/latest_12/hud_slide.webp",
+		"res://assets/hud/latest_12/hud_sprint.webp",
+		"res://assets/hud/latest_12/hud_swap.webp",
+		"res://assets/hud/latest_12/hud_grenade.webp",
+	]:
+		if not ResourceLoader.exists(skin_path):
+			_fail(20, "custom mobile skin missing: " + skin_path)
+			return
+	print("XZOGOT_MOBILE_CUSTOM_SKINS_GREEN")
+
+	if not bool(weapon.call("equip_weapon", "colt", true)):
+		_fail(21, "could not equip Colt for mobile auto-fire")
+		return
+	var pistol_before: int = int(weapon.call("get_shots_fired"))
+	weapon.call("set_mobile_trigger_held", true)
+	for i in range(24):
+		weapon.call("_process", 0.02)
+	weapon.call("set_mobile_trigger_held", false)
+	var pistol_after: int = int(weapon.call("get_shots_fired"))
+	if pistol_after - pistol_before < 2:
+		_fail(22, "mobile pistol hold-fire did not auto-tap")
+		return
+	print("XZOGOT_MOBILE_PISTOL_AUTOFIRE_GREEN shots=", pistol_after - pistol_before)
+
+	if not bool(weapon.call("equip_weapon", "kar98k", true)):
+		_fail(23, "could not equip Kar98k for release-fire")
+		return
+	if not bool(weapon.call("mobile_adsfire_release_mode")):
+		_fail(24, "Kar98k was not classified release-to-fire")
+		return
+	var viewport_size: Vector2 = root.get_viewport().get_visible_rect().size
+	var adsfire_pos := Vector2(0.795 * viewport_size.x, 0.435 * viewport_size.y)
+	var ads_down := InputEventScreenTouch.new()
+	ads_down.index = 77
+	ads_down.position = adsfire_pos
+	ads_down.pressed = true
+	var release_before: int = int(weapon.call("get_shots_fired"))
+	player.call("_handle_touch", ads_down)
+	if int(weapon.call("get_shots_fired")) != release_before:
+		_fail(25, "release-to-fire weapon fired on touch-down")
+		return
+	var ads_up := InputEventScreenTouch.new()
+	ads_up.index = 77
+	ads_up.position = adsfire_pos
+	ads_up.pressed = false
+	player.call("_handle_touch", ads_up)
+	if int(weapon.call("get_shots_fired")) != release_before + 1:
+		_fail(26, "release-to-fire weapon did not fire exactly once on touch-up")
+		return
+	print("XZOGOT_MOBILE_RELEASE_FIRE_GREEN")
+
+	if not bool(weapon.call("equip_weapon", "mp40", true)):
+		_fail(27, "could not equip MP40 for sprint reload")
+		return
+	weapon.call("request_fire")
+	weapon.set("_cooldown", 0.0)
+	weapon.call("request_reload")
+	if not bool(weapon.call("is_reloading")):
+		_fail(28, "reload did not start before sprint test")
+		return
+	player.set("_move_touch", 901)
+	player.set("_move_vector", Vector2(0.0, -1.0))
+	player.call("_physics_process", 0.05)
+	if not bool(player.call("is_sprinting")):
+		_fail(29, "auto-sprint did not engage for reload test")
+		return
+	if not bool(weapon.call("is_reloading")):
+		_fail(30, "sprinting cancelled gun reload")
+		return
+	weapon.call("_process", 0.10)
+	if not bool(weapon.call("is_reloading")):
+		_fail(31, "reload was cancelled during sprint timeline")
+		return
+	player.set("_move_touch", -1)
+	player.set("_move_vector", Vector2.ZERO)
+	print("XZOGOT_SPRINT_RELOAD_PRESERVED_GREEN")
+
 	# Settings must be live, not decorative.
 	var original_ads: bool = bool(player.get("ads_toggle_mode"))
 	settings.call("_cycle_ads_mode")

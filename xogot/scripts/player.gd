@@ -173,6 +173,21 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventScreenDrag:
 		_handle_drag(event)
 
+func _set_mobile_trigger_held(held: bool) -> void:
+	if _weapon == null:
+		return
+	if _weapon.has_method("set_mobile_trigger_held"):
+		_weapon.call("set_mobile_trigger_held", held)
+	else:
+		_weapon.call("set_trigger_held", held)
+
+func _mobile_adsfire_release_mode() -> bool:
+	return (
+		_weapon != null
+		and _weapon.has_method("mobile_adsfire_release_mode")
+		and bool(_weapon.call("mobile_adsfire_release_mode"))
+	)
+
 func _handle_touch(event: InputEventScreenTouch) -> void:
 	var size: Vector2 = get_viewport().get_visible_rect().size
 	if event.pressed:
@@ -183,10 +198,13 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			return
 		if MobileLayout.inside(event.position, size, MobileLayout.ADSFIRE_CENTER, MobileLayout.ADSFIRE_RADIUS) and _adsfire_touch < 0:
 			_adsfire_touch = event.index
-			_weapon.call("set_trigger_held", true)
+			# Bolt/sniper/shotgun AUTO BY WEAPON mode arms on press and fires on
+			# release. All other classes begin the mobile trigger immediately.
+			if not _mobile_adsfire_release_mode():
+				_set_mobile_trigger_held(true)
 		elif MobileLayout.inside(event.position, size, MobileLayout.FIRE_CENTER, MobileLayout.FIRE_RADIUS) and _fire_touch < 0:
 			_fire_touch = event.index
-			_weapon.call("set_trigger_held", true)
+			_set_mobile_trigger_held(true)
 		elif MobileLayout.inside(event.position, size, MobileLayout.ADS_CENTER, MobileLayout.ADS_RADIUS) and _ads_touch < 0:
 			if ads_toggle_mode:
 				set_meta("ads_toggled", not bool(get_meta("ads_toggled", false)))
@@ -224,11 +242,15 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 		if event.index == _fire_touch:
 			_fire_touch = -1
 			if _adsfire_touch < 0:
-				_weapon.call("set_trigger_held", false)
+				_set_mobile_trigger_held(false)
 		if event.index == _adsfire_touch:
+			# Fire before clearing the touch so the shot still sees native ADS.
+			if _mobile_adsfire_release_mode() and _fire_touch < 0:
+				if _weapon.has_method("request_mobile_release_fire"):
+					_weapon.call("request_mobile_release_fire")
 			_adsfire_touch = -1
 			if _fire_touch < 0:
-				_weapon.call("set_trigger_held", false)
+				_set_mobile_trigger_held(false)
 		if event.index == _use_touch:
 			_use_touch = -1
 		if event.index == _knife_touch:
