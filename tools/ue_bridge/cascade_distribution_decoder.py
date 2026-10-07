@@ -255,6 +255,28 @@ def raw_distribution_census(root: Any) -> dict[str, Any]:
         "withTable": dict(sorted(table_wrappers.items())),
     }
 
+
+def iter_node_properties(properties: Any) -> Iterable[tuple[str, Any, str]]:
+    """Normalize both CUE4Parse property encodings used by particle authority.
+
+    Some graph slices expose properties as [{"name": ..., "value": ...}],
+    while the expanded authority used by Nacht stores them as
+    {"Lifetime": ..., "StartSize": ...}. Yield one semantic stream for both.
+    """
+    if isinstance(properties, dict):
+        for name, value in properties.items():
+            yield str(name), value, "." + str(name)
+        return
+    if isinstance(properties, list):
+        for index, prop in enumerate(properties):
+            if not isinstance(prop, dict):
+                continue
+            name = str(prop.get("name", ""))
+            if not name:
+                continue
+            yield name, prop.get("value"), f"[{index}].{name}"
+
+
 def census_graphs(graphs: dict[str, Any]) -> dict[str, Any]:
     counts: Counter[str] = Counter()
     dimensions: Counter[str] = Counter()
@@ -281,13 +303,9 @@ def census_graphs(graphs: dict[str, Any]) -> dict[str, Any]:
             node_type = str(node.get("exportType", ""))
             node_path = str(node.get("objectPath", ""))
             properties = node.get("properties", [])
-            if not isinstance(properties, list):
-                continue
-            for property_index, prop in enumerate(properties):
-                if not isinstance(prop, dict):
-                    continue
-                property_name = str(prop.get("name", ""))
-                value = prop.get("value")
+            for property_name, value, property_suffix in iter_node_properties(
+                properties
+            ):
                 for subpath, table in iter_lookup_tables(
                     value,
                     path="$",
@@ -295,8 +313,7 @@ def census_graphs(graphs: dict[str, Any]) -> dict[str, Any]:
                     semantic_path = (
                         f"systems[{system_index}]"
                         f".nodes[{node_index}]"
-                        f".properties[{property_index}]"
-                        f".{property_name}{subpath[1:]}"
+                        f".properties{property_suffix}{subpath[1:]}"
                     )
                     try:
                         decoded = decode_lookup_table(table)
