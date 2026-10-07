@@ -32,9 +32,19 @@ func _fail(message: String) -> void:
 	quit(5)
 
 
+func _find_system_canonical(graphs: Dictionary, system_path: String) -> Dictionary:
+	var wanted := _canonical(system_path)
+	for raw: Variant in graphs.get("systems", []):
+		if not (raw is Dictionary):
+			continue
+		var row := raw as Dictionary
+		if _canonical(str(row.get("objectPath", ""))) == wanted:
+			return row
+	return {}
+
 func _lod_audit(graphs: Dictionary, system_path: String) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	var system := ParticleSource.find_system(graphs, system_path)
+	var system := _find_system_canonical(graphs, system_path)
 	for node: Dictionary in ParticleSource.nodes_by_type(system, "ParticleLODLevel"):
 		var props := ParticleSource.properties(node)
 		var modules: Array[String] = []
