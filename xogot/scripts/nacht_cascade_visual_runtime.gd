@@ -1027,6 +1027,45 @@ static func _emitter_subuv_frame_rate(system: Dictionary, emitter: Dictionary) -
 	return result
 
 
+static func _emitter_subuv_offset_curve(
+	system: Dictionary,
+	emitter: Dictionary,
+	frame_count: int
+) -> CurveTexture:
+	if frame_count <= 1:
+		return null
+	var required_raw: Variant = emitter.get("required", {})
+	if not (required_raw is Dictionary):
+		return null
+	var interpolation := str(
+		ParticleSource.properties(required_raw as Dictionary).get(
+			"InterpolationMethod",
+			""
+		)
+	)
+	if not interpolation.begins_with("PSUVIM_Linear"):
+		return null
+	var subuv := _first_emitter_module(emitter, "ParticleModuleSubUV")
+	if subuv.is_empty():
+		return null
+	var values := _float_table_series(
+		ParticleSource.properties(subuv).get("SubImageIndex")
+	)
+	if values.size() < 2:
+		return null
+	var normalized: Array[float] = []
+	var denominator := float(frame_count - 1)
+	for value: float in values:
+		normalized.append(clampf(value / denominator, 0.0, 1.0))
+	var curve := _curve_from_samples(normalized)
+	if curve == null:
+		return null
+	var texture := CurveTexture.new()
+	texture.width = maxi(256, normalized.size())
+	texture.curve = curve
+	return texture
+
+
 static func _emitter_local_space(emitter: Dictionary) -> bool:
 	var required_raw: Variant = emitter.get("required", {})
 	if not (required_raw is Dictionary):
@@ -1107,14 +1146,28 @@ static func _build_source_sprite_emitter(
 	material.particles_anim_v_frames = grid.y
 	material.particles_anim_loop = true
 	if grid.x * grid.y > 1:
-		var source_fps := _emitter_subuv_frame_rate(system, emitter)
-		var cycles := 1.0
-		if source_fps > 0.0:
-			cycles = source_fps * lifetime.y / float(grid.x * grid.y)
-		process.anim_speed_min = cycles
-		process.anim_speed_max = cycles
-		process.anim_offset_min = 0.0
-		process.anim_offset_max = 1.0
+		var frame_count := grid.x * grid.y
+		var offset_curve := _emitter_subuv_offset_curve(
+			system,
+			emitter,
+			frame_count
+		)
+		if offset_curve != null:
+			process.anim_speed_min = 0.0
+			process.anim_speed_max = 0.0
+			process.anim_offset_min = 1.0
+			process.anim_offset_max = 1.0
+			process.anim_offset_curve = offset_curve
+			material.particles_anim_loop = false
+		else:
+			var source_fps := _emitter_subuv_frame_rate(system, emitter)
+			var cycles := 1.0
+			if source_fps > 0.0:
+				cycles = source_fps * lifetime.y / float(frame_count)
+			process.anim_speed_min = cycles
+			process.anim_speed_max = cycles
+			process.anim_offset_min = 0.0
+			process.anim_offset_max = 1.0
 
 	var quad := QuadMesh.new()
 	# StartSize now lives in ParticleProcessMaterial scale_3d. Keep the mesh at
