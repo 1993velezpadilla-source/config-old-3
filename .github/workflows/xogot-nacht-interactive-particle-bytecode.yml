@@ -493,6 +493,79 @@ jobs:
               },separators=(",",":"))
           )
 
+          latent_delays=[]
+          for package in data.get("packages",[]):
+              package_name=str(package.get("fileName",""))
+              for fn in package.get("functions",[]):
+                  fn_name=str(fn.get("name",""))
+                  for top in fn.get("topLevelExpressions",[]) or []:
+                      expr=top.get("expression") or {}
+                      if expr.get("$type")!="EX_Context":
+                          continue
+                      ctx=expr.get("ContextExpression") or {}
+                      if not str(ctx.get("StackNode","")).endswith(
+                          "KismetSystemLibrary.Delay"
+                      ):
+                          continue
+                      params=ctx.get("Parameters") or []
+                      if (
+                          len(params)<3
+                          or not isinstance(params[1],dict)
+                          or params[1].get("$type")!="EX_FloatConst"
+                      ):
+                          continue
+                      duration=float(params[1].get("Value",0.0))
+                      latent=params[2] if isinstance(params[2],dict) else {}
+                      resume_offset=None
+                      uuid=None
+                      linkage=None
+                      for value in latent.get("Value",[]) or []:
+                          if not isinstance(value,dict):
+                              continue
+                          kind=value.get("$type")
+                          if kind=="EX_SkipOffsetConst":
+                              resume_offset=int(value.get("Value",-1))
+                          elif kind=="EX_IntConst" and uuid is None:
+                              uuid=int(value.get("Value",0))
+                          elif kind=="EX_NameConst":
+                              linkage=str(value.get("Value",""))
+                      latent_delays.append({
+                          "fileName":package_name,
+                          "function":fn_name,
+                          "startOffset":int(top.get("startOffset",-1)),
+                          "endOffset":int(top.get("endOffset",-1)),
+                          "durationSeconds":duration,
+                          "resumeOffset":resume_offset,
+                          "uuid":uuid,
+                          "linkage":linkage,
+                      })
+          latent_delays.sort(
+              key=lambda r:(r["fileName"],r["function"],r["startOffset"])
+          )
+          delay_counts={
+              name:sum(1 for r in latent_delays if r["fileName"]==name)
+              for name in sorted({r["fileName"] for r in latent_delays})
+          }
+          expected_delay_counts={
+              "Box5.uasset":2,
+              "Box_complete.uasset":1,
+              "MachineGumball.uasset":14,
+              "PunchAPackMachine.uasset":4,
+              "WonderFizz.uasset":16,
+          }
+          if delay_counts!=expected_delay_counts:
+              raise SystemExit(
+                  f"latent Delay authority mismatch actual={delay_counts} "
+                  f"expected={expected_delay_counts}"
+              )
+          if len(latent_delays)!=37:
+              raise SystemExit(f"latent Delay count mismatch {len(latent_delays)}/37")
+          print(
+              "XZOGOT_NACHT_INTERACTIVE_PARTICLE_DELAYS_GREEN",
+              f"delays={len(latent_delays)}",
+              json.dumps(delay_counts,separators=(",",":"))
+          )
+
           out={
               "schemaVersion":2,
               "source":"Nacht workshop 2755515831 UE4.21 Blueprint bytecode",
@@ -503,6 +576,8 @@ jobs:
               "normalizedActions":normalized,
               "entryPointCount":len(entry_points),
               "entryPoints":entry_points,
+              "latentDelayCount":len(latent_delays),
+              "latentDelays":latent_delays,
               "packages":rows,
               "ready":True,
           }
