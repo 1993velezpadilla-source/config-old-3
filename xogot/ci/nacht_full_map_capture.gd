@@ -109,6 +109,21 @@ func _save_view(
 	)
 	return true
 
+func _restart_particle_visuals_deterministic(
+	particle_visuals: Array[Node],
+	warmup_frames: int = 30
+) -> void:
+	for raw_particle: Node in particle_visuals:
+		if raw_particle is GPUParticles3D:
+			var particles := raw_particle as GPUParticles3D
+			# Keep the renderer seed across every A/B sample. Without this,
+			# sequential isolation captures compare different particle histories
+			# instead of only the requested visibility change.
+			particles.restart(true)
+	for _i in range(maxi(1, warmup_frames)):
+		await process_frame
+
+
 func _capture_player_basis_from_source_anchor(anchor: Node3D) -> Basis:
 	# Match nacht_full_map.gd source-spawn conversion: UE +X is gameplay
 	# forward, while the Godot character must remain native +Y-up.
@@ -330,9 +345,18 @@ func _capture() -> void:
 				var raw_particle: Node = particle_visuals[particle_index]
 				if raw_particle is Node3D:
 					(raw_particle as Node3D).visible = particle_visibility[particle_index]
+			await _restart_particle_visuals_deterministic(particle_visuals, 30)
+			if not (await _save_view(
+				"/tmp/xogot-nacht-spawn-candidate-02-particles-deterministic.png",
+				"spawn_candidate_02_particles_deterministic",
+				false,
+				1
+			)):
+				return
 			print(
 				"XZOGOT_NACHT_CANDIDATE02_PARTICLE_AB_GREEN nodes=",
-				particle_visuals.size()
+				particle_visuals.size(),
+				" deterministic_seed=true warmup_frames=30"
 			)
 
 			var systems: Array[String] = []
@@ -350,6 +374,11 @@ func _capture() -> void:
 			systems.sort()
 			for system_index in range(systems.size()):
 				var system_path := systems[system_index]
+				# Restore the exact authored visibility before every sample.
+				for particle_index in range(particle_visuals.size()):
+					var raw_particle: Node = particle_visuals[particle_index]
+					if raw_particle is Node3D:
+						(raw_particle as Node3D).visible = particle_visibility[particle_index]
 				for raw_particle: Node in particle_visuals:
 					if not (raw_particle is Node3D):
 						continue
@@ -358,6 +387,7 @@ func _capture() -> void:
 						continue
 					if str(parent.get_meta("source_particle_system_path", "")) == system_path:
 						(raw_particle as Node3D).visible = false
+				await _restart_particle_visuals_deterministic(particle_visuals, 30)
 				var isolate_path := (
 					"/tmp/xogot-nacht-spawn-candidate-02-hide-system-%02d.png"
 					% system_index
@@ -369,15 +399,16 @@ func _capture() -> void:
 					1
 				)):
 					return
-				for particle_index in range(particle_visuals.size()):
-					var raw_particle: Node = particle_visuals[particle_index]
-					if raw_particle is Node3D:
-						(raw_particle as Node3D).visible = particle_visibility[particle_index]
 				print(
 					"XZOGOT_NACHT_CANDIDATE02_SYSTEM_ISOLATION ",
 					"index=", system_index,
-					" system=", system_path
+					" system=", system_path,
+					" deterministic_seed=true warmup_frames=30"
 				)
+			for particle_index in range(particle_visuals.size()):
+				var raw_particle: Node = particle_visuals[particle_index]
+				if raw_particle is Node3D:
+					(raw_particle as Node3D).visible = particle_visibility[particle_index]
 
 	player.global_transform = saved_player_transform
 	player.velocity = saved_player_velocity
