@@ -750,6 +750,15 @@ func _material_for_path(material_path: String) -> Material:
 		if source_graph_raw is Dictionary
 		else {}
 	)
+	var source_graph_provenance_raw: Variant = record.get(
+		"sourceGraphBindingProvenance",
+		{}
+	)
+	var source_graph_provenance: Dictionary = (
+		source_graph_provenance_raw as Dictionary
+		if source_graph_provenance_raw is Dictionary
+		else {}
+	)
 	var source_graph_status := str(record.get("sourceGraphStatus", "legacy"))
 	var source_graph_candidates_raw: Variant = record.get(
 		"sourceGraphTextureParameterCandidates",
@@ -793,10 +802,31 @@ func _material_for_path(material_path: String) -> Material:
 	var graph_emissive_source := _optional_source_path(
 		source_graph.get("emissive", null)
 	)
+	var graph_emissive_provenance_raw: Variant = source_graph_provenance.get(
+		"emissive",
+		{}
+	)
+	var graph_emissive_provenance: Dictionary = (
+		graph_emissive_provenance_raw as Dictionary
+		if graph_emissive_provenance_raw is Dictionary
+		else {}
+	)
+	var graph_emissive_resolution := str(
+		graph_emissive_provenance.get("resolution", "")
+	)
 	var graph_emissive_as_unshaded_color := (
-		source_shading_model == "MSM_Unlit"
+		source_graph_status == "exact"
+		and source_shading_model == "MSM_Unlit"
 		and graph_diffuse_source.is_empty()
 		and not graph_emissive_source.is_empty()
+	)
+	var partial_parent_override_emissive_as_unshaded_color := (
+		source_graph_status == "partial"
+		and source_shading_model == "MSM_Unlit"
+		and graph_diffuse_source.is_empty()
+		and not graph_emissive_source.is_empty()
+		and graph_emissive_resolution
+			== "partial_unique_parent_texture_override"
 	)
 	var partial_primary_emissive_as_unshaded_color := (
 		source_graph_status == "partial"
@@ -823,6 +853,15 @@ func _material_for_path(material_path: String) -> Material:
 		source_emissive_binding_route = "suppressed:unlit_graph_emissive"
 		diffuse_authority = "graph:EmissiveColor->unshaded_color"
 		emissive_authority = "graph:mapped_to_unshaded_color"
+	elif partial_parent_override_emissive_as_unshaded_color:
+		diffuse_source = graph_emissive_source
+		emissive_source = ""
+		source_diffuse_binding_route = "partial_graph:unique_parent_override"
+		source_emissive_binding_route = "suppressed:partial_unlit_emissive"
+		diffuse_authority = (
+			"partial_graph_parent_override:EmissiveColor"
+		)
+		emissive_authority = "partial_graph:mapped_to_unshaded_color"
 	elif partial_primary_emissive_as_unshaded_color:
 		# The cooked graph lost the final expression link, but the base UMaterial
 		# still proves EmissiveColor is connected and exposes exactly one direct-UV
@@ -1073,8 +1112,16 @@ func _material_for_path(material_path: String) -> Material:
 		graph_emissive_as_unshaded_color
 	)
 	material.set_meta(
+		"source_partial_parent_override_emissive_as_unshaded_color",
+		partial_parent_override_emissive_as_unshaded_color
+	)
+	material.set_meta(
 		"source_partial_primary_emissive_as_unshaded_color",
 		partial_primary_emissive_as_unshaded_color
+	)
+	material.set_meta(
+		"source_graph_emissive_resolution",
+		graph_emissive_resolution
 	)
 	material.set_meta(
 		"source_graph_primary_texture_candidate",
