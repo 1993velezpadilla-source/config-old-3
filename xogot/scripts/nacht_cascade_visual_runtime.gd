@@ -1150,7 +1150,11 @@ static func _apply_sprite_axis_lock(
 	if modules.size() != 1:
 		return
 	var flag := str(ParticleSource.properties(modules[0]).get("LockAxisFlags", ""))
-	if flag == "EPAL_ROTATE_Z":
+	if flag == "EPAL_Z":
+		# QuadMesh defaults to FACE_Z in emitter-local space. The parent Nacht
+		# source basis maps that UE +Z facing to Godot world +Y exactly.
+		material.billboard_mode = BaseMaterial3D.BILLBOARD_DISABLED
+	elif flag == "EPAL_ROTATE_Z":
 		# UE Z-up is Godot Y-up after the Nacht source-root basis conversion.
 		material.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
 
