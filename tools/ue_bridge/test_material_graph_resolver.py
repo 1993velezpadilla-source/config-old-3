@@ -72,6 +72,65 @@ class MaterialGraphResolverTests(unittest.TestCase):
         self.assertEqual(vector_rows[0]["parameter"], "Tint")
         self.assertEqual(vector_rows[0]["boundValue"], [1, 0.5, 0.25, 1])
 
+    def test_marks_missing_cooked_link_as_partial(self):
+        root = {
+            "materials": [
+                {
+                    "objectPath": "/Game/Test/M.M",
+                    "exportType": "Material",
+                    "rawMaterialProperties": [
+                        {
+                            "name": "EmissiveColor",
+                            "value": {
+                                "kind": "FExpressionInput",
+                                "expressionName": "MaterialExpressionDepthFade_2",
+                                "resolvedExpression": None,
+                            },
+                        },
+                    ],
+                    "expressionGraph": [
+                        {
+                            "loaded": True,
+                            "exportType": "MaterialExpressionTextureSampleParameter2D",
+                            "objectPath": "/Game/Test/M.M:Texture",
+                            "properties": [
+                                {"name": "ParameterName", "value": "DIFF"},
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "objectPath": "/Game/Test/MI.MI",
+                    "exportType": "MaterialInstanceConstant",
+                    "semanticBaseMaterialPath": "/Game/Test/M.M",
+                    "blendMode": "BLEND_Additive",
+                    "shadingModel": "MSM_Unlit",
+                    "textures": [
+                        {
+                            "parameter": "DIFF",
+                            "objectPath": "/Game/Test/T.T",
+                        }
+                    ],
+                    "colors": [],
+                    "scalars": [],
+                    "switches": [],
+                },
+            ]
+        }
+        resolved = resolve_instance(root, "/Game/Test/MI.MI")
+        self.assertEqual(resolved["graphStatus"], "partial")
+        self.assertFalse(resolved["exactPinBindings"])
+        self.assertEqual(
+            resolved["unresolvedOutputInputs"]["EmissiveColor"],
+            "MaterialExpressionDepthFade_2",
+        )
+        texture_rows = [
+            row for row in resolved["parameterCandidates"]
+            if row["kind"] == "texture"
+        ]
+        self.assertEqual(texture_rows[0]["parameter"], "DIFF")
+        self.assertEqual(texture_rows[0]["boundValue"], "/Game/Test/T.T")
+
 
 if __name__ == "__main__":
     unittest.main()
