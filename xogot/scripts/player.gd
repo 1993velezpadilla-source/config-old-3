@@ -965,17 +965,36 @@ func _update_landing_spring(delta: float) -> void:
 		_land_camera_vel = 0.0
 
 func _update_camera_fov(delta: float) -> void:
+	var entering_ads := _is_ads_active()
 	var target_fov: float = base_fov
-	if _is_ads_active():
+	var source_transition_time: float = -1.0
+	if entering_ads:
 		target_fov = ads_fov
-		if _weapon != null and _weapon.has_method("get_ads_fov"):
-			target_fov = float(_weapon.call("get_ads_fov"))
+		if _weapon != null:
+			if _weapon.has_method("get_source_ads_target_fov"):
+				var source_target := float(_weapon.call("get_source_ads_target_fov", base_fov))
+				if source_target > 0.0:
+					target_fov = source_target
+			elif _weapon.has_method("get_ads_fov"):
+				target_fov = float(_weapon.call("get_ads_fov"))
+			if _weapon.has_method("get_source_ads_transition_time"):
+				source_transition_time = float(_weapon.call("get_source_ads_transition_time", true))
 	elif _sliding:
 		target_fov = slide_fov
 	elif _sprinting:
 		target_fov = sprint_fov
-	var blend: float = 1.0 - exp(-10.0 * delta)
-	_camera.fov = lerpf(_camera.fov, target_fov, blend)
+	elif _weapon != null and _weapon.has_method("get_source_ads_transition_time"):
+		source_transition_time = float(_weapon.call("get_source_ads_transition_time", false))
+
+	if source_transition_time > 0.0 and not _sliding and not _sprinting:
+		var full_span := maxf(absf(base_fov - target_fov), 0.001)
+		var fov_rate := full_span / source_transition_time
+		_camera.fov = move_toward(_camera.fov, target_fov, fov_rate * delta)
+		set_meta("camera_ads_transition_authority", "DT_Weapons.WeaponStats.Movement")
+	else:
+		var blend: float = 1.0 - exp(-10.0 * delta)
+		_camera.fov = lerpf(_camera.fov, target_fov, blend)
+		set_meta("camera_ads_transition_authority", "SOURCE_PENDING_FALLBACK")
 
 func is_ads_active() -> bool:
 	return _is_ads_active()
