@@ -111,7 +111,8 @@ func _save_view(
 
 func _restart_particle_visuals_deterministic(
 	particle_visuals: Array[Node],
-	_warmup_frames: int = 30
+	_warmup_frames: int = 30,
+	force_inactive: bool = false
 ) -> void:
 	const SNAPSHOT_SECONDS := 0.75
 	for particle_index in range(particle_visuals.size()):
@@ -119,17 +120,17 @@ func _restart_particle_visuals_deterministic(
 		if not (raw_particle is GPUParticles3D):
 			continue
 		var particles := raw_particle as GPUParticles3D
-		# Godot 4.6 exposes fixed particle seeds plus explicit simulation seek.
-		# Freeze every emitter at the same source-independent instant so each
-		# hide/solo screenshot changes visibility only, never particle history.
+		var source_runtime_emitting := particles.emitting
+		# Runtime-state A/B must never resurrect one-shot or source-disabled
+		# emitters. Forced isolation is a separate forensic mode and is labeled
+		# as such in the log so its frame cannot be mistaken for gameplay.
+		if not source_runtime_emitting and not force_inactive:
+			continue
 		particles.use_fixed_seed = true
 		particles.seed = 1337 + particle_index * 7919
 		particles.speed_scale = 0.0
 		particles.restart(false)
 		particles.request_particles_process(SNAPSHOT_SECONDS)
-	# GPU restart/seek is committed by the render thread. Two frames are enough
-	# to expose the exact frozen state without replaying 30 world frames for
-	# every system sample.
 	await process_frame
 	await process_frame
 
@@ -365,12 +366,23 @@ func _capture() -> void:
 	var particle_visuals := get_nodes_in_group("nacht_source_particle_visual")
 	_probe_bonefire_material(scene, particle_visuals)
 	var particle_visibility: Array[bool] = []
+	var particle_sim_state: Array[Dictionary] = []
 	for raw_particle: Node in particle_visuals:
 		if raw_particle is Node3D:
 			particle_visibility.append((raw_particle as Node3D).visible)
 			(raw_particle as Node3D).visible = false
 		else:
 			particle_visibility.append(false)
+		if raw_particle is GPUParticles3D:
+			var state_particles := raw_particle as GPUParticles3D
+			particle_sim_state.append({
+				"emitting": state_particles.emitting,
+				"speed_scale": state_particles.speed_scale,
+				"use_fixed_seed": state_particles.use_fixed_seed,
+				"seed": state_particles.seed,
+			})
+		else:
+			particle_sim_state.append({})
 	if not (await _save_view(
 		"/tmp/xogot-nacht-spawn-no-particles.png",
 		"spawn_no_particles",
@@ -513,7 +525,7 @@ func _capture() -> void:
 						continue
 					if str(parent.get_meta("source_particle_system_path", "")) == system_path:
 						(raw_particle as Node3D).visible = false
-				await _restart_particle_visuals_deterministic(particle_visuals, 30)
+				await _restart_particle_visuals_deterministic(particle_visuals, 30, true)
 				var isolate_path := (
 					"/tmp/xogot-nacht-spawn-candidate-02-hide-system-%02d.png"
 					% system_index
@@ -529,7 +541,7 @@ func _capture() -> void:
 					"XZOGOT_NACHT_CANDIDATE02_SYSTEM_ISOLATION ",
 					"index=", system_index,
 					" system=", system_path,
-					" deterministic_seed=true snapshot_seconds=0.75 frozen=true"
+					" deterministic_seed=true snapshot_seconds=0.75 frozen=true forced_restart=true"
 				)
 
 				# Complement the hide-A/B with a solo render. This makes each
@@ -545,7 +557,7 @@ func _capture() -> void:
 							== system_path
 					)
 					(raw_particle as Node3D).visible = show_system
-				await _restart_particle_visuals_deterministic(particle_visuals, 30)
+				await _restart_particle_visuals_deterministic(particle_visuals, 30, true)
 				var solo_path := (
 					"/tmp/xogot-nacht-spawn-candidate-02-solo-system-%02d.png"
 					% system_index
@@ -561,12 +573,21 @@ func _capture() -> void:
 					"XZOGOT_NACHT_CANDIDATE02_SYSTEM_SOLO ",
 					"index=", system_index,
 					" system=", system_path,
-					" deterministic_seed=true snapshot_seconds=0.75 frozen=true"
+					" deterministic_seed=true snapshot_seconds=0.75 frozen=true forced_restart=true"
 				)
 			for particle_index in range(particle_visuals.size()):
 				var raw_particle: Node = particle_visuals[particle_index]
 				if raw_particle is Node3D:
 					(raw_particle as Node3D).visible = particle_visibility[particle_index]
+				if raw_particle is GPUParticles3D:
+					var restore_particles := raw_particle as GPUParticles3D
+					var restore_state := particle_sim_state[particle_index]
+					if not restore_state.is_empty():
+						restore_particles.speed_scale = float(restore_state.get("speed_scale", 1.0))
+						restore_particles.use_fixed_seed = bool(restore_state.get("use_fixed_seed", false))
+						restore_particles.seed = int(restore_state.get("seed", 0))
+						restore_particles.emitting = bool(restore_state.get("emitting", false))
+			print("XZOGOT_NACHT_PARTICLE_DIAGNOSTIC_STATE_RESTORED")
 
 	player.global_transform = saved_player_transform
 	player.velocity = saved_player_velocity
