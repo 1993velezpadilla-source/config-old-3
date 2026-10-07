@@ -61,14 +61,23 @@ jobs:
           print(root/row["sliceFile"])
           PY
           )
-          rm -rf /tmp/bonefire-xzt /tmp/bonefire-dds
-          mkdir -p /tmp/bonefire-xzt /tmp/bonefire-dds xogot/assets/ci
+          rm -rf /tmp/bonefire-xzt /tmp/bonefire-dds /tmp/bonefire-project
+          mkdir -p /tmp/bonefire-xzt /tmp/bonefire-dds /tmp/bonefire-project/assets/ci /tmp/bonefire-project/ci
           cp "$src" /tmp/bonefire-xzt/bonefire_alpha.xzt
           python3 tools/maps/xztx_to_dds.py \
             /tmp/bonefire-xzt /tmp/bonefire-dds \
             --report /tmp/bonefire-dds/report.json
-          cp /tmp/bonefire-dds/bonefire_alpha.dds xogot/assets/ci/bonefire_alpha.dds
-          test -s xogot/assets/ci/bonefire_alpha.dds
+          cp /tmp/bonefire-dds/bonefire_alpha.dds /tmp/bonefire-project/assets/ci/bonefire_alpha.dds
+          cp xogot/ci/nacht_bonefire_texture_alpha_probe.gd /tmp/bonefire-project/ci/nacht_bonefire_texture_alpha_probe.gd
+          cat > /tmp/bonefire-project/project.godot <<'EOF'
+          [application]
+          config/name="BoneFire Alpha Probe"
+          [rendering]
+          renderer/rendering_method="gl_compatibility"
+          renderer/rendering_method.mobile="gl_compatibility"
+          EOF
+          test -s /tmp/bonefire-project/assets/ci/bonefire_alpha.dds
+          test -s /tmp/bonefire-project/ci/nacht_bonefire_texture_alpha_probe.gd
           echo "XZOGOT_BONEFIRE_DDS_READY"
 
       - name: Install Godot 4.6.1
@@ -89,7 +98,7 @@ jobs:
         run: |
           set -euo pipefail
           timeout 600 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
-            --headless --editor --path xogot --quit 2>&1 | tee /tmp/bonefire-import.log
+            --headless --editor --path /tmp/bonefire-project --quit 2>&1 | tee /tmp/bonefire-import.log
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" /tmp/bonefire-import.log
 
       - name: Probe Godot alpha
