@@ -131,6 +131,12 @@ func _gate_monster_fire_material_runtime() -> Dictionary:
 			"resolvedEmissive": str(
 				standard.get_meta("source_resolved_emissive_path", "")
 			),
+			"diffuseBindingRoute": str(
+				standard.get_meta("source_diffuse_binding_route", "")
+			),
+			"emissiveBindingRoute": str(
+				standard.get_meta("source_emissive_binding_route", "")
+			),
 			"graphEmissiveAsColor": bool(
 				standard.get_meta(
 					"source_graph_emissive_as_unshaded_color",
@@ -152,9 +158,11 @@ func _gate_monster_fire_material_runtime() -> Dictionary:
 			or not bool(row["albedoTexture"])
 			or bool(row["emissionEnabled"])
 			or bool(row["emissionTexture"])
-			or not bool(row["graphEmissiveAsColor"])
+			or (
+				not bool(row["graphEmissiveAsColor"])
+				and str(row["diffuseBindingRoute"]) != "parameter:DIFF"
+			)
 			or not str(row["resolvedDiffuse"]).contains("T_FireBlastTile")
-			or not str(row["resolvedEmissive"]).is_empty()
 		):
 			return {
 				"ready": false,
