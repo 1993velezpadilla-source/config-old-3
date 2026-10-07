@@ -188,6 +188,10 @@ jobs:
               "sequence_mat",
               "bonefire2b_fwd2",
               "candlefire_d",
+              "m_fire_sheet_01_inst",
+              "m_add_trail_2sided_pan_master",
+              "t_fireblasttile",
+              "t_black_32",
           )
 
           def canonical(raw):
@@ -267,6 +271,8 @@ jobs:
           needles=(
               "bonefire2b_fwd2",
               "candlefire_d",
+              "t_fireblasttile",
+              "t_black_32",
           )
           selected=[]
           texture_dir=report_path.parent
@@ -326,6 +332,10 @@ jobs:
               "bonefire2b_fwd2_inst",
               "bonefire3_inst",
               "bonefire_fwd4_inst",
+              "m_fire_sheet_01_inst",
+              "m_add_trail_2sided_pan_master",
+              "t_fireblasttile",
+              "t_black_32",
           )
           copied=[]
           for source in root.rglob("*"):
