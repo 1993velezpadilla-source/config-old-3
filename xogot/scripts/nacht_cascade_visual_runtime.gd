@@ -764,6 +764,27 @@ static func _emitter_acceleration_samples(system: Dictionary, emitter: Dictionar
 			if bool(constant_props.get("bAlwaysInWorldSpace", false)):
 				sample = _ue_vector_to_xziel(sample)
 			result.append(sample)
+
+	var type_raw: Variant = emitter.get("typeData", {})
+	if (
+		type_raw is Dictionary
+		and str((type_raw as Dictionary).get("exportType", ""))
+			== "ParticleModuleTypeDataGpu"
+	):
+		var type_props := ParticleSource.properties(type_raw as Dictionary)
+		var info_raw: Variant = type_props.get("EmitterInfo", {})
+		if info_raw is Dictionary:
+			var gpu_accel := ParticleSource.vector3(
+				(info_raw as Dictionary).get("ConstantAcceleration"),
+				Vector3.INF
+			)
+			if not gpu_accel.is_equal_approx(Vector3.INF):
+				# GPU emitter acceleration is authored in UE simulation axes.
+				# World-space GPU emitters need the Nacht UE->Godot basis;
+				# local-space emitters inherit it from the parent transform.
+				if not _emitter_local_space(emitter):
+					gpu_accel = _ue_vector_to_xziel(gpu_accel)
+				result.append(gpu_accel)
 	return result
 
 
