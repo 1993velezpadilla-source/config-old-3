@@ -441,6 +441,58 @@ jobs:
           if len(generic)!=1 or generic[0]["fileName"]!="PunchAPackMachine.uasset":
               raise SystemExit(f"PaP class-wide particle action mismatch {generic}")
 
+          # Preserve every public/custom Blueprint function entry into the
+          # generated ExecuteUbergraph. These are source-authored event entry
+          # offsets and let the runtime bind named UE events without guessing
+          # from nearby bytecode locations.
+          entry_points=[]
+          for package in data.get("packages",[]):
+              package_name=str(package.get("fileName",""))
+              blueprint_name=Path(package_name).stem
+              uber_name=f"ExecuteUbergraph_{blueprint_name}"
+              for fn in package.get("functions",[]):
+                  fn_name=str(fn.get("name",""))
+                  if fn_name==uber_name:
+                      continue
+                  for top in fn.get("topLevelExpressions",[]) or []:
+                      expr=top.get("expression") or {}
+                      if expr.get("$type")!="EX_FinalFunction":
+                          continue
+                      stack=str(expr.get("StackNode",""))
+                      if not stack.endswith(uber_name):
+                          continue
+                      params=expr.get("Parameters") or []
+                      if (
+                          len(params)!=1
+                          or not isinstance(params[0],dict)
+                          or params[0].get("$type")!="EX_IntConst"
+                      ):
+                          continue
+                      entry_points.append({
+                          "fileName":package_name,
+                          "blueprintName":blueprint_name,
+                          "function":fn_name,
+                          "entryOffset":int(params[0].get("Value",-1)),
+                      })
+          entry_points.sort(
+              key=lambda r:(r["fileName"],r["entryOffset"],r["function"])
+          )
+          if not entry_points:
+              raise SystemExit("no Blueprint Ubergraph entry points resolved")
+          if len({
+              (r["fileName"],r["function"],r["entryOffset"])
+              for r in entry_points
+          }) != len(entry_points):
+              raise SystemExit("duplicate Blueprint entry point rows")
+          print(
+              "XZOGOT_NACHT_INTERACTIVE_PARTICLE_ENTRYPOINTS_GREEN",
+              f"entries={len(entry_points)}",
+              json.dumps({
+                  name:sum(1 for r in entry_points if r["fileName"]==name)
+                  for name in sorted({r["fileName"] for r in entry_points})
+              },separators=(",",":"))
+          )
+
           out={
               "schemaVersion":2,
               "source":"Nacht workshop 2755515831 UE4.21 Blueprint bytecode",
@@ -449,6 +501,8 @@ jobs:
               "activationTreeCount":total_trees,
               "normalizedActionCount":len(normalized),
               "normalizedActions":normalized,
+              "entryPointCount":len(entry_points),
+              "entryPoints":entry_points,
               "packages":rows,
               "ready":True,
           }
