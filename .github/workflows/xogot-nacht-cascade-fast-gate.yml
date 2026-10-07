@@ -16,6 +16,7 @@ on:
       - ".github/workflows/xogot-nacht-cascade-fast-gate.yml"
       - "xogot/scripts/nacht_cascade_runtime.gd"
       - "xogot/scripts/nacht_cascade_visual_runtime.gd"
+      - "xogot/scripts/xziel_benchmark_loader.gd"
       - "xogot/scripts/nacht_particle_source.gd"
       - "xogot/ci/nacht_cascade_semantic_probe.gd"
       - "xogot/ci/nacht_cascade_visual_compile_probe.gd"
