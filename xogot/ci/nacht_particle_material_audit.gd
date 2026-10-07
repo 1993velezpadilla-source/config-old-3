@@ -2,6 +2,7 @@ extends SceneTree
 
 const TARGET_MONSTER := "/Game/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Monsters/FX_Monster_Deaths/P_Monster_Death_XLarge.P_Monster_Death_XLarge"
 const PARTICLE_GRAPHS := "res://assets/benchmarks/nacht_chronicles/nacht-particle-graphs.json"
+const PARTICLE_RUNTIME_AUTHORITY := "res://assets/benchmarks/nacht_chronicles/nacht-particle-runtime-authority.json"
 
 func _init() -> void:
 	call_deferred("_audit")
@@ -86,6 +87,46 @@ func _monster_runtime_row(system_path: String, particles: GPUParticles3D) -> voi
 		" velocity_max=", initial_velocity_max
 	)
 
+
+func _probe_monster_placement() -> void:
+	if not FileAccess.file_exists(PARTICLE_RUNTIME_AUTHORITY):
+		print("XZOGOT_NACHT_MONSTER_PLACEMENT missing=", PARTICLE_RUNTIME_AUTHORITY)
+		return
+	var file := FileAccess.open(PARTICLE_RUNTIME_AUTHORITY, FileAccess.READ)
+	if file == null:
+		print("XZOGOT_NACHT_MONSTER_PLACEMENT open_failed")
+		return
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	if not (parsed is Dictionary):
+		print("XZOGOT_NACHT_MONSTER_PLACEMENT parse_failed")
+		return
+	var placements_raw: Variant = (parsed as Dictionary).get("placements", [])
+	if not (placements_raw is Array):
+		return
+	var hits := 0
+	for raw_placement: Variant in placements_raw:
+		if not (raw_placement is Dictionary):
+			continue
+		var placement := raw_placement as Dictionary
+		if str(placement.get("templateObjectPath", "")) != TARGET_MONSTER:
+			continue
+		hits += 1
+		var props_raw: Variant = placement.get("properties", {})
+		var props := props_raw as Dictionary if props_raw is Dictionary else {}
+		print(
+			"XZOGOT_NACHT_MONSTER_PLACEMENT ",
+			"id=", str(placement.get("id", "")),
+			" actor=", str(placement.get("actorName", "")),
+			" owner_type=", str(placement.get("ownerExportType", "")),
+			" owner_class=", str(placement.get("ownerClassPath", "")),
+			" component=", str(placement.get("componentName", "")),
+			" source_path=", str(placement.get("sourcePath", "")),
+			" auto_present=", props.has("bAutoActivate"),
+			" auto_value=", str(props.get("bAutoActivate", "<missing>")),
+			" properties=", JSON.stringify(props)
+		)
+	print("XZOGOT_NACHT_MONSTER_PLACEMENT_GREEN hits=", hits)
+
 func _probe_monster_source_graph() -> void:
 	if not FileAccess.file_exists(PARTICLE_GRAPHS):
 		print("XZOGOT_NACHT_MONSTER_SOURCE missing=", PARTICLE_GRAPHS)
@@ -163,6 +204,7 @@ func _audit() -> void:
 		quit(5)
 		return
 
+	_probe_monster_placement()
 	_probe_monster_source_graph()
 
 	var visuals := get_nodes_in_group("nacht_source_particle_visual")
