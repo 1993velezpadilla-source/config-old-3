@@ -9,6 +9,7 @@ on:
       - ".github/workflows/xogot-nacht-chronicles-full-map-authority.yml"
       - "tools/maps/UEStaticSceneExtract/Program.cs"
       - "tools/maps/UELightExtract/Program.cs"
+      - "tools/maps/UEMaterialAudit/Program.cs"
       - "tools/maps/UEAudioSceneExtract/**"
       - "tools/maps/UEAudioCueGraphExtract/**"
       - "tools/maps/UEParticleSceneExtract/**"
@@ -55,6 +56,8 @@ jobs:
           if($LASTEXITCODE -ne 0){throw 'patched UEStaticSceneExtract restore failed'}
           git checkout $env:GITHUB_SHA -- tools/maps/UELightExtract/Program.cs
           if($LASTEXITCODE -ne 0){throw 'patched UELightExtract restore failed'}
+          git checkout $env:GITHUB_SHA -- tools/maps/UEMaterialAudit/Program.cs
+          if($LASTEXITCODE -ne 0){throw 'patched UEMaterialAudit restore failed'}
           git checkout $env:GITHUB_SHA -- tools/maps/UEAudioSceneExtract
           if($LASTEXITCODE -ne 0){throw 'UEAudioSceneExtract restore failed'}
           git checkout $env:GITHUB_SHA -- tools/maps/UEAudioCueGraphExtract
