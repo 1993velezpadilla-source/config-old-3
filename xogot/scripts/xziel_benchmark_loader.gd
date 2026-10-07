@@ -749,10 +749,17 @@ func _material_for_path(material_path: String) -> Material:
 	# This is source-authored metadata, not a filename/material-name guess.
 	if diffuse_source.is_empty():
 		diffuse_source = _exact_parameter_texture(record, "AlbedoTexture")
+	# UE VFX masters commonly expose the cooked color texture through the
+	# explicit source parameter DIFF. This is parameter authority, not a
+	# filename/material-name guess.
+	if diffuse_source.is_empty():
+		diffuse_source = _exact_parameter_texture(record, "DIFF")
 	if normal_source.is_empty():
 		normal_source = _exact_parameter_texture(record, "NormalTexture")
 	if emissive_source.is_empty():
 		emissive_source = _exact_parameter_texture(record, "EmissiveTexture")
+	if emissive_source.is_empty():
+		emissive_source = _exact_parameter_texture(record, "EMISS")
 
 	# Some cooked source materials expose their real texture binding under the
 	# original parameter name instead of PM_Diffuse/PM_Normals. Do not guess by
@@ -922,6 +929,9 @@ func _material_for_path(material_path: String) -> Material:
 
 	material.set_meta("source_material_path", material_path)
 	material.set_meta("source_blend_mode", blend_mode)
+	material.set_meta("source_resolved_diffuse_path", diffuse_source)
+	material.set_meta("source_resolved_normal_path", normal_source)
+	material.set_meta("source_resolved_emissive_path", emissive_source)
 	material.set_meta("source_specular_mask_path", _optional_source_path(canonical.get("specular_masks", null)))
 	_material_cache[material_path] = material
 	_material_cache[canonical_path] = material
