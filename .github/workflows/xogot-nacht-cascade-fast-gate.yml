@@ -38,7 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: feature/godot-aaa-rebuild-v1
+          ref: ${{ github.event_name == 'push' && github.sha || 'feature/godot-aaa-rebuild-v1' }}
           fetch-depth: 1
 
       - name: Resolve latest GREEN particle slice
