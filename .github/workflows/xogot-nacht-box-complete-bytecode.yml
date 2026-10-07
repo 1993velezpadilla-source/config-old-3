@@ -1,0 +1,200 @@
+name: Xogot Nacht Box Complete Bytecode
+
+on:
+  push:
+    branches:
+      - wip/nacht-cascade-system-isolation-v1
+    paths:
+      - ".github/workflows/xogot-nacht-box-complete-bytecode.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xogot-nacht-box-complete-bytecode-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  extract:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env:
+      WORKSHOP_APP_ID: "555160"
+      WORKSHOP_ITEM_ID: "2755515831"
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Download exact validated Nacht source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $steam=Join-Path $env:RUNNER_TEMP 'steamcmd'
+          New-Item -ItemType Directory -Force -Path $steam | Out-Null
+          Invoke-WebRequest 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip' -OutFile "$env:RUNNER_TEMP\steamcmd.zip"
+          Expand-Archive "$env:RUNNER_TEMP\steamcmd.zip" -DestinationPath $steam -Force
+          & (Join-Path $steam 'steamcmd.exe') +login anonymous +workshop_download_item $env:WORKSHOP_APP_ID $env:WORKSHOP_ITEM_ID validate +quit
+          $root=Get-ChildItem $steam,$env:RUNNER_TEMP -Directory -Recurse -ErrorAction SilentlyContinue |
+            Where-Object {$_.FullName -like "*steamapps\workshop\content\$env:WORKSHOP_APP_ID\$env:WORKSHOP_ITEM_ID"} |
+            Select-Object -First 1
+          if(-not $root){throw 'Nacht workshop payload not found'}
+          $pak=Join-Path $root.FullName 'WindowsNoEditor.pak'
+          if(-not (Test-Path $pak)){throw 'Nacht PAK missing'}
+          if((Get-Item $pak).Length -ne 2543506907){throw 'Nacht PAK byte authority mismatch'}
+
+          Invoke-WebRequest 'https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-pc-windows-msvc.zip' -OutFile "$env:RUNNER_TEMP\repak.zip"
+          $repakDir="$env:RUNNER_TEMP\repak"
+          Expand-Archive "$env:RUNNER_TEMP\repak.zip" -DestinationPath $repakDir -Force
+          $repak=Get-ChildItem $repakDir -Filter repak.exe -Recurse | Select-Object -First 1
+          if(-not $repak){throw 'repak missing'}
+
+          Remove-Item nacht-source -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path nacht-source | Out-Null
+          & $repak.FullName unpack $pak -o nacht-source --force
+          if($LASTEXITCODE -ne 0){throw "repak failed $LASTEXITCODE"}
+
+          $contentRoot=Join-Path $PWD 'nacht-source\Pavlov\Content'
+          $box=Join-Path $contentRoot 'CustomMaps\UGC2755515831\Blueprints\Objects\EasterEgg\Box_complete.uasset'
+          if(-not (Test-Path $box)){throw "Box_complete.uasset missing"}
+          "NACHT_CONTENT_ROOT=$contentRoot" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "BOX_COMPLETE=$box" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "XZOGOT_NACHT_BOX_COMPLETE_SOURCE_GREEN bytes=$((Get-Item $box).Length)"
+
+      - name: Pin Pavlov UE4 mappings
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          Invoke-WebRequest 'https://raw.githubusercontent.com/THW-Reaper/PavlovVRMappings/4976647b4f3a209042460bc55a7a3122662d05b7/PavMappings.usmap' -OutFile PavMappings.usmap
+          $hash=(Get-FileHash PavMappings.usmap -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($hash -ne '6d19f9731cc3fbaba34ca8e0833e81e4ffdf1b407edf24de48b1ccb5c63b060c'){throw "mappings mismatch $hash"}
+
+      - name: Build proven Blueprint bytecode extractor
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $project='tools/maps/UENuketownWallbuyBytecode/UENuketownWallbuyBytecode.csproj'
+          dotnet restore $project
+          dotnet build $project -c Release --no-restore
+          if($LASTEXITCODE -ne 0){throw "bytecode tool build failed"}
+
+      - name: Decompile Box complete Blueprint
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          New-Item -ItemType Directory -Force -Path build/box-complete | Out-Null
+          $app='tools/maps/UENuketownWallbuyBytecode/bin/Release/net10.0/UENuketownWallbuyBytecode.dll'
+          dotnet $app PavMappings.usmap build/box-complete/box-complete-bytecode.json $env:BOX_COMPLETE |
+            Tee-Object build/box-complete/extract.log
+          if($LASTEXITCODE -ne 0){throw "Box_complete bytecode extraction failed $LASTEXITCODE"}
+          if(-not (Select-String -Path build/box-complete/extract.log -Pattern 'XZOGOT_NUKETOWN_WALLBUY_BYTECODE_GREEN' -Quiet)){
+            throw 'bytecode green marker missing'
+          }
+
+      - name: Slice exact particle activation semantics
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          @'
+          import json,re
+          from pathlib import Path
+
+          src=Path("build/box-complete/box-complete-bytecode.json")
+          d=json.loads(src.read_text())
+          assert d["ready"] is True,d
+          assert d["packageSuccessCount"]==1,d
+          pkg=d["packages"][0]
+
+          rx=re.compile(
+              r"(P_Monster_Death_XLarge|Particle|Activate|Deactivate|SetActive|"
+              r"SetVisibility|SetHidden|Hidden|BeginPlay|Delay|Timer|Complete|"
+              r"CustomEvent|Event|Destroy|SpawnEmitter|SetTemplate)",
+              re.I
+          )
+
+          proof={
+              "fileName":pkg.get("fileName"),
+              "imports":[],
+              "objectReferences":[],
+              "normalExportProperties":[],
+              "functions":[],
+          }
+
+          for row in pkg.get("imports",[]):
+              if rx.search(json.dumps(row,sort_keys=True)):
+                  proof["imports"].append(row)
+
+          for row in pkg.get("objectReferences",[]):
+              if rx.search(json.dumps(row,sort_keys=True)):
+                  proof["objectReferences"].append(row)
+
+          for row in pkg.get("normalExportProperties",[]):
+              if rx.search(json.dumps(row,sort_keys=True)):
+                  proof["normalExportProperties"].append(row)
+
+          for fn in pkg.get("functions",[]):
+              fn_hits={
+                  "name":fn.get("name"),
+                  "calls":[],
+                  "expressions":[],
+                  "topLevelExpressions":[],
+              }
+              for call in fn.get("calls",[]):
+                  if rx.search(json.dumps(call,sort_keys=True)):
+                      fn_hits["calls"].append(call)
+              for expr in fn.get("expressions",[]):
+                  if rx.search(json.dumps(expr,sort_keys=True)):
+                      fn_hits["expressions"].append(expr)
+              for top in fn.get("topLevelExpressions",[]):
+                  if rx.search(json.dumps(top,sort_keys=True)):
+                      fn_hits["topLevelExpressions"].append(top)
+              if (
+                  rx.search(str(fn.get("name","")))
+                  or fn_hits["calls"]
+                  or fn_hits["expressions"]
+                  or fn_hits["topLevelExpressions"]
+              ):
+                  proof["functions"].append(fn_hits)
+
+          Path("build/box-complete/particle-activation-proof.json").write_text(
+              json.dumps(proof,indent=2)+"\n"
+          )
+
+          print("XZOGOT_NACHT_BOX_COMPLETE_PARTICLE_PROOF",json.dumps({
+              "file":proof["fileName"],
+              "imports":len(proof["imports"]),
+              "refs":len(proof["objectReferences"]),
+              "defaults":len(proof["normalExportProperties"]),
+              "functions":len(proof["functions"]),
+              "functionNames":[x["name"] for x in proof["functions"]],
+              "calls":[
+                  {"function":fn["name"],"call":call}
+                  for fn in proof["functions"]
+                  for call in fn["calls"]
+              ][:120],
+          },separators=(",",":")))
+
+          assert (
+              proof["objectReferences"]
+              or proof["normalExportProperties"]
+              or proof["functions"]
+          ),proof
+          print("XZOGOT_NACHT_BOX_COMPLETE_BYTECODE_GREEN")
+          '@ | python -
+
+      - name: Upload Box complete bytecode slice
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nacht-Box-Complete-Bytecode
+          path: |
+            build/box-complete/box-complete-bytecode.json
+            build/box-complete/particle-activation-proof.json
+            build/box-complete/extract.log
+          if-no-files-found: error
+          retention-days: 7
