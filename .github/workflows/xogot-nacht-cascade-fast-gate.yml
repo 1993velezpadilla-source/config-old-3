@@ -152,8 +152,6 @@ jobs:
             2>&1 | tee build/nacht-cascade-fast/visual-api.log
           grep -q "XZOGOT_NACHT_CASCADE_VISUAL_API_GREEN" \
             build/nacht-cascade-fast/visual-api.log
-            build/nacht-cascade-fast/particle-alpha.log
-            build/nacht-cascade-fast/particle-dds-report.json
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" \
             build/nacht-cascade-fast/visual-api.log
 
@@ -177,5 +175,8 @@ jobs:
           path: |
             build/nacht-cascade-fast/probe.log
             build/nacht-cascade-fast/visual-api.log
+            build/nacht-cascade-fast/particle-alpha.log
+            build/nacht-cascade-fast/particle-import.log
+            build/nacht-cascade-fast/particle-dds-report.json
           if-no-files-found: error
           retention-days: 7
