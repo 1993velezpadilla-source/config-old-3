@@ -212,34 +212,195 @@ jobs:
               r"(particle|fog|beam|spark|wheel|mystery|acidball|monster_death|quadexplodesmoke)",
               re.I,
           )
+
+          def ptr_name(value):
+              if not isinstance(value,str):
+                  return ""
+              parts=value.split(":",2)
+              return parts[2] if len(parts)==3 else value
+
+          def ptr_old(node):
+              if not isinstance(node,dict):
+                  return ""
+              return str((node.get("Variable") or node.get("Value") or {}).get("Old",""))
+
+          def parameter_bool(node,default=False):
+              if not isinstance(node,dict):
+                  return default
+              kind=str(node.get("$type",""))
+              if kind=="EX_True":
+                  return True
+              if kind=="EX_False":
+                  return False
+              value=node.get("Value")
+              if isinstance(value,bool):
+                  return value
+              return default
+
+          def context_call(expr):
+              if not isinstance(expr,dict) or expr.get("$type")!="EX_Context":
+                  return ""
+              ctx=expr.get("ContextExpression") or {}
+              return str(ctx.get("VirtualFunctionName") or ctx.get("StackNode") or "")
+
+          def normalized_action(package_name,function_name,top,target_mode,component_name=""):
+              expr=top.get("expression") or {}
+              ctx=expr.get("ContextExpression") or {}
+              call=str(ctx.get("VirtualFunctionName") or ctx.get("StackNode") or "")
+              op=call.rsplit(".",1)[-1]
+              if op not in ("Activate","Deactivate","SetActive"):
+                  return None
+              params=ctx.get("Parameters") or []
+              active=True
+              reset=False
+              if op=="Deactivate":
+                  active=False
+              elif op=="Activate":
+                  active=True
+                  reset=parameter_bool(params[0],False) if params else False
+              elif op=="SetActive":
+                  active=parameter_bool(params[0],False) if params else False
+                  reset=parameter_bool(params[1],False) if len(params)>1 else False
+              return {
+                  "fileName":package_name,
+                  "blueprintName":Path(package_name).stem,
+                  "function":function_name,
+                  "startOffset":int(top.get("startOffset",-1)),
+                  "endOffset":int(top.get("endOffset",-1)),
+                  "targetMode":target_mode,
+                  "componentName":component_name,
+                  "operation":op,
+                  "active":active,
+                  "reset":reset,
+              }
+
+          def resolves_particle_component_loop(top_rows,index):
+              # Prove the local target comes from:
+              # Actor.GetComponentsByClass(ParticleSystemComponent)
+              # -> KismetArrayLibrary.Array_Get -> SetActive.
+              expr=top_rows[index].get("expression") or {}
+              obj=expr.get("ObjectExpression") or {}
+              if obj.get("$type")!="EX_LocalVariable":
+                  return False
+              item_ptr=ptr_old(obj)
+              if not item_ptr:
+                  return False
+
+              array_ptr=""
+              for prior in reversed(top_rows[:index]):
+                  pe=prior.get("expression") or {}
+                  if pe.get("$type")!="EX_Context":
+                      continue
+                  pc=pe.get("ContextExpression") or {}
+                  stack=str(pc.get("StackNode",""))
+                  if not stack.endswith("KismetArrayLibrary.Array_Get"):
+                      continue
+                  params=pc.get("Parameters") or []
+                  if len(params)<3 or ptr_old(params[2])!=item_ptr:
+                      continue
+                  array_ptr=ptr_old(params[0])
+                  break
+              if not array_ptr:
+                  return False
+
+              for prior in reversed(top_rows[:index]):
+                  pe=prior.get("expression") or {}
+                  if pe.get("$type")!="EX_Let":
+                      continue
+                  value=pe.get("Value") or {}
+                  if str(value.get("Old",""))!=array_ptr:
+                      continue
+                  assignment=pe.get("Expression") or {}
+                  if assignment.get("$type")!="EX_FinalFunction":
+                      continue
+                  if not str(assignment.get("StackNode","")).endswith("Actor.GetComponentsByClass"):
+                      continue
+                  params=assignment.get("Parameters") or []
+                  if not params:
+                      continue
+                  cls=params[0] if isinstance(params[0],dict) else {}
+                  if "ParticleSystemComponent" in str(cls.get("Value","")):
+                      return True
+              return False
+
           rows=[]
+          normalized=[]
           total_calls=0
           total_trees=0
           for package in data.get("packages",[]):
+              package_name=str(package.get("fileName",""))
               item={
-                  "fileName":package.get("fileName"),
+                  "fileName":package_name,
                   "calls":[],
                   "expressionTrees":[],
                   "objectReferences":[],
                   "defaults":[],
               }
-              for fn in package.get("functions",[]):
-                  for call in fn.get("calls",[]):
-                      if call_rx.search(str(call.get("call",""))):
-                          item["calls"].append({"function":fn.get("name"),**call})
-                  for top in fn.get("topLevelExpressions",[]):
-                      blob=json.dumps(top,sort_keys=True)
-                      if call_rx.search(blob) and component_rx.search(blob):
-                          item["expressionTrees"].append({
-                              "function":fn.get("name"),
-                              "tree":top,
-                          })
+
+              particle_component_names=set()
               for ref in package.get("objectReferences",[]):
-                  if component_rx.search(json.dumps(ref,sort_keys=True)):
+                  blob=json.dumps(ref,sort_keys=True)
+                  if component_rx.search(blob):
                       item["objectReferences"].append(ref)
+                  if (
+                      str(ref.get("propertyName",""))=="Template"
+                      and str(ref.get("objectName","")).endswith("_GEN_VARIABLE")
+                      and component_rx.search(blob)
+                  ):
+                      particle_component_names.add(
+                          str(ref.get("objectName",""))[:-len("_GEN_VARIABLE")]
+                      )
+
               for row in package.get("normalExportProperties",[]):
                   if component_rx.search(json.dumps(row,sort_keys=True)):
                       item["defaults"].append(row)
+
+              for fn in package.get("functions",[]):
+                  fn_name=str(fn.get("name",""))
+                  for call in fn.get("calls",[]):
+                      if call_rx.search(str(call.get("call",""))):
+                          item["calls"].append({"function":fn_name,**call})
+
+                  top_rows=fn.get("topLevelExpressions",[]) or []
+                  for index,top in enumerate(top_rows):
+                      blob=json.dumps(top,sort_keys=True)
+                      if call_rx.search(blob) and component_rx.search(blob):
+                          item["expressionTrees"].append({
+                              "function":fn_name,
+                              "tree":top,
+                          })
+
+                      expr=top.get("expression") or {}
+                      call=context_call(expr)
+                      op=call.rsplit(".",1)[-1]
+                      if op not in ("Activate","Deactivate","SetActive"):
+                          continue
+
+                      obj=expr.get("ObjectExpression") or {}
+                      if obj.get("$type")=="EX_InstanceVariable":
+                          component=ptr_name(ptr_old(obj))
+                          if component in particle_component_names:
+                              action=normalized_action(
+                                  package_name,fn_name,top,
+                                  "named_component",component
+                              )
+                              if action:
+                                  normalized.append(action)
+                      elif (
+                          op=="SetActive"
+                          and resolves_particle_component_loop(top_rows,index)
+                      ):
+                          action=normalized_action(
+                              package_name,fn_name,top,
+                              "all_particle_components"
+                          )
+                          if action:
+                              action["sourceTargetProof"]=(
+                                  "Actor.GetComponentsByClass(ParticleSystemComponent)"
+                                  "->Array_Get"
+                              )
+                              normalized.append(action)
+
               total_calls += len(item["calls"])
               total_trees += len(item["expressionTrees"])
               rows.append(item)
@@ -249,20 +410,55 @@ jobs:
                   "activationTrees":len(item["expressionTrees"]),
                   "particleRefs":len(item["objectReferences"]),
                   "particleDefaults":len(item["defaults"]),
+                  "normalizedActions":sum(
+                      1 for a in normalized if a["fileName"]==package_name
+                  ),
                   "calls":item["calls"][:80],
               },separators=(",",":")))
 
+          # Current source package contract. These counts are derived from the
+          # UE4.21 bytecode above, not hand-authored gameplay guesses.
+          expected={
+              "Box_complete.uasset":2,
+              "MachineGumball.uasset":4,
+              "WonderFizz.uasset":10,
+              "PunchAPackMachine.uasset":1,
+          }
+          actual={
+              name:sum(1 for a in normalized if a["fileName"]==name)
+              for name in expected
+          }
+          if actual!=expected:
+              raise SystemExit(
+                  f"normalized particle activation mismatch actual={actual} expected={expected}"
+              )
+          if len(normalized)!=17:
+              raise SystemExit(f"normalized action count mismatch {len(normalized)}/17")
+          generic=[
+              a for a in normalized
+              if a["targetMode"]=="all_particle_components"
+          ]
+          if len(generic)!=1 or generic[0]["fileName"]!="PunchAPackMachine.uasset":
+              raise SystemExit(f"PaP class-wide particle action mismatch {generic}")
+
           out={
-              "schemaVersion":1,
+              "schemaVersion":2,
               "source":"Nacht workshop 2755515831 UE4.21 Blueprint bytecode",
               "packageCount":len(rows),
               "activationCallCount":total_calls,
               "activationTreeCount":total_trees,
+              "normalizedActionCount":len(normalized),
+              "normalizedActions":normalized,
               "packages":rows,
               "ready":True,
           }
           Path("build/nacht-interactive-particle-bytecode/particle-activation-authority.json").write_text(
               json.dumps(out,indent=2)+"\n"
+          )
+          print(
+              "XZOGOT_NACHT_INTERACTIVE_PARTICLE_ACTIONS_GREEN",
+              f"actions={len(normalized)} named=16 all_components=1",
+              json.dumps(actual,separators=(",",":"))
           )
           print(
               "XZOGOT_NACHT_INTERACTIVE_PARTICLE_BYTECODE_GREEN",
