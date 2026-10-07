@@ -1598,6 +1598,77 @@ jobs:
               json.dumps(gumball_spawn_struct_trace,separators=(",",":"))
           )
 
+          spawn_paths=[
+              {
+                  "idOffset":1259,"playerOffset":1349,
+                  "dominantOffset":1369,"inventoryOffset":1389,
+                  "slotOffset":1409,"worldOffset":1441,
+                  "transformOffset":1461,"magazineOffset":1497,
+                  "spawnCallOffset":1517,
+              },
+              {
+                  "idOffset":2506,"playerOffset":2596,
+                  "dominantOffset":2616,"inventoryOffset":2636,
+                  "slotOffset":2656,"worldOffset":2688,
+                  "transformOffset":2708,"magazineOffset":2744,
+                  "spawnCallOffset":2764,
+              },
+          ]
+          for path in spawn_paths:
+              checks=[
+                  (path["idOffset"],["PavlovItemSpawnParams.Id","Gobblegum"]),
+                  (path["playerOffset"],["PavlovItemSpawnParams.Player","EX_NoObject"]),
+                  (path["dominantOffset"],["PavlovItemSpawnParams.bDominantHand","EX_True"]),
+                  (path["inventoryOffset"],["PavlovItemSpawnParams.bSpawnInInventory","EX_False"]),
+                  (path["slotOffset"],["PavlovItemSpawnParams.InventorySlot",'"Value": 0']),
+                  (path["worldOffset"],["PavlovItemSpawnParams.bSpawnInWorld","EX_True"]),
+                  (path["transformOffset"],["PavlovItemSpawnParams.Transform","CallFunc_MakeTransform_ReturnValue"]),
+                  (path["magazineOffset"],["PavlovItemSpawnParams.bSpawnWithMagazine","EX_False"]),
+                  (path["spawnCallOffset"],["Pavlov_GameLogic.SpawnItemWRef",spawn_struct_symbol]),
+              ]
+              for offset,tokens in checks:
+                  expr=gumball_top.get(offset,{})
+                  blob=json.dumps(expr,sort_keys=True)
+                  for token in tokens:
+                      if token not in blob:
+                          raise SystemExit(
+                              f"MachineGumball spawn rule missing {token} "
+                              f"offset={offset} expr={expr}"
+                          )
+          gumball_spawn_rule={
+              "function":"Pavlov_GameLogic.SpawnItemWRef",
+              "player":None,
+              "dominantHand":True,
+              "spawnInInventory":False,
+              "inventorySlot":0,
+              "spawnInWorld":True,
+              "spawnWithMagazine":False,
+              "transformSource":"CallFunc_MakeTransform_ReturnValue",
+              "paths":spawn_paths,
+          }
+          make_transform_trace=[]
+          for offset in sorted(gumball_top):
+              expr=gumball_top[offset]
+              blob=json.dumps(expr,sort_keys=True)
+              if (
+                  "CallFunc_MakeTransform_ReturnValue" in blob
+                  or "KismetMathLibrary.MakeTransform" in blob
+              ):
+                  make_transform_trace.append({
+                      "startOffset":offset,
+                      "expression":expr,
+                  })
+          if not make_transform_trace:
+              raise SystemExit("MachineGumball MakeTransform trace is empty")
+          print(
+              "XZOGOT_NACHT_GUMBALL_SPAWN_RULE_GREEN",
+              json.dumps(gumball_spawn_rule,separators=(",",":"))
+          )
+          print(
+              "XZOGOT_NACHT_GUMBALL_MAKE_TRANSFORM_TRACE_GREEN",
+              json.dumps(make_transform_trace,separators=(",",":"))
+          )
+
           gumball_contract={
               "fileName":"MachineGumball.uasset",
               "blueprintName":"MachineGumball",
@@ -1634,6 +1705,8 @@ jobs:
               "selectionTrace":gumball_selection_trace,
               "selectionRule":gumball_selection_rule,
               "spawnStructTrace":gumball_spawn_struct_trace,
+              "spawnRule":gumball_spawn_rule,
+              "makeTransformTrace":make_transform_trace,
           }
           source_interaction_contracts=[gumball_contract]
           print(
