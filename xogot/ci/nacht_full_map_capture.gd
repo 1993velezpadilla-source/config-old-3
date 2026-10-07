@@ -335,6 +335,50 @@ func _capture() -> void:
 				particle_visuals.size()
 			)
 
+			var systems: Array[String] = []
+			for raw_particle: Node in particle_visuals:
+				if not (raw_particle is Node3D):
+					continue
+				var parent := raw_particle.get_parent()
+				if parent == null:
+					continue
+				var system_path := str(
+					parent.get_meta("source_particle_system_path", "")
+				)
+				if not system_path.is_empty() and not systems.has(system_path):
+					systems.append(system_path)
+			systems.sort()
+			for system_index in range(systems.size()):
+				var system_path := systems[system_index]
+				for raw_particle: Node in particle_visuals:
+					if not (raw_particle is Node3D):
+						continue
+					var parent := raw_particle.get_parent()
+					if parent == null:
+						continue
+					if str(parent.get_meta("source_particle_system_path", "")) == system_path:
+						(raw_particle as Node3D).visible = false
+				var isolate_path := (
+					"/tmp/xogot-nacht-spawn-candidate-02-hide-system-%02d.png"
+					% system_index
+				)
+				if not (await _save_view(
+					isolate_path,
+					"spawn_candidate_02_hide_system_%02d" % system_index,
+					false,
+					1
+				)):
+					return
+				for particle_index in range(particle_visuals.size()):
+					var raw_particle: Node = particle_visuals[particle_index]
+					if raw_particle is Node3D:
+						(raw_particle as Node3D).visible = particle_visibility[particle_index]
+				print(
+					"XZOGOT_NACHT_CANDIDATE02_SYSTEM_ISOLATION ",
+					"index=", system_index,
+					" system=", system_path
+				)
+
 	player.global_transform = saved_player_transform
 	player.velocity = saved_player_velocity
 	player.set_physics_process(true)
