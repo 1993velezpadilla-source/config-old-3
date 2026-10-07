@@ -82,6 +82,37 @@ jobs:
           if not uassets:
               raise SystemExit("no interactive Blueprint uassets selected")
 
+          reward_stems={
+              "ammo","firesale1","instagum",
+              "nuke","doublepointsdrop","weapon",
+          }
+          reward_uassets=[
+              x for x in lines
+              if x.lower().endswith(".uasset")
+              and Path(x).stem.lower() in reward_stems
+          ]
+          related_uassets=[
+              x for x in lines
+              if x.lower().endswith(".uasset")
+              and (
+                  "gobble" in x.lower()
+                  or "gumball" in x.lower()
+              )
+          ]
+          Path("gumball-reward-uassets.txt").write_text(
+              "\n".join(reward_uassets)+("\n" if reward_uassets else ""),
+              encoding="utf-8",
+          )
+          Path("gumball-related-uassets.txt").write_text(
+              "\n".join(related_uassets)+("\n" if related_uassets else ""),
+              encoding="utf-8",
+          )
+          print("XZOGOT_NACHT_GUMBALL_REWARD_PATH_DISCOVERY",{
+              "reward_uassets":reward_uassets,
+              "related_uasset_count":len(related_uassets),
+              "related_uassets":related_uassets,
+          })
+
           base_wanted={"powered_object_basen.uasset"}
           base_uassets=[
               x for x in lines
@@ -2183,5 +2214,7 @@ jobs:
             build/nacht-interactive-particle-bytecode/
             interactive-blueprint-uassets.txt
             interaction-base-uassets.txt
+            gumball-reward-uassets.txt
+            gumball-related-uassets.txt
           if-no-files-found: error
           retention-days: 7
