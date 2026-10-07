@@ -13,6 +13,10 @@ permissions:
   contents: read
   actions: read
 
+concurrency:
+  group: xogot-ue-bridge-cascade-authority
+  cancel-in-progress: true
+
 jobs:
   bridge:
     runs-on: ubuntu-latest
