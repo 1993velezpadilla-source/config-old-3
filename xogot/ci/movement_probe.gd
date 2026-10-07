@@ -23,6 +23,11 @@ func _run_probe() -> void:
 		push_error("MOVEMENT_PROBE: Player missing")
 		quit(3)
 		return
+	var weapon: Node = player.get_node_or_null("Weapon")
+	if weapon == null:
+		push_error("MOVEMENT_PROBE: Weapon missing")
+		quit(26)
+		return
 
 	var collider: CollisionShape3D = player.get_node_or_null("CollisionShape3D") as CollisionShape3D
 	var head: Node3D = player.get_node_or_null("Head") as Node3D
@@ -66,10 +71,26 @@ func _run_probe() -> void:
 		push_error("MOVEMENT_PROBE: mobile sprint zone wrong")
 		quit(24)
 		return
-	if absf(float(player.get("ads_move_multiplier")) - 0.90) > 0.001:
-		push_error("MOVEMENT_PROBE: ADS move multiplier wrong")
+	# ADS movement is no longer a player-global guess. It is authored per
+	# weapon in DT_Weapons. Prove both a no-penalty pistol and a 50% SMG row.
+	if not bool(weapon.call("equip_weapon", "colt", true)):
+		push_error("MOVEMENT_PROBE: could not equip Colt for source ADS movement")
 		quit(25)
 		return
+	if absf(float(weapon.call("get_source_ads_move_multiplier")) - 1.0) > 0.001:
+		push_error("MOVEMENT_PROBE: Colt source ADS move multiplier wrong")
+		quit(25)
+		return
+	if not bool(weapon.call("equip_weapon", "mp40", true)):
+		push_error("MOVEMENT_PROBE: could not equip MP40 for source ADS movement")
+		quit(25)
+		return
+	if absf(float(weapon.call("get_source_ads_move_multiplier")) - 0.50) > 0.001:
+		push_error("MOVEMENT_PROBE: MP40 source ADS move multiplier wrong")
+		quit(25)
+		return
+	weapon.call("equip_weapon", "colt", true)
+	print("XZOGOT_MOVEMENT_SOURCE_ADS_SPEED_GREEN colt=1.0 mp40=0.5")
 	if absf(float(player.get("camera_stance_response")) - 18.0) > 0.01:
 		push_error("MOVEMENT_PROBE: stance camera response wrong")
 		quit(19)
