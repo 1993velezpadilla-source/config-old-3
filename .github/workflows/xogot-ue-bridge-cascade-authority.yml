@@ -82,6 +82,22 @@ jobs:
             exit 1
           fi
 
+      - name: Resolve Mystery Box vertical material partial graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/ue_bridge/material_graph_resolver.py \
+            --materials "$RUNNER_TEMP/nacht-authority/nacht-materials.json" \
+            --target "/Game/CustomMaps/UGC2755515831/CoD/Particles/mysteryBox/findMe/mysterBoxVerticalMat.mysterBoxVerticalMat" \
+            --out build/ue-bridge/mystery-vertical-material-graph.json \
+            --strict \
+            2>&1 | tee build/ue-bridge/mystery-vertical-material-bridge.log
+          grep -q "XZOGOT_UE_BRIDGE_MATERIAL_GREEN" build/ue-bridge/mystery-vertical-material-bridge.log
+          grep -q "mysteryboxverticalparticle" build/ue-bridge/mystery-vertical-material-bridge.log
+          if grep -q "XZOGOT_UE_BRIDGE_MATERIAL_FAILURE" build/ue-bridge/mystery-vertical-material-bridge.log; then
+            exit 1
+          fi
+
       - name: Upload UE bridge report
         uses: actions/upload-artifact@v4
         with:
@@ -91,5 +107,7 @@ jobs:
             build/ue-bridge/cascade-bridge.log
             build/ue-bridge/monster-fire-material-graph.json
             build/ue-bridge/material-bridge.log
+            build/ue-bridge/mystery-vertical-material-graph.json
+            build/ue-bridge/mystery-vertical-material-bridge.log
           if-no-files-found: error
           retention-days: 7
