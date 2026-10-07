@@ -1533,6 +1533,48 @@ jobs:
               json.dumps(gumball_selection_trace,separators=(",",":"))
           )
 
+          selection_pairs=[(884,1259),(2131,2506)]
+          for rng_offset,array_offset in selection_pairs:
+              rng_expr=gumball_top.get(rng_offset,{})
+              array_expr=gumball_top.get(array_offset,{})
+              rng_blob=json.dumps(rng_expr,sort_keys=True)
+              array_blob=json.dumps(array_expr,sort_keys=True)
+              for token in [
+                  "RandomIntegerInRange",
+                  '"Value": 0',
+                  '"Value": 5',
+              ]:
+                  if token not in rng_blob:
+                      raise SystemExit(
+                          f"MachineGumball RNG authority missing {token} "
+                          f"offset={rng_offset} expr={rng_expr}"
+                      )
+              for token in [
+                  "EX_ArrayGetByRef",
+                  "Gobblegum",
+                  "CallFunc_RandomIntegerInRange_ReturnValue",
+              ]:
+                  if token not in array_blob:
+                      raise SystemExit(
+                          f"MachineGumball array selection authority missing {token} "
+                          f"offset={array_offset} expr={array_expr}"
+                      )
+          gumball_selection_rule={
+              "sourceFunction":"KismetMathLibrary.RandomIntegerInRange",
+              "minInclusive":0,
+              "maxInclusive":5,
+              "poolProperty":"Gobblegum",
+              "poolSize":6,
+              "paths":[
+                  {"randomOffset":884,"arrayGetOffset":1259},
+                  {"randomOffset":2131,"arrayGetOffset":2506},
+              ],
+          }
+          print(
+              "XZOGOT_NACHT_GUMBALL_SELECTION_RULE_GREEN",
+              json.dumps(gumball_selection_rule,separators=(",",":"))
+          )
+
           gumball_contract={
               "fileName":"MachineGumball.uasset",
               "blueprintName":"MachineGumball",
@@ -1567,6 +1609,7 @@ jobs:
               },
               "testBytecodeSlice":gumball_test_slice,
               "selectionTrace":gumball_selection_trace,
+              "selectionRule":gumball_selection_rule,
           }
           source_interaction_contracts=[gumball_contract]
           print(
