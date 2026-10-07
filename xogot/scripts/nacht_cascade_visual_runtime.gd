@@ -558,10 +558,10 @@ static func _apply_emitter_spawn_shape(
 		]:
 			if primitive.is_empty():
 				primitive = module
-		else:
-			# Multiple source primitives need custom shader semantics; do not
-			# merge them into an invented Godot shape.
-			return
+			else:
+				# Multiple source primitives need custom shader semantics; do not
+				# merge them into an invented Godot shape.
+				return
 		else:
 			simple_locations.append(module)
 
