@@ -438,15 +438,43 @@ static func _size_over_life_texture(emitter: Dictionary) -> CurveXYZTexture:
 
 
 static func _color_over_life_texture(emitter: Dictionary) -> GradientTexture1D:
-	var module := _first_emitter_module(emitter, "ParticleModuleColorOverLife")
-	if module.is_empty():
+	var color_module := _first_emitter_module(emitter, "ParticleModuleColorOverLife")
+	var scale_module := _first_emitter_module(
+		emitter,
+		"ParticleModuleColorScaleOverLife"
+	)
+	if color_module.is_empty() and scale_module.is_empty():
 		return null
-	var module_props := ParticleSource.properties(module)
-	var rgb := _vector_table_series(module_props.get("ColorOverLife"))
-	var alpha := _float_table_series(module_props.get("AlphaOverLife"))
-	if rgb.is_empty() and alpha.is_empty():
+
+	var rgb: Array[Vector3] = []
+	var alpha: Array[float] = []
+	if not color_module.is_empty():
+		var color_props := ParticleSource.properties(color_module)
+		rgb = _vector_table_series(color_props.get("ColorOverLife"))
+		alpha = _float_table_series(color_props.get("AlphaOverLife"))
+
+	var rgb_scale: Array[Vector3] = []
+	var alpha_scale: Array[float] = []
+	if not scale_module.is_empty():
+		var scale_props := ParticleSource.properties(scale_module)
+		rgb_scale = _vector_table_series(scale_props.get("ColorScaleOverLife"))
+		alpha_scale = _float_table_series(scale_props.get("AlphaScaleOverLife"))
+
+	if (
+		rgb.is_empty()
+		and alpha.is_empty()
+		and rgb_scale.is_empty()
+		and alpha_scale.is_empty()
+	):
 		return null
-	var sample_count := maxi(2, maxi(rgb.size(), alpha.size()))
+
+	var sample_count := maxi(
+		2,
+		maxi(
+			maxi(rgb.size(), alpha.size()),
+			maxi(rgb_scale.size(), alpha_scale.size())
+		)
+	)
 	var offsets := PackedFloat32Array()
 	var colors := PackedColorArray()
 	offsets.resize(sample_count)
@@ -455,8 +483,15 @@ static func _color_over_life_texture(emitter: Dictionary) -> GradientTexture1D:
 		var t := float(index) / float(sample_count - 1)
 		var c := _sample_vector_series(rgb, t, Vector3.ONE)
 		var a := _sample_float_series(alpha, t, 1.0)
+		var c_scale := _sample_vector_series(rgb_scale, t, Vector3.ONE)
+		var a_scale := _sample_float_series(alpha_scale, t, 1.0)
 		offsets[index] = t
-		colors[index] = Color(c.x, c.y, c.z, a)
+		colors[index] = Color(
+			c.x * c_scale.x,
+			c.y * c_scale.y,
+			c.z * c_scale.z,
+			a * a_scale
+		)
 	var gradient := Gradient.new()
 	gradient.offsets = offsets
 	gradient.colors = colors
@@ -468,10 +503,34 @@ static func _color_over_life_texture(emitter: Dictionary) -> GradientTexture1D:
 	return texture
 
 
+static func _apply_constant_start_color(
+	process: ParticleProcessMaterial,
+	emitter: Dictionary
+) -> void:
+	var module := _first_emitter_module(emitter, "ParticleModuleColor")
+	if module.is_empty():
+		return
+	var props := ParticleSource.properties(module)
+	var color_bounds := _distribution_vector_bounds(props.get("StartColor"))
+	var alpha_distribution := ParticleSource.distribution(props.get("StartAlpha"))
+	if not bool(color_bounds.get("ready", false)):
+		return
+	var lo := color_bounds.get("min", Vector3.ONE) as Vector3
+	var hi := color_bounds.get("max", Vector3.ONE) as Vector3
+	var alpha_min := float(alpha_distribution.get("MinValue", 1.0))
+	var alpha_max := float(alpha_distribution.get("MaxValue", alpha_min))
+	# Only map the exact constant case. UE can randomize RGB channels
+	# independently; a one-dimensional Godot ramp would correlate them.
+	if not lo.is_equal_approx(hi) or not is_equal_approx(alpha_min, alpha_max):
+		return
+	process.color = Color(lo.x, lo.y, lo.z, alpha_min)
+
+
 static func _apply_emitter_life_curves(
 	process: ParticleProcessMaterial,
 	emitter: Dictionary
 ) -> void:
+	_apply_constant_start_color(process, emitter)
 	var size_curve := _size_over_life_texture(emitter)
 	if size_curve != null:
 		process.scale_curve = size_curve
