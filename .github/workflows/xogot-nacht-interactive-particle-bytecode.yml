@@ -66,11 +66,18 @@ jobs:
               for x in Path("build-all-paths.txt").read_text(encoding="utf-8-sig",errors="ignore").splitlines()
               if x.strip()
           ))
-          asset_rx=re.compile(
-              r"(?i)(?:/|^)(?:Pavlov/Content/)?CustomMaps/UGC2755515831/.*Blueprints/.*"
-              r"(gumball|punchapack|wonderfizz|wunderfizz|box_complete|box5).*\.uasset$"
-          )
-          uassets=[x for x in lines if asset_rx.search(x)]
+          wanted={
+              "machinegumball.uasset",
+              "punchapackmachine.uasset",
+              "wonderfizz.uasset",
+              "box5.uasset",
+              "box_complete.uasset",
+          }
+          uassets=[
+              x for x in lines
+              if Path(x).name.lower() in wanted
+              and "/Blueprints/" in x.replace("\\","/")
+          ]
           if not uassets:
               raise SystemExit("no interactive Blueprint uassets selected")
           bases={re.sub(r"(?i)\.uasset$","",x) for x in uassets}
@@ -85,10 +92,11 @@ jobs:
               "files":len(selected),
               "names":[Path(x).name for x in uassets],
           })
-          names=" ".join(uassets).lower()
-          assert "gumball" in names,names
-          assert "punchapack" in names,names
-          assert ("wonderfizz" in names or "wunderfizz" in names),names
+          selected_names={Path(x).name.lower() for x in uassets}
+          assert "machinegumball.uasset" in selected_names,selected_names
+          assert "punchapackmachine.uasset" in selected_names,selected_names
+          assert "wonderfizz.uasset" in selected_names,selected_names
+          assert "box_complete.uasset" in selected_names,selected_names
           '@ | python -
 
           Remove-Item nacht-interactive-bytecode -Recurse -Force -ErrorAction SilentlyContinue
