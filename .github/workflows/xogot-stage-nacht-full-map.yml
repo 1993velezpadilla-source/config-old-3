@@ -137,6 +137,46 @@ jobs:
           test -s "$AUTH/nacht-native/audio/report.json"
           test "$(find "$AUTH/nacht-native/audio" -maxdepth 1 -type f -name '*.xaw' | wc -l)" -eq 295
           echo "AUTH=$AUTH" >> "$GITHUB_ENV"
+
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+
+          authority = Path(os.environ["RUNNER_TEMP"]) / "nacht-authority"
+          data = json.loads((authority / "nacht-particles.json").read_text())
+          rows = [
+              row for row in data.get("particleComponents", [])
+              if str(row.get("ownerExportType", "")).lower() == "box_complete_c"
+              and str(row.get("componentName", "")).lower() in {
+                  "p_monster_death_xlarge",
+                  "quadexplodesmoke1",
+              }
+          ]
+          assert len(rows) == 2, rows
+          for row in rows:
+              props = row.get("properties", {})
+              assert props.get("autoActivate") is False, row
+              assert props.get("provenance", {}).get("autoActivate") == "component_template", row
+              hierarchy = row.get("hierarchy", [])
+              assert hierarchy, row
+              scale = hierarchy[0].get("scale", {})
+              assert [
+                  float(scale.get("X", -1)),
+                  float(scale.get("Y", -1)),
+                  float(scale.get("Z", -1)),
+              ] == [0.5, 0.5, 0.5], row
+              assert (
+                  hierarchy[0]
+                  .get("transformProvenance", {})
+                  .get("scale")
+                  == "component_template"
+              ), row
+          print(
+              "XZOGOT_NACHT_STAGE_BOX_COMPONENT_AUTHORITY_GREEN "
+              "components=2 auto_activate=false scale=0.5"
+          )
+          PY
+
           echo "XZOGOT_NACHT_STAGE_AUTHORITY_GREEN run=$SOURCE_RUN"
 
       - name: Restore proven runtime compilers
