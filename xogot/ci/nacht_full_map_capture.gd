@@ -648,6 +648,57 @@ func _capture() -> void:
 	if not (await _save_view("/tmp/xogot-nacht-overview.png", "overview")):
 		return
 
+	# Runtime-state overview isolation: never restart/seek particles here. The
+	# overview defect only counts if it exists in the real simulation state.
+	for particle_index in range(particle_visuals.size()):
+		var raw_particle: Node = particle_visuals[particle_index]
+		if not (raw_particle is Node3D):
+			continue
+		var visual := raw_particle as Node3D
+		if not particle_visibility[particle_index]:
+			continue
+		var parent := visual.get_parent()
+		var system_path := (
+			str(parent.get_meta("source_particle_system_path", ""))
+			if parent != null
+			else ""
+		)
+		visual.visible = false
+		var overview_hide_path := (
+			"/tmp/xogot-nacht-overview-hide-system-%02d.png" % particle_index
+		)
+		if not (await _save_view(
+			overview_hide_path,
+			"overview_hide_system_%02d" % particle_index,
+			false,
+			2
+		)):
+			return
+		print(
+			"XZOGOT_NACHT_OVERVIEW_SYSTEM_ISOLATION ",
+			"index=", particle_index,
+			" system=", system_path,
+			" forced_restart=false runtime_state=true"
+		)
+		visual.visible = particle_visibility[particle_index]
+
+	for particle_index in range(particle_visuals.size()):
+		var raw_particle: Node = particle_visuals[particle_index]
+		if raw_particle is Node3D:
+			(raw_particle as Node3D).visible = false
+	if not (await _save_view(
+		"/tmp/xogot-nacht-overview-no-particles.png",
+		"overview_no_particles",
+		false,
+		2
+	)):
+		return
+	for particle_index in range(particle_visuals.size()):
+		var raw_particle: Node = particle_visuals[particle_index]
+		if raw_particle is Node3D:
+			(raw_particle as Node3D).visible = particle_visibility[particle_index]
+	print("XZOGOT_NACHT_OVERVIEW_PARTICLE_AB_GREEN")
+
 	scene.queue_free()
 	await process_frame
 	quit(0)
