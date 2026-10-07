@@ -45,6 +45,10 @@ const FIRE_00_MAT_BONE3 := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Materials/F
 const FIRE_00_MAT_DISTORT := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Materials/Distortion/Distortion_Mat_Inst2.Distortion_Mat_Inst2"
 const FIRE_00_MAT_FLAME := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Materials/Etc/Flame_Inst.Flame_Inst"
 const FIRE_00_MAT_SMOKE := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Materials/Smoke_Inst/0_6_smoke_Inst.0_6_smoke_Inst"
+const FIRE_14_SYSTEM := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Particles/Fire/Fire_14.Fire_14"
+const FIRE_14_MAT_BIG_FWD := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Materials/Fire_Inst/bigfireB_fwd_Inst.bigfireB_fwd_Inst"
+const FIRE_14_MAT_SMOKE := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Materials/Smoke_Inst/3_6_smoke4_Inst.3_6_smoke4_Inst"
+const FIRE_14_MAT_BIG_LOOP := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Materials/Fireloop_Inst/bigfireB_Inst.bigfireB_Inst"
 
 
 static func _canonical(raw: String) -> String:
@@ -3109,6 +3113,292 @@ static func fire_00_descriptor(graphs: Dictionary) -> Dictionary:
 	return {
 		"ready": true,
 		"systemPath": FIRE_00_SYSTEM,
+		"emitterCount": 6,
+		"lodCount": 12,
+		"materialPaths": material_paths,
+		"lifetimeRanges": lifetime_ranges,
+		"spawnRates": spawn_rates,
+		"dynamicModuleCount": 2,
+		"dynamicParameterCount": 8,
+		"particleLightCount": 1,
+		"disabledSkelSurfaceCount": 1,
+		"lodPeaks": peaks,
+		"sourceNodeCount": int(system.get("nodeCount", 0)),
+		"sourceReferenceCount": int(system.get("referenceCount", 0)),
+	}
+
+
+static func fire_14_descriptor(graphs: Dictionary) -> Dictionary:
+	var system := _find_system(graphs, FIRE_14_SYSTEM)
+	if system.is_empty():
+		return {"ready": false, "error": "Fire_14 source system missing"}
+	if int(system.get("nodeCount", -1)) != 126:
+		return {"ready": false, "error": "Fire_14 node count mismatch %d" % int(system.get("nodeCount", -1))}
+	if int(system.get("referenceCount", -1)) != 45:
+		return {"ready": false, "error": "Fire_14 reference count mismatch %d" % int(system.get("referenceCount", -1))}
+
+	var expected_counts := {
+		"DistributionFloatConstant": 18,
+		"DistributionFloatConstantCurve": 4,
+		"ParticleLODLevel": 12,
+		"ParticleModuleAcceleration": 1,
+		"ParticleModuleColor": 1,
+		"ParticleModuleColorOverLife": 5,
+		"ParticleModuleColorScaleOverLife": 1,
+		"ParticleModuleLifetime": 6,
+		"ParticleModuleLight": 1,
+		"ParticleModuleLocation": 2,
+		"ParticleModuleLocationEmitter": 3,
+		"ParticleModuleLocationPrimitiveCylinder": 5,
+		"ParticleModuleLocationPrimitiveSphere": 1,
+		"ParticleModuleLocationSkelVertSurface": 1,
+		"ParticleModuleOrbit": 2,
+		"ParticleModuleOrientationAxisLock": 2,
+		"ParticleModuleParameterDynamic": 2,
+		"ParticleModulePivotOffset": 4,
+		"ParticleModuleRequired": 6,
+		"ParticleModuleRotation": 3,
+		"ParticleModuleRotationRate": 3,
+		"ParticleModuleSize": 6,
+		"ParticleModuleSizeMultiplyLife": 6,
+		"ParticleModuleSizeScaleBySpeed": 3,
+		"ParticleModuleSpawn": 12,
+		"ParticleModuleSubUV": 3,
+		"ParticleModuleSubUVMovie": 2,
+		"ParticleModuleVelocity": 7,
+		"ParticleModuleVelocityOverLifetime": 3,
+		"ParticleSystem": 1,
+	}
+	for raw_type: Variant in expected_counts.keys():
+		var type_name := str(raw_type)
+		var actual := ParticleSource.nodes_by_type(system, type_name).size()
+		var expected := int(expected_counts[raw_type])
+		if actual != expected:
+			return {"ready": false, "error": "Fire_14 module count mismatch %s=%d/%d" % [type_name, actual, expected]}
+
+	var base := str(system.get("objectPath", ""))
+	var required_specs := {
+		"ParticleModuleRequired_12": [FIRE_14_MAT_BIG_FWD, 8, 4, "PSUVIM_Linear_Blend", "PSA_Velocity"],
+		"ParticleModuleRequired_2": [FIRE_14_MAT_SMOKE, 8, 8, "PSUVIM_Linear_Blend", ""],
+		"ParticleModuleRequired_3": [FIRE_00_MAT_DISTORT, -1, -1, "", ""],
+		"ParticleModuleRequired_7": [FIRE_00_MAT_FLAME, 2, 2, "PSUVIM_Random", ""],
+		"ParticleModuleRequired_8": [FIRE_00_MAT_FLAME, 2, 2, "PSUVIM_Random", "PSA_Velocity"],
+		"ParticleModuleRequired_9": [FIRE_14_MAT_BIG_LOOP, 8, 8, "PSUVIM_Linear_Blend", "PSA_Rectangle"],
+	}
+	var required_paths: Array[String] = []
+	var material_paths: Array[String] = []
+	for raw_suffix: Variant in required_specs.keys():
+		var suffix := str(raw_suffix)
+		var node := _node_by_path(system, base + ":" + suffix)
+		if node.is_empty():
+			return {"ready": false, "error": "Fire_14 required node missing " + suffix}
+		var p := ParticleSource.properties(node)
+		var spec: Array = required_specs[raw_suffix] as Array
+		if _canonical(str(p.get("Material", ""))) != _canonical(str(spec[0])):
+			return {"ready": false, "error": "Fire_14 material mismatch " + suffix}
+		if int(spec[1]) >= 0:
+			if int(p.get("SubImages_Horizontal", -1)) != int(spec[1]) or int(p.get("SubImages_Vertical", -1)) != int(spec[2]):
+				return {"ready": false, "error": "Fire_14 SubUV grid mismatch " + suffix}
+		if not str(spec[3]).is_empty() and str(p.get("InterpolationMethod", "")) != str(spec[3]):
+			return {"ready": false, "error": "Fire_14 interpolation mismatch " + suffix}
+		if not str(spec[4]).is_empty() and str(p.get("ScreenAlignment", "")) != str(spec[4]):
+			return {"ready": false, "error": "Fire_14 alignment mismatch " + suffix}
+		if p.has("bUseLegacyEmitterTime") and bool(p.get("bUseLegacyEmitterTime", true)):
+			return {"ready": false, "error": "Fire_14 legacy emitter time enabled " + suffix}
+		if suffix == "ParticleModuleRequired_2":
+			if not is_equal_approx(float(p.get("EmitterDelay", -1.0)), 0.1) or str(p.get("SortMode", "")) != "PSORTMODE_Age_OldestFirst":
+				return {"ready": false, "error": "Fire_14 smoke required contract mismatch"}
+		if suffix == "ParticleModuleRequired_3" and int(p.get("MaxDrawCount", -1)) != 100:
+			return {"ready": false, "error": "Fire_14 distortion MaxDrawCount mismatch"}
+		required_paths.append(base + ":" + suffix)
+		material_paths.append(str(p.get("Material", "")))
+	material_paths.sort()
+
+	var expected_lifetimes := {
+		"ParticleModuleLifetime_13": Vector2(0.75, 1.25),
+		"ParticleModuleLifetime_2": Vector2(3.0, 5.0),
+		"ParticleModuleLifetime_3": Vector2(0.5, 1.0),
+		"ParticleModuleLifetime_5": Vector2(0.5, 1.0),
+		"ParticleModuleLifetime_7": Vector2(0.75, 2.0),
+		"ParticleModuleLifetime_9": Vector2(3.0, 5.0),
+	}
+	var lifetime_ranges: Array[Vector2] = []
+	for raw_suffix: Variant in expected_lifetimes.keys():
+		var suffix := str(raw_suffix)
+		var node := _node_by_path(system, base + ":" + suffix)
+		if node.is_empty():
+			return {"ready": false, "error": "Fire_14 lifetime node missing " + suffix}
+		var values := ParticleSource.table_float_values(_distribution(ParticleSource.properties(node).get("Lifetime")))
+		var expected: Vector2 = expected_lifetimes[raw_suffix]
+		if values.size() != 2 or not is_equal_approx(values[0], expected.x) or not is_equal_approx(values[1], expected.y):
+			return {"ready": false, "error": "Fire_14 lifetime mismatch " + suffix + " " + str(values)}
+		lifetime_ranges.append(expected)
+	lifetime_ranges.sort()
+
+	var expected_size_values := {
+		"ParticleModuleSize_14": [10.0, 10.0, 0.0, 8.0, 8.0, 0.0],
+		"ParticleModuleSize_2": [17.5, 25.0, 25.0, 15.0, 25.0, 25.0],
+		"ParticleModuleSize_3": [20.0, 10.0, 0.0, 15.0, 6.0, 0.0],
+		"ParticleModuleSize_7": [4.0, 0.0, 0.0, 2.0, 0.0, 0.0],
+		"ParticleModuleSize_8": [20.0, 10.0, 0.0, 15.0, 6.0, 0.0],
+		"ParticleModuleSize_9": [5.0, 6.0, 0.0, 2.0, 2.0, 0.0],
+	}
+	for raw_suffix: Variant in expected_size_values.keys():
+		var suffix := str(raw_suffix)
+		var node := _node_by_path(system, base + ":" + suffix)
+		if node.is_empty():
+			return {"ready": false, "error": "Fire_14 size node missing " + suffix}
+		var values := ParticleSource.table_float_values(_distribution(ParticleSource.properties(node).get("StartSize")))
+		var expected: Array = expected_size_values[raw_suffix] as Array
+		if values.size() != expected.size():
+			return {"ready": false, "error": "Fire_14 size sample count mismatch " + suffix}
+		for i in range(values.size()):
+			if not is_equal_approx(float(values[i]), float(expected[i])):
+				return {"ready": false, "error": "Fire_14 size mismatch " + suffix + " sample=" + str(i)}
+
+	var expected_velocity_values := {
+		"ParticleModuleVelocity_2": [-75.0, -25.0, 200.0, 75.0, 25.0, 100.0],
+		"ParticleModuleVelocity_4": [-10.0, -10.0, 50.0, 10.0, 10.0, 100.0],
+		"ParticleModuleVelocity_5": [-10.0, -10.0, 1.0, 10.0, 10.0, 10.0],
+		"ParticleModuleVelocity_6": [-5.0, -5.0, 10.0, 5.0, 5.0, 50.0],
+		"ParticleModuleVelocity_7": [-10.0, -10.0, 1.0, 10.0, 10.0, 5.0],
+		"ParticleModuleVelocity_10": [-20.0, -20.0, 20.0, 20.0, 20.0, 60.0],
+		"ParticleModuleVelocity_16": [-10.0, -10.0, 10.0, 10.0, 10.0, 30.0],
+	}
+	for raw_suffix: Variant in expected_velocity_values.keys():
+		var suffix := str(raw_suffix)
+		var node := _node_by_path(system, base + ":" + suffix)
+		if node.is_empty():
+			return {"ready": false, "error": "Fire_14 velocity node missing " + suffix}
+		var values := ParticleSource.table_float_values(_distribution(ParticleSource.properties(node).get("StartVelocity")))
+		var expected: Array = expected_velocity_values[raw_suffix] as Array
+		if values.size() != expected.size():
+			return {"ready": false, "error": "Fire_14 velocity sample count mismatch " + suffix}
+		for i in range(values.size()):
+			if not is_equal_approx(float(values[i]), float(expected[i])):
+				return {"ready": false, "error": "Fire_14 velocity mismatch " + suffix + " sample=" + str(i)}
+
+	var expected_spawn_rates := {
+		"ParticleModuleSpawn_0": 0.29999998,
+		"ParticleModuleSpawn_1": 4.9999995,
+		"ParticleModuleSpawn_2": 1.4999999,
+		"ParticleModuleSpawn_3": 0.99999994,
+		"ParticleModuleSpawn_4": 15.0,
+		"ParticleModuleSpawn_5": 20.0,
+		"ParticleModuleSpawn_7": 50.0,
+		"ParticleModuleSpawn_8": 3.0,
+		"ParticleModuleSpawn_9": 1.9999999,
+		"ParticleModuleSpawn_13": 10.0,
+		"ParticleModuleSpawn_16": 30.0,
+		"ParticleModuleSpawn_17": 4.9999995,
+	}
+	var spawn_rates: Array[float] = []
+	for raw_suffix: Variant in expected_spawn_rates.keys():
+		var suffix := str(raw_suffix)
+		var node := _node_by_path(system, base + ":" + suffix)
+		if node.is_empty():
+			return {"ready": false, "error": "Fire_14 spawn node missing " + suffix}
+		var p := ParticleSource.properties(node)
+		var values := ParticleSource.table_float_values(_distribution(p.get("Rate")))
+		var expected := float(expected_spawn_rates[raw_suffix])
+		if values.size() != 1 or not is_equal_approx(values[0], expected):
+			return {"ready": false, "error": "Fire_14 spawn rate mismatch " + suffix + " " + str(values)}
+		var scale := _distribution(p.get("RateScale"))
+		if not is_equal_approx(float(scale.get("MinValue", -1.0)), 1.0):
+			return {"ready": false, "error": "Fire_14 spawn scale mismatch " + suffix}
+		spawn_rates.append(expected)
+	spawn_rates.sort()
+
+	var dynamic_specs := {
+		"ParticleModuleParameterDynamic_1": [
+			["Temperature", 10.0, 2000.0, 128],
+			["Temp_Intensity", 0.9350411, 50.0, 64],
+			["ori_blend", 0.0, 0.3499905, 2],
+			["None", 0.0, 0.0, 1],
+		],
+		"ParticleModuleParameterDynamic_4": [
+			["Normal_Scale", 0.4, 0.4, 1],
+			["Normal_Flatness", 0.5, 1.0, 4],
+			["IOR", 0.03, 0.03, 1],
+			["None", 0.05, 0.05, 1],
+		],
+	}
+	for raw_suffix: Variant in dynamic_specs.keys():
+		var suffix := str(raw_suffix)
+		var node := _node_by_path(system, base + ":" + suffix)
+		if node.is_empty():
+			return {"ready": false, "error": "Fire_14 dynamic node missing " + suffix}
+		var p := ParticleSource.properties(node)
+		if int(p.get("UpdateFlags", -1)) != 15:
+			return {"ready": false, "error": "Fire_14 dynamic UpdateFlags mismatch " + suffix}
+		var rows_raw: Variant = p.get("DynamicParams", [])
+		if not (rows_raw is Array) or (rows_raw as Array).size() != 4:
+			return {"ready": false, "error": "Fire_14 dynamic row count mismatch " + suffix}
+		var specs: Array = dynamic_specs[raw_suffix] as Array
+		for i in range(4):
+			var row_raw: Variant = (rows_raw as Array)[i]
+			if not (row_raw is Dictionary):
+				return {"ready": false, "error": "Fire_14 dynamic row invalid " + suffix}
+			var row := row_raw as Dictionary
+			var spec: Array = specs[i] as Array
+			if str(row.get("ParamName", "")) != str(spec[0]) or str(row.get("ValueMethod", "")) != "EDPV_UserSet":
+				return {"ready": false, "error": "Fire_14 dynamic identity mismatch " + suffix + " index=" + str(i)}
+			var d := _distribution(row.get("ParamValue"))
+			if not is_equal_approx(float(d.get("MinValue", -999.0)), float(spec[1])) or not is_equal_approx(float(d.get("MaxValue", -999.0)), float(spec[2])):
+				return {"ready": false, "error": "Fire_14 dynamic range mismatch " + suffix + " index=" + str(i)}
+			if ParticleSource.table_float_values(d).size() != int(spec[3]):
+				return {"ready": false, "error": "Fire_14 dynamic sample count mismatch " + suffix + " index=" + str(i)}
+
+	var pivot_expected := {
+		"ParticleModulePivotOffset_1": Vector2(0.0, -0.5),
+		"ParticleModulePivotOffset_3": Vector2(0.0, -0.5),
+		"ParticleModulePivotOffset_7": Vector2(0.0, -0.5),
+		"ParticleModulePivotOffset_9": Vector2(0.0, -0.4),
+	}
+	for raw_suffix: Variant in pivot_expected.keys():
+		var suffix := str(raw_suffix)
+		var node := _node_by_path(system, base + ":" + suffix)
+		if node.is_empty():
+			return {"ready": false, "error": "Fire_14 pivot node missing " + suffix}
+		var p := ParticleSource.properties(node)
+		if not ParticleSource.vector2(p.get("PivotOffset"), Vector2.INF).is_equal_approx(pivot_expected[raw_suffix]):
+			return {"ready": false, "error": "Fire_14 pivot mismatch " + suffix}
+
+	var skel_nodes := ParticleSource.nodes_by_type(system, "ParticleModuleLocationSkelVertSurface")
+	if skel_nodes.size() != 1 or bool(ParticleSource.properties(skel_nodes[0]).get("bEnabled", true)):
+		return {"ready": false, "error": "Fire_14 source-disabled skeletal location mismatch"}
+
+	var light := _one_node(system, "ParticleModuleLight")
+	var light_props := ParticleSource.properties(light)
+	if ParticleSource.table_float_values(_distribution(light_props.get("BrightnessOverLife"))) != [0.5]:
+		return {"ready": false, "error": "Fire_14 light brightness mismatch"}
+	if ParticleSource.table_float_values(_distribution(light_props.get("ColorScaleOverLife"))) != [0.8, 1.0, 0.5]:
+		return {"ready": false, "error": "Fire_14 light color mismatch"}
+	if ParticleSource.table_float_values(_distribution(light_props.get("LightExponent"))) != [2.0]:
+		return {"ready": false, "error": "Fire_14 light exponent mismatch"}
+	if ParticleSource.table_float_values(_distribution(light_props.get("RadiusScale"))) != [2.0]:
+		return {"ready": false, "error": "Fire_14 light radius mismatch"}
+	if not bool(light_props.get("bAffectsTranslucency", false)) or not bool(light_props.get("bHighQualityLights", false)) or bool(light_props.get("bUseInverseSquaredFalloff", true)):
+		return {"ready": false, "error": "Fire_14 light flags mismatch"}
+
+	var lod_nodes := ParticleSource.nodes_by_type(system, "ParticleLODLevel")
+	var peaks: Array[int] = []
+	var required_counts: Dictionary = {}
+	for node: Dictionary in lod_nodes:
+		var p := ParticleSource.properties(node)
+		peaks.append(int(p.get("PeakActiveParticles", -1)))
+		var required_key := _canonical(str(p.get("RequiredModule", "")))
+		required_counts[required_key] = int(required_counts.get(required_key, 0)) + 1
+	peaks.sort()
+	if peaks != [4, 4, 7, 7, 12, 12, 15, 17, 22, 32, 77, 102]:
+		return {"ready": false, "error": "Fire_14 LOD peaks mismatch " + str(peaks)}
+	for required_path: String in required_paths:
+		if int(required_counts.get(_canonical(required_path), 0)) != 2:
+			return {"ready": false, "error": "Fire_14 LOD required mapping mismatch " + required_path}
+
+	return {
+		"ready": true,
+		"systemPath": FIRE_14_SYSTEM,
 		"emitterCount": 6,
 		"lodCount": 12,
 		"materialPaths": material_paths,
