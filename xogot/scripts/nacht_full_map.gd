@@ -983,6 +983,22 @@ func _audio_component_position(raw_hierarchy: Variant) -> Vector3:
 	) * 0.01
 
 
+func _source_transform_from_row_major(raw: Variant) -> Transform3D:
+	if not (raw is Array):
+		return Transform3D.IDENTITY
+	var m := raw as Array
+	if m.size() != 16:
+		return Transform3D.IDENTITY
+	return Transform3D(
+		Basis(
+			Vector3(float(m[0]), float(m[4]), float(m[8])),
+			Vector3(float(m[1]), float(m[5]), float(m[9])),
+			Vector3(float(m[2]), float(m[6]), float(m[10]))
+		),
+		Vector3(float(m[3]), float(m[7]), float(m[11]))
+	)
+
+
 func _environment_component_position(raw_hierarchy: Variant) -> Vector3:
 	if not (raw_hierarchy is Array):
 		return Vector3.ZERO
@@ -1203,19 +1219,14 @@ func _mount_source_particle_semantic_anchors(
 			push_error("NACHT_FULL_MAP: particle root hierarchy row invalid")
 			return false
 		var root := root_raw as Dictionary
-		var loc_raw: Variant = root.get("locationUEcm", {})
-		if not (loc_raw is Dictionary):
-			push_error("NACHT_FULL_MAP: particle root location missing")
+		var matrix_raw: Variant = raw.get("matrixRowMajor", [])
+		if not (matrix_raw is Array) or (matrix_raw as Array).size() != 16:
+			push_error("NACHT_FULL_MAP: particle source world matrix missing")
 			return false
-		var loc := loc_raw as Dictionary
 
 		var anchor := Node3D.new()
 		anchor.name = "NachtCascadeSemantic_" + str(raw.get("id", "unknown"))
-		anchor.position = Vector3(
-			float(loc.get("X", 0.0)),
-			float(loc.get("Y", 0.0)),
-			float(loc.get("Z", 0.0))
-		) * 0.01
+		anchor.transform = _source_transform_from_row_major(matrix_raw)
 		anchor.add_to_group("nacht_source_particle_semantic")
 		anchor.set_meta("source_particle_id", str(raw.get("id", "")))
 		anchor.set_meta("source_actor_name", str(raw.get("actorName", "")))
@@ -1231,6 +1242,8 @@ func _mount_source_particle_semantic_anchors(
 		)
 		anchor.set_meta("source_root_rotation_ue", root.get("rotationUE", {}))
 		anchor.set_meta("source_root_scale", root.get("scale", {}))
+		anchor.set_meta("source_particle_world_matrix_row_major", matrix_raw)
+		anchor.set_meta("source_particle_hierarchy_depth", hierarchy.size())
 		_runtime_root.add_child(anchor)
 
 		var visual_report := NachtCascadeVisualRuntime.mount_anchor(
