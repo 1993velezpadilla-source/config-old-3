@@ -206,31 +206,21 @@ def decode_lookup_table(raw_table: Any, dimension: int | None = None) -> dict[st
 
 
 def iter_lookup_tables(root: Any, path: str = "$") -> Iterable[tuple[str, dict[str, Any]]]:
-    """Yield unique raw-distribution Table objects from reflected authority JSON."""
-    seen: set[int] = set()
+    """Yield semantic lookup tables once from an already-unwrapped value."""
+    decoded_root = unwrap(root)
 
     def visit(value: Any, current: str) -> Iterable[tuple[str, dict[str, Any]]]:
         if isinstance(value, dict):
-            identity = id(value)
-            if identity in seen:
+            if TABLE_KEYS.issubset(value):
+                yield current, value
                 return
-            seen.add(identity)
-
-            decoded = unwrap(value)
-            if isinstance(decoded, dict):
-                table = decoded.get("Table")
-                if isinstance(table, dict):
-                    unwrapped_table = unwrap(table)
-                    if isinstance(unwrapped_table, dict) and TABLE_KEYS.issubset(unwrapped_table):
-                        yield current + ".Table", unwrapped_table
-
             for key, child in value.items():
                 yield from visit(child, current + "." + str(key))
         elif isinstance(value, list):
             for index, child in enumerate(value):
                 yield from visit(child, current + f"[{index}]")
 
-    yield from visit(root, path)
+    yield from visit(decoded_root, path)
 
 
 
@@ -269,27 +259,80 @@ def census_graphs(graphs: dict[str, Any]) -> dict[str, Any]:
     counts: Counter[str] = Counter()
     dimensions: Counter[str] = Counter()
     operations: Counter[str] = Counter()
+    node_types: Counter[str] = Counter()
+    property_names: Counter[str] = Counter()
     rows: list[dict[str, Any]] = []
     errors: list[dict[str, str]] = []
 
-    for path, table in iter_lookup_tables(graphs):
-        try:
-            decoded = decode_lookup_table(table)
-        except DistributionDecodeError as exc:
-            errors.append({"path": path, "error": str(exc)})
+    systems = graphs.get("systems", [])
+    if not isinstance(systems, list):
+        systems = []
+
+    for system_index, system in enumerate(systems):
+        if not isinstance(system, dict):
             continue
-        counts[decoded["kind"]] += 1
-        dimensions[str(decoded["dimension"])] += 1
-        operations[str(decoded["operation"])] += 1
-        rows.append({"path": path, "decoded": decoded})
+        system_path = str(system.get("objectPath", ""))
+        nodes = system.get("nodes", [])
+        if not isinstance(nodes, list):
+            continue
+        for node_index, node in enumerate(nodes):
+            if not isinstance(node, dict):
+                continue
+            node_type = str(node.get("exportType", ""))
+            node_path = str(node.get("objectPath", ""))
+            properties = node.get("properties", [])
+            if not isinstance(properties, list):
+                continue
+            for property_index, prop in enumerate(properties):
+                if not isinstance(prop, dict):
+                    continue
+                property_name = str(prop.get("name", ""))
+                value = prop.get("value")
+                for subpath, table in iter_lookup_tables(
+                    value,
+                    path="$",
+                ):
+                    semantic_path = (
+                        f"systems[{system_index}]"
+                        f".nodes[{node_index}]"
+                        f".properties[{property_index}]"
+                        f".{property_name}{subpath[1:]}"
+                    )
+                    try:
+                        decoded = decode_lookup_table(table)
+                    except DistributionDecodeError as exc:
+                        errors.append({
+                            "path": semantic_path,
+                            "systemPath": system_path,
+                            "nodePath": node_path,
+                            "nodeType": node_type,
+                            "property": property_name,
+                            "error": str(exc),
+                        })
+                        continue
+                    counts[decoded["kind"]] += 1
+                    dimensions[str(decoded["dimension"])] += 1
+                    operations[str(decoded["operation"])] += 1
+                    node_types[node_type] += 1
+                    property_names[property_name] += 1
+                    rows.append({
+                        "path": semantic_path,
+                        "systemPath": system_path,
+                        "nodePath": node_path,
+                        "nodeType": node_type,
+                        "property": property_name,
+                        "decoded": decoded,
+                    })
 
     return {
-        "decoder": "xogot-ue-bridge-reflection-compatible-v1",
+        "decoder": "xogot-ue-bridge-reflection-compatible-v2",
         "rawDistributionCoverage": raw_distribution_census(graphs),
         "total": len(rows),
         "counts": dict(sorted(counts.items())),
         "dimensions": dict(sorted(dimensions.items())),
         "operations": dict(sorted(operations.items())),
+        "nodeTypes": dict(sorted(node_types.items())),
+        "properties": dict(sorted(property_names.items())),
         "errors": errors,
         "rows": rows,
     }
@@ -309,7 +352,17 @@ def main() -> int:
     report = census_graphs(graphs)
     summary = {
         key: report[key]
-        for key in ("decoder", "rawDistributionCoverage", "total", "counts", "dimensions", "operations", "errors")
+        for key in (
+            "decoder",
+            "rawDistributionCoverage",
+            "total",
+            "counts",
+            "dimensions",
+            "operations",
+            "nodeTypes",
+            "properties",
+            "errors",
+        )
     }
     print("XZOGOT_UE_BRIDGE_CASCADE_CENSUS " + json.dumps(summary, sort_keys=True))
 
