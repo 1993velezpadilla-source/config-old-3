@@ -3,8 +3,10 @@ import unittest
 from cascade_distribution_decoder import (
     RDO_NONE,
     RDO_RANDOM,
+    census_graphs,
     classify_table,
     decode_lookup_table,
+    iter_lookup_tables,
 )
 
 
@@ -79,6 +81,70 @@ class CascadeDistributionDecoderTests(unittest.TestCase):
         self.assertEqual(decoded["keys"][1]["time"], 0.25)
         self.assertEqual(decoded["keys"][1]["min"], [4.0, 5.0, 6.0])
         self.assertEqual(decoded["keys"][1]["max"], [40.0, 50.0, 60.0])
+
+    def test_generic_value_and_value_aliases_do_not_duplicate_table(self):
+        table = {
+            "EntryCount": 1,
+            "EntryStride": 2,
+            "SubEntryStride": 1,
+            "Op": RDO_RANDOM,
+            "TimeScale": 0.0,
+            "TimeBias": 0.0,
+            "Values": [2.0, 5.0],
+        }
+        wrapped = {
+            "kind": "CUE4Parse.Test.Property",
+            "members": {
+                "GenericValue": {"Table": table},
+                "Value": {"Table": table},
+            },
+        }
+        rows = list(iter_lookup_tables(wrapped))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][1]["Values"], [2.0, 5.0])
+
+    def test_census_reports_node_and_property_context(self):
+        table = {
+            "EntryCount": 1,
+            "EntryStride": 2,
+            "SubEntryStride": 1,
+            "Op": RDO_RANDOM,
+            "TimeScale": 0.0,
+            "TimeBias": 0.0,
+            "Values": [1.0, 3.0],
+        }
+        graphs = {
+            "systems": [
+                {
+                    "objectPath": "/Game/Test/P.P",
+                    "nodes": [
+                        {
+                            "objectPath": "/Game/Test/P.P:ParticleModuleLifetime_0",
+                            "exportType": "ParticleModuleLifetime",
+                            "properties": [
+                                {
+                                    "name": "Lifetime",
+                                    "value": {
+                                        "kind": "CUE4Parse.Test.Property",
+                                        "members": {
+                                            "GenericValue": {"Table": table},
+                                            "Value": {"Table": table},
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        }
+        report = census_graphs(graphs)
+        self.assertEqual(report["total"], 1)
+        self.assertEqual(
+            report["nodeTypes"]["ParticleModuleLifetime"],
+            1,
+        )
+        self.assertEqual(report["properties"]["Lifetime"], 1)
 
 
 if __name__ == "__main__":
