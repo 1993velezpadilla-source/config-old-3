@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - feature/godot-aaa-rebuild-v1
+      - wip/nacht-static-default-surface-v3
     paths:
       - "xogot/**"
       - ".github/workflows/xogot-aaa-rebuild-gate.yml"
