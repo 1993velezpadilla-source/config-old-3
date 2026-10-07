@@ -902,7 +902,12 @@ func _material_for_path(material_path: String) -> Material:
 		normal_source = _exact_parameter_texture(record, "NormalTexture")
 		if not normal_source.is_empty():
 			normal_authority = "explicit_parameter:NormalTexture"
-	if emissive_source.is_empty() and not graph_emissive_as_unshaded_color:
+	var suppress_emissive_texture_fallback := (
+		graph_emissive_as_unshaded_color
+		or partial_parent_override_emissive_as_unshaded_color
+		or partial_primary_emissive_as_unshaded_color
+	)
+	if emissive_source.is_empty() and not suppress_emissive_texture_fallback:
 		emissive_source = _exact_parameter_texture(record, "EmissiveTexture")
 		if not emissive_source.is_empty():
 			source_emissive_binding_route = "parameter:EmissiveTexture"
@@ -914,7 +919,7 @@ func _material_for_path(material_path: String) -> Material:
 	)
 	if (
 		emissive_source.is_empty()
-		and not graph_emissive_as_unshaded_color
+		and not suppress_emissive_texture_fallback
 		and allow_emiss_parameter
 	):
 		emissive_source = _exact_parameter_texture(record, "EMISS")
