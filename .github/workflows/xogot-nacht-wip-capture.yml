@@ -21,7 +21,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: xogot-nacht-wip-capture
+  group: xogot-nacht-wip-capture-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
