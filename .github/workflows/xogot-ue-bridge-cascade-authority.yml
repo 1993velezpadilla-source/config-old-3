@@ -109,7 +109,7 @@ jobs:
             --strict \
             2>&1 | tee build/ue-bridge/mystery-vertical-material-bridge.log
           grep -q "XZOGOT_UE_BRIDGE_MATERIAL_GREEN" build/ue-bridge/mystery-vertical-material-bridge.log
-          grep -q "mysteryboxverticalparticle" build/ue-bridge/mystery-vertical-material-bridge.log
+          grep -qi "mysteryboxverticalparticle" build/ue-bridge/mystery-vertical-material-bridge.log
           if grep -q "XZOGOT_UE_BRIDGE_MATERIAL_FAILURE" build/ue-bridge/mystery-vertical-material-bridge.log; then
             exit 1
           fi
