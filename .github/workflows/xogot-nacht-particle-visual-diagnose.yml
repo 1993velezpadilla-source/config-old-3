@@ -71,6 +71,9 @@ jobs:
                   "id":p.get("id"),
                   "actorName":p.get("actorName"),
                   "componentName":p.get("componentName"),
+                  "ownerExportType":p.get("ownerExportType"),
+                  "ownerClassPath":p.get("ownerClassPath"),
+                  "sourcePath":p.get("sourcePath"),
                   "systemPath":p.get("templateObjectPath"),
                   "worldPositionMeters":[m[3],m[7],m[11]],
                   "worldScale":[sx,sy,sz],
@@ -88,6 +91,26 @@ jobs:
           }
           dest=Path("build/nacht-particle-visual-diagnose/placement-matrices.json")
           dest.write_text(json.dumps(out,indent=2)+"\n")
+
+          targets=("p_monster_death_xlarge","quadexplodesmoke1")
+          for system in data.get("placedSystems", []):
+              path=(system.get("objectPath") or "")
+              if not any(token in path.lower() for token in targets):
+                  continue
+              print("XZOGOT_NACHT_PARTICLE_TIMING_SYSTEM", path)
+              for node in system.get("nodes", []):
+                  if node.get("exportType") != "ParticleModuleRequired":
+                      continue
+                  props=node.get("properties", {}) or {}
+                  print(
+                      "  REQUIRED",
+                      node.get("objectPath"),
+                      "delay=",props.get("EmitterDelay"),
+                      "duration=",props.get("EmitterDuration"),
+                      "durationLow=",props.get("EmitterDurationLow"),
+                      "loops=",props.get("EmitterLoops"),
+                      "legacy=",props.get("bUseLegacyEmitterTime"),
+                  )
 
           print("XZOGOT_NACHT_PARTICLE_MATRIX_DIAG_GREEN placements=",len(rows))
           for row in rows:
