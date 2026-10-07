@@ -567,14 +567,14 @@ func _validate_authority() -> bool:
 	if int(_particle_activation_authority.get("cfgLinkedActionCount", 0)) != 17:
 		push_error("NACHT_FULL_MAP: particle CFG linked action count mismatch")
 		return false
-	if int(_particle_activation_authority.get("replaySafeEventCount", 0)) != 3:
+	if int(_particle_activation_authority.get("replaySafeEventCount", 0)) != 4:
 		push_error("NACHT_FULL_MAP: particle replay-safe event count mismatch")
 		return false
 	var replay_events_raw: Variant = _particle_activation_authority.get(
 		"replaySafeEvents",
 		[]
 	)
-	if not (replay_events_raw is Array) or (replay_events_raw as Array).size() != 3:
+	if not (replay_events_raw is Array) or (replay_events_raw as Array).size() != 4:
 		push_error("NACHT_FULL_MAP: particle replay-safe event authority incomplete")
 		return false
 	var activation_actions_raw: Variant = _particle_activation_authority.get(
