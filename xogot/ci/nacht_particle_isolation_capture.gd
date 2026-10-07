@@ -1,7 +1,9 @@
 extends SceneTree
 
-const TARGET_CANDIDATES := [4, 5, 6, 9]
+const TARGET_CANDIDATES := [4, 5, 6]
 const EXPECTED_ACTORS := 11023
+const MONSTER_SYSTEM := "/Game/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Monsters/FX_Monster_Deaths/P_Monster_Death_XLarge.P_Monster_Death_XLarge"
+const QUAD_SYSTEM := "/Game/CustomMaps/UGC2755515831/CoD/Particles/Quads/quadExplodeSmoke1.quadExplodeSmoke1"
 
 func _init() -> void:
 	call_deferred("_run")
@@ -42,11 +44,6 @@ func _sampled_mad(a: Image, b: Image, step: int = 4) -> float:
 			samples += 1
 	return total / float(maxi(1, samples))
 
-func _set_system_visible(anchors: Array[Node3D], system_path: String, value: bool) -> void:
-	for anchor: Node3D in anchors:
-		if str(anchor.get_meta("source_particle_system_path", "")) == system_path:
-			anchor.visible = value
-
 func _capture_image(settle_frames: int = 1) -> Image:
 	for _i in range(maxi(1, settle_frames)):
 		await process_frame
@@ -54,6 +51,53 @@ func _capture_image(settle_frames: int = 1) -> Image:
 	if image == null:
 		return null
 	return image.duplicate()
+
+func _place_player(
+	player: CharacterBody3D,
+	camera: Camera3D,
+	collision: CollisionShape3D,
+	spawn: Node3D
+) -> void:
+	var basis := _capture_player_basis_from_source_anchor(spawn)
+	player.global_basis = basis
+	player.global_position = spawn.global_position - basis * collision.position
+	camera.current = true
+
+func _visual_row(node: GPUParticles3D) -> Dictionary:
+	var parent := node.get_parent() as Node3D
+	var process := node.process_material as ParticleProcessMaterial
+	return {
+		"name": node.name,
+		"systemPath": (
+			str(parent.get_meta("source_particle_system_path", ""))
+			if parent != null else ""
+		),
+		"particleId": (
+			str(parent.get_meta("source_particle_id", ""))
+			if parent != null else ""
+		),
+		"materialPath": str(node.get_meta("source_particle_material_path", "")),
+		"emitterPath": str(node.get_meta("source_particle_emitter_path", "")),
+		"rendererMode": str(node.get_meta("source_particle_renderer_mode", "")),
+		"oneShot": node.one_shot,
+		"emitting": node.emitting,
+		"amount": node.amount,
+		"lifetime": node.lifetime,
+		"sourceDelay": node.get_meta("source_emitter_delay_seconds", null),
+		"sourceDuration": node.get_meta("source_emitter_duration_seconds", null),
+		"startScaleBridge": (
+			process.get_meta("source_start_scale_bridge", "")
+			if process != null else ""
+		),
+		"startScaleMin": (
+			process.get_meta("source_start_scale_min", null)
+			if process != null else null
+		),
+		"startScaleMax": (
+			process.get_meta("source_start_scale_max", null)
+			if process != null else null
+		),
+	}
 
 func _run() -> void:
 	var packed := load("res://nacht_full_map.tscn") as PackedScene
@@ -79,8 +123,6 @@ func _run() -> void:
 	var hud := scene.get_node_or_null("HUD")
 	if hud is CanvasLayer:
 		(hud as CanvasLayer).visible = false
-
-	# Structural capture parity with nacht_full_map_capture.gd.
 	if not bool(scene.get_meta("source_environment_visual_exact", false)):
 		for raw_env: Node in get_nodes_in_group("nacht_source_environment_runtime"):
 			if raw_env is WorldEnvironment:
@@ -113,44 +155,27 @@ func _run() -> void:
 		_fail(7, "spawn candidate coverage mismatch " + str(spawn_candidates.size()))
 		return
 
-	var semantic_nodes := get_nodes_in_group("nacht_source_particle_semantic")
-	var particle_anchors: Array[Node3D] = []
-	var systems: Array[String] = []
-	for raw_anchor: Node in semantic_nodes:
-		if not (raw_anchor is Node3D):
+	var suspects: Array[GPUParticles3D] = []
+	for raw_visual: Node in get_nodes_in_group("nacht_source_particle_visual"):
+		if not (raw_visual is GPUParticles3D):
 			continue
-		var particle_anchor := raw_anchor as Node3D
-		particle_anchors.append(particle_anchor)
-		var system_path := str(
-			particle_anchor.get_meta("source_particle_system_path", "")
-		)
-		if not system_path.is_empty() and not systems.has(system_path):
-			systems.append(system_path)
-	systems.sort()
-	if particle_anchors.size() != 29 or systems.size() != 16:
-		_fail(
-			8,
-			"particle isolation coverage mismatch anchors=%d systems=%d"
-			% [particle_anchors.size(), systems.size()]
-		)
+		var visual := raw_visual as GPUParticles3D
+		var parent := visual.get_parent() as Node3D
+		if parent == null:
+			continue
+		var system_path := str(parent.get_meta("source_particle_system_path", ""))
+		if system_path == MONSTER_SYSTEM or system_path == QUAD_SYSTEM:
+			suspects.append(visual)
+	if suspects.size() != 5:
+		_fail(8, "suspect visual coverage mismatch " + str(suspects.size()) + "/5")
 		return
 
-	# Let Cascade advance into a representative frame, then freeze every GPU
-	# emitter so hide-one-system A/B comparisons cannot be polluted by animation.
+	# Capture the early frame where Stage 175 showed the cyan/black/fire cards,
+	# then freeze only the five known offender emitters for deterministic A/B.
 	for _i in range(30):
 		await process_frame
-	var visual_nodes := get_nodes_in_group("nacht_source_particle_visual")
-	var frozen := 0
-	for raw_visual: Node in visual_nodes:
-		if raw_visual is GPUParticles3D:
-			(raw_visual as GPUParticles3D).speed_scale = 0.0
-			frozen += 1
-	print(
-		"XZOGOT_NACHT_PARTICLE_ISOLATION_FREEZE_GREEN visuals=",
-		visual_nodes.size(),
-		" gpu_frozen=",
-		frozen
-	)
+	for visual: GPUParticles3D in suspects:
+		visual.speed_scale = 0.0
 
 	player.set_physics_process(false)
 	player.velocity = Vector3.ZERO
@@ -158,94 +183,121 @@ func _run() -> void:
 	if head != null:
 		head.rotation.x = 0.0
 
+	var early_images: Dictionary = {}
 	var report_rows: Array = []
 	for raw_index: Variant in TARGET_CANDIDATES:
 		var candidate_index := int(raw_index)
-		var spawn := spawn_candidates[candidate_index]
-		var basis := _capture_player_basis_from_source_anchor(spawn)
-		player.global_basis = basis
-		player.global_position = spawn.global_position - basis * collision.position
-		camera.current = true
+		_place_player(player, camera, collision, spawn_candidates[candidate_index])
 		var baseline := await _capture_image(3)
 		if baseline == null or baseline.is_empty():
 			_fail(9, "baseline capture failed candidate=" + str(candidate_index))
 			return
+		early_images[candidate_index] = baseline
 		baseline.save_png(
 			"/tmp/nacht-particle-isolation-candidate-%02d-baseline.png"
 			% candidate_index
 		)
 
 		var scores: Array[Dictionary] = []
-		for system_path: String in systems:
-			_set_system_visible(particle_anchors, system_path, false)
+		for suspect_index in range(suspects.size()):
+			var visual := suspects[suspect_index]
+			var row := _visual_row(visual)
+			visual.visible = false
 			var hidden := await _capture_image(1)
-			_set_system_visible(particle_anchors, system_path, true)
+			visual.visible = true
 			await process_frame
-			var mad := _sampled_mad(baseline, hidden, 4)
-			scores.append({
-				"systemPath": system_path,
-				"mad": mad,
-			})
+			row["index"] = suspect_index
+			row["mad"] = _sampled_mad(baseline, hidden, 4)
+			scores.append(row)
 		scores.sort_custom(
 			func(a: Dictionary, b: Dictionary) -> bool:
 				return float(a.get("mad", 0.0)) > float(b.get("mad", 0.0))
 		)
-		var top_count := mini(6, scores.size())
-		var top: Array = []
-		for score_index in range(top_count):
-			top.append(scores[score_index])
 		print(
-			"XZOGOT_NACHT_PARTICLE_ISOLATION candidate=",
+			"XZOGOT_NACHT_PARTICLE_EMITTER_ISOLATION candidate=",
 			candidate_index,
-			" top=",
-			JSON.stringify(top)
+			" scores=",
+			JSON.stringify(scores)
 		)
-
 		if not scores.is_empty():
-			var top_system := str(scores[0].get("systemPath", ""))
-			_set_system_visible(particle_anchors, top_system, false)
-			var top_hidden := await _capture_image(1)
-			_set_system_visible(particle_anchors, top_system, true)
-			await process_frame
-			if top_hidden != null:
-				top_hidden.save_png(
-					"/tmp/nacht-particle-isolation-candidate-%02d-top-hidden.png"
-					% candidate_index
-				)
-
+			var top_index := int(scores[0].get("index", -1))
+			if top_index >= 0 and top_index < suspects.size():
+				suspects[top_index].visible = false
+				var top_hidden := await _capture_image(1)
+				suspects[top_index].visible = true
+				await process_frame
+				if top_hidden != null:
+					top_hidden.save_png(
+						"/tmp/nacht-particle-isolation-candidate-%02d-top-hidden.png"
+						% candidate_index
+					)
 		report_rows.append({
 			"candidate": candidate_index,
-			"playerPosition": [
-				player.global_position.x,
-				player.global_position.y,
-				player.global_position.z,
-			],
 			"scores": scores,
 		})
 
+	# Resume source one-shots and let the longest 2.8 s Monster Death family
+	# plus its 0.4 s delay fully expire. Seven seconds gives Godot enough room
+	# even if a final particle is born at the end of its one-shot emission cycle.
+	for visual: GPUParticles3D in suspects:
+		visual.speed_scale = 1.0
+	for _i in range(420):
+		await process_frame
+
+	var settled_rows: Array = []
+	for raw_index: Variant in TARGET_CANDIDATES:
+		var candidate_index := int(raw_index)
+		_place_player(player, camera, collision, spawn_candidates[candidate_index])
+		var settled := await _capture_image(3)
+		if settled == null or settled.is_empty():
+			_fail(10, "settled capture failed candidate=" + str(candidate_index))
+			return
+		settled.save_png(
+			"/tmp/nacht-particle-isolation-candidate-%02d-settled.png"
+			% candidate_index
+		)
+		var early := early_images[candidate_index] as Image
+		var settled_mad := _sampled_mad(early, settled, 4)
+		settled_rows.append({
+			"candidate": candidate_index,
+			"earlyToSettledMad": settled_mad,
+		})
+		print(
+			"XZOGOT_NACHT_PARTICLE_SETTLED candidate=",
+			candidate_index,
+			" early_to_settled_mad=",
+			settled_mad
+		)
+
+	var final_visuals: Array = []
+	for visual: GPUParticles3D in suspects:
+		final_visuals.append(_visual_row(visual))
+	print(
+		"XZOGOT_NACHT_PARTICLE_TIMING_STATE ",
+		JSON.stringify(final_visuals)
+	)
+
 	var report := {
-		"schemaVersion": 1,
-		"format": "xogot_nacht_particle_isolation_v1",
+		"schemaVersion": 2,
+		"format": "xogot_nacht_particle_emitter_isolation_v2",
 		"candidateCount": TARGET_CANDIDATES.size(),
-		"systemCount": systems.size(),
-		"particleAnchorCount": particle_anchors.size(),
-		"visualNodeCount": visual_nodes.size(),
+		"suspectVisualCount": suspects.size(),
 		"rows": report_rows,
+		"settledRows": settled_rows,
+		"finalVisuals": final_visuals,
 		"ready": true,
 	}
 	var out := FileAccess.open("/tmp/nacht-particle-isolation.json", FileAccess.WRITE)
 	if out == null:
-		_fail(10, "cannot write isolation report")
+		_fail(11, "cannot write isolation report")
 		return
 	out.store_string(JSON.stringify(report, "\t") + "\n")
 	out.close()
 	print(
 		"XZOGOT_NACHT_PARTICLE_ISOLATION_GREEN candidates=",
 		TARGET_CANDIDATES.size(),
-		" systems=",
-		systems.size(),
-		" anchors=",
-		particle_anchors.size()
+		" suspects=",
+		suspects.size()
 	)
 	scene.queue_free()
 	await process_frame
