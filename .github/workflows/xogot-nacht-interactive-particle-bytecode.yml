@@ -753,22 +753,32 @@ jobs:
                       add(expr.get("CodeOffset"),label="jump")
                   elif kind=="EX_JumpIfNot":
                       cond=literal_bool(expr.get("BooleanExpression"))
+                      branch_target=norm_target(expr.get("CodeOffset",-1))
+                      fallthrough=norm_target(nxt) if nxt is not None else None
                       if cond is True:
-                          add(nxt,label="branch_true_constant")
+                          add(fallthrough,label="branch_true_constant")
                       elif cond is False:
                           add(
-                              expr.get("CodeOffset"),
+                              branch_target,
                               label="branch_false_constant",
+                          )
+                      elif branch_target==fallthrough:
+                          # Cooked Kismet can retain a predicate opcode even
+                          # when both outcomes converge immediately. Do not
+                          # promote that no-op branch into gameplay state.
+                          add(
+                              fallthrough,
+                              label="branch_converged",
                           )
                       else:
                           next_preds=tuple(predicates)+(offset,)
                           add(
-                              nxt,
+                              fallthrough,
                               new_predicates=next_preds,
                               label="branch_true",
                           )
                           add(
-                              expr.get("CodeOffset"),
+                              branch_target,
                               new_predicates=next_preds,
                               label="branch_false",
                           )
@@ -791,25 +801,47 @@ jobs:
                           )
                   elif kind=="EX_PopExecutionFlowIfNot":
                       cond=literal_bool(expr.get("BooleanExpression"))
+                      return_target=(
+                          norm_target(stack[-1])
+                          if stack
+                          else None
+                      )
+                      continue_target=(
+                          norm_target(nxt)
+                          if nxt is not None
+                          else None
+                      )
                       if cond is True:
-                          add(nxt,label="pop_if_continue_constant")
+                          add(
+                              continue_target,
+                              label="pop_if_continue_constant",
+                          )
                       elif cond is False:
                           if stack:
                               add(
-                                  stack[-1],
+                                  return_target,
                                   tuple(stack[:-1]),
                                   label="pop_if_return_constant",
                               )
+                      elif (
+                          stack
+                          and return_target==continue_target
+                      ):
+                          add(
+                              continue_target,
+                              stack,
+                              label="pop_if_converged",
+                          )
                       else:
                           next_preds=tuple(predicates)+(offset,)
                           add(
-                              nxt,
+                              continue_target,
                               new_predicates=next_preds,
                               label="pop_if_continue",
                           )
                           if stack:
                               add(
-                                  stack[-1],
+                                  return_target,
                                   tuple(stack[:-1]),
                                   new_predicates=next_preds,
                                   label="pop_if_return",
