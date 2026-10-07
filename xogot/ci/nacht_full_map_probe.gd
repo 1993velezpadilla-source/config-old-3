@@ -109,6 +109,7 @@ func _gate_particle_blend_runtime() -> Dictionary:
 
 
 const MONSTER_FIRE_MATERIAL := "/Game/CustomMaps/UGC2755515831/InfinityBladeEffects/Effects/FX_Materials/Fire/M_Fire_Sheet_01_INST.M_Fire_Sheet_01_INST"
+const MYSTERY_VERTICAL_MATERIAL := "/Game/CustomMaps/UGC2755515831/CoD/Particles/mysteryBox/findMe/mysterBoxVerticalMat.mysterBoxVerticalMat"
 
 func _gate_monster_fire_material_runtime() -> Dictionary:
 	var matches: Array[Dictionary] = []
@@ -187,6 +188,84 @@ func _gate_monster_fire_material_runtime() -> Dictionary:
 		"matches": matches,
 	}
 
+
+func _gate_mystery_vertical_material_runtime() -> Dictionary:
+	var matches: Array[Dictionary] = []
+	for material: Material in _particle_material_rows():
+		if not (material is StandardMaterial3D):
+			continue
+		var standard := material as StandardMaterial3D
+		if str(standard.get_meta("source_material_path", "")) != MYSTERY_VERTICAL_MATERIAL:
+			continue
+		matches.append({
+			"blend": standard.blend_mode,
+			"transparency": standard.transparency,
+			"shading": standard.shading_mode,
+			"albedoTexture": standard.albedo_texture != null,
+			"emissionEnabled": standard.emission_enabled,
+			"emissionTexture": standard.emission_texture != null,
+			"resolvedDiffuse": str(
+				standard.get_meta("source_resolved_diffuse_path", "")
+			),
+			"graphStatus": str(
+				standard.get_meta("source_graph_status", "")
+			),
+			"diffuseBindingRoute": str(
+				standard.get_meta("source_diffuse_binding_route", "")
+			),
+			"diffuseBindingAuthority": str(
+				standard.get_meta("source_diffuse_binding_authority", "")
+			),
+			"partialPrimaryAsColor": bool(
+				standard.get_meta(
+					"source_partial_primary_emissive_as_unshaded_color",
+					false
+				)
+			),
+			"primaryTextureCandidate": str(
+				standard.get_meta(
+					"source_graph_primary_texture_candidate",
+					""
+				)
+			),
+		})
+	if matches.is_empty():
+		return {
+			"ready": false,
+			"error": "mystery vertical material missing",
+			"matches": matches,
+		}
+	for row: Dictionary in matches:
+		if (
+			int(row["blend"]) != BaseMaterial3D.BLEND_MODE_MIX
+			or int(row["transparency"]) == BaseMaterial3D.TRANSPARENCY_DISABLED
+			or int(row["shading"]) != BaseMaterial3D.SHADING_MODE_UNSHADED
+			or not bool(row["albedoTexture"])
+			or bool(row["emissionEnabled"])
+			or bool(row["emissionTexture"])
+			or str(row["graphStatus"]) != "partial"
+			or not bool(row["partialPrimaryAsColor"])
+			or str(row["diffuseBindingRoute"]) != "partial_graph:primary_texture"
+			or str(row["diffuseBindingAuthority"])
+				!= "partial_graph_primary:EmissiveColor"
+			or not str(row["resolvedDiffuse"]).to_lower().contains(
+				"mysteryboxverticalparticle"
+			)
+			or not str(row["primaryTextureCandidate"]).to_lower().contains(
+				"mysteryboxverticalparticle"
+			)
+		):
+			return {
+				"ready": false,
+				"error": "mystery vertical material translation mismatch",
+				"matches": matches,
+			}
+	return {
+		"ready": true,
+		"matches": matches,
+	}
+
+
 func _run() -> void:
 	var packed := load("res://nacht_full_map.tscn") as PackedScene
 	if packed == null:
@@ -228,6 +307,19 @@ func _run() -> void:
 	print(
 		"XZOGOT_NACHT_MONSTER_FIRE_RUNTIME_GREEN ",
 		JSON.stringify(monster_fire_gate)
+	)
+
+	var mystery_vertical_gate := _gate_mystery_vertical_material_runtime()
+	if not bool(mystery_vertical_gate.get("ready", false)):
+		_fail(
+			36,
+			"mystery vertical runtime mismatch "
+				+ JSON.stringify(mystery_vertical_gate)
+		)
+		return
+	print(
+		"XZOGOT_NACHT_MYSTERY_VERTICAL_RUNTIME_GREEN ",
+		JSON.stringify(mystery_vertical_gate)
 	)
 
 	var packages := int(scene.get_meta("source_package_count", -1))
