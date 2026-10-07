@@ -164,28 +164,39 @@ jobs:
           assert int(d.get("componentVisibilityActionCount",0))==65,d
           assert int(d.get("eventActionBindingCount",0))==5,d
           assert int(d.get("cfgLinkedActionCount",0))==17,d
-          assert int(d.get("replaySafeEventCount",0))==3,d
+          assert int(d.get("replaySafeEventCount",0))==4,d
           replay=d.get("replaySafeEvents",[])
-          assert len(replay)==3,replay
+          assert len(replay)==4,replay
           expected={
-              ("MachineGumball.uasset","OpenLidMulticast"):(15.0,[8226,8263]),
-              ("MachineGumball.uasset","CloseLidMulticast"):(5.0,[5723,5759]),
-              ("PunchAPackMachine.uasset","ExecuteParticleEffect"):(0.0,[10677]),
+              ("MachineGumball.uasset","OpenLidMulticast"):[
+                  (15.0,[8226,8263]),
+              ],
+              ("MachineGumball.uasset","CloseLidMulticast"):[
+                  (5.0,[5723,5759]),
+              ],
+              ("PunchAPackMachine.uasset","ExecuteParticleEffect"):[
+                  (0.0,[10677]),
+              ],
+              ("WonderFizz.uasset","BallSpinning?"):[
+                  (18.0,[10016]),
+                  (20.0,[10129,10165,10201,10237,11400,11437,11474,11511,11548]),
+              ],
           }
           actual={}
           for event in replay:
               timeline=event.get("timeline",[])
-              assert len(timeline)==1,event
-              step=timeline[0]
-              actual[(event.get("fileName"),event.get("eventFunction"))]=(
-                  float(step.get("atSeconds",-1)),
-                  [int(x) for x in step.get("actionStartOffsets",[])],
-              )
+              actual[(event.get("fileName"),event.get("eventFunction"))]=[
+                  (
+                      float(step.get("atSeconds",-1)),
+                      [int(x) for x in step.get("actionStartOffsets",[])],
+                  )
+                  for step in timeline
+              ]
           assert actual==expected,(actual,expected)
           print(
               "XZOGOT_NACHT_STAGE_PARTICLE_ACTIVATION_SOURCE_GREEN "
               "actions=17 entries=81 delays=37 visibility=65 "
-              "bindings=5 linked=17 replay_safe=3"
+              "bindings=5 linked=17 replay_safe=4"
           )
           PY
           echo "PARTICLE_ACTIVATION_AUTHORITY=$PARTICLE_ACTIVATION_AUTHORITY" >> "$GITHUB_ENV"
@@ -619,7 +630,7 @@ jobs:
           assert particle_activation_authority.get("componentVisibilityActionCount")==65, particle_activation_authority
           assert particle_activation_authority.get("eventActionBindingCount")==5, particle_activation_authority
           assert particle_activation_authority.get("cfgLinkedActionCount")==17, particle_activation_authority
-          assert particle_activation_authority.get("replaySafeEventCount")==3, particle_activation_authority
+          assert particle_activation_authority.get("replaySafeEventCount")==4, particle_activation_authority
 
           placed_pairs={
               (
