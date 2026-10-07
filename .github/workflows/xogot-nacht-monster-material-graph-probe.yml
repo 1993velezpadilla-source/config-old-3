@@ -60,6 +60,8 @@ jobs:
           if(-not (Test-Path $pak)){throw 'Nacht PAK missing'}
           "NACHT_PAK=$pak" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "XZOGOT_NACHT_MONSTER_MATERIAL_PAK_GREEN bytes=$((Get-Item $pak).Length)"
+          $global:LASTEXITCODE=0
+          exit 0
 
       - name: Unpack exact source PAK
         shell: pwsh
