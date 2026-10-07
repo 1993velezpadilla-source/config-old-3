@@ -6,6 +6,7 @@ signal bled_out()
 
 const MobileLayout = preload("res://scripts/mobile_layout.gd")
 const PerkCatalog = preload("res://scripts/perk_catalog.gd")
+const SourceModifierPolicy = preload("res://scripts/source_modifier_policy.gd")
 const CODSourceContract = preload("res://scripts/cod_source_contract.gd")
 
 const NAV_PATH := "res://data/nav_skeleton.json"
@@ -488,6 +489,9 @@ func contribute_revive(target: Node, delta: float) -> bool:
 	if global_position.distance_to((target as Node3D).global_position) > revive_range:
 		return false
 	_revive_target = target
+	var source_revive_delta: float = delta * SourceModifierPolicy.revive_progress_multiplier(
+		has_perk("last_rites")
+	)
 
 	var target_peer_id: int = int(target.get_meta("network_peer_id", 0))
 	var self_peer_id: int = int(get_meta("network_peer_id", 0))
@@ -500,11 +504,11 @@ func contribute_revive(target: Node, delta: float) -> bool:
 		and bool(network.call("is_network_session"))
 		and network.has_method("submit_revive_hold")
 	):
-		return bool(network.call("submit_revive_hold", target_peer_id, delta))
+		return bool(network.call("submit_revive_hold", target_peer_id, source_revive_delta))
 
 	if not target.has_method("receive_revive_progress"):
 		return false
-	return bool(target.call("receive_revive_progress", self, delta))
+	return bool(target.call("receive_revive_progress", self, source_revive_delta))
 
 func receive_revive_progress(reviver: Node, delta: float) -> bool:
 	if not downed or eliminated or reviver == null or delta <= 0.0:
@@ -731,7 +735,7 @@ func grant_perk(id: String) -> bool:
 
 	match id:
 		"martyrs_blood":
-			max_health = maxf(_base_max_health * 2.0, 200.0)
+			max_health = SourceModifierPolicy.JUGGERNOG_MAX_HEALTH
 			health = max_health
 		"quick_hands":
 			pass
@@ -745,7 +749,9 @@ func grant_perk(id: String) -> bool:
 			pass
 
 	set_meta("owned_perks", get_owned_perks())
-	print("XZOGOT_PERK_GRANTED ", id, " total=", _perks.size())
+	set_meta("perk_source_authority", SourceModifierPolicy.AUTHORITY)
+	set_meta("perk_source_id_" + id, SourceModifierPolicy.source_perk(id))
+	print("XZOGOT_PERK_GRANTED ", id, " source=", SourceModifierPolicy.source_perk(id), " total=", _perks.size())
 	return true
 
 func has_perk(id: String) -> bool:
@@ -759,22 +765,27 @@ func get_owned_perks() -> Array[String]:
 	return result
 
 func get_reload_multiplier() -> float:
-	return 0.70 if has_perk("quick_hands") else 1.0
+	return SourceModifierPolicy.reload_time_multiplier(has_perk("quick_hands"))
 
 func get_move_speed_multiplier() -> float:
-	return 1.15 if has_perk("pilgrim_rush") else 1.0
+	return SourceModifierPolicy.movement_speed_multiplier(has_perk("pilgrim_rush"))
 
 func get_spread_multiplier() -> float:
-	return 0.62 if has_perk("choir_sight") else 1.0
+	return SourceModifierPolicy.spread_multiplier(has_perk("choir_sight"))
 
 func get_recoil_multiplier() -> float:
-	return 0.68 if has_perk("choir_sight") else 1.0
+	# Deadshot removes ADS sway / reduces spread; do not invent a recoil multiplier.
+	return 1.0
 
 func get_fire_interval_multiplier() -> float:
-	return 0.78 if has_perk("twin_bells") else 1.0
+	return SourceModifierPolicy.fire_interval_multiplier(has_perk("twin_bells"))
+
+func get_weapon_damage_multiplier_for(_weapon_id: String, weapon_family: String) -> float:
+	return SourceModifierPolicy.projectile_damage_multiplier(has_perk("twin_bells"), weapon_family)
 
 func get_weapon_damage_multiplier() -> float:
-	return 1.08 if has_perk("twin_bells") else 1.0
+	# Compatibility path for callers that cannot provide a weapon family.
+	return SourceModifierPolicy.DOUBLE_TAP_PROJECTILE_DAMAGE_MULTIPLIER if has_perk("twin_bells") else 1.0
 
 func get_max_health() -> float:
 	return max_health
@@ -859,17 +870,6 @@ func apply_damage(amount: float) -> void:
 		_bleedout_remaining = 0.0
 		return
 	if downed or amount <= 0.0:
-		return
-
-	var lethal: bool = health - amount <= 0.0
-	if lethal and has_perk("last_rites"):
-		_perks.erase("last_rites")
-		health = maxf(45.0, max_health * 0.30)
-		downed = false
-		eliminated = false
-		set_meta("owned_perks", get_owned_perks())
-		set_meta("last_rites_triggered", true)
-		print("XZOGOT_LAST_RITES_TRIGGERED health=", health)
 		return
 
 	health = maxf(0.0, health - amount)
