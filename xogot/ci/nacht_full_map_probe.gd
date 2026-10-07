@@ -1030,6 +1030,24 @@ func _run() -> void:
 	var particle_activation_actions := int(
 		scene.get_meta("source_particle_activation_action_count", 0)
 	)
+	var particle_activation_entries := int(
+		scene.get_meta("source_particle_activation_entry_point_count", 0)
+	)
+	var particle_activation_delays := int(
+		scene.get_meta("source_particle_activation_latent_delay_count", 0)
+	)
+	var particle_activation_visibility := int(
+		scene.get_meta("source_particle_activation_visibility_action_count", 0)
+	)
+	var particle_activation_bindings := int(
+		scene.get_meta("source_particle_activation_event_binding_count", 0)
+	)
+	var particle_activation_linked := int(
+		scene.get_meta("source_particle_activation_cfg_linked_action_count", 0)
+	)
+	var particle_activation_replay_safe := int(
+		scene.get_meta("source_particle_activation_replay_safe_event_count", 0)
+	)
 	var runtime_environment_components := int(scene.get_meta("runtime_environment_component_count", 0))
 	var runtime_environment_visual_nodes := int(scene.get_meta("runtime_environment_visual_node_count", 0))
 	var source_environment_runtime := bool(scene.get_meta("source_environment_runtime_ready", false))
@@ -1103,11 +1121,31 @@ func _run() -> void:
 		_fail(20, "SoundCue authority coverage mismatch %d/%d expected=102" % [cue_authority, source_cues])
 		return
 	if staged_runtime:
-		if not particle_activation_ready or particle_activation_actions != 17:
+		if (
+			not particle_activation_ready
+			or particle_activation_actions != 17
+			or particle_activation_entries != 81
+			or particle_activation_delays != 37
+			or particle_activation_visibility != 65
+			or particle_activation_bindings != 5
+			or particle_activation_linked != 17
+			or particle_activation_replay_safe != 3
+		):
 			_fail(
 				35,
-				"particle activation authority mismatch ready=%s actions=%d/17"
-				% [particle_activation_ready, particle_activation_actions]
+				"particle activation authority mismatch "
+				+ "ready=%s actions=%d entries=%d delays=%d visibility=%d "
+				+ "bindings=%d linked=%d replay_safe=%d"
+				% [
+					particle_activation_ready,
+					particle_activation_actions,
+					particle_activation_entries,
+					particle_activation_delays,
+					particle_activation_visibility,
+					particle_activation_bindings,
+					particle_activation_linked,
+					particle_activation_replay_safe,
+				]
 			)
 			return
 		if not particle_decoder_ready:
@@ -1307,6 +1345,116 @@ func _run() -> void:
 		print(
 			"XZOGOT_NACHT_PARTICLE_ACTIVATION_RUNTIME_GREEN ",
 			"actions=17 named=16 all_components=1 windows=6"
+		)
+
+		var replay_contracts := [
+			{
+				"actor": "MachineGumball_2",
+				"event": "OpenLidMulticast",
+				"at": 15.0,
+				"actions": 2,
+			},
+			{
+				"actor": "MachineGumball_2",
+				"event": "CloseLidMulticast",
+				"at": 5.0,
+				"actions": 2,
+			},
+			{
+				"actor": "PunchAPackMachine_2",
+				"event": "ExecuteParticleEffect",
+				"at": 0.0,
+				"actions": 1,
+			},
+		]
+		for contract: Dictionary in replay_contracts:
+			var desc_raw: Variant = scene.call(
+				"describe_source_blueprint_particle_event",
+				str(contract["actor"]),
+				str(contract["event"])
+			)
+			var desc := (
+				desc_raw as Dictionary
+				if desc_raw is Dictionary
+				else {}
+			)
+			var timeline_raw: Variant = desc.get("timeline", [])
+			var timeline := (
+				timeline_raw as Array
+				if timeline_raw is Array
+				else []
+			)
+			if (
+				not bool(desc.get("ready", false))
+				or timeline.size() != 1
+			):
+				_fail(
+					35,
+					"source replay-safe event description failed "
+					+ str(contract) + " desc=" + str(desc)
+				)
+				return
+			var step_raw: Variant = timeline[0]
+			var step := (
+				step_raw as Dictionary
+				if step_raw is Dictionary
+				else {}
+			)
+			var offsets_raw: Variant = step.get(
+				"actionStartOffsets",
+				[]
+			)
+			var offsets := (
+				offsets_raw as Array
+				if offsets_raw is Array
+				else []
+			)
+			if (
+				abs(
+					float(step.get("atSeconds", -1.0))
+					- float(contract["at"])
+				) > 0.001
+				or offsets.size() != int(contract["actions"])
+			):
+				_fail(
+					35,
+					"source replay-safe timeline mismatch "
+					+ str(contract) + " step=" + str(step)
+				)
+				return
+
+		var pap_event_raw: Variant = scene.call(
+			"trigger_source_blueprint_particle_event",
+			"PunchAPackMachine_2",
+			"ExecuteParticleEffect"
+		)
+		var pap_event := (
+			pap_event_raw as Dictionary
+			if pap_event_raw is Dictionary
+			else {}
+		)
+		if (
+			not bool(pap_event.get("ready", false))
+			or int(pap_event.get("immediateStepCount", -1)) != 1
+			or int(pap_event.get("scheduledStepCount", -1)) != 0
+			or int(pap_event.get("matchedAnchorCount", -1)) != 4
+		):
+			_fail(
+				35,
+				"PaP replay-safe event execution failed "
+				+ str(pap_event)
+			)
+			return
+		scene.call(
+			"set_source_actor_particles_active",
+			"PunchAPackMachine_2",
+			false,
+			false
+		)
+		print(
+			"XZOGOT_NACHT_PARTICLE_EVENT_REPLAY_GREEN ",
+			"events=3 gumball_open=15.0 gumball_close=5.0 "
+			"pap=0.0 pap_anchors=4"
 		)
 
 		if not particle_visual_mounted:
@@ -2302,6 +2450,12 @@ func _run() -> void:
 		" particle_visual_unresolved_meshes=", particle_visual_unresolved_meshes,
 		" particle_activation_ready=", particle_activation_ready,
 		" particle_activation_actions=", particle_activation_actions,
+		" particle_activation_entries=", particle_activation_entries,
+		" particle_activation_delays=", particle_activation_delays,
+		" particle_activation_visibility=", particle_activation_visibility,
+		" particle_activation_bindings=", particle_activation_bindings,
+		" particle_activation_linked=", particle_activation_linked,
+		" particle_activation_replay_safe=", particle_activation_replay_safe,
 		" source_audio_stream_mount=", source_audio_stream_mount,
 		" source_audio_runtime=", source_audio_runtime,
 		" source_audio_players=", source_audio_players,

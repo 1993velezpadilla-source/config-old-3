@@ -77,6 +77,7 @@ var _source_audio_players: Dictionary = {}
 var _source_audio_component_key_by_id: Dictionary = {}
 var _source_audio_events_by_key: Dictionary = {}
 var _source_audio_random_remaining: Dictionary = {}
+var _source_particle_event_generation: Dictionary = {}
 var _mesh_cache: Dictionary = {}
 
 var _created_instances := 0
@@ -217,6 +218,30 @@ func _boot() -> void:
 	set_meta(
 		"source_particle_activation_action_count",
 		int(_particle_activation_authority.get("normalizedActionCount", 0))
+	)
+	set_meta(
+		"source_particle_activation_entry_point_count",
+		int(_particle_activation_authority.get("entryPointCount", 0))
+	)
+	set_meta(
+		"source_particle_activation_latent_delay_count",
+		int(_particle_activation_authority.get("latentDelayCount", 0))
+	)
+	set_meta(
+		"source_particle_activation_visibility_action_count",
+		int(_particle_activation_authority.get("componentVisibilityActionCount", 0))
+	)
+	set_meta(
+		"source_particle_activation_event_binding_count",
+		int(_particle_activation_authority.get("eventActionBindingCount", 0))
+	)
+	set_meta(
+		"source_particle_activation_cfg_linked_action_count",
+		int(_particle_activation_authority.get("cfgLinkedActionCount", 0))
+	)
+	set_meta(
+		"source_particle_activation_replay_safe_event_count",
+		int(_particle_activation_authority.get("replaySafeEventCount", 0))
 	)
 	set_meta("source_environment_component_count", int(_environment_scene.get("environmentComponentCount", -1)))
 	set_meta("runtime_environment_authority_count", (_environment_scene.get("components", []) as Array).size())
@@ -526,6 +551,31 @@ func _validate_authority() -> bool:
 		return false
 	if int(_particle_activation_authority.get("normalizedActionCount", 0)) != 17:
 		push_error("NACHT_FULL_MAP: particle activation action count mismatch")
+		return false
+	if int(_particle_activation_authority.get("entryPointCount", 0)) != 81:
+		push_error("NACHT_FULL_MAP: particle Blueprint entry-point count mismatch")
+		return false
+	if int(_particle_activation_authority.get("latentDelayCount", 0)) != 37:
+		push_error("NACHT_FULL_MAP: particle latent Delay count mismatch")
+		return false
+	if int(_particle_activation_authority.get("componentVisibilityActionCount", 0)) != 65:
+		push_error("NACHT_FULL_MAP: particle visibility action count mismatch")
+		return false
+	if int(_particle_activation_authority.get("eventActionBindingCount", 0)) != 5:
+		push_error("NACHT_FULL_MAP: particle event binding count mismatch")
+		return false
+	if int(_particle_activation_authority.get("cfgLinkedActionCount", 0)) != 17:
+		push_error("NACHT_FULL_MAP: particle CFG linked action count mismatch")
+		return false
+	if int(_particle_activation_authority.get("replaySafeEventCount", 0)) != 3:
+		push_error("NACHT_FULL_MAP: particle replay-safe event count mismatch")
+		return false
+	var replay_events_raw: Variant = _particle_activation_authority.get(
+		"replaySafeEvents",
+		[]
+	)
+	if not (replay_events_raw is Array) or (replay_events_raw as Array).size() != 3:
+		push_error("NACHT_FULL_MAP: particle replay-safe event authority incomplete")
 		return false
 	var activation_actions_raw: Variant = _particle_activation_authority.get(
 		"normalizedActions",
@@ -1381,6 +1431,320 @@ func apply_source_particle_activation_action(
 		}
 	report["sourceAction"] = action.duplicate(true)
 	return report
+
+
+func _source_particle_activation_action_for_offset(
+	blueprint_file: String,
+	start_offset: int
+) -> Dictionary:
+	var raw_actions: Variant = _particle_activation_authority.get(
+		"normalizedActions",
+		[]
+	)
+	if not (raw_actions is Array):
+		return {}
+	for raw_action: Variant in raw_actions as Array:
+		if not (raw_action is Dictionary):
+			continue
+		var action := raw_action as Dictionary
+		if str(action.get("fileName", "")) != blueprint_file:
+			continue
+		if int(action.get("startOffset", -1)) == start_offset:
+			return action
+	return {}
+
+
+func _source_particle_replay_event(
+	blueprint_file: String,
+	event_name: String
+) -> Dictionary:
+	var raw_events: Variant = _particle_activation_authority.get(
+		"replaySafeEvents",
+		[]
+	)
+	if not (raw_events is Array):
+		return {}
+	for raw_event: Variant in raw_events as Array:
+		if not (raw_event is Dictionary):
+			continue
+		var event := raw_event as Dictionary
+		if str(event.get("fileName", "")) != blueprint_file:
+			continue
+		if str(event.get("eventFunction", "")) == event_name:
+			return event
+	return {}
+
+
+func describe_source_blueprint_particle_event(
+	actor_name: String,
+	event_name: String
+) -> Dictionary:
+	var blueprint_file := _source_particle_blueprint_file_for_actor(actor_name)
+	if blueprint_file.is_empty():
+		return {
+			"ready": false,
+			"error": "source Blueprint owner missing",
+			"actorName": actor_name,
+			"eventFunction": event_name,
+		}
+	var event := _source_particle_replay_event(
+		blueprint_file,
+		event_name
+	)
+	if event.is_empty():
+		return {
+			"ready": false,
+			"error": "event is not replay-safe",
+			"actorName": actor_name,
+			"blueprintFile": blueprint_file,
+			"eventFunction": event_name,
+		}
+	var timeline_raw: Variant = event.get("timeline", [])
+	if not (timeline_raw is Array) or (timeline_raw as Array).is_empty():
+		return {
+			"ready": false,
+			"error": "replay-safe timeline missing",
+			"actorName": actor_name,
+			"blueprintFile": blueprint_file,
+			"eventFunction": event_name,
+		}
+	return {
+		"ready": true,
+		"actorName": actor_name,
+		"blueprintFile": blueprint_file,
+		"eventFunction": event_name,
+		"entryOffset": int(event.get("entryOffset", -1)),
+		"timeline": (timeline_raw as Array).duplicate(true),
+		"proof": str(event.get("proof", "")),
+	}
+
+
+func _apply_source_blueprint_particle_event_step(
+	actor_name: String,
+	blueprint_file: String,
+	event_name: String,
+	step: Dictionary
+) -> Dictionary:
+	var raw_offsets: Variant = step.get("actionStartOffsets", [])
+	if not (raw_offsets is Array) or (raw_offsets as Array).is_empty():
+		return {
+			"ready": false,
+			"error": "event step has no action offsets",
+			"actorName": actor_name,
+			"eventFunction": event_name,
+		}
+
+	var matched_anchors := 0
+	var reports: Array[Dictionary] = []
+	var all_ready := true
+	for raw_offset: Variant in raw_offsets as Array:
+		var action := _source_particle_activation_action_for_offset(
+			blueprint_file,
+			int(raw_offset)
+		)
+		if action.is_empty():
+			all_ready = false
+			reports.append({
+				"ready": false,
+				"error": "source action offset missing",
+				"startOffset": int(raw_offset),
+			})
+			continue
+		var report := apply_source_particle_activation_action(
+			actor_name,
+			action
+		)
+		reports.append(report)
+		if not bool(report.get("ready", false)):
+			all_ready = false
+		matched_anchors += int(
+			report.get("matchedAnchorCount", 0)
+		)
+
+	var result := {
+		"ready": all_ready,
+		"actorName": actor_name,
+		"blueprintFile": blueprint_file,
+		"eventFunction": event_name,
+		"atSeconds": float(step.get("atSeconds", 0.0)),
+		"actionCount": (raw_offsets as Array).size(),
+		"matchedAnchorCount": matched_anchors,
+		"reports": reports,
+	}
+	if all_ready:
+		print(
+			"XZOGOT_NACHT_PARTICLE_EVENT_STEP_GREEN ",
+			"actor=", actor_name,
+			" event=", event_name,
+			" at=", result["atSeconds"],
+			" actions=", result["actionCount"],
+			" anchors=", matched_anchors
+		)
+	return result
+
+
+func _source_particle_event_key(
+	actor_name: String,
+	event_name: String
+) -> String:
+	return actor_name + "::" + event_name
+
+
+func _run_source_blueprint_particle_event_timeline(
+	actor_name: String,
+	blueprint_file: String,
+	event_name: String,
+	generation: int,
+	steps: Array
+) -> void:
+	var key := _source_particle_event_key(
+		actor_name,
+		event_name
+	)
+	var elapsed := 0.0
+	for raw_step: Variant in steps:
+		if not (raw_step is Dictionary):
+			continue
+		var step := raw_step as Dictionary
+		var at_seconds := max(
+			0.0,
+			float(step.get("atSeconds", 0.0))
+		)
+		var delay := max(0.0, at_seconds - elapsed)
+		if delay > 0.0:
+			await get_tree().create_timer(delay).timeout
+		if int(_source_particle_event_generation.get(key, 0)) != generation:
+			return
+		var report := _apply_source_blueprint_particle_event_step(
+			actor_name,
+			blueprint_file,
+			event_name,
+			step
+		)
+		if not bool(report.get("ready", false)):
+			push_error(
+				"NACHT_FULL_MAP: source particle event step failed "
+				+ str(report)
+			)
+			return
+		elapsed = at_seconds
+	print(
+		"XZOGOT_NACHT_PARTICLE_EVENT_TIMELINE_GREEN ",
+		"actor=", actor_name,
+		" event=", event_name,
+		" generation=", generation,
+		" steps=", steps.size()
+	)
+
+
+func cancel_source_blueprint_particle_event(
+	actor_name: String,
+	event_name: String
+) -> void:
+	var key := _source_particle_event_key(
+		actor_name,
+		event_name
+	)
+	_source_particle_event_generation[key] = int(
+		_source_particle_event_generation.get(key, 0)
+	) + 1
+
+
+func trigger_source_blueprint_particle_event(
+	actor_name: String,
+	event_name: String
+) -> Dictionary:
+	var description := describe_source_blueprint_particle_event(
+		actor_name,
+		event_name
+	)
+	if not bool(description.get("ready", false)):
+		return description
+
+	var blueprint_file := str(
+		description.get("blueprintFile", "")
+	)
+	var timeline_raw: Variant = description.get(
+		"timeline",
+		[]
+	)
+	var timeline := timeline_raw as Array
+	timeline.sort_custom(
+		func(a: Variant, b: Variant) -> bool:
+			if not (a is Dictionary) or not (b is Dictionary):
+				return false
+			return float(
+				(a as Dictionary).get("atSeconds", 0.0)
+			) < float(
+				(b as Dictionary).get("atSeconds", 0.0)
+			)
+	)
+
+	var key := _source_particle_event_key(
+		actor_name,
+		event_name
+	)
+	var generation := int(
+		_source_particle_event_generation.get(key, 0)
+	) + 1
+	_source_particle_event_generation[key] = generation
+
+	var immediate_reports: Array[Dictionary] = []
+	var delayed_steps: Array = []
+	var matched_anchors := 0
+	var all_ready := true
+	for raw_step: Variant in timeline:
+		if not (raw_step is Dictionary):
+			continue
+		var step := raw_step as Dictionary
+		if float(step.get("atSeconds", 0.0)) <= 0.0:
+			var report := _apply_source_blueprint_particle_event_step(
+				actor_name,
+				blueprint_file,
+				event_name,
+				step
+			)
+			immediate_reports.append(report)
+			if not bool(report.get("ready", false)):
+				all_ready = false
+			matched_anchors += int(
+				report.get("matchedAnchorCount", 0)
+			)
+		else:
+			delayed_steps.append(step.duplicate(true))
+
+	if not delayed_steps.is_empty():
+		call_deferred(
+			"_run_source_blueprint_particle_event_timeline",
+			actor_name,
+			blueprint_file,
+			event_name,
+			generation,
+			delayed_steps
+		)
+
+	var result := {
+		"ready": all_ready,
+		"actorName": actor_name,
+		"blueprintFile": blueprint_file,
+		"eventFunction": event_name,
+		"generation": generation,
+		"timelineStepCount": timeline.size(),
+		"immediateStepCount": immediate_reports.size(),
+		"scheduledStepCount": delayed_steps.size(),
+		"matchedAnchorCount": matched_anchors,
+		"immediateReports": immediate_reports,
+	}
+	if all_ready:
+		print(
+			"XZOGOT_NACHT_PARTICLE_EVENT_TRIGGER_GREEN ",
+			"actor=", actor_name,
+			" event=", event_name,
+			" immediate=", immediate_reports.size(),
+			" scheduled=", delayed_steps.size(),
+			" anchors=", matched_anchors
+		)
+	return result
 
 
 func apply_source_particle_activation_window(

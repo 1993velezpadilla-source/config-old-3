@@ -159,7 +159,34 @@ jobs:
           assert len(actions)==17,len(actions)
           assert sum(a.get("targetMode")=="named_component" for a in actions)==16,actions
           assert sum(a.get("targetMode")=="all_particle_components" for a in actions)==1,actions
-          print("XZOGOT_NACHT_STAGE_PARTICLE_ACTIVATION_SOURCE_GREEN actions=17")
+          assert int(d.get("entryPointCount",0))==81,d
+          assert int(d.get("latentDelayCount",0))==37,d
+          assert int(d.get("componentVisibilityActionCount",0))==65,d
+          assert int(d.get("eventActionBindingCount",0))==5,d
+          assert int(d.get("cfgLinkedActionCount",0))==17,d
+          assert int(d.get("replaySafeEventCount",0))==3,d
+          replay=d.get("replaySafeEvents",[])
+          assert len(replay)==3,replay
+          expected={
+              ("MachineGumball.uasset","OpenLidMulticast"):(15.0,[8226,8263]),
+              ("MachineGumball.uasset","CloseLidMulticast"):(5.0,[5723,5759]),
+              ("PunchAPackMachine.uasset","ExecuteParticleEffect"):(0.0,[10677]),
+          }
+          actual={}
+          for event in replay:
+              timeline=event.get("timeline",[])
+              assert len(timeline)==1,event
+              step=timeline[0]
+              actual[(event.get("fileName"),event.get("eventFunction"))]=(
+                  float(step.get("atSeconds",-1)),
+                  [int(x) for x in step.get("actionStartOffsets",[])],
+              )
+          assert actual==expected,(actual,expected)
+          print(
+              "XZOGOT_NACHT_STAGE_PARTICLE_ACTIVATION_SOURCE_GREEN "
+              "actions=17 entries=81 delays=37 visibility=65 "
+              "bindings=5 linked=17 replay_safe=3"
+          )
           PY
           echo "PARTICLE_ACTIVATION_AUTHORITY=$PARTICLE_ACTIVATION_AUTHORITY" >> "$GITHUB_ENV"
           echo "XZOGOT_NACHT_STAGE_PARTICLE_BYTECODE_GREEN run=$PARTICLE_BYTECODE_RUN"
@@ -587,6 +614,12 @@ jobs:
           assert len(actions)==17, actions
           assert sum(a.get("targetMode")=="named_component" for a in actions)==16, actions
           assert sum(a.get("targetMode")=="all_particle_components" for a in actions)==1, actions
+          assert particle_activation_authority.get("entryPointCount")==81, particle_activation_authority
+          assert particle_activation_authority.get("latentDelayCount")==37, particle_activation_authority
+          assert particle_activation_authority.get("componentVisibilityActionCount")==65, particle_activation_authority
+          assert particle_activation_authority.get("eventActionBindingCount")==5, particle_activation_authority
+          assert particle_activation_authority.get("cfgLinkedActionCount")==17, particle_activation_authority
+          assert particle_activation_authority.get("replaySafeEventCount")==3, particle_activation_authority
 
           placed_pairs={
               (
@@ -604,7 +637,17 @@ jobs:
           assert len(generic)==1 and generic[0].get("fileName")=="PunchAPackMachine.uasset",generic
           print(
               "XZOGOT_NACHT_PARTICLE_ACTIVATION_AUTHORITY_GREEN",
-              {"actions":len(actions),"named":16,"all_components":1},
+              {
+                  "actions":len(actions),
+                  "named":16,
+                  "all_components":1,
+                  "entries":particle_activation_authority["entryPointCount"],
+                  "delays":particle_activation_authority["latentDelayCount"],
+                  "visibility":particle_activation_authority["componentVisibilityActionCount"],
+                  "bindings":particle_activation_authority["eventActionBindingCount"],
+                  "linked":particle_activation_authority["cfgLinkedActionCount"],
+                  "replay_safe":particle_activation_authority["replaySafeEventCount"],
+              },
           )
 
           assert environment["ready"] is True, environment
@@ -658,6 +701,12 @@ jobs:
               "sourceEnvironmentComponents":environment_runtime_authority["componentCount"],
               "sourceParticlePlacements":particle_runtime_authority["resolvedPlacementCount"],
               "sourceParticleActivationActions":particle_activation_authority["normalizedActionCount"],
+              "sourceParticleEntryPoints":particle_activation_authority["entryPointCount"],
+              "sourceParticleLatentDelays":particle_activation_authority["latentDelayCount"],
+              "sourceParticleVisibilityActions":particle_activation_authority["componentVisibilityActionCount"],
+              "sourceParticleEventBindings":particle_activation_authority["eventActionBindingCount"],
+              "sourceParticleCfgLinkedActions":particle_activation_authority["cfgLinkedActionCount"],
+              "sourceParticleReplaySafeEvents":particle_activation_authority["replaySafeEventCount"],
               "sourcePlacedParticleSystems":particle_runtime_authority["uniquePlacedSystemCount"],
               "sourceParticleMeshes":particle_mesh_bindings["meshCount"],
               "sourceMaterials":mats["summary"]["usedMaterialCount"],
