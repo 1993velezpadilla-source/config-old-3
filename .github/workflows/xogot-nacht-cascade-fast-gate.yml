@@ -95,7 +95,7 @@ jobs:
             --headless --path xogot \
             --script res://ci/nacht_cascade_semantic_probe.gd \
             2>&1 | tee build/nacht-cascade-fast/probe.log
-          grep -q "XZOGOT_NACHT_CASCADE_FAST_SEMANTIC_GREEN systems=13 placements=24" \
+          grep -q "XZOGOT_NACHT_CASCADE_FAST_SEMANTIC_GREEN systems=14 placements=25" \
             build/nacht-cascade-fast/probe.log
           echo "XZOGOT_NACHT_CASCADE_FAST_GATE_GREEN head=${GITHUB_SHA}"
 
