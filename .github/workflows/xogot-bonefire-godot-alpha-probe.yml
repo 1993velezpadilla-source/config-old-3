@@ -98,7 +98,7 @@ jobs:
         run: |
           set -euo pipefail
           timeout 600 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
-            --headless --editor --path /tmp/bonefire-project --quit 2>&1 | tee /tmp/bonefire-import.log
+            --headless --path /tmp/bonefire-project --import 2>&1 | tee /tmp/bonefire-import.log
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" /tmp/bonefire-import.log
 
       - name: Probe Godot alpha
