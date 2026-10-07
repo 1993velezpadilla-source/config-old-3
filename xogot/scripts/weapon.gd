@@ -1362,6 +1362,9 @@ func get_runtime_stats() -> Dictionary:
 		"visual_recoil_deg": _visual_recoil_deg,
 		"upgraded": _upgraded,
 		"pack_balance_data_driven": WeaponBalanceAAA.has_data(_weapon_id),
+		"pack_balance_authority": "UNVERIFIED_DATA_DRIVEN_NOT_SOURCE" if WeaponBalanceAAA.has_data(_weapon_id) else "NONE",
+		"source_ads_in_time": _source_ads_in_time,
+		"source_ads_out_time": _source_ads_out_time,
 		"ads_calibration_mode": _ads_calibration_mode,
 		"ads_pose_position": _ads_pose_position,
 		"model_yaw_correction_deg": float(get_meta("weapon_model_yaw_correction_deg", 0.0)),
@@ -1796,6 +1799,19 @@ func get_display_name() -> String:
 
 func get_family() -> String:
 	return _family
+
+func get_source_ads_transition_time(entering_ads: bool) -> float:
+	if _ads_calibration_mode != "source_datatable":
+		return -1.0
+	return _source_ads_in_time if entering_ads else _source_ads_out_time
+
+func get_source_ads_target_fov(base_camera_fov: float) -> float:
+	if _ads_calibration_mode != "source_datatable":
+		return -1.0
+	var multiplier := WeaponViewmodelSourcePresentation.ads_fov_multiplier(_weapon_id, -1.0)
+	if multiplier <= 0.0:
+		return -1.0
+	return base_camera_fov * multiplier
 
 func get_source_ads_move_multiplier() -> float:
 	var source_value := WeaponViewmodelSourcePresentation.source_ads_move_multiplier(_weapon_id)
