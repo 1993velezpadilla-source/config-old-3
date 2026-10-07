@@ -278,6 +278,7 @@ func _audit() -> void:
 
 	_probe_monster_placement()
 	_probe_monster_source_graph()
+	_probe_monster_placement()
 
 	var visuals := get_nodes_in_group("nacht_source_particle_visual")
 	var rows := 0
