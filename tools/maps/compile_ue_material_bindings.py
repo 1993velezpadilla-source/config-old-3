@@ -12,6 +12,7 @@ if str(REPO_ROOT) not in sys.path:
 from tools.ue_bridge.material_graph_resolver import (
     base_parameter_candidates,
     output_pin_parameters,
+    partial_changed_texture_candidate,
     partial_primary_texture_candidate,
     unresolved_output_inputs,
 )
@@ -610,6 +611,29 @@ def main() -> int:
         source_graph_unresolved_outputs = unresolved_output_inputs(
             base_material_for_graph,
         )
+        source_graph_changed_texture_candidate = (
+            partial_changed_texture_candidate(
+                material,
+                base_material_for_graph,
+            )
+        )
+        # Conservative cooked-graph recovery: only when EmissiveColor is the
+        # sole unresolved material output and exactly one effective texture
+        # parameter differs from the parent. This uses parent/instance source
+        # authority; it never selects by parameter or texture filename.
+        if (
+            "emissive" not in source_graph_bindings
+            and set(source_graph_unresolved_outputs) == {"EmissiveColor"}
+            and source_graph_changed_texture_candidate is not None
+        ):
+            source_graph_bindings["emissive"] = (
+                source_graph_changed_texture_candidate["boundValue"]
+            )
+            source_graph_binding_provenance["emissive"] = {
+                "outputPin": "EmissiveColor",
+                "resolution": "partial_unique_parent_texture_override",
+                **source_graph_changed_texture_candidate,
+            }
         source_graph_parameter_candidates = base_parameter_candidates(
             base_material_for_graph,
         )
@@ -804,6 +828,8 @@ def main() -> int:
                 source_graph_texture_parameter_candidates,
             "sourceGraphPrimaryTextureCandidate":
                 source_graph_primary_texture_candidate,
+            "sourceGraphChangedTextureCandidate":
+                source_graph_changed_texture_candidate,
         })
 
     # De-duplicate error rows while keeping deterministic JSON.
