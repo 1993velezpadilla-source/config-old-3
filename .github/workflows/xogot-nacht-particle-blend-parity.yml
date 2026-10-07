@@ -79,8 +79,11 @@ jobs:
           timeout 1200 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
             --headless --editor --path xogot --quit \
             2>&1 | tee build/nacht-blend-parity/import.log
-          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|MAX_MESH_SURFACES" \
-            build/nacht-blend-parity/import.log
+          if grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|MAX_MESH_SURFACES" \
+            build/nacht-blend-parity/import.log; then
+            echo "XZOGOT_NACHT_BLEND_PARITY_IMPORT_FAILURE forbidden_error_in_log"
+            exit 1
+          fi
 
       - name: Capture focused particle blend parity
         shell: bash
@@ -93,8 +96,11 @@ jobs:
             2>&1 | tee build/nacht-blend-parity/capture.log
           grep -q "XZOGOT_NACHT_BLEND_PARITY_MATERIAL_GREEN" build/nacht-blend-parity/capture.log
           grep -q "XZOGOT_NACHT_BLEND_PARITY_GREEN" build/nacht-blend-parity/capture.log
-          ! grep -E "XZOGOT_NACHT_BLEND_PARITY_FAILURE|SCRIPT ERROR|Parse Error" \
-            build/nacht-blend-parity/capture.log
+          if grep -E "XZOGOT_NACHT_BLEND_PARITY_FAILURE|SCRIPT ERROR|Parse Error" \
+            build/nacht-blend-parity/capture.log; then
+            echo "XZOGOT_NACHT_BLEND_PARITY_HARD_FAILURE"
+            exit 1
+          fi
           mkdir -p build/nacht-blend-parity/screenshots
           cp /tmp/xogot-nacht-blend-parity-*.png build/nacht-blend-parity/screenshots/
           echo "XZOGOT_NACHT_BLEND_PARITY_CAPTURE_GREEN source_run=$SOURCE_RUN"
