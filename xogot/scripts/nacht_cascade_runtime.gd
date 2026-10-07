@@ -2769,10 +2769,11 @@ static func monster_death_xl_descriptor(graphs: Dictionary) -> Dictionary:
 		return {"ready": false, "error": "monster death XL axis lock mismatch"}
 
 	var velocity_dist := _distribution(ParticleSource.properties(_one_node(system, "ParticleModuleVelocity")).get("StartVelocity"))
-	var velocity_min := _vector_from_distribution(velocity_dist, "MinValueVec", Vector3.INF)
-	var velocity_max := _vector_from_distribution(velocity_dist, "MaxValueVec", Vector3.INF)
-	if not velocity_min.is_equal_approx(Vector3(-15.0, -15.0, 25.0)) or not velocity_max.is_equal_approx(Vector3(15.0, 15.0, 35.0)):
-		return {"ready": false, "error": "monster death XL velocity mismatch"}
+	var velocity_values := ParticleSource.table_float_values(velocity_dist)
+	if velocity_values != [-15.0, -15.0, 25.0, 15.0, 15.0, 35.0]:
+		return {"ready": false, "error": "monster death XL velocity samples mismatch " + str(velocity_values)}
+	var velocity_min := Vector3(velocity_values[0], velocity_values[1], velocity_values[2])
+	var velocity_max := Vector3(velocity_values[3], velocity_values[4], velocity_values[5])
 
 	var subuv := _distribution(ParticleSource.properties(_one_node(system, "ParticleModuleSubUV")).get("SubImageIndex"))
 	var subuv_values := ParticleSource.table_float_values(subuv)
