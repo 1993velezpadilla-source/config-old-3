@@ -715,6 +715,15 @@ func _run() -> void:
 	var source_audio_event_index := int(scene.get_meta("source_audio_event_index_count", 0))
 	var placed_particle_systems := int(scene.get_meta("runtime_placed_particle_system_count", 0))
 	var placed_particle_node_types := int(scene.get_meta("runtime_placed_particle_node_type_count", 0))
+	var particle_visual_mounted := bool(scene.get_meta("particle_visual_runtime_mounted", false))
+	var particle_visual_anchors := int(scene.get_meta("source_particle_visual_anchor_count", 0))
+	var particle_visual_nodes := int(scene.get_meta("source_particle_visual_node_count", 0))
+	var particle_visual_materials := int(scene.get_meta("source_particle_visual_material_count", 0))
+	var particle_visual_unresolved_materials := int(scene.get_meta("source_particle_visual_unresolved_material_count", 0))
+	var particle_visual_emitters := int(scene.get_meta("source_particle_visual_emitter_count", 0))
+	var particle_visual_mounted_emitters := int(scene.get_meta("source_particle_visual_mounted_emitter_count", 0))
+	var particle_visual_resolved_meshes := int(scene.get_meta("source_particle_visual_resolved_mesh_count", 0))
+	var particle_visual_unresolved_meshes := int(scene.get_meta("source_particle_visual_unresolved_mesh_count", 0))
 	var runtime_environment_components := int(scene.get_meta("runtime_environment_component_count", 0))
 	var runtime_environment_visual_nodes := int(scene.get_meta("runtime_environment_visual_node_count", 0))
 	var source_environment_runtime := bool(scene.get_meta("source_environment_runtime_ready", false))
@@ -818,6 +827,49 @@ func _run() -> void:
 			return
 		if get_nodes_in_group("nacht_source_particle_semantic").size() != 29:
 			_fail(34, "Cascade semantic placement group mismatch")
+			return
+		if not particle_visual_mounted:
+			_fail(
+				35,
+				"Cascade visual runtime did not mount all emitters anchors=%d nodes=%d emitters=%d/%d materials=%d unresolved_materials=%d meshes=%d unresolved_meshes=%d"
+				% [
+					particle_visual_anchors,
+					particle_visual_nodes,
+					particle_visual_mounted_emitters,
+					particle_visual_emitters,
+					particle_visual_materials,
+					particle_visual_unresolved_materials,
+					particle_visual_resolved_meshes,
+					particle_visual_unresolved_meshes,
+				]
+			)
+			return
+		if particle_visual_anchors != 29:
+			_fail(35, "Cascade visual anchor coverage mismatch %d/29" % particle_visual_anchors)
+			return
+		if particle_visual_emitters <= 0 or particle_visual_mounted_emitters != particle_visual_emitters:
+			_fail(
+				35,
+				"Cascade visual emitter coverage mismatch %d/%d"
+				% [particle_visual_mounted_emitters, particle_visual_emitters]
+			)
+			return
+		if particle_visual_unresolved_materials != 0 or particle_visual_unresolved_meshes != 0:
+			_fail(
+				35,
+				"Cascade visual unresolved source bindings materials=%d meshes=%d"
+				% [particle_visual_unresolved_materials, particle_visual_unresolved_meshes]
+			)
+			return
+		if particle_visual_resolved_meshes != 4:
+			_fail(
+				35,
+				"Cascade mesh emitter coverage mismatch %d/4"
+				% particle_visual_resolved_meshes
+			)
+			return
+		if get_nodes_in_group("nacht_source_particle_visual").size() != particle_visual_nodes:
+			_fail(35, "Cascade visual node group mismatch")
 			return
 		if (
 			not is_equal_approx(particle_mystery_rate, 10.0)
@@ -1758,6 +1810,15 @@ func _run() -> void:
 		" audio_authority=", audio_authority,
 		" cues_authority=", cue_authority,
 		" particles_rendered=", bool(scene.get_meta("particle_visual_runtime_ready", false)),
+		" particles_mounted=", particle_visual_mounted,
+		" particle_visual_anchors=", particle_visual_anchors,
+		" particle_visual_nodes=", particle_visual_nodes,
+		" particle_visual_emitters=", particle_visual_emitters,
+		" particle_visual_mounted_emitters=", particle_visual_mounted_emitters,
+		" particle_visual_materials=", particle_visual_materials,
+		" particle_visual_unresolved_materials=", particle_visual_unresolved_materials,
+		" particle_visual_resolved_meshes=", particle_visual_resolved_meshes,
+		" particle_visual_unresolved_meshes=", particle_visual_unresolved_meshes,
 		" source_audio_stream_mount=", source_audio_stream_mount,
 		" source_audio_runtime=", source_audio_runtime,
 		" source_audio_players=", source_audio_players,
