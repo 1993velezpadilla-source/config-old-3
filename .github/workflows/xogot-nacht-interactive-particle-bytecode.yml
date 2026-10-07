@@ -1016,13 +1016,29 @@ jobs:
           fizz=binding_by_key[
               ("WonderFizz.uasset","BallSpinning?")
           ]
-          if len(fizz["actions"])!=10 or not any(
+          if len(fizz["actions"])!=10 or any(
               int(row["minPredicateCount"])>0
               for row in fizz["actions"]
           ):
               raise SystemExit(
-                  "WonderFizz BallSpinning predicate authority missing"
+                  "WonderFizz BallSpinning should be predicate-free after "
+                  "full Kismet stack+latent resume reconstruction"
               )
+          assert_action_times(
+              ("WonderFizz.uasset","BallSpinning?"),
+              {
+                  10016:[18.0],
+                  10129:[20.0],
+                  10165:[20.0],
+                  10201:[20.0],
+                  10237:[20.0],
+                  11400:[20.0],
+                  11437:[20.0],
+                  11474:[20.0],
+                  11511:[20.0],
+                  11548:[20.0],
+              },
+          )
 
           replay_safe_events=[
               {
@@ -1064,6 +1080,26 @@ jobs:
                   ],
                   "proof":"GetComponentsByClass(ParticleSystemComponent) loop -> SetActive(true,true)",
               },
+              {
+                  "fileName":"WonderFizz.uasset",
+                  "blueprintName":"WonderFizz",
+                  "eventFunction":"BallSpinning?",
+                  "entryOffset":13600,
+                  "timeline":[
+                      {
+                          "atSeconds":18.0,
+                          "actionStartOffsets":[10016],
+                      },
+                      {
+                          "atSeconds":20.0,
+                          "actionStartOffsets":[
+                              10129,10165,10201,10237,
+                              11400,11437,11474,11511,11548,
+                          ],
+                      },
+                  ],
+                  "proof":"Kismet execution-flow stack + latent Delay resumes; predicate-free after preserving pop stack state",
+              },
           ]
 
           print(
@@ -1071,7 +1107,7 @@ jobs:
               f"bindings={len(event_action_bindings)} "
               f"linked_actions={len(linked_action_keys)}/17 "
               "gumball_open=15.0s gumball_close=5.0s "
-              "pap=0.0s replay_safe=3"
+              "pap=0.0s wonderfizz=18.0/20.0s replay_safe=4"
           )
           print(
               "XZOGOT_NACHT_INTERACTIVE_PARTICLE_REPLAY_SAFE_GREEN",
@@ -1083,7 +1119,6 @@ jobs:
                       ],
                       "conditional":[
                           ["Box_complete.uasset","ReceiveTick"],
-                          ["WonderFizz.uasset","BallSpinning?"],
                       ],
                   },
                   separators=(",",":"),
