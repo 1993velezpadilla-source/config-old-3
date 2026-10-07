@@ -1852,6 +1852,7 @@ static func mount_anchor(
 	var mounted_emitters := 0
 	var emitter_rows := _source_emitters(system)
 	var auto_activate := _auto_activate(placement)
+	anchor.set_meta("source_particle_auto_activate", auto_activate)
 
 	if descriptor.has("targetUEcm") and descriptor.has("noiseFrequency"):
 		if not paths.is_empty():
@@ -1934,4 +1935,5 @@ static func mount_anchor(
 		"mountedEmitterCount": mounted_emitters,
 		"materialPathCount": paths.size(),
 		"systemPath": system_path,
+		"autoActivate": auto_activate,
 	}
