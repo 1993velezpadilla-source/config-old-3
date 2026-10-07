@@ -12,8 +12,10 @@ on:
     paths:
       - ".github/workflows/xogot-nacht-cascade-fast-gate.yml"
       - "xogot/scripts/nacht_cascade_runtime.gd"
+      - "xogot/scripts/nacht_cascade_visual_runtime.gd"
       - "xogot/scripts/nacht_particle_source.gd"
       - "xogot/ci/nacht_cascade_semantic_probe.gd"
+      - "xogot/ci/nacht_cascade_visual_compile_probe.gd"
   workflow_dispatch:
 
 permissions:
@@ -86,6 +88,20 @@ jobs:
           unzip -q /tmp/godot.zip -d /tmp/godot
           chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
 
+      - name: Gate Cascade visual API
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-cascade-fast
+          timeout 120 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot \
+            --script res://ci/nacht_cascade_visual_compile_probe.gd \
+            2>&1 | tee build/nacht-cascade-fast/visual-api.log
+          grep -q "XZOGOT_NACHT_CASCADE_VISUAL_API_GREEN" \
+            build/nacht-cascade-fast/visual-api.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" \
+            build/nacht-cascade-fast/visual-api.log
+
       - name: Gate Cascade source semantics
         shell: bash
         run: |
@@ -103,6 +119,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Xogot-Nacht-Cascade-Fast-Proof
-          path: build/nacht-cascade-fast/probe.log
+          path: |
+            build/nacht-cascade-fast/probe.log
+            build/nacht-cascade-fast/visual-api.log
           if-no-files-found: error
           retention-days: 7
