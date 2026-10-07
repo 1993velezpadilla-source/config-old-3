@@ -336,6 +336,31 @@ def main() -> int:
     # exact graph references and intersect them with the material authority.
     # This adds no filename/name guessing and keeps static-mesh binding logic
     # unchanged.
+    particle_emitter_material_references = set()
+    for system in particle_graphs.get("systems", []):
+        for node in system.get("nodes", []):
+            export_type = node.get("exportType")
+            wanted = (
+                {"Material"}
+                if export_type == "ParticleModuleRequired"
+                else {"MeshMaterials"}
+                if export_type == "ParticleModuleMeshMaterial"
+                else set()
+            )
+            if not wanted:
+                continue
+            for prop in node.get("properties", []):
+                if prop.get("name") in wanted:
+                    particle_emitter_material_references.update(
+                        iter_package_index_paths(prop.get("value"))
+                    )
+
+    particle_emitter_unresolved_material_references = sorted(
+        ref
+        for ref in particle_emitter_material_references
+        if canonical_ue_path(ref) not in material_by_path
+    )
+
     particle_material_paths = set()
     for system in particle_graphs.get("systems", []):
         refs = list(system.get("references", []))
@@ -609,6 +634,12 @@ def main() -> int:
             effective_override_submeshes,
         "usedMaterialCount": len(material_library),
         "particleGraphMaterialCount": len(particle_material_paths),
+        "particleEmitterMaterialReferenceCount":
+            len(particle_emitter_material_references),
+        "particleEmitterUnresolvedMaterialReferenceCount":
+            len(particle_emitter_unresolved_material_references),
+        "particleEmitterUnresolvedMaterialReferences":
+            particle_emitter_unresolved_material_references,
         "nativeTextureReferenceCount":
             native_texture_references,
         "unresolvedMeshCount": len(unresolved_meshes),
