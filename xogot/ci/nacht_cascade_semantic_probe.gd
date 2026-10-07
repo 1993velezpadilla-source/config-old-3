@@ -51,6 +51,7 @@ func _run() -> void:
 		CascadeRuntime.acid_ball_descriptor(graphs),
 		CascadeRuntime.sparks_small_descriptor(graphs),
 		CascadeRuntime.quad_explode_smoke_descriptor(graphs),
+		CascadeRuntime.monster_death_xl_descriptor(graphs),
 	]
 
 	var placement_by_path: Dictionary = {}
@@ -73,11 +74,11 @@ func _run() -> void:
 			return
 		total_placements += int(placement_by_path[key])
 
-	if descriptors.size() != 13:
-		_fail("semantic system coverage mismatch " + str(descriptors.size()) + "/13")
+	if descriptors.size() != 14:
+		_fail("semantic system coverage mismatch " + str(descriptors.size()) + "/14")
 		return
-	if total_placements != 24:
-		_fail("semantic placement coverage mismatch " + str(total_placements) + "/24")
+	if total_placements != 25:
+		_fail("semantic placement coverage mismatch " + str(total_placements) + "/25")
 		return
 
 	print(
