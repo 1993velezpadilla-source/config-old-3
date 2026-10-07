@@ -138,7 +138,6 @@ jobs:
             2>&1 | tee build/nacht-cascade-fast/particle-alpha.log
           grep -q "XZOGOT_NACHT_GODOT_DDS_ALPHA_GREEN" \
             build/nacht-cascade-fast/particle-alpha.log
-            build/nacht-cascade-fast/particle-import.log
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" \
             build/nacht-cascade-fast/particle-alpha.log
 
