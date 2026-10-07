@@ -2377,11 +2377,11 @@ jobs:
           wrapper_entry(double_pkg,"OnGrabbed",15)
           double_top=top_map(double_pkg,"ExecuteUbergraph_DoublePointsDrop")
           require_expr_tokens(
-              double_top,62,["ZombieGameLogic_C","GetAllActorsOfClass"],
+              double_top,40,["ZombieGameLogic_C","GetAllActorsOfClass"],
               "Double Points game logic fanout"
           )
           require_expr_tokens(
-              double_top,357,["Double Points Event"],
+              double_top,335,["Double Points Event"],
               "Double Points event"
           )
           double_points_authority={
@@ -2397,11 +2397,11 @@ jobs:
           wrapper_entry(insta_pkg,"OnGrabbed",565)
           insta_top=top_map(insta_pkg,"ExecuteUbergraph_InstaKillDrop")
           require_expr_tokens(
-              insta_top,62,["ZombieGameLogic_C","GetAllActorsOfClass"],
+              insta_top,40,["ZombieGameLogic_C","GetAllActorsOfClass"],
               "Insta Kill game logic fanout"
           )
           require_expr_tokens(
-              insta_top,357,["Insta Kill Event"],
+              insta_top,335,["Insta Kill Event"],
               "Insta Kill event"
           )
           insta_kill_authority={
