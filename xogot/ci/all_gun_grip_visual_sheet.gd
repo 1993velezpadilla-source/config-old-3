@@ -103,7 +103,9 @@ func _capture() -> void:
 				failures.append(weapon_id + ":" + pose + ":bounds=" + str(largest))
 			var source_pistol: bool = weapon_id in ["colt", "walther", "nambu", "tt33", "357"]
 			# See independent original HIP+ADS 4-way rotation matrix #37857367033.
-			var confirmed_upright_long: bool = weapon_id in ["stg", "browning", "type99"]
+			var confirmed_upright_long: bool = weapon_id in [
+				"stg", "browning", "type99", "bar", "dp28", "thompson", "trench"
+			]
 			var expected_roll := 180.0 if source_pistol or confirmed_upright_long else 90.0
 			if absf(roll - expected_roll) > 0.01:
 				failures.append(weapon_id + ":" + pose + ":roll=" + str(roll) + " expected=" + str(expected_roll))
