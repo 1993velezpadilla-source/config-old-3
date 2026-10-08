@@ -1,0 +1,114 @@
+name: ZOMBIES Xogot Five Minute Gauntlet Watch
+
+# GitHub Actions' shortest supported scheduled interval is five minutes.
+# Scheduled jobs execute from the DEFAULT branch, but inspect ONLY the
+# unmerged draft #126 weapon-correction branch. This workflow cannot alter
+# game files, pretend tests have passed, or merge the pull request.
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+concurrency:
+  group: zombies-xogot-five-minute-watch
+  cancel-in-progress: false
+
+jobs:
+  weapon-gauntlet-watch:
+    if: github.repository == '1993velezpadilla-source/config-old-3'
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    env:
+      GH_TOKEN: ${{ github.token }}
+      FIX_BRANCH: fix/source-viewmodel-inherited-hands-unit-scale
+      PR_NUMBER: '126'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: fix/source-viewmodel-inherited-hands-unit-scale
+          persist-credentials: false
+
+      - name: Verify all 28 original Aether source weapon transforms and image reference index
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/weapons/verify_waw_2008_iron_sight_visual_reference.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          presentation = json.loads(Path("xogot/data/weapon_viewmodel_source_presentation.json").read_text())
+          original = presentation.get("weapons", {})
+          assert presentation.get("weapon_count") == 28 and len(original) == 28
+          assert all(row.get("status") == "source_datatable" for row in original.values())
+          assert all(len(row.get("ads_transform_godot",{}).get("rotation_xyzw",[])) == 4 for row in original.values())
+          hands = json.loads(Path("xogot/assets/weapons/mapmod_weapon_asset_manifest.json").read_text())
+          assert "doublebarrel" in hands["weapons"]["sawnoff"]["runtime"]["hands"]
+          print("ZOMBIES_5MIN_SOURCE_DATA_GREEN original_ads=28 originals_only=true")
+          PY
+
+      - name: Read live Godot Gauntlet RED and GREEN results for the draft PR
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" > /tmp/weapon-pr.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs?branch=$FIX_BRANCH&per_page=100" > /tmp/weapon-runs.json
+          python - <<'PY'
+          import json, os, subprocess
+          from pathlib import Path
+
+          pr = json.loads(Path("/tmp/weapon-pr.json").read_text())
+          runs = json.loads(Path("/tmp/weapon-runs.json").read_text()).get("workflow_runs", [])
+          head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          expected = [
+              "Xogot All 28 Isolated ADS Sight Frames",
+              "Xogot Real Gun ADS Sight Attachment Audit",
+              "Xogot All 28 Gun Grip Orientation Gate",
+              "Xogot All Gun Grip HIP ADS Visual Sheet",
+              "Xogot Original WaW 2008 ADS Visual Reference Authority",
+          ]
+          if not (pr.get("state") == "open" and pr.get("draft") is True
+                  and pr["head"]["ref"] == os.environ["FIX_BRANCH"]):
+              raise SystemExit("GAUNTLET WATCH HALT: PR 126 is no longer an open unmerged draft")
+
+          report = [
+              "# ZOMBIES weapon gauntlet: scheduled five-minute CHECK",
+              f"**Checked branch:** `{os.environ['FIX_BRANCH']}`",
+              f"**Git SHA:** `{head[:12]}`",
+              "**PR #126:** draft and unmerged",
+              "",
+              "| Godot gate | Latest branch result | Latest result for this SHA |",
+              "|---|---|---|",
+          ]
+          red = 0
+          for name in expected:
+              matching = [x for x in runs if x["name"] == name]
+              latest = matching[0] if matching else None
+              current = next((x for x in matching if x["head_sha"] == head), None)
+              def desc(x):
+                  return x.get("conclusion") or x.get("status") or "unknown" if x else "NOT TESTED"
+              a = desc(latest)
+              b = desc(current)
+              if b != "success":
+                  red += 1
+              report.append(f"| {name} | {a} | {b} |")
+          report.extend([
+              "",
+              "**Visual approvals of 28 ironsights, real grips, and scopes still require",
+              "comparison against original 2008 gameplay. A numerical GREEN is NOT",
+              "approval to merge or ship.**",
+              f"",
+              f"**GAUNTLET STATUS:** `{'ALL FIVE TECHNICAL GATES PASSED; HUMAN VISUAL REVIEW REQUIRED' if red == 0 else 'RED / IN PROGRESS — ' + str(red) + ' current-SHA gates unapproved'}`",
+              "",
+              "This workflow monitors every five minutes; full Godot tests are run",
+              "by their separate branch workflows on relevant source changes.",
+          ])
+          print("\n".join(report))
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as out:
+              out.write("\n".join(report) + "\n")
+          print("ZOMBIES_5MIN_GAUNTLET_WATCH_GREEN checking_only=true")
+          PY
