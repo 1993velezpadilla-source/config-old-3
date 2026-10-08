@@ -4,6 +4,7 @@ extends SceneTree
 # the game's source gun, exported poses or hand animations.
 const STUB_PLAYER = preload("res://ci/ads_dummy_player.gd")
 const SOURCE_WEAPON = preload("res://scripts/weapon.gd")
+const SOURCE_REGISTRY = preload("res://scripts/weapon_asset_registry.gd")
 const OUT := "/tmp/xogot-revolver-357-anim"
 
 func _init() -> void:
@@ -94,6 +95,15 @@ func _idle_mesh_without_original_reload_props(model: Node3D) -> bool:
 			else:
 				keep.append_array(PackedInt32Array([i0,i1,i2]))
 		a[Mesh.ARRAY_INDEX] = keep
+		# Some imported custom vertex channels are decoded as non-byte arrays
+		# by Godot's GLB importer. ArrayMesh's builder only accepts native
+		# PackedByteArray custom channels. A/B proof does not need these auxiliary
+		# channels: keep all base positions/UV/normals/skin and log each exclusion.
+		for custom_slot in range(Mesh.ARRAY_CUSTOM0, Mesh.ARRAY_CUSTOM3 + 1):
+			if a[custom_slot] != null and not (a[custom_slot] is PackedByteArray):
+				print("XZOGOT_SW357_DIAGNOSTIC_CUSTOM_CHANNEL_OMITTED slot=", custom_slot,
+					" source_type=", type_string(typeof(a[custom_slot])))
+				a[custom_slot] = null
 		# Keep the source 8-bone weight layout; passing default flags made
 		# Godot reject the source vertex arrays as an invalid surface.
 		var format_flags: int = source_mesh.surface_get_format(surface_idx) & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS
@@ -150,9 +160,15 @@ func _run() -> void:
 		push_error("XZOGOT_SW357_ANIM_PLAYER_MISSING")
 		quit(8)
 		return
-	var source_idle := str(gun_anim.current_animation)
-	print("XZOGOT_SW357_SOURCE_GUN_IDLE name=",source_idle,
-		" position=",gun_anim.current_animation_position)
+	var source_idle := SOURCE_REGISTRY.animation_name_for_role("357", "idle")
+	if source_idle.is_empty() or not gun_anim.has_animation(source_idle):
+		push_error("XZOGOT_SW357_EXACT_SOURCE_IDLE_NOT_AVAILABLE name=" + source_idle)
+		quit(10)
+		return
+	gun_anim.play(source_idle, 0.0)
+	await process_frame
+	print("XZOGOT_SW357_SOURCE_GUN_IDLE name=", source_idle,
+		" position=", gun_anim.current_animation_position)
 	await _screenshot("01-original-source-hip")
 	# A/B test original animated idle against exactly the same source rig
 	# in exported mesh bind/rest position (do not adjust any socket offset).
