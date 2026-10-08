@@ -3714,8 +3714,14 @@ func _begin_source_navigation() -> void:
 	_source_navigation_runtime.name = "NachtSourceNavigation"
 	_source_navigation_runtime.set("source_collision_group", &"nacht_world_collision")
 	_source_navigation_runtime.set("source_runtime_id", "nacht")
-	_source_navigation_runtime.navigation_ready.connect(_on_source_navigation_ready)
-	_source_navigation_runtime.navigation_failed.connect(_on_source_navigation_failed)
+	_source_navigation_runtime.connect(
+		"navigation_ready",
+		Callable(self, "_on_source_navigation_ready")
+	)
+	_source_navigation_runtime.connect(
+		"navigation_failed",
+		Callable(self, "_on_source_navigation_failed")
+	)
 	add_child(_source_navigation_runtime)
 	_source_navigation_runtime.call_deferred("begin_bake")
 	print(
