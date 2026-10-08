@@ -500,6 +500,8 @@ func _find_skeleton_bone_attachment(node: Node, aliases: Array[String], attachme
 func _orient_imported_viewmodel(model: Node3D, model_path: String) -> void:
 	if model == null:
 		return
+	# Track import basis per equip, never reuse a previous gun's source metadata.
+	set_meta("weapon_source_imported_aether", model_path.contains("/aether_waw_real/"))
 	# Aether/WaW source convention: tag_flash is authored along +X.
 	# Godot camera forward is -Z, therefore +90 deg around Y maps +X -> -Z.
 	if model_path.contains("/aether_waw_real/"):
@@ -715,6 +717,15 @@ func _bind_weapon_to_source_hands() -> bool:
 	# tag_weapon bone supplies the authored per-weapon HIP placement.
 	_weapon_model_root.reparent(attachment, false)
 	_weapon_model_root.transform = Transform3D.IDENTITY
+	# Source Aether weapon GLBs are rolled 90 degrees around their local +X
+	# forward axis relative to the authored tag_weapon hand socket. The real
+	# MP40 8-frame HIP/ADS gauntlet proved +90 degrees is the unique candidate
+	# with camera-up ~= +Y, gravity-down magazine orientation and upright ADS.
+	# Keep this as an import-axis conversion only; do not alter hand PSA motion
+	# or the per-weapon source HIP/ADS transforms.
+	var gun_roll_deg := 90.0 if bool(get_meta("weapon_source_imported_aether", false)) else 0.0
+	_weapon_model_root.quaternion = Quaternion(Vector3.RIGHT, deg_to_rad(gun_roll_deg))
+	set_meta("weapon_source_gun_roll_correction_deg", gun_roll_deg)
 	_weapon_model_root.scale = Vector3.ONE
 	_sync_source_weapon_attachment()
 
