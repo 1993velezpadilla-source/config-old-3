@@ -84,11 +84,11 @@ jobs:
             render_rc="${pipeline_status[0]}"
           fi
           echo "XZOGOT_SCREENSHOT_RENDER_PROCESS_RC rc=$render_rc"
-          grep -q "XZOGOT_MONJA_BASICA_LOADED" build/xogot-screenshot/render.log
-          ! grep -q "XZOGOT_MONJA_BASICA_FALLBACK" build/xogot-screenshot/render.log
+          grep -q "XZOGOT_SCREENSHOT_WAW_SOURCE_ZOMBIE_READY" build/xogot-screenshot/render.log
           ! grep -q "ALSA lib" build/xogot-screenshot/render.log
           grep -q "XZOGOT_MP40_RUNTIME_METER_BOUNDS_GREEN" build/xogot-screenshot/render.log
           grep -q "XZOGOT_MP40_PROVEN_GRIP_GREEN" build/xogot-screenshot/render.log
+          grep -q "XZOGOT_MP40_FINAL_VISUAL_PROOF_GREEN" build/xogot-screenshot/render.log
           grep -q "XZOGOT_SCREENSHOT_HIP_GREEN" build/xogot-screenshot/render.log
           grep -q "XZOGOT_SCREENSHOT_ADS_GREEN" build/xogot-screenshot/render.log
           grep -q "XZOGOT_EXTERIOR_SCREENSHOT_GREEN" build/xogot-screenshot/render.log
