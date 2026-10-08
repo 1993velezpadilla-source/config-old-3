@@ -272,6 +272,42 @@ foreach (var logicalPackage in mapPackages)
                 throw new InvalidDataException(
                     "non-finite actor anchor transform");
 
+            object? sourceGameplayProperties = null;
+            if (string.Equals(
+                    sourceObject.ExportType,
+                    "MysteryBoxLocation_C",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                // Preserve exact per-instance Mystery Box location overrides
+                // from the cooked UMAP. PropertyUtil.SearchPropertyInTemplate
+                // is enabled above, so omitted values resolve through the
+                // authoritative class/archetype defaults rather than guesses.
+                var powerSwitchFlags =
+                    sourceObject.GetOrDefault<FName[]>(
+                        "PowerSwitchFlags")
+                    ?? Array.Empty<FName>();
+
+                sourceGameplayProperties = new
+                {
+                    alwaySpawnHereFirst =
+                        sourceObject.GetOrDefault<bool>(
+                            "AlwaySpawnHereFirst"),
+                    boxRequiresPowerInstead =
+                        sourceObject.GetOrDefault<bool>(
+                            "BoxRequiresPowerInstead"),
+                    hideMysteryBoxLocation =
+                        sourceObject.GetOrDefault<bool>(
+                            "HideMysteryBoxLocation"),
+                    powered =
+                        sourceObject.GetOrDefault<bool>(
+                            "Powered"),
+                    powerSwitchFlags =
+                        powerSwitchFlags
+                            .Select(value => value.ToString())
+                            .ToArray()
+                };
+            }
+
             actorAnchors.Add(new
             {
                 packagePath = logicalPackage,
@@ -289,7 +325,8 @@ foreach (var logicalPackage in mapPackages)
                     matrix[3],
                     matrix[7],
                     matrix[11]
-                }
+                },
+                sourceGameplayProperties
             });
         }
 

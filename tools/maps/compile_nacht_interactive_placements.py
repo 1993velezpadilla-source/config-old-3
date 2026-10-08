@@ -101,6 +101,9 @@ def main() -> int:
                 "anchorSource": anchor.get("anchorSource"),
                 "matrixRowMajor": anchor.get("matrixRowMajor"),
                 "positionMeters": anchor.get("positionMeters"),
+                "sourceGameplayProperties": anchor.get(
+                    "sourceGameplayProperties"
+                ) or {},
             })
 
     counts = {k: len(v) for k, v in categories.items()}
