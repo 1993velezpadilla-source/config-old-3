@@ -302,6 +302,12 @@ func _run_probe() -> void:
 					weapon.get("_weapon_model_root") as Node3D,
 					scene.get_node_or_null("Player/Head/Camera3D") as Camera3D
 				)
+			if id in ["mosin", "ptrs"]:
+				if not bool(weapon.get_meta("weapon_source_offstage_reload_filter_ready", false)):
+					source_geometry_blockers.append(id + ":offstage_reload_filter_missing")
+				else:
+					print("XZOGOT_SOURCE_OFFSTAGE_RELOAD_GEOMETRY_GREEN ", id,
+						" removed=", int((weapon.get("_source_offstage_reload_meshes") as Dictionary).get("removed_triangles", 0)))
 			var source_snapshot: Dictionary = weapon.call("get_first_person_debug_snapshot")
 			var gun_bounds: Dictionary = source_snapshot.get("weapon", {}) as Dictionary
 			var gun_size: Vector3 = gun_bounds.get("size", Vector3.ZERO)
