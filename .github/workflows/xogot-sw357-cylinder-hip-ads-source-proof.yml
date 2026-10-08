@@ -39,7 +39,7 @@ jobs:
           set -euo pipefail
           timeout 240 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 --headless --editor --path xogot --quit 2>&1 | tee build/sw357/import.log
           ! grep -E "SCRIPT ERROR|Parse Error" build/sw357/import.log
-      - name: Capture source original .357 idle versus rest animation in Godot
+      - name: Capture SW357 original idle, native bone-rest A/B and filtered source in Godot
         shell: bash
         run: |
           set -euo pipefail
@@ -48,14 +48,14 @@ jobs:
             --path xogot --audio-driver Dummy --rendering-method gl_compatibility \
             --resolution 1280x720 --script res://ci/revolver_idle_pose_diagnostic.gd \
             2>&1 | tee build/sw357/render.log
-          grep -q "XZOGOT_SW357_ANIMATION_AB_IMAGES_READY 7" build/sw357/render.log
-          test "$(find /tmp/xogot-revolver-357-anim -maxdepth 1 -name '*.png' | wc -l)" -eq 7
+          grep -q "XZOGOT_SW357_ANIMATION_AB_IMAGES_READY 12" build/sw357/render.log
+          test "$(find /tmp/xogot-revolver-357-anim -maxdepth 1 -name '*.png' | wc -l)" -eq 12
           ! grep -E "SCRIPT ERROR|Parse Error|XZOGOT_SW357_NO_FRAME|ERROR: Invalid array format for surface|XZOGOT_SW357_FILTER_ARRAY_BUILD_RED" build/sw357/render.log
-      - name: Seven independent zoomable original SW357 source comparison PNGs
+      - name: 12 independent zoomable original SW357 source/bone A-B PNGs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Xogot-SW357-Original-Skeleton-Bind-vs-Idle-HIP-ADS-6PNG
+          name: Xogot-SW357-Original-Idle-Cylinder-Bone-Isolation-12PNG
           path: /tmp/xogot-revolver-357-anim/*.png
           if-no-files-found: warn
           retention-days: 14
