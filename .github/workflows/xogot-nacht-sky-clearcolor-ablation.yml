@@ -1,0 +1,142 @@
+name: Nacht Sky Background Ablation
+
+on:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-nacht-sky-clearcolor-ablation.yml"
+  workflow_dispatch:
+    inputs:
+      source_stage:
+        description: "Validated Stage Nacht world artifact run"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-nacht-sky-background-ablation
+  cancel-in-progress: true
+
+jobs:
+  ablation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+      STAGE_RUN: ${{ inputs.source_stage || '37714627719' }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/godot-aaa-rebuild-v1
+
+      - name: Mount unchanged source-approved Nacht Stage #208
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/nacht-sky-test" build/nacht-sky-ablation
+          status="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/$STAGE_RUN" \
+            --jq '.status + ":" + (.conclusion // "")')"
+          test "$status" = "completed:success"
+          gh run download "$STAGE_RUN" -R "$GITHUB_REPOSITORY" \
+            -n Xogot-Nacht-Chronicles-Godot-Runtime \
+            -D "$RUNNER_TEMP/nacht-sky-test"
+          manifest="$(find "$RUNNER_TEMP/nacht-sky-test" -type f -name source_manifest.json -print -quit)"
+          test -n "$manifest"
+          source="$(dirname "$manifest")"
+          test -s "$source/nacht-static-scene.json"
+          rm -rf xogot/assets/benchmarks/nacht_chronicles
+          mkdir -p xogot/assets/benchmarks
+          cp -a "$source" xogot/assets/benchmarks/nacht_chronicles
+          echo "XZOGOT_NACHT_SKY_ABLATION_STAGE_MOUNT_GREEN run=$STAGE_RUN"
+
+      - name: Apply test-only solid BLACK background (not an exact UE sky)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("xogot/ci/nacht_full_map_capture.gd")
+          s = p.read_text()
+          needle = "func _prepare_structural_visual_proof(scene: Node3D) -> void:\n"
+          assert s.count(needle) == 1
+          test_only = (
+              needle
+              + "\t# Diagnostic only: never persists into the shipping world.\n"
+              + "\t# Test whether BG_CLEAR_COLOR is the actual exterior sky void.\n"
+              + "\tvar found_source_world := 0\n"
+              + "\tfor node: Node in get_nodes_in_group(\"nacht_source_environment_runtime\"):\n"
+              + "\t\tif node is WorldEnvironment:\n"
+              + "\t\t\tvar w := node as WorldEnvironment\n"
+              + "\t\t\tif w.environment != null:\n"
+              + "\t\t\t\tw.environment.background_mode = Environment.BG_COLOR\n"
+              + "\t\t\t\tw.environment.background_color = Color.BLACK\n"
+              + "\t\t\t\tfound_source_world += 1\n"
+              + "\tprint(\"XZOGOT_NACHT_BLACK_SKY_ABLATION runtime_worlds=\", found_source_world)\n"
+              + "\tassert(found_source_world == 1)\n"
+          )
+          p.write_text(s.replace(needle, test_only))
+          print("XZOGOT_NACHT_SKY_ABLATION_TEST_ONLY_INJECTION_GREEN")
+          PY
+          git diff --stat -- xogot/ci/nacht_full_map_capture.gd
+          echo "SOURCE_SKY_EXACT=false" > build/nacht-sky-ablation/source-parity.txt
+          echo "Temporary capture-script modification only; source-runtime scene untouched." >> build/nacht-sky-ablation/source-parity.txt
+
+      - name: Install tested renderer and visual QA tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          export DEBIAN_FRONTEND=noninteractive
+          timeout 400 sudo apt-get update -qq
+          timeout 600 sudo apt-get install -y -qq unzip curl xvfb libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+          python3 -m pip install --user "pillow==11.3.0" || python3 -m pip install --break-system-packages "pillow==11.3.0"
+          curl -L --fail --retry 4 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot-sky.zip
+          mkdir -p /tmp/godot-sky
+          unzip -q /tmp/godot-sky.zip -d /tmp/godot-sky
+          chmod +x /tmp/godot-sky/Godot_v4.6.1-stable_linux.x86_64
+
+      - name: Import exact world and capture same overview under black sky
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 900 /tmp/godot-sky/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit \
+            2>&1 | tee build/nacht-sky-ablation/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|MAX_MESH_SURFACES" build/nacht-sky-ablation/import.log
+          timeout 1200 xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot-sky/Godot_v4.6.1-stable_linux.x86_64 \
+            --path xogot --rendering-method gl_compatibility \
+            --resolution 1280x720 --script res://ci/nacht_full_map_capture.gd \
+            2>&1 | tee build/nacht-sky-ablation/capture.log
+          grep -q 'XZOGOT_NACHT_BLACK_SKY_ABLATION runtime_worlds=1' build/nacht-sky-ablation/capture.log
+          grep -q 'XZOGOT_NACHT_CAPTURE_WORLD_GREEN' build/nacht-sky-ablation/capture.log
+          test -s /tmp/xogot-nacht-overview.png
+          test -s /tmp/xogot-nacht-spawn.png
+          cp /tmp/xogot-nacht-overview.png build/nacht-sky-ablation/
+          cp /tmp/xogot-nacht-spawn.png build/nacht-sky-ablation/
+          echo 'XZOGOT_NACHT_SKY_ABLATION_CAPTURE_GREEN'
+
+      - name: Quantitatively compare against known white-void regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/nacht_visual_void_guard.py \
+            --overview build/nacht-sky-ablation/xogot-nacht-overview.png \
+            --spawn build/nacht-sky-ablation/xogot-nacht-spawn.png \
+            --report build/nacht-sky-ablation/metrics.json \
+            --max-white-ratio 0.005 --max-white-blob 500
+          echo 'XZOGOT_NACHT_ABLATION_SKY_BACKGROUND_NOT_EXACT_GREEN'
+
+      - name: Upload new actual runtime screenshots and experimental evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Black-Sky-Test-Screenshots
+          path: build/nacht-sky-ablation/
+          retention-days: 14
+          if-no-files-found: warn
