@@ -1,0 +1,69 @@
+name: Xogot SW357 Original Cylinder and Hand Pose A-B
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/source-viewmodel-inherited-hands-unit-scale
+    paths:
+      - "xogot/ci/revolver_idle_pose_diagnostic.gd"
+      - ".github/workflows/xogot-sw357-cylinder-hip-ads-source-proof.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xogot-sw357-source-pose-ab-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 11
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Godot 4.6.1 real rendering runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip -o /tmp/godot.zip
+          mkdir -p /tmp/godot /tmp/xogot-revolver-357-anim build/sw357
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+      - name: Godot import and validation of original Aether geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 240 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 --headless --editor --path xogot --quit 2>&1 | tee build/sw357/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error" build/sw357/import.log
+      - name: Capture source original .357 idle versus rest animation in Godot
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 240 xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --path xogot --audio-driver Dummy --rendering-method gl_compatibility \
+            --resolution 1280x720 --script res://ci/revolver_idle_pose_diagnostic.gd \
+            2>&1 | tee build/sw357/render.log
+          grep -q "XZOGOT_SW357_ANIMATION_AB_IMAGES_READY 6" build/sw357/render.log
+          test "$(find /tmp/xogot-revolver-357-anim -maxdepth 1 -name '*.png' | wc -l)" -eq 6
+          ! grep -E "SCRIPT ERROR|Parse Error|XZOGOT_SW357_NO_FRAME" build/sw357/render.log
+      - name: Six independent zoomable original SW357 source comparison PNGs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-SW357-Original-Skeleton-Bind-vs-Idle-HIP-ADS-6PNG
+          path: /tmp/xogot-revolver-357-anim/*.png
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Upload Godot .357 original skeleton comparison logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-SW357-Cylinder-Source-AB-Logs
+          path: build/sw357/*.log
+          if-no-files-found: warn
+          retention-days: 14
