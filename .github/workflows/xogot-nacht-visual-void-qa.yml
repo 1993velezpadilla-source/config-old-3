@@ -1,0 +1,83 @@
+name: Nacht Nighttime Visual Void QA
+
+on:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-nacht-visual-void-qa.yml"
+      - "tools/maps/nacht_visual_void_guard.py"
+  workflow_dispatch:
+    inputs:
+      capture_run:
+        description: "Successful Stage Nacht run with screenshots (defaults to #208)"
+        type: string
+        required: false
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-nacht-visual-void-qa
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/godot-aaa-rebuild-v1
+
+      - name: Install PNG reader and prove visual metric self-test
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --user pillow
+          python3 tools/maps/nacht_visual_void_guard.py --self-test
+
+      - name: Download real source-staged Nacht captures
+        shell: bash
+        env:
+          SELECTED_RUN: ${{ inputs.capture_run || '37714627719' }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/nacht-visual-evidence" build/nacht-visual-qa
+          status="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/$SELECTED_RUN" \
+            --jq '.status + ":" + (.conclusion // "")')"
+          test "$status" = "completed:success"
+          gh run download "$SELECTED_RUN" -R "$GITHUB_REPOSITORY" \
+            -n Xogot-Nacht-Full-Map-Screenshots \
+            -D "$RUNNER_TEMP/nacht-visual-evidence"
+          overview="$(find "$RUNNER_TEMP/nacht-visual-evidence" -type f \
+            -name 'xogot-nacht-overview.png' -print -quit)"
+          spawn="$(find "$RUNNER_TEMP/nacht-visual-evidence" -type f \
+            -name 'xogot-nacht-spawn.png' -print -quit)"
+          test -n "$overview" && test -n "$spawn"
+          printf '%s\n' "$SELECTED_RUN" > build/nacht-visual-qa/source-capture-run.txt
+          echo "NACHT_OVERVIEW=$overview" >> "$GITHUB_ENV"
+          echo "NACHT_SPAWN=$spawn" >> "$GITHUB_ENV"
+          echo "XZOGOT_NACHT_REAL_CAPTURE_READY run=$SELECTED_RUN"
+
+      - name: Audit exterior white void against interior control image
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/nacht_visual_void_guard.py \
+            --overview "$NACHT_OVERVIEW" \
+            --spawn "$NACHT_SPAWN" \
+            --report build/nacht-visual-qa/metrics.json \
+            --max-white-ratio 0.005 --max-white-blob 500
+
+      - name: Upload real screenshot quality report even when RED
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Nacht-Nighttime-Visual-Void-Metrics
+          path: build/nacht-visual-qa/
+          if-no-files-found: warn
+          retention-days: 14
