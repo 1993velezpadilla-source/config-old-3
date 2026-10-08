@@ -153,15 +153,38 @@ func _inspect() -> void:
 			barrel_angle_deg = rad_to_deg(acos(clampf(barrel_camera.dot(Vector3.FORWARD), -1.0, 1.0)))
 		if solved_translation < 0.003 and solved_angle < 0.005:
 			bad_ads.append(id + ":ads_equals_hip")
-		# For original imported iron/scope sight tags, 1 cm alignment
-		# maximum. The entire real hands+gun view-root optical correction
-		# must not mutate the recovered DT_Weapons ADS transform itself.
-		if marker_error_m >= 0.0 and marker_error_m > 0.01:
-			bad_ads.append(id + ":source_sight_off_center=" + str(marker_error_m))
-		if marker_error_m >= 0.0 and marker_camera_depth_m > -0.16:
-			bad_ads.append(id + ":source_sight_clipped_by_near_plane=" + str(marker_camera_depth_m))
-		if marker_error_m >= 0.0 and str(weapon.get_meta("weapon_ads_source_sight_registration", "")) != "runtime_optical_registration":
-			bad_ads.append(id + ":source_sight_runtime_registration_not_applied")
+		# A true scoped WaW sight is an independent full-screen reticle
+		# registered to the center of the optical camera. The recovered
+		# tag_scope bone is 9–12cm off center, since it is NOT the physical
+		# scope glass nor the actual HUD reticle. Do NOT silently declare a
+		# misaligned bone good: log it and require the genuine HUD shader
+		# visible, original 3D tube masked, and original model restored
+		# after leaving ADS. All non-scoped iron-sight checks remain strict.
+		var uses_scope_overlay: bool = id in ["mosin", "ptrs"]
+		var scope_verified := false
+		var mask: ColorRect = scene.get_node_or_null("HUD/MobileHUD/SourceSniperScopeMask") as ColorRect
+		var view: Node3D = weapon.get("_view_root") as Node3D
+		if uses_scope_overlay:
+			scope_verified = (
+				mask != null and mask.visible
+				and mask.material is ShaderMaterial
+				and mask.mouse_filter == Control.MOUSE_FILTER_IGNORE
+				and view != null and not view.visible
+				and bool(weapon.get_meta("weapon_scope_viewmodel_masked", false))
+			)
+			if not scope_verified:
+				bad_ads.append(id + ":missing_or_incorrect_gameplay_scope_overlay")
+			print("XZOGOT_SIGHT_AUDIT_SCOPED_OPTICAL_HUD id=", id,
+				" reticle_center_camera=(0,0) shader_mask=", scope_verified,
+				" old_tag_scope_offset_m=", marker_error_m,
+				" old_tag_scope_depth_m=", marker_camera_depth_m)
+		else:
+			if marker_error_m >= 0.0 and marker_error_m > 0.01:
+				bad_ads.append(id + ":source_sight_off_center=" + str(marker_error_m))
+			if marker_error_m >= 0.0 and marker_camera_depth_m > -0.16:
+				bad_ads.append(id + ":source_sight_clipped_by_near_plane=" + str(marker_camera_depth_m))
+			if marker_error_m >= 0.0 and str(weapon.get_meta("weapon_ads_source_sight_registration", "")) != "runtime_optical_registration":
+				bad_ads.append(id + ":source_sight_runtime_registration_not_applied")
 		if barrel_angle_deg >= 0.0 and barrel_angle_deg > 3.0:
 			bad_ads.append(id + ":barrel_off_camera_forward_deg=" + str(barrel_angle_deg))
 		if marker_error_m < 0.0:
@@ -180,6 +203,11 @@ func _inspect() -> void:
 		player.set_meta("ads_toggled", false)
 		await create_timer(0.72).timeout
 		await process_frame
+		if uses_scope_overlay and (
+			mask == null or mask.visible or view == null or not view.visible
+			or bool(weapon.get_meta("weapon_scope_viewmodel_masked", true))
+		):
+			bad_ads.append(id + ":scope_overlay_or_original_hip_not_restored")
 		var hip_restore_alpha: float = float(weapon.get("_ads_pose_alpha"))
 		var hip_restore_pose: Vector3 = weapon.get("_view_pose_position")
 		var hip_reference_pose: Vector3 = weapon.get("_hip_pose_position")
