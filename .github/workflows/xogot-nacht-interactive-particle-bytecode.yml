@@ -2809,12 +2809,13 @@ jobs:
           require(st,441,"BooleanOR","Powered")
           require(st,501,"BooleanOR","BoxRequiresPowerInstead")
           require(st,571,"IsMysteryBoxAvailable","EX_True")
-          # Source also recognizes a forced first location while unpowered.
+          # The source explicitly marks a forced-first unpowered location unavailable
+          # to ordinary selection. Its starting-location assignment is a separate path.
           require(st,893,"Not_PreBool","Powered")
           require(st,944,"PowerSwitchFlags","Array_Length")
           require(st,1025,"Not_PreBool","BoxRequiresPowerInstead")
           require(st,1148,"BooleanAND","AlwaySpawnHereFirst")
-          require(st,1256,"IsMysteryBoxAvailable","EX_True")
+          require(st,1256,"IsMysteryBoxAvailable","EX_False")
           # Existing boxes are destroyed before a fresh location is chosen.
           require(st,1751,"GetAllActorsOfClass","MysteryBox_C")
           require(st,2050,"K2_DestroyActor")
@@ -2937,7 +2938,7 @@ jobs:
                   },
                   {
                       "kind":"forced_start",
-                      "rule":"!Powered && PowerSwitchFlags.length > 0 && AlwaySpawnHereFirst && !BoxRequiresPowerInstead",
+                      "rule":"!Powered && PowerSwitchFlags.length > 0 && AlwaySpawnHereFirst && !BoxRequiresPowerInstead => IsMysteryBoxAvailable=false; starting location is selected separately",
                       "proofOffsets":[893,944,1025,1148,1256],
                   },
               ],
