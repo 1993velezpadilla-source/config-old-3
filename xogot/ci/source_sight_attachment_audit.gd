@@ -100,8 +100,37 @@ func _inspect() -> void:
 		var delta_pos: float = hip_pos.distance_to(ads_pos)
 		var delta_angle: float = hip_rot.angle_to(ads_rot)
 		var mode := str(weapon.call("get_ads_calibration_mode"))
-		if delta_pos < 0.002 and delta_angle < 0.004:
-			bad_ads.append(id)
+		# First record the genuine HIP state, then activate ADS and wait for
+		# the actual source timing. A mere FOV change is a hard visual blocker.
+		player.set_meta("ads_toggled", true)
+		await create_timer(0.60).timeout
+		await process_frame
+		var solved_hip: Vector3 = weapon.get("_hip_pose_position")
+		var solved_ads: Vector3 = weapon.get("_ads_pose_position")
+		var solved_hip_rot: Quaternion = weapon.get("_hip_pose_rotation")
+		var solved_ads_rot: Quaternion = weapon.get("_ads_pose_rotation")
+		var solved_translation: float = solved_hip.distance_to(solved_ads)
+		var solved_angle: float = solved_hip_rot.angle_to(solved_ads_rot)
+		var sight_source: String = str(weapon.get_meta("weapon_ads_visual_sight_anchor", "source_dt_or_missing"))
+		var marker_error_m := -1.0
+		if gun_skeleton != null and id != "mp40":
+			for tag in ["tag_iron_sights", "tag_scope", "tag_no_scope"]:
+				var idx := gun_skeleton.find_bone(tag)
+				if idx >= 0:
+					var marker_camera: Vector3 = cam.to_local(
+						(gun_skeleton.global_transform * gun_skeleton.get_bone_global_pose(idx)).origin)
+					marker_error_m = Vector2(marker_camera.x, marker_camera.y).length()
+					break
+		if solved_translation < 0.003 and solved_angle < 0.005:
+			bad_ads.append(id + ":ads_equals_hip")
+		if marker_error_m >= 0.0 and marker_error_m > 0.08:
+			bad_ads.append(id + ":source_sight_off_center=" + str(marker_error_m))
+		print("XZOGOT_SIGHT_AUDIT_ADS_RESULT id=",id,
+			" mode=",str(weapon.get_meta("weapon_ads_visual_alignment_mode", mode)),
+			" sight=",sight_source,
+			" translation_m=",solved_translation,
+			" rotation_rad=",solved_angle,
+			" authored_sight_error_m=",marker_error_m)
 		print("XZOGOT_SIGHT_AUDIT id=",id," mode=",mode,
 			" hip_ads_translation_delta_m=",delta_pos,
 			" rotation_delta_rad=",delta_angle,
@@ -110,8 +139,10 @@ func _inspect() -> void:
 			" muzzle_cam=",muzzle_cam,
 			" mesh_local=",gun_geom.get("aabb",AABB()),
 			" tags=",candidate_bones)
-	print("XZOGOT_SIGHT_AUDIT_ADS_EQUALS_HIP ",bad_ads)
+	print("XZOGOT_SIGHT_AUDIT_ADS_VISUAL_BLOCKERS ",bad_ads)
 	print("XZOGOT_SIGHT_AUDIT_28_INSPECTED ",FIREARMS.size())
+	if not bad_ads.is_empty():
+		print("XZOGOT_SIGHT_AUDIT_VISUAL_ACCEPTANCE_RED count=",bad_ads.size())
 	scene.queue_free()
 	await process_frame
 	quit(0)
