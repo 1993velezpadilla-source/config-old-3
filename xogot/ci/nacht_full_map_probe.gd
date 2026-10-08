@@ -2771,9 +2771,68 @@ func _run() -> void:
 	if player == null or weapon == null or round_manager == null:
 		_fail(12, "player weapon or round manager missing")
 		return
-	if bool(round_manager.get("auto_start")):
-		_fail(13, "round manager must remain gated until Nacht source spawns/nav are wired")
+	var gameplay_ready := false
+	for _gameplay_wait in range(2400):
+		if bool(scene.get_meta("nacht_gameplay_ready", false)):
+			gameplay_ready = true
+			break
+		await create_timer(0.05).timeout
+	if not gameplay_ready:
+		_fail(
+			13,
+			"Nacht gameplay did not activate spawns="
+			+ str(scene.get_meta("nacht_source_zombie_spawn_count", -1))
+			+ " nav="
+			+ str(scene.get_meta("nacht_navigation_ready", false))
+		)
 		return
+	if not bool(round_manager.get("auto_start")):
+		_fail(13, "round manager did not activate after source nav/spawns became ready")
+		return
+	if int(scene.get_meta("nacht_source_zombie_spawn_count", -1)) != 22:
+		_fail(13, "Nacht must mount all 22 source ZombieSpawner_C actors")
+		return
+	if str(scene.get_meta("nacht_spawn_authority", "")) != "NACHT_UMAP_ZombieSpawner_C":
+		_fail(13, "Nacht source spawn provenance missing")
+		return
+	var nav_runtime := scene.get_node_or_null("NachtSourceNavigation")
+	if (
+		nav_runtime == null
+		or not bool(nav_runtime.call("is_navigation_ready"))
+		or int(nav_runtime.call("get_polygon_count")) <= 0
+	):
+		_fail(13, "Nacht source-collision navigation runtime not ready")
+		return
+
+	# Freeze the automatic clock and prove one deterministic round-1 spawn uses
+	# a real UMAP ZombieSpawner_C anchor and can obtain a baked source path.
+	round_manager.set_process(false)
+	round_manager.call("reset_network_match")
+	round_manager.call("start_next_round")
+	var source_zombie := round_manager.call("spawn_one")
+	if source_zombie == null:
+		_fail(13, "Nacht source spawn director could not spawn round-1 zombie")
+		return
+	if not str(round_manager.call("get_last_spawn_id")).begins_with("direct:"):
+		_fail(13, "Nacht round-1 zombie did not use source direct spawn authority")
+		return
+	if str(source_zombie.get_meta("spawn_entry_kind", "")) != "source_direct":
+		_fail(13, "Nacht spawned zombie lost source entry provenance")
+		return
+	var source_path: Array[Vector3] = nav_runtime.call(
+		"request_path",
+		(source_zombie as Node3D).global_position,
+		player.global_position
+	) as Array[Vector3]
+	if source_path.is_empty():
+		_fail(13, "Nacht baked navigation returned no path from source spawn")
+		return
+	print(
+		"XZOGOT_NACHT_GAMEPLAY_PROBE_GREEN spawns=22 nav_polygons=",
+		nav_runtime.call("get_polygon_count"),
+		" path_points=", source_path.size(),
+		" entry=", round_manager.call("get_last_spawn_id")
+	)
 
 	var spawn_candidate_count := int(
 		player.get_meta("nacht_source_spawn_candidate_count", -1)

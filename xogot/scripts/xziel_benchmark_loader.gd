@@ -15,6 +15,7 @@ extends Node3D
 @export var build_skeletal_actors: bool = true
 @export var cast_geometry_shadows: bool = true
 @export var build_world_collision: bool = false
+@export var world_collision_group: StringName = &""
 @export var max_instances: int = 0
 @export var vfs_map_root: String = "vfs/xziel/maps/xziel_nuketown_zombies"
 @export_file("*.json") var source_environment_truth_file: String = "res://data/nuketown_source_gameplay.json"
@@ -161,6 +162,8 @@ func _load_benchmark_world() -> void:
 				node.create_trimesh_collision()
 				for child: Node in node.get_children():
 					if child is StaticBody3D:
+						if not world_collision_group.is_empty():
+							child.add_to_group(world_collision_group)
 						_world_collision_count += 1
 			surface_offset += node.mesh.get_surface_count()
 		created += 1

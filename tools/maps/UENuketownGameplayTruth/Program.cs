@@ -1,7 +1,9 @@
+using CUE4Parse.Encryption.Aes;
 using CUE4Parse.FileProvider;
 using CUE4Parse.MappingsProvider.Usmap;
 using CUE4Parse.UE4.Assets;
 using CUE4Parse.UE4.Assets.Exports;
+using CUE4Parse.UE4.Objects.Core.Misc;
 using CUE4Parse.UE4.Objects.UObject;
 using CUE4Parse.UE4.Versions;
 using Newtonsoft.Json;
@@ -46,6 +48,10 @@ var provider = new DefaultFileProvider(
 };
 
 provider.Initialize();
+// CUE4Parse requires a primary container key even for unencrypted IoStore.
+// Project Aether uses the zero key; this is the same mount contract as the
+// current CUE4Parse CLI that already exports these UE5.7 packages.
+provider.SubmitKey(Guid.Empty, new FAesKey(new byte[32]));
 provider.PostMount();
 provider.LoadVirtualPaths();
 

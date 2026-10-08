@@ -1,6 +1,7 @@
 extends Node3D
 
 const XzielBenchmarkLoaderScript = preload("res://scripts/xziel_benchmark_loader.gd")
+const SourceNavigationRuntimeScript = preload("res://scripts/source_navigation_runtime.gd")
 const NachtParticleSource = preload("res://scripts/nacht_particle_source.gd")
 const NachtCascadeRuntime = preload("res://scripts/nacht_cascade_runtime.gd")
 const NachtCascadeVisualRuntime = preload("res://scripts/nacht_cascade_visual_runtime.gd")
@@ -118,10 +119,16 @@ var _source_particle_fire14_descriptor: Dictionary = {}
 var _source_environment_fog_runtime_ready := false
 var _source_environment_reflection_runtime_ready := false
 var _source_spawn_candidates: Array[Node3D] = []
+var _source_zombie_spawn_candidates: Array[Node3D] = []
+var _source_navigation_runtime: Node3D
+var _source_navigation_ready := false
+var _source_gameplay_ready := false
 
 func _ready() -> void:
 	get_tree().set_meta("active_map_id", "nacht_chronicles_full")
 	get_tree().set_meta("nacht_full_map_ready", false)
+	get_tree().set_meta("nacht_gameplay_ready", false)
+	set_meta("nacht_gameplay_ready", false)
 	call_deferred("_boot")
 
 func _source_path(name: String) -> String:
@@ -179,6 +186,7 @@ func _boot() -> void:
 	add_child(_runtime_root)
 
 	_build_actor_anchors()
+	_begin_source_navigation()
 
 	if not _build_source_particle_semantic_runtime():
 		return
@@ -3477,6 +3485,7 @@ func _build_shared_source_world() -> bool:
 	_benchmark_loader.set("build_skeletal_actors", false)
 	_benchmark_loader.set("cast_geometry_shadows", true)
 	_benchmark_loader.set("build_world_collision", build_world_collision)
+	_benchmark_loader.set("world_collision_group", &"nacht_world_collision")
 	_benchmark_loader.set("max_instances", 0)
 	_benchmark_loader.set("vfs_map_root", "vfs/xziel/maps/xziel_nacht_chronicles")
 	_benchmark_loader.set("source_runtime_id", "nacht_chronicles")
@@ -3675,6 +3684,80 @@ func _build_actor_anchors() -> void:
 			or identity.contains("pavlov_spawn")
 		):
 			_source_spawn_candidates.append(anchor)
+
+		if str(row.get("className", "")) == "ZombieSpawner_C":
+			anchor.add_to_group("zombie_spawn_anchor")
+			anchor.add_to_group("nacht_zombie_spawn_anchor")
+			anchor.set_meta(
+				"spawn_id",
+				str(row.get("objectPath", anchor.name))
+			)
+			anchor.set_meta("entry_kind", "source_direct")
+			anchor.set_meta("zone", "nacht_source")
+			anchor.set_meta("min_round", 1)
+			anchor.set_meta("source_authority", "NACHT_UMAP_ZombieSpawner_C")
+			_source_zombie_spawn_candidates.append(anchor)
+
+
+func _begin_source_navigation() -> void:
+	set_meta("nacht_source_zombie_spawn_count", _source_zombie_spawn_candidates.size())
+	if _source_zombie_spawn_candidates.size() != 22:
+		push_error(
+			"NACHT_FULL_MAP: source ZombieSpawner_C coverage mismatch "
+			+ str(_source_zombie_spawn_candidates.size()) + "/22"
+		)
+		return
+	_source_navigation_runtime = SourceNavigationRuntimeScript.new() as Node3D
+	if _source_navigation_runtime == null:
+		push_error("NACHT_FULL_MAP: source navigation runtime missing")
+		return
+	_source_navigation_runtime.name = "NachtSourceNavigation"
+	_source_navigation_runtime.set("source_collision_group", &"nacht_world_collision")
+	_source_navigation_runtime.set("source_runtime_id", "nacht")
+	_source_navigation_runtime.navigation_ready.connect(_on_source_navigation_ready)
+	_source_navigation_runtime.navigation_failed.connect(_on_source_navigation_failed)
+	add_child(_source_navigation_runtime)
+	_source_navigation_runtime.call_deferred("begin_bake")
+	print(
+		"XZOGOT_NACHT_SOURCE_SPAWNS_GREEN count=",
+		_source_zombie_spawn_candidates.size()
+	)
+
+func _on_source_navigation_ready(polygons: int, vertices: int) -> void:
+	_source_navigation_ready = true
+	set_meta("nacht_navigation_ready", true)
+	set_meta("nacht_navigation_polygon_count", polygons)
+	set_meta("nacht_navigation_vertex_count", vertices)
+	_activate_source_gameplay()
+
+func _on_source_navigation_failed(reason: String) -> void:
+	_source_navigation_ready = false
+	set_meta("nacht_navigation_ready", false)
+	set_meta("nacht_navigation_failure", reason)
+	push_error("NACHT_FULL_MAP: navigation failed " + reason)
+
+func _activate_source_gameplay() -> void:
+	if _source_gameplay_ready:
+		return
+	if not _source_navigation_ready or _source_zombie_spawn_candidates.size() != 22:
+		return
+	var round_manager := get_node_or_null("RoundManager")
+	if round_manager == null:
+		push_error("NACHT_FULL_MAP: RoundManager missing for source gameplay")
+		return
+	round_manager.set("auto_start", true)
+	if round_manager.has_method("reset_network_match"):
+		round_manager.call("reset_network_match")
+	_source_gameplay_ready = true
+	set_meta("nacht_gameplay_ready", true)
+	set_meta("nacht_source_zombie_spawn_count", 22)
+	set_meta("nacht_spawn_authority", "NACHT_UMAP_ZombieSpawner_C")
+	get_tree().set_meta("nacht_gameplay_ready", true)
+	print(
+		"XZOGOT_NACHT_GAMEPLAY_GREEN spawns=22 nav_polygons=",
+		int(get_meta("nacht_navigation_polygon_count", 0)),
+		" rounds=enabled"
+	)
 
 func _build_source_lights() -> void:
 	var raw_by_id: Dictionary = {}
