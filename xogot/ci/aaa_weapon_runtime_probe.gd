@@ -278,7 +278,9 @@ func _run_probe() -> void:
 			var is_source_pistol: bool = id in pistol_ids
 			# Proven by all 64 source-socket HIP/ADS roll A/B images in #37857367033.
 			# Roll=90 for these three puts the metal/iron-sight plane sideways.
-			var upright_long_ids: Array[String] = ["stg", "browning", "type99"]
+			var upright_long_ids: Array[String] = [
+				"stg", "browning", "type99", "bar", "dp28", "thompson", "trench"
+			]
 			var upright: bool = is_source_pistol or id in upright_long_ids
 			var expected_roll_deg := 180.0 if upright else 90.0
 			var expected_socket_up := Vector3.DOWN if upright else Vector3.BACK
