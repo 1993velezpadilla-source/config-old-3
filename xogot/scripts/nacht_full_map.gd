@@ -590,7 +590,6 @@ func _validate_authority() -> bool:
 		"power_switch": 1,
 		"wallbuy": 1,
 		"barricade": 1,
-		"zombie_spawner": 22,
 		"buyable_door": 1,
 	}
 	for category_var: Variant in required_interactive_minimums.keys():
@@ -598,6 +597,23 @@ func _validate_authority() -> bool:
 		if int(interactive_counts.get(category, 0)) < int(required_interactive_minimums[category]):
 			push_error("NACHT_FULL_MAP: interactive placement coverage missing " + category)
 			return false
+	var placed_zombie_spawners := 0
+	for source_raw: Variant in _scene.get("actorAnchors", []):
+		if (
+			source_raw is Dictionary
+			and str((source_raw as Dictionary).get("className", "")) == "ZombieSpawner_C"
+		):
+			placed_zombie_spawners += 1
+	if (
+		placed_zombie_spawners <= 0
+		or int(interactive_counts.get("zombie_spawner", 0)) != placed_zombie_spawners
+	):
+		push_error(
+			"NACHT_FULL_MAP: interactive zombie spawner placement mismatch "
+			+ str(interactive_counts.get("zombie_spawner", 0))
+			+ "/" + str(placed_zombie_spawners)
+		)
+		return false
 
 	if _particle_activation_authority.is_empty():
 		push_error("NACHT_FULL_MAP: particle activation bytecode authority missing")

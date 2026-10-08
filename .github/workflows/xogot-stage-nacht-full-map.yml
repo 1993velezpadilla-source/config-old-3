@@ -583,12 +583,22 @@ jobs:
               "power_switch":1,
               "wallbuy":1,
               "barricade":1,
-              "zombie_spawner":22,
               "buyable_door":1,
           }
           for category,minimum in required_counts.items():
               assert int(interactive["counts"].get(category,0)) >= minimum, (category,interactive["counts"])
-          print("XZOGOT_NACHT_INTERACTIVE_UMAP_GREEN", interactive["counts"])
+          placed_zombie_spawners=sum(
+              1 for row in scene.get("actorAnchors",[])
+              if isinstance(row,dict) and row.get("className")=="ZombieSpawner_C"
+          )
+          assert placed_zombie_spawners > 0, placed_zombie_spawners
+          assert int(interactive["counts"].get("zombie_spawner",0)) == placed_zombie_spawners, (
+              interactive["counts"],placed_zombie_spawners
+          )
+          print("XZOGOT_NACHT_INTERACTIVE_UMAP_GREEN", {
+              "counts":interactive["counts"],
+              "placedZombieSpawners":placed_zombie_spawners,
+          })
           assert scene["summary"]["ready"] is True, scene["summary"]
           assert scene["summary"]["actorAnchorCount"] == 11023, scene["summary"]
           assert scene["summary"]["sceneInstanceCount"] == 10793, scene["summary"]

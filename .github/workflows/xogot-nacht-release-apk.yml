@@ -6,6 +6,12 @@ on:
       - feature/godot-aaa-rebuild-v1
     paths:
       - ".github/workflows/xogot-nacht-release-apk.yml"
+      - ".github/workflows/xogot-stage-nacht-full-map.yml"
+      - "tools/maps/compile_nacht_interactive_placements.py"
+      - "xogot/scripts/nacht_full_map.gd"
+      - "xogot/scripts/source_navigation_runtime.gd"
+      - "xogot/scripts/interactable.gd"
+      - "xogot/ci/nacht_full_map_probe.gd"
   workflow_dispatch:
     inputs:
       source_run:
@@ -41,11 +47,7 @@ jobs:
           if [[ -n "${{ inputs.source_run || '' }}" ]]; then
             SOURCE_RUN="${{ inputs.source_run }}"
           else
-            if [[ "${{ github.event_name }}" == "push" ]]; then
-              GAMEPLAY_SHA="$(git rev-parse HEAD^)"
-            else
-              GAMEPLAY_SHA="$(git rev-parse HEAD)"
-            fi
+            GAMEPLAY_SHA="$(git rev-parse HEAD)"
             echo "XZOGOT_RELEASE_WAITING_FOR_STAGE gameplay_sha=$GAMEPLAY_SHA"
             SOURCE_RUN=""
             for attempt in $(seq 1 80); do

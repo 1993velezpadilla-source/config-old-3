@@ -391,8 +391,17 @@ func _run() -> void:
 		if int(interactive_counts.get(category, 0)) <= 0:
 			_fail(37, "source interactive placement missing " + category)
 			return
-	if int(interactive_counts.get("zombie_spawner", 0)) != 22:
-		_fail(37, "source interactive zombie spawner count mismatch")
+	var placed_zombie_spawners := int(scene.get_meta("nacht_source_zombie_spawn_expected_count", -1))
+	if (
+		placed_zombie_spawners <= 0
+		or int(interactive_counts.get("zombie_spawner", 0)) != placed_zombie_spawners
+	):
+		_fail(
+			37,
+			"source interactive zombie spawner count mismatch "
+			+ str(interactive_counts.get("zombie_spawner", 0))
+			+ "/" + str(placed_zombie_spawners)
+		)
 		return
 	if str(scene.get_meta("source_interactive_authority", "")) != "Nacht UMAP actor anchors; no synthetic placements":
 		_fail(37, "source interactive placement provenance mismatch")
