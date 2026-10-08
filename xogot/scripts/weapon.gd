@@ -1429,9 +1429,9 @@ func _refresh_view_assets(def: Dictionary) -> void:
 		_sw357_reload_meshes = WeaponSW357ReloadGeometry.prepare(_weapon_model_root)
 		set_meta("weapon_sw357_reload_mesh_filter_ready", not _sw357_reload_meshes.is_empty())
 
-	# Recovered Aether source Mosin/PTRS has native, skinned reload clips
-	# parked 1.68-2.50 meters offstage, even at idle. Keep originals for reload.
-	if _weapon_id in ["mosin", "ptrs"] and _weapon_model_root != null:
+	# Original reload-only skinned geometry: Arisaka 643 vertices parked
+	# 0.94m away, Mosin/PTRS 1.68–2.50m offstage. Keep originals for reload.
+	if _weapon_id in ["mosin", "ptrs", "arisaka"] and _weapon_model_root != null:
 		_source_offstage_reload_meshes = WeaponSourceOffstageReloadGeometry.prepare(_weapon_model_root, _weapon_id)
 		set_meta("weapon_source_offstage_reload_filter_ready", not _source_offstage_reload_meshes.is_empty())
 
@@ -1960,7 +1960,7 @@ func request_reload() -> void:
 	_trigger_held = false
 	if _weapon_id == "357":
 		WeaponSW357ReloadGeometry.set_reload_props_visible(_sw357_reload_meshes, true)
-	elif _weapon_id in ["mosin", "ptrs"]:
+	elif _weapon_id in ["mosin", "ptrs", "arisaka"]:
 		WeaponSourceOffstageReloadGeometry.set_reload_visible(_source_offstage_reload_meshes, true)
 	_reload_timer = reload_time * _player_modifier("get_reload_multiplier")
 	var reload_role: String = "reload_empty" if _magazine <= 0 else "reload"
@@ -1976,7 +1976,7 @@ func _finish_reload() -> void:
 		_reload_timer = 0.0
 		if _weapon_id == "357":
 			WeaponSW357ReloadGeometry.set_reload_props_visible(_sw357_reload_meshes, false)
-		elif _weapon_id in ["mosin", "ptrs"]:
+		elif _weapon_id in ["mosin", "ptrs", "arisaka"]:
 			WeaponSourceOffstageReloadGeometry.set_reload_visible(_source_offstage_reload_meshes, false)
 		return
 	var needed: int = magazine_size - _magazine
@@ -1987,7 +1987,7 @@ func _finish_reload() -> void:
 	_reload_timer = 0.0
 	if _weapon_id == "357":
 		WeaponSW357ReloadGeometry.set_reload_props_visible(_sw357_reload_meshes, false)
-	elif _weapon_id in ["mosin", "ptrs"]:
+	elif _weapon_id in ["mosin", "ptrs", "arisaka"]:
 		WeaponSourceOffstageReloadGeometry.set_reload_visible(_source_offstage_reload_meshes, false)
 
 func is_ads_active() -> bool:
