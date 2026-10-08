@@ -212,7 +212,7 @@ def repair_actorx_psa_animation_axes_in_glb(path: Path) -> dict[str, int]:
         raise RuntimeError(f"{path}: expected one JSON and BIN chunk")
     _, start_json, len_json = json_chunks[0]
     _, start_bin, len_bin = bin_chunks[0]
-    doc = json.loads(payload[start_json:start_json + len_json].rstrip(b" \\t\\r\\n\\0"))
+    doc = json.loads(payload[start_json:start_json + len_json].rstrip(bytes((32, 9, 13, 10, 0))))
     joint_nodes = set()
     for skin in doc.get("skins", []):
         joint_nodes.update(skin.get("joints", []))
