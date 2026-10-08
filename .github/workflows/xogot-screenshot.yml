@@ -66,6 +66,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build/xogot-screenshot
+          set +e
           xvfb-run -a -s "-screen 0 1280x720x24" \
             /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
             --path xogot \
@@ -74,6 +75,8 @@ jobs:
             --resolution 1280x720 \
             --script res://ci/screenshot_capture.gd \
             2>&1 | tee build/xogot-screenshot/render.log
+          render_rc=${PIPESTATUS[0]}
+          set -e
           grep -q "XZOGOT_MONJA_BASICA_LOADED" build/xogot-screenshot/render.log
           ! grep -q "XZOGOT_MONJA_BASICA_FALLBACK" build/xogot-screenshot/render.log
           ! grep -q "ALSA lib" build/xogot-screenshot/render.log
@@ -82,6 +85,16 @@ jobs:
           grep -q "XZOGOT_SCREENSHOT_HIP_GREEN" build/xogot-screenshot/render.log
           grep -q "XZOGOT_SCREENSHOT_ADS_GREEN" build/xogot-screenshot/render.log
           grep -q "XZOGOT_EXTERIOR_SCREENSHOT_GREEN" build/xogot-screenshot/render.log
+          grep -q "XZOGOT_SCREENSHOT_SCENE_TEARDOWN_GREEN" build/xogot-screenshot/render.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: SCREENSHOT:" build/xogot-screenshot/render.log
+          if [[ "$render_rc" -ne 0 && "$render_rc" -ne 1 ]]; then
+            echo "Unexpected Godot render exit code: $render_rc"
+            exit "$render_rc"
+          fi
+          if [[ "$render_rc" -eq 1 ]]; then
+            grep -q "ObjectDB instances leaked at exit" build/xogot-screenshot/render.log
+            echo "XZOGOT_SCREENSHOT_POST_RENDER_CLEANUP_EXIT_ACCEPTED rc=1"
+          fi
           test -s /tmp/xogot-current-game.png
           test -s /tmp/xogot-current-ads.png
           test -s /tmp/xogot-current-exterior.png
