@@ -308,7 +308,7 @@ func _run_probe() -> void:
 					weapon.get("_weapon_model_root") as Node3D,
 					scene.get_node_or_null("Player/Head/Camera3D") as Camera3D
 				)
-			if id in ["mosin", "ptrs"]:
+			if id in ["mosin", "ptrs", "arisaka"]:
 				if not bool(weapon.get_meta("weapon_source_offstage_reload_filter_ready", false)):
 					source_geometry_blockers.append(id + ":offstage_reload_filter_missing")
 				else:
@@ -317,8 +317,8 @@ func _run_probe() -> void:
 					var original_skin: Mesh = offstage.get("original") as Mesh
 					var idle_skin: Mesh = offstage.get("idle") as Mesh
 					var removed: int = int(offstage.get("removed_triangles", 0))
-					# Recovered UE source Mosin stripper rounds / PTRS clip are real
-					# reload actors. A GREEN gate MUST prove source skin toggles both
+					# Recovered UE source Arisaka/Mosin stripper rounds and PTRS clip
+					# are real reload actors; original skinned GLBs remain intact. A GREEN gate MUST prove source skin toggles both
 					# ways, not merely hide the exported vertices for an idle shot.
 					if gun_skin == null or original_skin == null or idle_skin == null or removed < 300:
 						source_geometry_blockers.append(id + ":offstage_reload_original_missing")
