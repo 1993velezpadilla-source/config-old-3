@@ -96,6 +96,16 @@ func _capture() -> void:
 			print("XZOGOT_28_HAND_GRIP_CONTACT id=", weapon_id,
 				" pose=", pose, " source_bone=", bound_bone,
 				" actual_wrist_thumb_to_gun_bounds_m=", hand_contact)
+			# Conservative source wrist sanity gate: a source trigger-hand wrist
+			# 15 cm OUTSIDE even the complete weapon mesh bounds cannot grip it.
+			# Being inside broad AABB does NOT prove visual contact (false negatives
+			# are intentionally left for real screenshot/human visual inspection).
+			# Current real Godot run #37857907277 found Arisaka wrist 0.2565 m
+			# from weapon bounds in HIP and 0.2582 m in ADS: a false GREEN.
+			var trigger_wrist_gap: float = float(hand_contact.get("j_wrist_ri",-1.0))
+			if trigger_wrist_gap > 0.15:
+				failures.append(weapon_id + ":" + pose
+					+ ":trigger_wrist_far_from_actual_gun_m=" + str(trigger_wrist_gap))
 			var largest: float = maxf(size.x, maxf(size.y, size.z))
 			var roll: float = float(weapon.get_meta("weapon_source_gun_roll_correction_deg", -1.0))
 			var centered_source_ads: bool = weapon_id == "mp40" and pose == "ads"
