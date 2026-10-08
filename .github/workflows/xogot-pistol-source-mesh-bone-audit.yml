@@ -1,0 +1,50 @@
+name: Xogot Original Pistol Mesh and Skin Bone Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/source-viewmodel-inherited-hands-unit-scale
+    paths:
+      - "xogot/ci/pistol_source_mesh_bone_audit.gd"
+      - ".github/workflows/xogot-pistol-source-mesh-bone-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v5
+      - name: Download native Godot 4.6.1
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip -o /tmp/godot.zip
+          mkdir -p /tmp/godot build/pistol-native-bones
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+      - name: Import exact source PSA skeletons
+        run: |
+          set -euo pipefail
+          timeout 240 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 --headless --editor --path xogot --quit \
+            2>&1 | tee build/pistol-native-bones/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error" build/pistol-native-bones/import.log
+      - name: Inspect original piston submeshes, source bindings and role bones
+        run: |
+          set -euo pipefail
+          timeout 180 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 --headless --path xogot \
+            --audio-driver Dummy --script res://ci/pistol_source_mesh_bone_audit.gd \
+            2>&1 | tee build/pistol-native-bones/inspect.log
+          grep -q "XZOGOT_PISTOL_NATIVE_RIG_AUDIT_GREEN audited=5" build/pistol-native-bones/inspect.log
+          ! grep -E "SCRIPT ERROR|Parse Error|XZOGOT_PISTOL_NATIVE_RIG_AUDIT_RED" build/pistol-native-bones/inspect.log
+      - name: Persist source mesh and skin bone authority
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Five-Pistol-Original-Mesh-Source-Bone-Roles
+          path: build/pistol-native-bones/*.log
+          if-no-files-found: warn
+          retention-days: 14
