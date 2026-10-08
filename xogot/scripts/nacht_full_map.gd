@@ -122,6 +122,9 @@ var _source_environment_fog_runtime_ready := false
 var _source_environment_reflection_runtime_ready := false
 var _source_spawn_candidates: Array[Node3D] = []
 var _source_zombie_spawn_candidates: Array[Node3D] = []
+# Diagnostic-only physical box authority, not a purchase-ready machine.
+var _source_anchor_by_object_path: Dictionary = {}
+var _source_gumball_interaction_sensor_count := 0
 var _source_navigation_runtime: Node3D
 var _source_navigation_ready := false
 var _source_gameplay_ready := false
@@ -189,6 +192,8 @@ func _boot() -> void:
 	add_child(_runtime_root)
 
 	_build_actor_anchors()
+	if not _build_source_gumball_interaction_sensors():
+		return
 	_begin_source_navigation()
 
 	if not _build_source_particle_semantic_runtime():
@@ -259,6 +264,9 @@ func _boot() -> void:
 		int(_particle_activation_authority.get("sourceInteractionContractCount", 0))
 	)
 	set_meta("source_interactive_placements_ready", bool(_interactive_placements.get("ready", false)))
+	set_meta("nacht_source_gumball_sensor_count", _source_gumball_interaction_sensor_count)
+	# Data placement and source-accurate collision are NOT purchased rewards.
+	set_meta("nacht_interactable_gameplay_ready", false)
 	set_meta(
 		"source_interactive_placement_counts",
 		(_interactive_placements.get("counts", {}) as Dictionary).duplicate(true)
@@ -3759,6 +3767,9 @@ func _build_actor_anchors() -> void:
 		anchor.add_to_group("nacht_source_actor")
 		_runtime_root.add_child(anchor)
 		_actor_anchor_count += 1
+		var path := str(row.get("objectPath", ""))
+		if not path.is_empty() and not _source_anchor_by_object_path.has(path):
+			_source_anchor_by_object_path[path] = anchor
 
 		var identity := (
 			str(row.get("className", "")) + " "
@@ -3786,6 +3797,88 @@ func _build_actor_anchors() -> void:
 			anchor.set_meta("min_round", 1)
 			anchor.set_meta("source_authority", "NACHT_UMAP_ZombieSpawner_C")
 			_source_zombie_spawn_candidates.append(anchor)
+
+
+
+func _build_source_gumball_interaction_sensors() -> bool:
+	# Keep source collision boxes present for deterministic testing while
+	# deliberately disabling physics. Runtime purchases cannot be enabled
+	# until all six source reward paths + host replication have been proven.
+	# This prevents a decorative/partial machine from consuming points.
+	_source_gumball_interaction_sensor_count = 0
+	var categories := _interactive_placements.get("categories", {}) as Dictionary
+	var placements_raw: Variant = categories.get("gumball_machine", [])
+	if not (placements_raw is Array):
+		push_error("NACHT_GUMBALL: source placements are not an Array")
+		return false
+	var source_contracts: Variant = _particle_activation_authority.get(
+		"sourceInteractionContracts", []
+	)
+	if not (source_contracts is Array):
+		return false
+	var interact_box: Dictionary = {}
+	for raw: Variant in source_contracts as Array:
+		if raw is Dictionary and str((raw as Dictionary).get("fileName", "")) == "MachineGumball.uasset":
+			interact_box = (raw as Dictionary).get("interactBox", {}) as Dictionary
+			break
+	var size_raw := interact_box.get("effectiveFullSizeMeters", {}) as Dictionary
+	var offset_raw := interact_box.get("relativeLocationUEcm", {}) as Dictionary
+	if (
+		str(interact_box.get("componentName", "")) != "Pavlov_InteractBox"
+		or size_raw.is_empty() or offset_raw.is_empty()
+	):
+		push_error("NACHT_GUMBALL: source physical interaction shape missing")
+		return false
+	var size_m := Vector3(
+		float(size_raw.get("X", 0.0)),
+		float(size_raw.get("Y", 0.0)),
+		float(size_raw.get("Z", 0.0))
+	)
+	var offset_m := Vector3(
+		float(offset_raw.get("X", 0.0)) * 0.01,
+		float(offset_raw.get("Y", 0.0)) * 0.01,
+		float(offset_raw.get("Z", 0.0)) * 0.01
+	)
+	if size_m.x <= 0.0 or size_m.y <= 0.0 or size_m.z <= 0.0:
+		return false
+	for raw_placement: Variant in placements_raw as Array:
+		if not (raw_placement is Dictionary):
+			return false
+		var row := raw_placement as Dictionary
+		var path := str(row.get("objectPath", ""))
+		var parent: Node3D = _source_anchor_by_object_path.get(path, null) as Node3D
+		if parent == null or str(row.get("className", "")) != "MachineGumball_C":
+			push_error("NACHT_GUMBALL: UMAP actor anchor mismatch " + path)
+			return false
+		var sensor := Area3D.new()
+		sensor.name = "SourceGumballInteractBox"
+		sensor.position = offset_m
+		sensor.collision_layer = 0
+		sensor.collision_mask = 0
+		sensor.monitorable = false
+		sensor.monitoring = false
+		sensor.set_meta("source_actor_path", path)
+		sensor.set_meta("source_component_name", "Pavlov_InteractBox")
+		sensor.set_meta("source_purchase_live", false)
+		sensor.add_to_group("nacht_gumball_interaction_sensor_pending")
+		var collision := CollisionShape3D.new()
+		collision.name = "ExactSourceInteractBox"
+		var shape := BoxShape3D.new()
+		shape.size = size_m
+		collision.shape = shape
+		collision.disabled = true
+		sensor.add_child(collision)
+		parent.add_child(sensor)
+		_source_gumball_interaction_sensor_count += 1
+	if _source_gumball_interaction_sensor_count != (placements_raw as Array).size():
+		return false
+	print(
+		"XZOGOT_NACHT_GUMBALL_BOX_AUTHORITY_GREEN sensors=",
+		_source_gumball_interaction_sensor_count,
+		" size=", size_m, " offset=", offset_m,
+		" active_physics=false game_purchase=false"
+	)
+	return _source_gumball_interaction_sensor_count > 0
 
 
 func _begin_source_navigation() -> void:
