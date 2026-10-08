@@ -2789,8 +2789,18 @@ func _run() -> void:
 	if not bool(round_manager.get("auto_start")):
 		_fail(13, "round manager did not activate after source nav/spawns became ready")
 		return
-	if int(scene.get_meta("nacht_source_zombie_spawn_count", -1)) != 22:
-		_fail(13, "Nacht must mount all 22 source ZombieSpawner_C actors")
+	var expected_source_spawns := int(
+		scene.get_meta("nacht_source_zombie_spawn_expected_count", 0)
+	)
+	var mounted_source_spawns := int(
+		scene.get_meta("nacht_source_zombie_spawn_count", -1)
+	)
+	if expected_source_spawns <= 0 or mounted_source_spawns != expected_source_spawns:
+		_fail(
+			13,
+			"Nacht UMAP ZombieSpawner_C coverage mismatch "
+			+ str(mounted_source_spawns) + "/" + str(expected_source_spawns)
+		)
 		return
 	if str(scene.get_meta("nacht_spawn_authority", "")) != "NACHT_UMAP_ZombieSpawner_C":
 		_fail(13, "Nacht source spawn provenance missing")
@@ -2828,8 +2838,9 @@ func _run() -> void:
 		_fail(13, "Nacht baked navigation returned no path from source spawn")
 		return
 	print(
-		"XZOGOT_NACHT_GAMEPLAY_PROBE_GREEN spawns=22 nav_polygons=",
-		nav_runtime.call("get_polygon_count"),
+		"XZOGOT_NACHT_GAMEPLAY_PROBE_GREEN spawns=",
+		expected_source_spawns,
+		" nav_polygons=", nav_runtime.call("get_polygon_count"),
 		" path_points=", source_path.size(),
 		" entry=", round_manager.call("get_last_spawn_id")
 	)

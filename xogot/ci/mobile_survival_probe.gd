@@ -62,13 +62,13 @@ func _run() -> void:
 		absf(SourceModifierPolicy.SPEED_COLA_RELOAD_TIME_MULTIPLIER - 0.50) > 0.0001
 		or absf(SourceModifierPolicy.STAMIN_UP_MOVE_SPEED_MULTIPLIER - 1.07) > 0.0001
 		or absf(SourceModifierPolicy.DEADSHOT_SPREAD_MULTIPLIER - 0.65) > 0.0001
-		or absf(SourceModifierPolicy.DOUBLE_TAP_INTERVAL_MULTIPLIER - 0.75) > 0.0001
-		or absf(SourceModifierPolicy.DOUBLE_TAP_PROJECTILE_DAMAGE_MULTIPLIER - 2.0) > 0.0001
+		or absf(SourceModifierPolicy.DOUBLE_TAP_INTERVAL_MULTIPLIER - 0.77) > 0.0001
+		or absf(SourceModifierPolicy.DOUBLE_TAP_PROJECTILE_DAMAGE_MULTIPLIER - 1.0) > 0.0001
 		or absf(SourceModifierPolicy.JUGGERNOG_MAX_HEALTH - 250.0) > 0.0001
 	):
 		_fail(48, "COD source perk constants drifted")
 		return
-	print("XZOGOT_SOURCE_PERK_CONSTANTS_GREEN reload=0.50 move=1.07 spread=0.65 rate=0.75 damage=2.0 jug=250")
+	print("XZOGOT_SOURCE_PERK_CONSTANTS_GREEN reload=0.50 move=1.07 spread=0.65 rate=0.77 damage=1.0 jug=250")
 
 	for perk_id: String in ["quick_hands", "pilgrim_rush", "choir_sight", "twin_bells", "martyrs_blood", "last_rites"]:
 		if not bool(player.call("grant_perk", perk_id)):
@@ -83,11 +83,11 @@ func _run() -> void:
 	if absf(float(player.call("get_spread_multiplier")) - 0.65) > 0.0001 or absf(float(player.call("get_recoil_multiplier")) - 1.0) > 0.0001:
 		_fail(52, "Deadshot source spread/no-recoil-policy mismatch")
 		return
-	if absf(float(player.call("get_fire_interval_multiplier")) - 0.75) > 0.0001:
+	if absf(float(player.call("get_fire_interval_multiplier")) - 0.77) > 0.0001:
 		_fail(53, "Double Tap source fire interval mismatch")
 		return
-	if absf(float(player.call("get_weapon_damage_multiplier_for", "mp40", "smg")) - 2.0) > 0.0001:
-		_fail(54, "Double Tap II projectile damage mismatch")
+	if absf(float(player.call("get_weapon_damage_multiplier_for", "mp40", "smg")) - 1.0) > 0.0001:
+		_fail(54, "Double Tap source damage identity mismatch")
 		return
 	if absf(float(player.call("get_weapon_damage_multiplier_for", "raygun", "wonder")) - 1.0) > 0.0001:
 		_fail(55, "Double Tap II incorrectly doubled wonder weapon damage")

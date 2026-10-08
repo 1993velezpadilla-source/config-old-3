@@ -3656,6 +3656,15 @@ func _build_collision_recursive(node: Node) -> int:
 	return count
 
 func _build_actor_anchors() -> void:
+	var expected_zombie_spawners := 0
+	for source_raw: Variant in _scene.get("actorAnchors", []):
+		if (
+			source_raw is Dictionary
+			and str((source_raw as Dictionary).get("className", "")) == "ZombieSpawner_C"
+		):
+			expected_zombie_spawners += 1
+	set_meta("nacht_source_zombie_spawn_expected_count", expected_zombie_spawners)
+
 	for raw: Variant in _scene.get("actorAnchors", []):
 		if not (raw is Dictionary):
 			continue
@@ -3700,11 +3709,13 @@ func _build_actor_anchors() -> void:
 
 
 func _begin_source_navigation() -> void:
-	set_meta("nacht_source_zombie_spawn_count", _source_zombie_spawn_candidates.size())
-	if _source_zombie_spawn_candidates.size() != 22:
+	var expected_spawns := int(get_meta("nacht_source_zombie_spawn_expected_count", 0))
+	var runtime_spawns := _source_zombie_spawn_candidates.size()
+	set_meta("nacht_source_zombie_spawn_count", runtime_spawns)
+	if expected_spawns <= 0 or runtime_spawns != expected_spawns:
 		push_error(
-			"NACHT_FULL_MAP: source ZombieSpawner_C coverage mismatch "
-			+ str(_source_zombie_spawn_candidates.size()) + "/22"
+			"NACHT_FULL_MAP: source ZombieSpawner_C placement coverage mismatch "
+			+ str(runtime_spawns) + "/" + str(expected_spawns)
 		)
 		return
 	_source_navigation_runtime = SourceNavigationRuntimeScript.new() as Node3D
@@ -3745,7 +3756,12 @@ func _on_source_navigation_failed(reason: String) -> void:
 func _activate_source_gameplay() -> void:
 	if _source_gameplay_ready:
 		return
-	if not _source_navigation_ready or _source_zombie_spawn_candidates.size() != 22:
+	var expected_spawns := int(get_meta("nacht_source_zombie_spawn_expected_count", 0))
+	if (
+		not _source_navigation_ready
+		or expected_spawns <= 0
+		or _source_zombie_spawn_candidates.size() != expected_spawns
+	):
 		return
 	var round_manager := get_node_or_null("RoundManager")
 	if round_manager == null:
@@ -3756,12 +3772,13 @@ func _activate_source_gameplay() -> void:
 		round_manager.call("reset_network_match")
 	_source_gameplay_ready = true
 	set_meta("nacht_gameplay_ready", true)
-	set_meta("nacht_source_zombie_spawn_count", 22)
+	set_meta("nacht_source_zombie_spawn_count", expected_spawns)
 	set_meta("nacht_spawn_authority", "NACHT_UMAP_ZombieSpawner_C")
 	get_tree().set_meta("nacht_gameplay_ready", true)
 	print(
-		"XZOGOT_NACHT_GAMEPLAY_GREEN spawns=22 nav_polygons=",
-		int(get_meta("nacht_navigation_polygon_count", 0)),
+		"XZOGOT_NACHT_GAMEPLAY_GREEN spawns=",
+		expected_spawns,
+		" nav_polygons=", int(get_meta("nacht_navigation_polygon_count", 0)),
 		" rounds=enabled"
 	)
 
