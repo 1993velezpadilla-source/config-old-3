@@ -166,6 +166,20 @@ func _run_probe() -> void:
 			return
 		await process_frame
 
+		# Aether GLB exports uppercase PSA_ action labels. GitHub's previous
+		# metadata gate accepted lowercase matching aliases even when the real
+		# Godot AnimationPlayer could not resolve or play those exact names.
+		var real_anim: AnimationPlayer = weapon.get("_asset_animation_player") as AnimationPlayer
+		if real_anim == null:
+			_fail(76, "source gun AnimationPlayer not bound " + id)
+			return
+		for source_role: String in ["idle", "fire", "reload", "equip"]:
+			var exact_action: String = WeaponAssetRegistry.animation_name_for_role(id, source_role)
+			if exact_action.is_empty() or not real_anim.has_animation(exact_action):
+				_fail(77, id + ": exact case-sensitive PSA " + source_role + " missing from player: " + exact_action)
+				return
+		print("XZOGOT_ORIGINAL_GUN_PSA_CASE_EXACT_READY ", id)
+
 		if str(weapon.get_meta("weapon_asset_lane", "")) == "missing_real_asset":
 			_fail(19, "runtime selected missing asset lane " + id)
 			return
