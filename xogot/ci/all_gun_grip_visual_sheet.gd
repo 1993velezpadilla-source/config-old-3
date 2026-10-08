@@ -18,6 +18,31 @@ func _fail(code: int, message: String) -> void:
 	push_error("ALL_GUN_GRIP_VISUAL_RED " + message)
 	quit(code)
 
+# Measure genuine animated source wrists against imported gun camera AABB.
+# Diagnostic only: bounds include receiver/barrel, not actual grip contours,
+# so visual approval still requires the authentic HIP/ADS screenshot review.
+func _source_wrist_distances(weapon: Node, gun_aabb: AABB) -> Dictionary:
+	var skel: Skeleton3D = weapon.get("_source_hands_skeleton") as Skeleton3D
+	var camera: Camera3D = weapon.get("_camera") as Camera3D
+	if skel == null or camera == null:
+		return {"available": false}
+	var distances: Dictionary = {"available": true}
+	for bone_name: String in ["j_wrist_le", "j_wrist_ri", "j_thumb_le_3", "j_thumb_ri_3"]:
+		var idx: int = skel.find_bone(bone_name)
+		if idx < 0:
+			distances[bone_name] = -1.0
+			continue
+		var point: Vector3 = camera.to_local(
+			(skel.global_transform * skel.get_bone_global_pose(idx)).origin
+		)
+		var nearest: Vector3 = Vector3(
+			clampf(point.x, gun_aabb.position.x, gun_aabb.end.x),
+			clampf(point.y, gun_aabb.position.y, gun_aabb.end.y),
+			clampf(point.z, gun_aabb.position.z, gun_aabb.end.z)
+		)
+		distances[bone_name] = snappedf(point.distance_to(nearest), 0.0001)
+	return distances
+
 func _capture() -> void:
 	DirAccess.make_dir_recursive_absolute(FRAME_DIRECTORY)
 	var packed := load("res://main.tscn") as PackedScene
@@ -57,6 +82,20 @@ func _capture() -> void:
 			var report: Dictionary = weapon.call("get_first_person_debug_snapshot")
 			var gun: Dictionary = report.get("weapon", {}) as Dictionary
 			var size: Vector3 = gun.get("size", Vector3.ZERO)
+			# A correct mesh dimension or source ADS timing says nothing about
+			# actual fingers touching a correct pistol grip. Require exact
+			# tag_weapon (never tag_weapon_end/tag_weapon1) and log native joints.
+			var bound_bone: String = str(weapon.get_meta("weapon_source_attachment_bone_name", ""))
+			if bound_bone != "tag_weapon":
+				failures.append(weapon_id + ":" + pose + ":wrong_grip_socket=" + bound_bone)
+			var camera_bounds := AABB(
+				gun.get("position", Vector3.ZERO),
+				gun.get("size", Vector3.ZERO)
+			)
+			var hand_contact: Dictionary = _source_wrist_distances(weapon, camera_bounds)
+			print("XZOGOT_28_HAND_GRIP_CONTACT id=", weapon_id,
+				" pose=", pose, " source_bone=", bound_bone,
+				" actual_wrist_thumb_to_gun_bounds_m=", hand_contact)
 			var largest: float = maxf(size.x, maxf(size.y, size.z))
 			var roll: float = float(weapon.get_meta("weapon_source_gun_roll_correction_deg", -1.0))
 			var centered_source_ads: bool = weapon_id == "mp40" and pose == "ads"
