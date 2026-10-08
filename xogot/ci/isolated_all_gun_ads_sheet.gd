@@ -93,7 +93,24 @@ func _start() -> void:
 				continue
 			total += 1
 			var result_angle := float(weapon.get_meta("weapon_ads_visual_bore_error_deg", -1.0))
-			var result_sight := float(weapon.get_meta("weapon_ads_visual_sight_error_m", -1.0))
+			var result_sight := float(weapon.get_meta("weapon_ads_source_sight_error_m", -1.0))
+			if pose == "ads":
+				var source_mode: String = str(weapon.call("get_ads_calibration_mode"))
+				if source_mode != "source_datatable":
+					errs.append(id+":source_ads_not_bound="+source_mode)
+				if not bool(weapon.get_meta("weapon_source_weapon_attachment_ready", false)):
+					errs.append(id+":source_hands_tag_weapon_unbound")
+				var hip_pos: Vector3 = weapon.get("_hip_pose_position")
+				var ads_pos: Vector3 = weapon.get("_ads_pose_position")
+				if hip_pos.distance_to(ads_pos) < 0.002:
+					errs.append(id+":ads_physical_pose_same_as_hip")
+				var scope_kind: String = str(weapon.get_meta("weapon_ads_source_sight_socket",""))
+				if not scope_kind.is_empty() and result_sight > 0.01:
+					errs.append(id+":source_sight_off_camera="+str(result_sight))
+				if not scope_kind.is_empty():
+					var optical_depth: float = float(weapon.get_meta("weapon_ads_source_sight_depth_m", 0.0))
+					if optical_depth > -0.16:
+						errs.append(id+":source_sight_clips_near_plane="+str(optical_depth))
 			print("XZOGOT_ISOLATED_SIGHT_FRAME ",id," ",pose,
 				" bore_error_deg=",result_angle,
 				" rear_marker_error_m=",result_sight," png=",output)
@@ -101,7 +118,7 @@ func _start() -> void:
 	if total != 56 or not errs.is_empty():
 		_fail("capture total mismatch or missing files "+str(errs))
 		return
-	print("XZOGOT_ISOLATED_SIGHT_CAPTURE_GREEN 56")
+	print("XZOGOT_ISOLATED_ALL_28_SOURCE_ADS_CAPTURE_GREEN 56 ; MANUAL_VISUAL_GRIP_APPROVAL_STILL_REQUIRED")
 	studio.queue_free()
 	await process_frame
 	quit(0)
