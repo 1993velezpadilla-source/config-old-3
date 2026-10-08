@@ -2,6 +2,7 @@ extends SceneTree
 
 const WeaponSourcePresentation = preload("res://scripts/weapon_viewmodel_source_presentation.gd")
 const SourceModifierPolicy = preload("res://scripts/source_modifier_policy.gd")
+const MobileLayout = preload("res://scripts/mobile_layout.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -29,6 +30,53 @@ func _run() -> void:
 		_fail(3, "player/weapon/settings/round manager missing")
 		return
 	round_manager.set("auto_start", false)
+
+	# Layout customization must move BOTH the rendered control and hit target,
+	# persist across launches, and restore the last saved layout on cancel.
+	var layout_before: Dictionary = MobileLayout.snapshot()
+	var test_fire_center := Vector2(0.62, 0.40)
+	if not MobileLayout.set_center("fire", test_fire_center):
+		_fail(86, "HUD layout refused valid custom fire position")
+		return
+	var hud_test_size := Vector2(1600.0, 900.0)
+	var custom_fire_pixel := MobileLayout.screen_point(test_fire_center, hud_test_size)
+	if not MobileLayout.inside_control(custom_fire_pixel, hud_test_size, "fire"):
+		_fail(87, "custom fire HUD position did not move touch hitbox")
+		return
+	if MobileLayout.inside_control(
+		MobileLayout.screen_point(MobileLayout.FIRE_CENTER, hud_test_size),
+		hud_test_size, "fire"
+	):
+		_fail(88, "old fire hitbox remained active after HUD edit")
+		return
+	if MobileLayout.save_centers() != OK:
+		_fail(89, "custom HUD positions could not be persisted")
+		return
+	MobileLayout.reset_centers()
+	MobileLayout.load_centers()
+	if MobileLayout.center_for("fire").distance_to(test_fire_center) > 0.001:
+		_fail(90, "saved HUD positions not restored on restart")
+		return
+	MobileLayout.restore_snapshot(layout_before)
+	if MobileLayout.save_centers() != OK:
+		_fail(91, "could not restore HUD saved layout")
+		return
+	var hud_editor: Node = settings.get_node_or_null("MobileHUDLayoutEditor")
+	if hud_editor == null:
+		_fail(92, "settings HUD layout editor missing")
+		return
+	settings.call("open_pause_menu")
+	settings.call("_open_layout_editor")
+	if not hud_editor.visible or bool(settings.get("_panel").visible):
+		_fail(93, "HUD editor did not replace paused settings overlay")
+		return
+	hud_editor.call("_cancel")
+	if hud_editor.visible or not bool(settings.get("_panel").visible):
+		_fail(94, "HUD editor cancellation did not restore settings")
+		return
+	settings.call("close_menu")
+	print("XZOGOT_CUSTOM_TOUCH_HUD_LAYOUT_GREEN controls=11 persist=1 editor=1")
+
 
 	var source_profile_file := FileAccess.open("res://data/weapon_source_movement.json", FileAccess.READ)
 	if source_profile_file == null:
