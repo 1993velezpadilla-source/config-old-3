@@ -47,6 +47,24 @@ func _mesh_bounds_in_root(root_node: Node3D) -> Dictionary:
 	result["aabb"] = bounds
 	return result
 
+# Inspect the actual T4 Marine source wrist positions so offhand clipping
+# can be fixed from authored PSA bone data, not invented wrist offsets.
+func _trace_hand_wrist_grip(skeleton: Skeleton3D, camera: Camera3D, id: String, pose: String) -> void:
+	if skeleton == null or camera == null:
+		return
+	var found: Array[String] = []
+	for idx in range(skeleton.get_bone_count()):
+		var raw_name: String = str(skeleton.get_bone_name(idx))
+		var name: String = raw_name.to_lower()
+		if name.contains("wrist") or name.contains("hand") or name.contains("palm") or name.contains("thumb"):
+			var point: Vector3 = camera.to_local(
+				(skeleton.global_transform * skeleton.get_bone_global_pose(idx)).origin
+			)
+			found.append(raw_name+"="+str(point))
+	print("XZOGOT_SOURCE_HAND_CONTACT_BONES id=",id," pose=",pose,
+		" skeleton=",skeleton.name," bones=",skeleton.get_bone_count(),
+		" tracked=",found.size()," wrist_data=",found)
+
 func _inspect() -> void:
 	var packed := load("res://main.tscn") as PackedScene
 	if packed == null:
@@ -93,6 +111,8 @@ func _inspect() -> void:
 			gun_up = basis.y
 		var muzzle_cam := cam.to_local(muzzle.global_position) if muzzle != null else Vector3.ZERO
 		var gun_geom: Dictionary = _mesh_bounds_in_root(gun) if gun != null else {}
+		if id == "357" or id == "type100" or id == "mp40":
+			_trace_hand_wrist_grip(hands_skeleton, cam, id, "hip")
 		var hip_pos: Vector3 = weapon.get("_hip_pose_position")
 		var ads_pos: Vector3 = weapon.get("_ads_pose_position")
 		var hip_rot: Quaternion = weapon.get("_hip_pose_rotation")
@@ -105,6 +125,8 @@ func _inspect() -> void:
 		player.set_meta("ads_toggled", true)
 		await create_timer(0.60).timeout
 		await process_frame
+		if id == "357" or id == "type100" or id == "mp40":
+			_trace_hand_wrist_grip(hands_skeleton, cam, id, "ads")
 		var solved_hip: Vector3 = weapon.get("_hip_pose_position")
 		var solved_ads: Vector3 = weapon.get("_ads_pose_position")
 		var solved_hip_rot: Quaternion = weapon.get("_hip_pose_rotation")
