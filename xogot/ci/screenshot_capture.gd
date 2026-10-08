@@ -239,4 +239,16 @@ func _capture() -> void:
 			return
 		print("XZOGOT_EXTERIOR_SCREENSHOT_GREEN ", exterior_path, " ", exterior_image.get_width(), "x", exterior_image.get_height())
 
+	# Screenshot #63/#64 saved hip, ADS and exterior correctly, but Godot
+	# reported ObjectDB leaked instances at shutdown, returning code 1.
+	# Stop the active scene and give queued children/audio/particles time
+	# to release before quitting. Source frames were already saved above.
+	scene.queue_free()
+	for i in range(4):
+		await process_frame
+	if is_instance_valid(scene):
+		push_error("SCREENSHOT: scene still alive after queue_free")
+		quit(30)
+		return
+	print("XZOGOT_SCREENSHOT_SCENE_TEARDOWN_GREEN")
 	quit(0)
