@@ -1618,7 +1618,20 @@ func _source_placeholder_runtime_id(source_id: String) -> String:
 	var index := posmod(source_id.hash(), pool.size())
 	return pool[index]
 
+func _nacht_external_source_placeholder_unavailable() -> bool:
+	# The imported Nacht Blueprint references external UGC weapons which have
+	# not all been built as real native weapons. Never silently hash these
+	# IDs into an unrelated gun or charge cash for that fake weapon.
+	return (
+		is_inside_tree()
+		and str(get_tree().get_meta("active_map_id", "")) == "nacht_chronicles_full"
+	)
+
+
 func equip_source_external_item(source_id: String, refill: bool = true) -> bool:
+	if _nacht_external_source_placeholder_unavailable():
+		print("XZOGOT_NACHT_SOURCE_ITEM_UNAVAILABLE ", source_id)
+		return false
 	if source_id.strip_edges().is_empty():
 		return false
 	var runtime_id := _source_placeholder_runtime_id(source_id)
@@ -1640,6 +1653,9 @@ func equip_source_external_item(source_id: String, refill: bool = true) -> bool:
 	return true
 
 func buy_source_wall_weapon(source_id: String, source_price: int, player: Node) -> bool:
+	if _nacht_external_source_placeholder_unavailable():
+		print("XZOGOT_NACHT_SOURCE_WALLBUY_BLOCKED ", source_id)
+		return false
 	if source_price < 0 or player == null or not player.has_method("spend_points"):
 		return false
 	if not bool(player.call("spend_points", source_price)):
@@ -1655,6 +1671,9 @@ func buy_source_wall_weapon(source_id: String, source_price: int, player: Node) 
 	return true
 
 func roll_source_mystery_weapon(source_pool: Array[String]) -> String:
+	if _nacht_external_source_placeholder_unavailable():
+		print("XZOGOT_NACHT_SOURCE_MYSTERY_PLACEHOLDER_BLOCKED")
+		return ""
 	if source_pool.is_empty():
 		return ""
 	_mystery_serial += 1
