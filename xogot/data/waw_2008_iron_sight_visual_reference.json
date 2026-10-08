@@ -1,0 +1,305 @@
+{
+  "schema": 1,
+  "asset_use_policy": "External comparative references only. Do not download, distribute or bundle screenshot bitmaps into the game.",
+  "authority": "Call of Duty: World at War (2008), original PC/Xbox 360/PS3/Wii screenshots, NOT Final Fronts, Nintendo DS, BO3 Chronicles, Vanguard or COD Mobile",
+  "primary_source": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+  "source_description": "IMFDB labeled original World at War screenshot gallery. Image numbers refer to image ordering in the page captions, not pixel coordinates or downloadable game assets.",
+  "secondary_sources": [
+    "https://callofduty.fandom.com/wiki/Iron_Sights",
+    "https://callofduty.fandom.com/wiki/Nambu",
+    "https://callofduty.fandom.com/wiki/STG-44",
+    "https://callofduty.fandom.com/wiki/Category:Type_100_images"
+  ],
+  "compare_requirements": [
+    "HIP hands support surfaces and trigger grip vs original WaW",
+    "ADS both rear AND front align with camera optical axis when both exist",
+    "shotguns with only front bead are NOT tested against imaginary rear sight",
+    "scoped rifles display original magnified reticle layout, not opaque glass or unscoped rifle",
+    "original per-gun stance/cant differences explicitly reviewed, not flattened into one generic pose",
+    "Do not override original source DT_Weapons ADS input or fabricated FOV/speed per weapon",
+    "Do not mark original 2008 screenshot verified unless visually compared with Godot frame at matched viewport/FOV"
+  ],
+  "weapon_count": 28,
+  "weapons": {
+    "357": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "Smith & Wesson Model 27",
+      "original_2008_imfdb_ads_image_number": 17,
+      "original_2008_imfdb_hip_image_number": 16,
+      "aim_view": "iron_sight",
+      "visual_truth": "WaW first-person revolver aiming upward; verify hands wrap grip, not weapon floating from trigger hand.",
+      "alternate_ads_image_number": null,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "colt": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "Colt M1911 Hybrid",
+      "original_2008_imfdb_ads_image_number": 5,
+      "original_2008_imfdb_hip_image_number": 4,
+      "aim_view": "iron_sight",
+      "visual_truth": "Original WaW one-hand 1911 sight picture; do not introduce a gangster cant or detached supporting hand.",
+      "alternate_ads_image_number": null,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "walther": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "Walther P38",
+      "original_2008_imfdb_ads_image_number": 28,
+      "original_2008_imfdb_hip_image_number": 27,
+      "aim_view": "iron_sight",
+      "visual_truth": "Original centered vertical pistol rear notch and front post visible; WaW multiplayer screenshot.",
+      "alternate_ads_image_number": null,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "nambu": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "Nambu Type 14",
+      "original_2008_imfdb_ads_image_number": 12,
+      "original_2008_imfdb_hip_image_number": 11,
+      "aim_view": "iron_sight",
+      "visual_truth": "IMPORTANT: Original WaW intentionally has slightly offset front post / point of impact. Compare the in-game sight picture rather than forcing symmetric iron-sight geometry.",
+      "alternate_ads_image_number": null,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "tt33": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "Tokarev TT-33",
+      "original_2008_imfdb_ads_image_number": 22,
+      "original_2008_imfdb_hip_image_number": 21,
+      "aim_view": "iron_sight",
+      "visual_truth": "Frame 22 shows player aiming in actual 2008 campaign; not a clean isolated neutral-sky ironsight reference.",
+      "alternate_ads_image_number": null,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "mp40": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "MP 40",
+      "original_2008_imfdb_ads_image_number": null,
+      "original_2008_imfdb_hip_image_number": 32,
+      "aim_view": "iron_sight_requires_separate_ads_capture",
+      "visual_truth": "2008 native source hip reference documents correct support-hand grasp on MAGWELL, not magazine. This IMFDB gallery lacks clean straight-ahead ADS screenshot; supplement from authentic gameplay footage.",
+      "alternate_ads_image_number": null,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "thompson": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "Thompson M1A1",
+      "original_2008_imfdb_ads_image_number": 51,
+      "original_2008_imfdb_hip_image_number": 50,
+      "aim_view": "iron_sight",
+      "visual_truth": "Use original 2008 first-person sight picture and gripping geometry, not generic centered procedural mesh.",
+      "alternate_ads_image_number": null,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "ppsh": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "PPSh-41",
+      "original_2008_imfdb_ads_image_number": 41,
+      "original_2008_imfdb_hip_image_number": 40,
+      "aim_view": "iron_sight",
+      "visual_truth": "Original screenshot uses stick magazine; Nacht/Zombies can have drum. Front post centered inside distinctive U-notch/aperture; verify magazine variant separately.",
+      "alternate_ads_image_number": null,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "type100": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "Type 100",
+      "original_2008_imfdb_ads_image_number": 59,
+      "original_2008_imfdb_hip_image_number": 58,
+      "aim_view": "iron_sight",
+      "visual_truth": "WaW 2008 intentionally cants weapon COUNTERCLOCKWISE in ADS because support hand grips the magazine. Exact game look != anatomically ideal straight rifle.",
+      "alternate_ads_image_number": null,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "stg": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "StG 44",
+      "original_2008_imfdb_ads_image_number": 167,
+      "original_2008_imfdb_hip_image_number": 166,
+      "aim_view": "iron_sight",
+      "visual_truth": "2008 original StG-44 is grasped by magazine, not an ideal realistic handguard; source visual reference is thin rifle centerline.",
+      "alternate_ads_image_number": null,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "m1": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "M1 Garand",
+      "original_2008_imfdb_ads_image_number": 127,
+      "original_2008_imfdb_hip_image_number": 126,
+      "aim_view": "iron_sight",
+      "visual_truth": "Distinctive Garand large circular rear aperture around central front sight; source screenshot matched at native FOV.",
+      "alternate_ads_image_number": null,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "m1a1": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "M1 Carbine",
+      "original_2008_imfdb_ads_image_number": 120,
+      "original_2008_imfdb_hip_image_number": 119,
+      "aim_view": "iron_sight",
+      "visual_truth": "Original 2008 game labels it M1A1 despite using nonfolding M1 stock; preserve actual in-game aperture and silhouette.",
+      "alternate_ads_image_number": null,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "gewehr": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "Gewehr 43",
+      "original_2008_imfdb_ads_image_number": 102,
+      "original_2008_imfdb_hip_image_number": 101,
+      "aim_view": "iron_sight",
+      "visual_truth": "Use original 2008 first-person sight picture and gripping geometry, not generic centered procedural mesh.",
+      "alternate_ads_image_number": null,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "svt40": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "Tokarev SVT-40",
+      "original_2008_imfdb_ads_image_number": 175,
+      "original_2008_imfdb_hip_image_number": 174,
+      "aim_view": "iron_sight",
+      "visual_truth": "Use original 2008 first-person sight picture and gripping geometry, not generic centered procedural mesh.",
+      "alternate_ads_image_number": null,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "arisaka": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "Arisaka Type 99",
+      "original_2008_imfdb_ads_image_number": 83,
+      "original_2008_imfdb_hip_image_number": 82,
+      "aim_view": "iron_sight_or_scope",
+      "visual_truth": "2008 unscoped iron ADS and separately scoped version frame 88 (offset real sight axis). Do not mistake scope bone for iron sight.",
+      "alternate_ads_image_number": 88,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "kar98k": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "Karabiner 98k",
+      "original_2008_imfdb_ads_image_number": 110,
+      "original_2008_imfdb_hip_image_number": 109,
+      "aim_view": "iron_sight_or_scope",
+      "visual_truth": "Unscoped sight frame 110, optional scoped reticle frame 116.",
+      "alternate_ads_image_number": 116,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "springfield": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "Springfield M1903A1",
+      "original_2008_imfdb_ads_image_number": 157,
+      "original_2008_imfdb_hip_image_number": 156,
+      "aim_view": "iron_sight_or_scope",
+      "visual_truth": "Unscoped frame 157 and singleplayer sniper scope view frame 163; a raw transparent glass disc is NOT the original scoped ADS screen.",
+      "alternate_ads_image_number": 163,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "mosin": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "Mosin Nagant M38 Carbine",
+      "original_2008_imfdb_ads_image_number": 138,
+      "original_2008_imfdb_hip_image_number": 137,
+      "aim_view": "iron_sight_or_scope",
+      "visual_truth": "Unscoped iron frame 138, scoped Mosin frame 147. Original scoped ADS is a dedicated through-optic reticle, not a 2m opaque tube.",
+      "alternate_ads_image_number": 147,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "ptrs": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "PTRS-41",
+      "original_2008_imfdb_ads_image_number": 152,
+      "original_2008_imfdb_hip_image_number": 151,
+      "aim_view": "sniper_scope_not_iron_sight",
+      "visual_truth": "Original WaW PTRS shown ALWAYS SCOPED with a full optical scope view; do not treat as generic rear + front iron sights.",
+      "alternate_ads_image_number": null,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "trench": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "Winchester Model 1897 Trench Gun",
+      "original_2008_imfdb_ads_image_number": 77,
+      "original_2008_imfdb_hip_image_number": 76,
+      "aim_view": "front_bead_only",
+      "visual_truth": "Original WaW has ONLY FRONT BEAD and historically points slightly too high. Never demand nonexistent rear notch alignment.",
+      "alternate_ads_image_number": null,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "doublebarrel": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "Double-barreled shotgun",
+      "original_2008_imfdb_ads_image_number": 64,
+      "original_2008_imfdb_hip_image_number": 63,
+      "aim_view": "shotgun_bead",
+      "visual_truth": "Original twin barrels and simple shotgun sight line; no rear iron aperture.",
+      "alternate_ads_image_number": null,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "sawnoff": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "Sawn-off double-barreled shotgun",
+      "original_2008_imfdb_ads_image_number": 72,
+      "original_2008_imfdb_hip_image_number": 71,
+      "aim_view": "shotgun_bead",
+      "visual_truth": "Separate original sawed-off visual reference; shared DoubleBarrel animation provenance is valid, but model grip still needs screenshot validation.",
+      "alternate_ads_image_number": null,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "bar": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "Browning Automatic Rifle M1918A2",
+      "original_2008_imfdb_ads_image_number": 184,
+      "original_2008_imfdb_hip_image_number": 183,
+      "aim_view": "iron_sight",
+      "visual_truth": "Use original 2008 first-person sight picture and gripping geometry, not generic centered procedural mesh.",
+      "alternate_ads_image_number": null,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "fg42": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "FG 42/I",
+      "original_2008_imfdb_ads_image_number": 93,
+      "original_2008_imfdb_hip_image_number": 92,
+      "aim_view": "iron_sight",
+      "visual_truth": "Original campaign iron sights have unusually high ADS zoom (source FOV profile must be distinguished from physical geometry).",
+      "alternate_ads_image_number": null,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "mg42": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "MG 42",
+      "original_2008_imfdb_ads_image_number": 214,
+      "original_2008_imfdb_hip_image_number": 213,
+      "aim_view": "iron_sight",
+      "visual_truth": "Use original 2008 first-person sight picture and gripping geometry, not generic centered procedural mesh.",
+      "alternate_ads_image_number": null,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "browning": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "Browning M1919A4",
+      "original_2008_imfdb_ads_image_number": 192,
+      "original_2008_imfdb_hip_image_number": 191,
+      "aim_view": "iron_sight",
+      "visual_truth": "2008 original 1P has improvised cloth barrel handguard, which differs from external world-model.",
+      "alternate_ads_image_number": null,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "dp28": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "Degtyaryev DP-28",
+      "original_2008_imfdb_ads_image_number": 204,
+      "original_2008_imfdb_hip_image_number": 203,
+      "aim_view": "iron_sight",
+      "visual_truth": "Use original 2008 first-person sight picture and gripping geometry, not generic centered procedural mesh.",
+      "alternate_ads_image_number": null,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    },
+    "type99": {
+      "source_url": "https://www.imfdb.org/wiki/Call_of_Duty%3A_World_at_War",
+      "source_section": "Type 99",
+      "original_2008_imfdb_ads_image_number": 221,
+      "original_2008_imfdb_hip_image_number": 220,
+      "aim_view": "iron_sight",
+      "visual_truth": "Use original 2008 first-person sight picture and gripping geometry, not generic centered procedural mesh.",
+      "alternate_ads_image_number": null,
+      "qa_state": "external_reference_identified_not_pixel_matched"
+    }
+  }
+}
