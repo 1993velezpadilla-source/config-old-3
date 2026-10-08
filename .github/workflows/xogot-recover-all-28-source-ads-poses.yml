@@ -1,0 +1,90 @@
+name: Xogot Recover All 28 Real Aether ADS Transforms
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/source-viewmodel-inherited-hands-unit-scale
+    paths:
+      - ".github/workflows/xogot-recover-all-28-source-ads-poses.yml"
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: xogot-source-presentation-recovery
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: "37695464142"
+      SOURCE_ARTIFACT: "aether-source-presentation-metadata"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: fix/source-viewmodel-inherited-hands-unit-scale
+          persist-credentials: true
+
+      - name: Download CUE4Parse proven full UE5.7 DT_Weapons authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/aether-presentation-evidence
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
+            --name "$SOURCE_ARTIFACT" \
+            --dir /tmp/aether-presentation-evidence
+          test -s /tmp/aether-presentation-evidence/generated/weapon_viewmodel_source_presentation.json
+          echo "XZOGOT_AUTHENTIC_ALL_SOURCE_DOWNLOAD_GREEN"
+
+      - name: Verify exact 28 immutable source transforms without guesses
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json,pathlib,hashlib
+          src=pathlib.Path("/tmp/aether-presentation-evidence/generated/weapon_viewmodel_source_presentation.json")
+          data=json.loads(src.read_text())
+          assert data.get("schema")==2, "Expected CUE4Parse native UE source schema 2"
+          assert data.get("weapon_count")==28 and len(data.get("weapons",{}))==28
+          assert "DT_Weapons" in data.get("source","")
+          for wid,row in data["weapons"].items():
+              assert row.get("status")=="source_datatable",(wid,row.get("status"))
+              assert isinstance(row.get("source_row_index"),int),wid
+              for field in ("hand_transform_godot","ads_transform_godot"):
+                  v=row.get(field,{})
+                  assert len(v.get("translation_m",[]))==3,(wid,field)
+                  assert len(v.get("rotation_xyzw",[]))==4,(wid,field)
+              for field in ("ads_in_time_s","ads_out_time_s"):
+                  assert float(row[field])>0,(wid,field)
+          existing=json.loads(pathlib.Path("xogot/data/weapon_viewmodel_source_presentation.json").read_text())
+          assert "mp40" in existing["weapons"]
+          original=existing["weapons"]["mp40"]
+          recovered=data["weapons"]["mp40"]
+          for field in ("hand_transform_godot","ads_transform_godot"):
+              assert all(abs(float(a)-float(b))<0.00001 for a,b in zip(
+                  original[field]["translation_m"],recovered[field]["translation_m"]
+              )), "Recovered source MP40 disagrees with proven existing row"
+          dst=pathlib.Path("xogot/data/weapon_viewmodel_source_presentation.json")
+          dst.write_bytes(src.read_bytes())
+          print("XZOGOT_ALL_28_AUTHENTIC_ADS_POSES_READY rows=28 sha256="+hashlib.sha256(src.read_bytes()).hexdigest())
+          PY
+
+      - name: Commit exact source presentation table on draft branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add xogot/data/weapon_viewmodel_source_presentation.json
+          if git diff --cached --quiet; then
+            echo "XZOGOT_AUTHENTIC_28_ALREADY_CURRENT"
+            exit 0
+          fi
+          git commit -m "source: recover verified DT_Weapons HandTransform and ADSTransform for all 28 guns"
+          git push origin HEAD:fix/source-viewmodel-inherited-hands-unit-scale
+          echo "XZOGOT_AUTHENTIC_28_SOURCE_PUSH_GREEN"
