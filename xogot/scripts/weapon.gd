@@ -134,6 +134,9 @@ func _process(delta: float) -> void:
 		if _melee_overlay_timer <= 0.0:
 			_finish_melee_overlay()
 	_update_asset_animation_state()
+	# Only the SW357 source-idle j_bolt rest fixes the visible open cylinder.
+	# Its fire/reload/equip PSA bones are never modified by this guard.
+	_apply_sw357_idle_cylinder_rest()
 	_update_visual_recoil(delta)
 	_update_weapon_fx(delta)
 
@@ -405,6 +408,16 @@ func _update_asset_animation_state() -> void:
 			_play_asset_animation("ads_in" if ads_now else "ads_out", 0.05)
 	elif not _reloading and _cooldown <= 0.0:
 		_ensure_asset_idle()
+
+func _apply_sw357_idle_cylinder_rest() -> bool:
+	if (_weapon_id != "357" or _reloading or _cooldown > 0.0
+		or _asset_animation_player == null or not is_instance_valid(_asset_animation_player)
+		or _sw357_reload_meshes.is_empty()):
+		return false
+	var original_idle := WeaponAssetRegistry.animation_name_for_role("357", "idle")
+	if original_idle.is_empty() or str(_asset_animation_player.current_animation) != original_idle:
+		return false
+	return WeaponSW357ReloadGeometry.close_idle_cylinder(_sw357_reload_meshes)
 
 func _finish_melee_overlay() -> void:
 	if _melee_model_root != null and is_instance_valid(_melee_model_root):

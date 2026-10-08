@@ -22,10 +22,37 @@ static func _source_mesh(root: Node3D) -> MeshInstance3D:
 			stack.append(child)
 	return null
 
+# Native source rest is the ONLY accepted idle correction for the .357 cylinder.
+# 12 actual Godot A/B frames show that resetting j_bolt (not the speedloader,
+# j_clip or joint1) closes the cylinder. Never overwrite fire/reload PSA tracks.
+static func _native_gun_skeleton(node: Node) -> Skeleton3D:
+	if node is Skeleton3D:
+		return node as Skeleton3D
+	for child: Node in node.get_children():
+		var sk := _native_gun_skeleton(child)
+		if sk != null:
+			return sk
+	return null
+
+static func close_idle_cylinder(state: Dictionary) -> bool:
+	var skeleton: Skeleton3D = state.get("cylinder_skeleton") as Skeleton3D
+	if skeleton == null or not is_instance_valid(skeleton):
+		return false
+	var idx: int = int(state.get("cylinder_bone_idx", -1))
+	if idx < 0 or idx >= skeleton.get_bone_count() or str(skeleton.get_bone_name(idx)) != "j_bolt":
+		return false
+	skeleton.reset_bone_pose(idx)
+	return true
+
 static func prepare(root: Node3D) -> Dictionary:
 	var gun := _source_mesh(root)
 	if gun == null:
 		push_error("XZOGOT_SW357_RUNTIME_SOURCE_SKIN_MISSING")
+		return {}
+	var cylinder_skeleton := _native_gun_skeleton(root)
+	var cylinder_bone_idx := -1 if cylinder_skeleton == null else cylinder_skeleton.find_bone("j_bolt")
+	if cylinder_bone_idx < 0:
+		push_error("XZOGOT_SW357_NATIVE_CYLINDER_BONE_MISSING")
 		return {}
 	var original: Mesh = gun.mesh
 	var skin: Skin = gun.skin
@@ -94,6 +121,8 @@ static func prepare(root: Node3D) -> Dictionary:
 		"idle": filtered,
 		"removed_triangles": removed_triangles,
 		"removed_vertices": removed_vertices,
+		"cylinder_skeleton": cylinder_skeleton,
+		"cylinder_bone_idx": cylinder_bone_idx,
 	}
 
 static func set_reload_props_visible(state: Dictionary, show: bool) -> bool:

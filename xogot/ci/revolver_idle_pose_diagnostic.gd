@@ -187,5 +187,47 @@ func _run() -> void:
 	):
 		quit(17)
 		return
-	print("XZOGOT_SW357_ANIMATION_AB_IMAGES_READY 12 source_action=", source_idle)
+	# Production-only correction: the source idle j_bolt deforms the cylinder.
+	# After the four true native-bone A/B frames, demand the runtime helper
+	# closes only the exact idle bone. Reload must remain untouched.
+	var native_skeleton := _find_native_gun_skeleton(weapon.get("_weapon_model_root") as Node3D)
+	var j_bolt_idx := -1 if native_skeleton == null else native_skeleton.find_bone("j_bolt")
+	if j_bolt_idx < 0:
+		push_error("XZOGOT_SW357_RUNTIME_J_BOLT_MISSING")
+		quit(18)
+		return
+	gun_anim.play(source_idle, 0.0)
+	gun_anim.seek(0.0, true)
+	gun_anim.pause()
+	var raw_idle_bolt: Transform3D = native_skeleton.get_bone_pose(j_bolt_idx)
+	if raw_idle_bolt.origin.length() < 0.01:
+		push_error("XZOGOT_SW357_SOURCE_IDLE_BOLT_DELTA_MISSING")
+		quit(19)
+		return
+	if not bool(weapon.call("_apply_sw357_idle_cylinder_rest")):
+		push_error("XZOGOT_SW357_RUNTIME_IDLE_CLOSE_FAILED")
+		quit(20)
+		return
+	var closed: Transform3D = native_skeleton.get_bone_pose(j_bolt_idx)
+	if closed.origin.length() > 0.00001 or closed.basis.get_rotation_quaternion().get_angle() > 0.00001:
+		push_error("XZOGOT_SW357_RUNTIME_J_BOLT_NOT_NATIVE_REST")
+		quit(21)
+		return
+	await _screenshot("13-production-closed-idle-cylinder-ads")
+	weapon.set("_reloading", true)
+	var reload_name := SOURCE_REGISTRY.animation_name_for_role("357", "reload")
+	if reload_name.is_empty() or not gun_anim.has_animation(reload_name):
+		push_error("XZOGOT_SW357_RELOAD_PSA_UNAVAILABLE")
+		quit(22)
+		return
+	gun_anim.play(reload_name, 0.0)
+	gun_anim.seek(0.25, true)
+	gun_anim.pause()
+	var reload_pose: Transform3D = native_skeleton.get_bone_pose(j_bolt_idx)
+	if bool(weapon.call("_apply_sw357_idle_cylinder_rest")) or native_skeleton.get_bone_pose(j_bolt_idx) != reload_pose:
+		push_error("XZOGOT_SW357_RUNTIME_GUARD_CHANGED_SOURCE_RELOAD")
+		quit(23)
+		return
+	print("XZOGOT_SW357_NATIVE_IDLE_CYLINDER_GREEN source_rest=true reload_psa_intact=true")
+	print("XZOGOT_SW357_ANIMATION_AB_IMAGES_READY 13 source_action=", source_idle)
 	quit(0)

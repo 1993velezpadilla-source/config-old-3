@@ -7,6 +7,8 @@ on:
       - fix/source-viewmodel-inherited-hands-unit-scale
     paths:
       - "xogot/ci/revolver_idle_pose_diagnostic.gd"
+      - "xogot/scripts/weapon.gd"
+      - "xogot/scripts/weapon_sw357_reload_geometry.gd"
       - ".github/workflows/xogot-sw357-cylinder-hip-ads-source-proof.yml"
 
 permissions:
@@ -48,14 +50,14 @@ jobs:
             --path xogot --audio-driver Dummy --rendering-method gl_compatibility \
             --resolution 1280x720 --script res://ci/revolver_idle_pose_diagnostic.gd \
             2>&1 | tee build/sw357/render.log
-          grep -q "XZOGOT_SW357_ANIMATION_AB_IMAGES_READY 12" build/sw357/render.log
-          test "$(find /tmp/xogot-revolver-357-anim -maxdepth 1 -name '*.png' | wc -l)" -eq 12
+          grep -q "XZOGOT_SW357_ANIMATION_AB_IMAGES_READY 13" build/sw357/render.log
+          test "$(find /tmp/xogot-revolver-357-anim -maxdepth 1 -name '*.png' | wc -l)" -eq 13
           ! grep -E "SCRIPT ERROR|Parse Error|XZOGOT_SW357_NO_FRAME|ERROR: Invalid array format for surface|XZOGOT_SW357_FILTER_ARRAY_BUILD_RED" build/sw357/render.log
-      - name: 12 independent zoomable original SW357 source/bone A-B PNGs
+      - name: 13 independent zoomable original SW357 source/bone A-B PNGs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Xogot-SW357-Original-Idle-Cylinder-Bone-Isolation-12PNG
+          name: Xogot-SW357-Original-Idle-Cylinder-Bone-Isolation-13PNG
           path: /tmp/xogot-revolver-357-anim/*.png
           if-no-files-found: warn
           retention-days: 14
