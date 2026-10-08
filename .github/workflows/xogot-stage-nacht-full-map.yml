@@ -158,10 +158,24 @@ jobs:
           assert d.get("ready") is True,d
           assert int(d.get("schemaVersion",0))==2,d
           assert int(d.get("normalizedActionCount",0))==17,d
-          assert int(d.get("sourceInteractionContractCount",0))==1,d
+          assert int(d.get("sourceInteractionContractCount",0))==2,d
           contracts=d.get("sourceInteractionContracts",[])
-          assert len(contracts)==1,contracts
+          assert len(contracts)==2,contracts
           g=contracts[0]
+          m=contracts[1]
+          assert m.get("fileName")=="MysteryBox.uasset",m
+          assert m.get("managerFileName")=="ZombieGameLogic.uasset",m
+          assert m.get("managerFunction")=="SpawnMystreyBox",m
+          assert m.get("locationFileName")=="MysteryBoxLocation.uasset",m
+          assert m.get("spawnClass")=="MysteryBox_C",m
+          assert int(m.get("baseCost",-1))==950,m
+          assert int(m.get("fireSaleCost",-1))==10,m
+          assert int(m.get("serverEntryOffset",-1))==15470,m
+          assert int(m.get("previewCount",-1))==29,m
+          assert len(m.get("weaponPool",[]))==62,m
+          assert m.get("weaponSelectionFunction")=="KismetMathLibrary.RandomInteger(Array_Length)",m
+          assert m.get("interactBox",{}).get("componentName")=="Pavlov_InteractBox",m
+          assert int(m.get("teddy",{}).get("refundCash",-1))==950,m
           assert g.get("fileName")=="MachineGumball.uasset",g
           assert int(g.get("baseCost",-1))==950,g
           assert int(g.get("fireSaleCost",-1))==10,g
@@ -678,9 +692,23 @@ jobs:
           })
 
           contracts=particle_activation_authority.get("sourceInteractionContracts",[])
-          assert particle_activation_authority.get("sourceInteractionContractCount")==1, particle_activation_authority
-          assert len(contracts)==1,contracts
+          assert particle_activation_authority.get("sourceInteractionContractCount")==2, particle_activation_authority
+          assert len(contracts)==2,contracts
           g=contracts[0]
+          m=contracts[1]
+          assert m.get("fileName")=="MysteryBox.uasset",m
+          assert m.get("managerFileName")=="ZombieGameLogic.uasset",m
+          assert m.get("managerFunction")=="SpawnMystreyBox",m
+          assert m.get("locationFileName")=="MysteryBoxLocation.uasset",m
+          assert m.get("spawnClass")=="MysteryBox_C",m
+          assert int(m.get("baseCost",-1))==950,m
+          assert int(m.get("fireSaleCost",-1))==10,m
+          assert int(m.get("serverEntryOffset",-1))==15470,m
+          assert int(m.get("previewCount",-1))==29,m
+          assert len(m.get("weaponPool",[]))==62,m
+          assert m.get("weaponSelectionFunction")=="KismetMathLibrary.RandomInteger(Array_Length)",m
+          assert m.get("interactBox",{}).get("componentName")=="Pavlov_InteractBox",m
+          assert int(m.get("teddy",{}).get("refundCash",-1))==950,m
           assert g.get("fileName")=="MachineGumball.uasset",g
           assert int(g.get("baseCost",-1))==950,g
           assert int(g.get("fireSaleCost",-1))==10,g
@@ -689,6 +717,7 @@ jobs:
           assert len(g.get("gobblegumPool",[]))==6,g
           assert g.get("interactBox",{}).get("componentName")=="Pavlov_InteractBox",g
           print("XZOGOT_NACHT_GUMBALL_INTERACTION_STAGE_GREEN cost=950 firesale=10 pool=6 interact_box=1")
+          print("XZOGOT_NACHT_MYSTERY_INTERACTION_STAGE_GREEN cost=950 firesale=10 weapon_pool=62 previews=29 teddy_refund=950")
 
           actions=particle_activation_authority.get("normalizedActions",[])
           assert particle_activation_authority.get("ready") is True, particle_activation_authority
