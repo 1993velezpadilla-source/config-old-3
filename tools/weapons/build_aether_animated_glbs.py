@@ -175,6 +175,111 @@ def export_animated_glb(path: Path) -> None:
         raise RuntimeError(f"GLTF export failed: {result}")
 
 
+
+def repair_actorx_psa_animation_axes_in_glb(path: Path) -> dict[str, int]:
+    """Reconcile GLTF-native skinned bone rest axes with ActorX PSA Action keys.
+
+    The original UE-exported glTF bind joints are (x,z,-y), while PSA import
+    onto that GLB armature currently bakes its keyed translations in (x,y,z).
+    This misorients slide/magazine/reload bones (and most ADS iron sights).
+    Verified directly from original Colt1911Idle.psa BONENAMES/ANIMKEYS and
+    Colt1911.glb: all 14 local joints align after X -90-degree conversion,
+    from 0.0258 m baseline RMS bind discrepancy to numerical zero.
+
+    Apply the same proper change of basis to both translations and rotations
+    in glTF animation outputs; NEVER touch the original mesh, bind poses,
+    inverseBindMatrices, animation timing, scalar stats, or source hand rigs.
+    This is a native conversion of the entire source actorx animation, not
+    a frame-dependent/gun-specific invented position offset.
+    """
+    payload = bytearray(path.read_bytes())
+    if payload[:4] != b"glTF" or len(payload) != struct.unpack_from("<I", payload, 8)[0]:
+        raise RuntimeError(f"{path}: invalid source GLB header")
+    chunks = []
+    offset = 12
+    while offset + 8 <= len(payload):
+        chunk_length, kind = struct.unpack_from("<II", payload, offset)
+        start = offset + 8
+        if start + chunk_length > len(payload):
+            raise RuntimeError(f"{path}: corrupt source GLB chunk boundaries")
+        chunks.append((kind, start, chunk_length))
+        offset = start + chunk_length
+    if offset != len(payload):
+        raise RuntimeError(f"{path}: invalid GLB chunk remainder")
+    json_chunks = [ch for ch in chunks if ch[0] == 0x4E4F534A]
+    bin_chunks = [ch for ch in chunks if ch[0] == 0x004E4942]
+    if len(json_chunks) != 1 or len(bin_chunks) != 1:
+        raise RuntimeError(f"{path}: expected one JSON and BIN chunk")
+    _, start_json, len_json = json_chunks[0]
+    _, start_bin, len_bin = bin_chunks[0]
+    doc = json.loads(payload[start_json:start_json + len_json].rstrip(b" \\t\\r\\n\\0"))
+    joint_nodes = set()
+    for skin in doc.get("skins", []):
+        joint_nodes.update(skin.get("joints", []))
+    if not joint_nodes or not doc.get("animations"):
+        raise RuntimeError(f"{path}: source animation or skin joint map missing")
+
+    changed: set[tuple[int, str]] = set()
+    sample_total = 0
+    channel_total = 0
+    translation_total = 0
+    rotation_total = 0
+    for animation in doc["animations"]:
+        samplers = animation.get("samplers", [])
+        for channel in animation.get("channels", []):
+            target = channel.get("target", {})
+            component = target.get("path")
+            if target.get("node") not in joint_nodes or component not in ("translation", "rotation"):
+                continue
+            sampler = samplers[channel["sampler"]]
+            accessor_index = int(sampler["output"])
+            key = (accessor_index, component)
+            if key in changed:
+                continue
+            changed.add(key)
+            accessor = doc["accessors"][accessor_index]
+            kind = "VEC3" if component == "translation" else "VEC4"
+            if accessor.get("componentType") != 5126 or accessor.get("type") != kind or "sparse" in accessor:
+                raise RuntimeError(f"{path}: unsafe ActorX output accessor {key}: {accessor}")
+            view = doc["bufferViews"][accessor["bufferView"]]
+            if int(view.get("buffer", 0)) != 0:
+                raise RuntimeError(f"{path}: non-GLB animation buffer {key}")
+            width = 3 if component == "translation" else 4
+            stride = int(view.get("byteStride", width * 4))
+            if stride < width * 4 or stride % 4:
+                raise RuntimeError(f"{path}: unsafe animation stride {stride} for {key}")
+            start = start_bin + int(view.get("byteOffset", 0)) + int(accessor.get("byteOffset", 0))
+            if accessor["count"] < 1 or start + (accessor["count"] - 1) * stride + width * 4 > start_bin + len_bin:
+                raise RuntimeError(f"{path}: source PSA output out of BIN bounds {key}")
+            for idx in range(int(accessor["count"])):
+                at = start + idx * stride
+                if component == "translation":
+                    x, y, z = struct.unpack_from("<3f", payload, at)
+                    # glTF rest coordinate system: proper R_x(-90): (x,z,-y).
+                    struct.pack_into("<3f", payload, at, x, z, -y)
+                    translation_total += 1
+                else:
+                    x, y, z, w = struct.unpack_from("<4f", payload, at)
+                    # q' = R_x(-90) q R_x(+90): rotate quaternion's vector,
+                    # preserve scalar; valid also for cubic-spline tangents.
+                    struct.pack_into("<4f", payload, at, x, z, -y, w)
+                    rotation_total += 1
+                sample_total += 1
+            channel_total += 1
+    if not translation_total or not rotation_total:
+        raise RuntimeError(f"{path}: no native skinned gun translations/rotations repaired")
+    # The entire original GLB layout, bone bindings and key times are byte-
+    # identical except the intended source Action output float samples.
+    path.write_bytes(payload)
+    print("XZOGOT_ACTORX_GLTF_BONE_AXES_REPAIRED", path.name,
+          "channels=", channel_total,
+          "translation_samples=", translation_total,
+          "rotation_samples=", rotation_total,
+          "skinned_bones=", len(joint_nodes))
+    return {"channels": channel_total, "translation_samples": translation_total,
+            "rotation_samples": rotation_total, "skinned_bones": len(joint_nodes)}
+
+
 def main() -> int:
     args = argv_after_double_dash()
     if len(args) != 4:
@@ -289,6 +394,7 @@ def main() -> int:
                 )
 
             export_animated_glb(out_glb)
+            axis_report = repair_actorx_psa_animation_axes_in_glb(out_glb)
             stats = glb_stats(out_glb)
             if stats["meshes"] < 1 or stats["skins"] < 1 or stats["animations"] < 1:
                 raise RuntimeError(f"{runtime_id}: invalid animated GLB stats {stats}")
@@ -301,6 +407,7 @@ def main() -> int:
             "psa_source": psa_source,
             "psa_files": len(psas),
             "psa_translation_scale": 0.01 if animation_mode == "embedded_psa_actions" else None,
+            "psa_to_gltf_axes": "x,z,-y" if animation_mode == "embedded_psa_actions" else None,
             "actions_imported": len(new_actions),
             "actions_nla_bound": len(new_actions) if animation_mode == "embedded_psa_actions" else 0,
             "import_failures": import_failures,
