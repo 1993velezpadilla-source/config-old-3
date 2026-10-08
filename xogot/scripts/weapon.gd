@@ -831,7 +831,13 @@ func _bind_weapon_to_source_hands() -> bool:
 	var gun_roll_deg := 0.0
 	if bool(get_meta("weapon_source_imported_aether", false)):
 		var pistol_ids: Array[String] = ["colt", "walther", "nambu", "tt33", "357"]
-		gun_roll_deg = 180.0 if _weapon_id in pistol_ids else 90.0
+		# Independent 64-frame original source HIP/ADS 0/+90/-90/180 A/B
+		# (#37857367033): STG44, Browning and Type99 have upright original
+		# sight planes at 180 degrees, while generic 90 gives sideways
+		# and/or obstructed sight views. Other long guns remain pending
+		# independent source mesh/sight QA; do not guess a global angle.
+		var confirmed_upright_long_ids: Array[String] = ["stg", "browning", "type99"]
+		gun_roll_deg = 180.0 if _weapon_id in pistol_ids or _weapon_id in confirmed_upright_long_ids else 90.0
 	_weapon_model_root.quaternion = Quaternion(Vector3.RIGHT, deg_to_rad(gun_roll_deg))
 	set_meta("weapon_source_gun_roll_correction_deg", gun_roll_deg)
 	_weapon_model_root.scale = Vector3.ONE
