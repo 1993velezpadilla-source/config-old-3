@@ -2795,7 +2795,7 @@ func _run() -> void:
 	if str(scene.get_meta("nacht_spawn_authority", "")) != "NACHT_UMAP_ZombieSpawner_C":
 		_fail(13, "Nacht source spawn provenance missing")
 		return
-	var nav_runtime := scene.get_node_or_null("NachtSourceNavigation")
+	var nav_runtime: Node = scene.get_node_or_null("NachtSourceNavigation")
 	if (
 		nav_runtime == null
 		or not bool(nav_runtime.call("is_navigation_ready"))
