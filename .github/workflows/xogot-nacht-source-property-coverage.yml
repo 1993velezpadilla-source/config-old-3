@@ -1,0 +1,27 @@
+name: Nacht Source Interactive Property Coverage
+
+on:
+  push:
+    branches:
+      - fix/nacht-source-interaction-property-audit
+    paths:
+      - "tools/maps/compile_nacht_interactive_placements.py"
+      - "tools/maps/test_nacht_interactive_placements.py"
+      - ".github/workflows/xogot-nacht-source-property-coverage.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-property-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Validate source interactive property coverage without synthetic gameplay
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/test_nacht_interactive_placements.py 2>&1 | tee /tmp/nacht-property-coverage.log
+          grep -q 'XZOGOT_NACHT_SOURCE_PROPERTY_COVERAGE_TEST_GREEN' /tmp/nacht-property-coverage.log
