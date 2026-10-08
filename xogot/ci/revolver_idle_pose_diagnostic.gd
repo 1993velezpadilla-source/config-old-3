@@ -21,6 +21,15 @@ func _screenshot(name: String) -> void:
 		push_error("XZOGOT_SW357_FRAME_WRITE_RED " + path)
 	print("XZOGOT_SW357_RENDERED_FRAME " + path)
 
+func _reset_gun_to_import_rest(gun_root: Node3D) -> void:
+	var stack: Array[Node] = [gun_root]
+	while not stack.is_empty():
+		var current: Node = stack.pop_back()
+		if current is Skeleton3D:
+			(current as Skeleton3D).reset_bone_poses()
+		for child in current.get_children():
+			stack.append(child)
+
 func _run() -> void:
 	DirAccess.make_dir_recursive_absolute(OUT)
 	var scene := Node3D.new()
@@ -70,8 +79,9 @@ func _run() -> void:
 	await _screenshot("01-original-source-hip")
 	# A/B test original animated idle against exactly the same source rig
 	# in exported mesh bind/rest position (do not adjust any socket offset).
+	weapon.set_process(false)
 	gun_anim.stop()
-	gun_anim.reset()
+	_reset_gun_to_import_rest(weapon.get("_weapon_model_root") as Node3D)
 	await _screenshot("02-raw-import-bind-pose-hip")
 	gun_anim.play(source_idle,0.0)
 	gun_anim.seek(0.0,true)
@@ -81,10 +91,11 @@ func _run() -> void:
 	await create_timer(0.55).timeout
 	await _screenshot("04-original-idle-frame-33")
 	player.set_meta("ads_toggled", true)
+	weapon.call("_update_visual_recoil",0.6)
 	await create_timer(0.6).timeout
 	await _screenshot("05-original-idle-ads")
 	gun_anim.stop()
-	gun_anim.reset()
+	_reset_gun_to_import_rest(weapon.get("_weapon_model_root") as Node3D)
 	await _screenshot("06-bind-pose-ads")
 	print("XZOGOT_SW357_ANIMATION_AB_IMAGES_READY 6 source_action=",source_idle)
 	quit(0)
