@@ -1,0 +1,59 @@
+name: Xogot Source Hands PSA vs Native Rest A-B
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/source-viewmodel-inherited-hands-unit-scale
+    paths:
+      - "xogot/ci/source_hands_psa_rest_axis_ab.gd"
+      - ".github/workflows/xogot-source-hands-psa-rest-axis-ab.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  original-hands-ab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install native Godot 4.6.1 renderer
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip -o /tmp/godot.zip
+          mkdir -p /tmp/godot /tmp/xogot-hands-psa-rest-axis build/hand-axis
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+      - name: Import original 2008 WaW viewhands and 28 firearm clips
+        run: |
+          set -euo pipefail
+          timeout 240 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 --headless --editor --path xogot --quit 2>&1 | tee build/hand-axis/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error" build/hand-axis/import.log
+      - name: Capture exact original and candidate hand skeleton coordinate bases
+        run: |
+          set -euo pipefail
+          timeout 250 xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 --path xogot --audio-driver Dummy --rendering-method gl_compatibility \
+            --resolution 1280x720 --script res://ci/source_hands_psa_rest_axis_ab.gd 2>&1 | tee build/hand-axis/render.log
+          grep -q "XZOGOT_SOURCE_HANDS_AXIS_DIAGNOSTIC_GREEN frames=21" build/hand-axis/render.log
+          test "$(find /tmp/xogot-hands-psa-rest-axis -maxdepth 1 -name '*.png' | wc -l)" -eq 21
+          ! grep -E "SCRIPT ERROR|Parse Error|XZOGOT_SOURCE_HANDS_AXIS_AB_RED" build/hand-axis/render.log
+      - name: Preserve 21 original real render comparison frames
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Seven-Original-Hand-PSA-vs-Native-Rest-21PNG
+          path: /tmp/xogot-hands-psa-rest-axis/*.png
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Preserve source bone and wrist numerical report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Seven-Original-Hand-PSA-Bind-Truth-Logs
+          path: build/hand-axis/*.log
+          if-no-files-found: warn
+          retention-days: 14
