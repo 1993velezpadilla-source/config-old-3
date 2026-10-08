@@ -810,14 +810,16 @@ func _bind_weapon_to_source_hands() -> bool:
 	_weapon_model_root.transform = Transform3D.IDENTITY
 	# Source-meter imported gun roll must be proven against source hands/PSA,
 	# NOT blindly shared across all gun types. Actual 24-frame Godot A/B
-	# #37831370705: original .357 +90 -> pistol sideways; +180 -> rear/front
-	# upright and visually registered. MP40 still needs its +90 magazine down.
-	# Change ONLY the visually proven .357. Other guns stay unchanged pending
-	# independent HIP/ADS per-weapon comparison and grip/geometry signoff.
-	# Source DT_Weapons translations, timings, hand PSA and source GLB untouched.
+	# #37833312450 rendered 48 independent original HIP/ADS frames. Every
+	# source pistol is SIDEWAYS at +90; 180 restores an upright sight plane.
+	# This corrects roll ONLY. Floating reload magazines, fingers, gun/hand
+	# grip and optical alignment are still blocked until source bone QA.
+	# MP40 remains +90 (drum/magazine direction); long guns unchanged until
+	# independently proven. Source PSAs, DT_Weapons timings and GLBs untouched.
 	var gun_roll_deg := 0.0
 	if bool(get_meta("weapon_source_imported_aether", false)):
-		gun_roll_deg = 180.0 if _weapon_id == "357" else 90.0
+		var pistol_ids: Array[String] = ["colt", "walther", "nambu", "tt33", "357"]
+		gun_roll_deg = 180.0 if _weapon_id in pistol_ids else 90.0
 	_weapon_model_root.quaternion = Quaternion(Vector3.RIGHT, deg_to_rad(gun_roll_deg))
 	set_meta("weapon_source_gun_roll_correction_deg", gun_roll_deg)
 	_weapon_model_root.scale = Vector3.ONE

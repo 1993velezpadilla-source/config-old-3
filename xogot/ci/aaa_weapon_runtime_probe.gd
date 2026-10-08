@@ -271,10 +271,13 @@ func _run_probe() -> void:
 			if connected:
 				connected = gun_node.get_parent() == hand_socket
 			var inherited_meters_ok := bool(weapon.get_meta("weapon_source_attachment_meter_units_restored", false))
-			# Preserve original MP40 roll, but do not force visually wrong
-			# 90-degree gangster cant on the SW357 after true 24-frame A/B.
-			var expected_roll_deg := 180.0 if id == "357" else 90.0
-			var expected_socket_up := Vector3.DOWN if id == "357" else Vector3.BACK
+			# Independent 48-frame source HIP/ADS review: original five
+			# pistol sights are sideways at roll 90, upright at 180.
+			# This verifies only the orientation gate, NOT natural hand grips.
+			var pistol_ids: Array[String] = ["colt", "walther", "nambu", "tt33", "357"]
+			var is_source_pistol: bool = id in pistol_ids
+			var expected_roll_deg := 180.0 if is_source_pistol else 90.0
+			var expected_socket_up := Vector3.DOWN if is_source_pistol else Vector3.BACK
 			var local_up_ok := false
 			if gun_node != null:
 				var up_in_socket := gun_node.transform.basis.orthonormalized() * Vector3.UP
