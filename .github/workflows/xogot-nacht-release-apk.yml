@@ -216,10 +216,17 @@ jobs:
             echo "XZOGOT_RELEASE_APK_UNEXPECTED_X86_64"
             exit 41
           fi
-          AAPT="$ANDROID_HOME/build-tools/35.0.1/aapt"
-          "$AAPT" dump badging "$APK" > build/nacht-release/apk-badging.txt
-          grep -q "package: name='com.xziel.youwontwin'" build/nacht-release/apk-badging.txt
-          grep -q "application-label:'YOU WON'T WIN'" build/nacht-release/apk-badging.txt
+          # Legacy aapt rejects Godot 4.6.1's binary manifest with:
+          # android:required: attribute is not an integer value.
+          # AAPT2 is the supported manifest parser for current Android SDKs.
+          AAPT2="$ANDROID_HOME/build-tools/35.0.1/aapt2"
+          test -x "$AAPT2"
+          "$AAPT2" dump badging "$APK" > build/nacht-release/apk-badging.txt
+          grep -Fq "package: name='com.xziel.youwontwin'" build/nacht-release/apk-badging.txt
+          grep -Eq "application-label:'YOU WON'T WIN'|application: label='YOU WON'T WIN'" build/nacht-release/apk-badging.txt
+          "$ANDROID_HOME/build-tools/35.0.1/apksigner" verify --verbose "$APK" \
+            > build/nacht-release/apk-signature.txt
+          echo "XZOGOT_RELEASE_AAPT2_SIGNED_IDENTITY_GREEN"
           printf 'source_stage_run=%s\nbranch=%s\ncommit=%s\n'             "$SOURCE_RUN" "${GITHUB_REF_NAME}" "${GITHUB_SHA}"             > build/nacht-release/release-manifest.txt
           echo "XZOGOT_RELEASE_APK_CONTENT_GREEN arm64=1 package=com.xziel.youwontwin"
 
@@ -235,6 +242,7 @@ jobs:
             build/nacht-release/export.log
             build/nacht-release/apk-files.txt
             build/nacht-release/apk-badging.txt
+            build/nacht-release/apk-signature.txt
             build/nacht-release/release-manifest.txt
           if-no-files-found: warn
           retention-days: 14
