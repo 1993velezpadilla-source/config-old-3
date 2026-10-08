@@ -306,8 +306,26 @@ func _run_probe() -> void:
 				if not bool(weapon.get_meta("weapon_source_offstage_reload_filter_ready", false)):
 					source_geometry_blockers.append(id + ":offstage_reload_filter_missing")
 				else:
-					print("XZOGOT_SOURCE_OFFSTAGE_RELOAD_GEOMETRY_GREEN ", id,
-						" removed=", int((weapon.get("_source_offstage_reload_meshes") as Dictionary).get("removed_triangles", 0)))
+					var offstage: Dictionary = weapon.get("_source_offstage_reload_meshes")
+					var gun_skin: MeshInstance3D = offstage.get("node") as MeshInstance3D
+					var original_skin: Mesh = offstage.get("original") as Mesh
+					var idle_skin: Mesh = offstage.get("idle") as Mesh
+					var removed: int = int(offstage.get("removed_triangles", 0))
+					# Recovered UE source Mosin stripper rounds / PTRS clip are real
+					# reload actors. A GREEN gate MUST prove source skin toggles both
+					# ways, not merely hide the exported vertices for an idle shot.
+					if gun_skin == null or original_skin == null or idle_skin == null or removed < 300:
+						source_geometry_blockers.append(id + ":offstage_reload_original_missing")
+					elif gun_skin.mesh != idle_skin:
+						source_geometry_blockers.append(id + ":offstage_idle_mesh_not_active")
+					elif not WeaponSourceOffstageReloadGeometry.set_reload_visible(offstage, true) or gun_skin.mesh != original_skin:
+						source_geometry_blockers.append(id + ":offstage_reload_mesh_not_restored")
+					elif not WeaponSourceOffstageReloadGeometry.set_reload_visible(offstage, false) or gun_skin.mesh != idle_skin:
+						source_geometry_blockers.append(id + ":offstage_after_reload_mesh_not_restored")
+					else:
+						print("XZOGOT_SOURCE_OFFSTAGE_RELOAD_ROUNDTRIP_GREEN ", id,
+							" removed=", removed,
+							" original_skin_safely_restored=true idle_skin_safely_restored=true")
 			var source_snapshot: Dictionary = weapon.call("get_first_person_debug_snapshot")
 			var gun_bounds: Dictionary = source_snapshot.get("weapon", {}) as Dictionary
 			var gun_size: Vector3 = gun_bounds.get("size", Vector3.ZERO)
