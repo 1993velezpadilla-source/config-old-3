@@ -21,7 +21,10 @@ permissions:
 
 concurrency:
   group: xogot-all-source-gun-grips-visual-${{ github.ref }}
-  cancel-in-progress: true
+  # Preserve the in-flight SHA's complete 56-frame evidence; previously
+  # every later gun code push cancelled both screenshot render shards.
+  # GitHub will still retain only the most recent pending run.
+  cancel-in-progress: false
 
 jobs:
   render:
