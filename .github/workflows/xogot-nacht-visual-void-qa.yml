@@ -33,11 +33,16 @@ jobs:
         with:
           ref: feature/godot-aaa-rebuild-v1
 
+      - name: Set up Python for deterministic screenshot measurements
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
       - name: Install PNG reader and prove visual metric self-test
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m pip install --user pillow
+          python3 -m pip install "pillow==11.3.0"
           python3 tools/maps/nacht_visual_void_guard.py --self-test
 
       - name: Download real source-staged Nacht captures
