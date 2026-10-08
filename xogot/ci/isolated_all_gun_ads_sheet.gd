@@ -135,25 +135,25 @@ func _start() -> void:
 					" old_opaque_baseline_mosin_0_1=0.827 ptrs_0_1=0.771")
 				if aperture_light > 0.59:
 					errs.append(id+":scope_lens_blocks_camera_optical_axis="+str(aperture_light))
-			var gun_node: Node3D = weapon.get("_weapon_model_root") as Node3D
-			var glass_seen := false
-			if gun_node != null:
-				for render_node: Node in gun_node.find_children("*", "MeshInstance3D", true, false):
-					if not (render_node is MeshInstance3D):
-						continue
-					var mesh_node := render_node as MeshInstance3D
-					if mesh_node.mesh == null:
-						continue
-					for surface_idx in range(mesh_node.mesh.get_surface_count()):
-						var surf_material := mesh_node.get_active_material(surface_idx)
-						if surf_material != null and "scope_glass" in surf_material.resource_name:
-							glass_seen = true
-							if surf_material is StandardMaterial3D:
-								var glass := surf_material as StandardMaterial3D
-								if glass.transparency != BaseMaterial3D.TRANSPARENCY_ALPHA:
-									errs.append(id+":scope_lens_material_still_opaque")
-			if not glass_seen:
-				errs.append(id+":real_scope_glass_surface_not_found")
+				var gun_node: Node3D = weapon.get("_weapon_model_root") as Node3D
+				var glass_seen := false
+				if gun_node != null:
+					for render_node: Node in gun_node.find_children("*", "MeshInstance3D", true, false):
+						if not (render_node is MeshInstance3D):
+							continue
+						var mesh_node := render_node as MeshInstance3D
+						if mesh_node.mesh == null:
+							continue
+						for surface_idx in range(mesh_node.mesh.get_surface_count()):
+							var surf_material := mesh_node.get_active_material(surface_idx)
+							if surf_material != null and "scope_glass" in surf_material.resource_name:
+								glass_seen = true
+								if surf_material is StandardMaterial3D:
+									var glass := surf_material as StandardMaterial3D
+									if glass.transparency != BaseMaterial3D.TRANSPARENCY_ALPHA:
+										errs.append(id+":scope_lens_material_still_opaque")
+				if not glass_seen:
+					errs.append(id+":real_scope_glass_surface_not_found")
 			var result_angle := float(weapon.get_meta("weapon_ads_visual_bore_error_deg", -1.0))
 			var result_sight := float(weapon.get_meta("weapon_ads_source_sight_error_m", -1.0))
 			if pose == "ads":
