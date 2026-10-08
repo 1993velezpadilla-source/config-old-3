@@ -64,8 +64,22 @@ func _run() -> void:
 	if not bool(weapon.get_meta("weapon_source_hip_pose_ready", false)):
 		_fail("original source HIP authored pose not ready")
 		return
-	if gun.scale.distance_to(Vector3.ONE) > 0.0001:
-		_fail("gun model scale is not native-meter 1.0")
+	# The source hands skeleton is still in inherited ActorX centimeter
+	# units. Its tag_weapon BoneAttachment is ~0.01 world scale, while the
+	# GLB gun must render in METER units. Production deliberately sets the
+	# child's LOCAL scale to the reciprocal (~100): only the composed GLOBAL
+	# basis should be 1. This gate previously checked the wrong coordinate
+	# frame and falsely failed real geometry.
+	var local_units: Vector3 = gun.scale
+	var world_units: Vector3 = gun.global_transform.basis.get_scale()
+	var socket_units: Vector3 = socket.global_transform.basis.get_scale()
+	var restored: bool = bool(weapon.get_meta("weapon_source_attachment_meter_units_restored", false))
+	print("XZOGOT_MP40_NATIVE_UNIT_PROOF local_compensation=", local_units,
+		" source_socket_scale=", socket_units,
+		" world_meter_scale=", world_units, " restored=", restored)
+	if (not restored or world_units.distance_to(Vector3.ONE) > 0.015
+		or (local_units * socket_units).distance_to(Vector3.ONE) > 0.015):
+		_fail("MP40 final meter-scale inherited compensation incorrect")
 		return
 	if not view.visible:
 		_fail("HIP unexpectedly hides original MP40 weapon")
