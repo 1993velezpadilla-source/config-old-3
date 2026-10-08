@@ -61,6 +61,18 @@ static func _build_material(material_name: String, binding: Dictionary) -> Stand
 	if bool(binding.get("two_sided", false)):
 		material.cull_mode = BaseMaterial3D.CULL_DISABLED
 
+	# Imported Aether mtl_rus_scope_glass was incorrectly converted to an
+	# opaque PBR surface. That seals the scope tube into a bright silver
+	# disc, visibly preventing players from aiming through Mosin/PTRS.
+	# Only the specifically named real lens surface is transmissive;
+	# the barrel, chassis, scope housing and reticles stay source-textured.
+	if _normalize_material_name(material_name) == "mtl_rus_scope_glass":
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		material.albedo_color = Color(0.85, 0.92, 0.96, 0.08)
+		material.metallic = 0.0
+		material.roughness = 0.06
+		material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		material.render_priority = 1
 	return material
 
 static func _build_invisible_material(material_name: String) -> StandardMaterial3D:
