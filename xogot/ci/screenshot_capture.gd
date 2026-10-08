@@ -100,6 +100,28 @@ func _capture() -> void:
 			"/", weapon.get_meta("weapon_texture_surfaces", 0)
 		)
 
+	# The source weapon manifest explicitly requires real meter-space guns,
+	# longest axis 0.3–1.5 m. Prior screenshot #65 was erroneously GREEN
+	# with a microscopic MP40 0.0071 m long, invisible behind bare fists.
+	if weapon != null and weapon.has_method("get_first_person_debug_snapshot"):
+		var snapshot := weapon.call("get_first_person_debug_snapshot") as Dictionary
+		var mesh_bounds := snapshot.get("weapon", {}) as Dictionary
+		var size := mesh_bounds.get("size", Vector3.ZERO) as Vector3
+		var longest := maxf(size.x, maxf(size.y, size.z))
+		if (
+			not bool(mesh_bounds.get("found", false))
+			or longest < 0.3
+			or longest > 1.5
+			or not bool(weapon.get_meta("weapon_source_attachment_meter_units_restored", false))
+		):
+			push_error("SCREENSHOT: real MP40 source meter-space AABB invalid: " + str(mesh_bounds))
+			quit(34)
+			return
+		print(
+			"XZOGOT_MP40_RUNTIME_METER_BOUNDS_GREEN longest_m=", longest,
+			" rig_inherited_scale=", weapon.get_meta("weapon_source_attachment_inherited_scale", Vector3.ONE)
+		)
+
 	var round_manager: Node = scene.get_node_or_null("RoundManager")
 	if round_manager != null:
 		round_manager.set("auto_start", false)
