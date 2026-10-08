@@ -61,6 +61,20 @@ func _run() -> void:
 		if view.visible == is_scoped or bool(gun.get_meta("weapon_scope_viewmodel_masked", false)) != is_scoped:
 			_fail("original gun mesh must be masked only for scope reticle " + id)
 			return
+		if is_scoped:
+			var authored: Vector3 = gun.get("_view_pose_position")
+			var rendered: Vector3 = view.position
+			# 3D tag_scope is not the actual scope glass; the 2D reticle
+			# should NEVER shift invisible source muzzle/weapon geometry
+			# away from the recovered DT_Weapons ADS pose.
+			var source_error: float = rendered.distance_to(authored)
+			if source_error > 0.012:
+				_fail("scope HUD must not offset original authored muzzle position id="
+					+ id + " distance=" + str(source_error))
+				return
+			print("XZOGOT_SNIPER_SCOPE_SOURCE_RIG_PRESERVED id=", id,
+				" authored_m=", authored, " rendered_m=", rendered,
+				" difference_m=", source_error)
 		if not await _frame(id + "-ads-real-scope"):
 			_fail("scoped ADS PNG missing " + id)
 			return

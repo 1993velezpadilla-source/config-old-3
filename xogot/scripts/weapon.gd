@@ -2305,7 +2305,16 @@ func _update_visual_recoil(delta: float) -> void:
 		set_meta("weapon_ads_pose_alpha", _ads_pose_alpha)
 		if is_ads_active() and _pending_ads_geometry_solved:
 			_track_pending_ads_sight_center()
-		if is_ads_active() and source_presentation:
+		# Scoped reticle is the real optical presentation and must NOT call
+		# the 3D tag_scope centering routine on invisible gun geometry.
+		# Before this guard, source scope markers (which are NOT the lens
+		# center) moved the invisible weapon's muzzle off its source-authored
+		# ADS transform each frame. Preserve DT_Weapons for firing/reloading.
+		var source_scope_hud_active := (
+			_weapon_id in ["mosin", "ptrs"]
+			and bool(get_meta("weapon_scope_overlay_active", false))
+		)
+		if is_ads_active() and source_presentation and not source_scope_hud_active:
 			_register_authored_source_sight()
 		# WaW scoped sniper ADS displays a rendered scope reticle. Mask the
 		# tube and hands ONLY when a real HUD scope overlay exists and is
@@ -2314,8 +2323,7 @@ func _update_visual_recoil(delta: float) -> void:
 		# In the isolated Godot rig tests there is no HUD, so this remains
 		# disabled and original 3D evidence can still be audited.
 		var scoped_overlay := (
-			_weapon_id in ["mosin", "ptrs"]
-			and bool(get_meta("weapon_scope_overlay_active", false))
+			source_scope_hud_active
 			and _ads_pose_alpha >= 0.98
 			and not _reloading
 		)
