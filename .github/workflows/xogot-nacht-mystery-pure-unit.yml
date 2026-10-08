@@ -1,0 +1,94 @@
+name: Nacht Mystery Source-Only Contract Unit
+
+on:
+  push:
+    branches:
+      - feat/nacht-source-mysterybox-selection-contract
+    paths:
+      - "xogot/ci/nacht_mystery_source_pure_unit.gd"
+      - "xogot/scripts/nacht_full_map.gd"
+      - ".github/workflows/xogot-nacht-mystery-pure-unit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  source_unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout dedicated gameplay PR branch
+        uses: actions/checkout@v5
+        with:
+          ref: feat/nacht-source-mysterybox-selection-contract
+
+      - name: Download actual MysteryBox.uasset source contract (Bytecode #37)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/mystery-source"
+          gh run download 37715459452 \
+            -R "$GITHUB_REPOSITORY" \
+            -n Xogot-Nacht-Interactive-Particle-Bytecode \
+            -D "$RUNNER_TEMP/mystery-source"
+          json="$(find "$RUNNER_TEMP/mystery-source" -type f \
+            -name particle-activation-authority.json -print -quit)"
+          test -s "$json"
+          python3 - "$json" <<'PY'
+          import json,sys
+          data=json.load(open(sys.argv[1]))
+          assert data.get("sourceInteractionContractCount")==2
+          contracts=data.get("sourceInteractionContracts",[])
+          assert len(contracts)==2
+          assert contracts[1]["fileName"]=="MysteryBox.uasset"
+          assert contracts[1]["managerFunction"]=="SpawnMystreyBox"
+          assert len(contracts[1]["weaponPool"])==62
+          assert contracts[1]["weaponPool"][0]=="gun1911"
+          assert contracts[1]["weaponPool"][-1]=="kuda"
+          print("XZOGOT_MYSTERY_BYTECODE_37_SOURCE_READY")
+          PY
+          cp "$json" xogot/ci/nacht_mystery_source_contract_fixture.json
+
+      - name: Install exact Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot-nacht-mystery.zip
+          mkdir -p /tmp/godot-nacht-mystery
+          unzip -q /tmp/godot-nacht-mystery.zip -d /tmp/godot-nacht-mystery
+          chmod +x /tmp/godot-nacht-mystery/Godot_v4.6.1-stable_linux.x86_64
+
+      - name: Import scripts and run source-only unit (no staged world, no purchases)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-mystery-unit
+          timeout 300 /tmp/godot-nacht-mystery/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit \
+            2>&1 | tee build/nacht-mystery-unit/import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR: Failed to load script' \
+            build/nacht-mystery-unit/import.log; then
+            exit 35
+          fi
+          timeout 90 /tmp/godot-nacht-mystery/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot \
+            --script res://ci/nacht_mystery_source_pure_unit.gd \
+            2>&1 | tee build/nacht-mystery-unit/probe.log
+          grep -q 'XZOGOT_NACHT_MYSTERY_SOURCE_PURE_UNIT_GREEN' \
+            build/nacht-mystery-unit/probe.log
+          echo "XZOGOT_NACHT_MYSTERY_SOURCE_UNIT_CI_GREEN source=Bytecode37"
+
+      - name: Save verification logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Mystery-Source-Unit-Logs
+          path: build/nacht-mystery-unit/
+          if-no-files-found: warn
+          retention-days: 14
