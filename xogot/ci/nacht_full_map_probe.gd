@@ -384,9 +384,15 @@ func _run() -> void:
 		_fail(37, "source interactive placement authority not ready")
 		return
 	var interactive_required := [
-		"mystery_box", "mystery_box_location", "pack_a_punch", "gumball_machine",
-		"perk_machine", "power_switch", "wallbuy", "barricade", "buyable_door",
+		"mystery_box_location", "pack_a_punch", "gumball_machine",
+		"perk_machine", "wallbuy", "barricade", "buyable_door",
 	]
+	if int(interactive_counts.get("mystery_box", -1)) != 0:
+		_fail(37, "direct mystery box placement diverged from source")
+		return
+	if int(interactive_counts.get("power_switch", -1)) != 0:
+		_fail(37, "direct power switch placement diverged from source")
+		return
 	for category: String in interactive_required:
 		if int(interactive_counts.get(category, 0)) <= 0:
 			_fail(37, "source interactive placement missing " + category)
