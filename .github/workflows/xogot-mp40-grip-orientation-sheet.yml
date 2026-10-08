@@ -1,0 +1,150 @@
+name: Xogot MP40 Hand Grip Orientation Sheet
+# Latest Sep29 HUD + fuller Monja capture.
+# COD audited HUD/camera capture.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - qa/mp40-hand-grip-orientation-sheet
+    paths:
+      - "xogot/ci/screenshot_capture.gd"
+      - "xogot/scripts/weapon.gd"
+      - "xogot/scripts/weapon_texture_registry.gd"
+      - "xogot/data/weapon_material_bindings.json"
+      - "xogot/assets/weapons/aether_waw_textures/**"
+      - "xogot/assets/weapons/aether_waw_hands/**"
+      - "xogot/assets/weapons/mapmod_weapon_asset_manifest.json"
+      - ".github/workflows/xogot-mp40-grip-orientation-sheet.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-mp40-grip-orientation-sheet-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: qa/mp40-hand-grip-orientation-sheet
+
+      - name: Install rendering tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq unzip curl xvfb libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+
+      - name: Install Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+
+      - name: Import project assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/xogot-screenshot
+          timeout 180 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit \
+            2>&1 | tee build/xogot-screenshot/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|Error importing 'res://assets/zombies/monja_basica.glb'" build/xogot-screenshot/import.log
+
+      - name: Render current gameplay screenshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/xogot-screenshot
+          XZOGOT_SOURCE_GRIP_SHEET=1 xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --path xogot \
+            --audio-driver Dummy \
+            --rendering-method gl_compatibility \
+            --resolution 1280x720 \
+            --script res://ci/screenshot_capture.gd \
+            2>&1 | tee build/xogot-screenshot/render.log
+          grep -q "XZOGOT_MONJA_BASICA_LOADED" build/xogot-screenshot/render.log
+          ! grep -q "XZOGOT_MONJA_BASICA_FALLBACK" build/xogot-screenshot/render.log
+          ! grep -q "ALSA lib" build/xogot-screenshot/render.log
+          grep -q "XZOGOT_MP40_GRIP_SHEET_FRAME_GREEN pose=hip roll_deg=90" build/xogot-screenshot/render.log
+          grep -q "XZOGOT_MP40_GRIP_SHEET_FRAME_GREEN pose=ads roll_deg=-90" build/xogot-screenshot/render.log
+          grep -q "XZOGOT_MP40_RUNTIME_METER_BOUNDS_GREEN" build/xogot-screenshot/render.log
+          grep -q "XZOGOT_SCREENSHOT_HIP_GREEN" build/xogot-screenshot/render.log
+          grep -q "XZOGOT_SCREENSHOT_ADS_GREEN" build/xogot-screenshot/render.log
+          grep -q "XZOGOT_EXTERIOR_SCREENSHOT_GREEN" build/xogot-screenshot/render.log
+          test -s /tmp/xogot-current-game.png
+          test -s /tmp/xogot-current-ads.png
+          test -s /tmp/xogot-current-exterior.png
+          cp /tmp/xogot-current-game.png build/xogot-screenshot/xogot-current-game.png
+          cp /tmp/xogot-current-ads.png build/xogot-screenshot/xogot-current-ads.png
+          cp /tmp/xogot-current-exterior.png build/xogot-screenshot/xogot-current-exterior.png
+
+      # Preserve the REAL PNGs even if Godot exits nonzero *after* writing
+      # all three captures (ObjectDB instance leak, exit=1 in run #63).
+      # This does not mask/turn GREEN a failed renderer or visual gate.
+      # Godot #63/#64 did save all three PNG files to /tmp, but a
+      # nonzero process exit in cleanup meant the preceding step never
+      # copied them to build/, so even upload if:always had nothing.
+      # Preserve original process RED and retain real rendered evidence.
+      - name: Recover genuine Godot PNGs even on render RED
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/xogot-screenshot
+          for frame in xogot-current-game xogot-current-ads xogot-current-exterior; do
+            if [[ -s "/tmp/${frame}.png" ]]; then
+              cp "/tmp/${frame}.png" "build/xogot-screenshot/${frame}.png"
+              echo "XZOGOT_SCREENSHOT_RECOVERED_FROM_RENDER_FRAME file=${frame}.png"
+            else
+              echo "XZOGOT_SCREENSHOT_FRAME_MISSING file=${frame}.png"
+            fi
+          done
+
+      # Preserve test logs whether the source visual render or process cleanup
+      # fails, so microscopic 0.007m AABB can never silently pass the gate.
+      - name: Recover eight original-source hand-grip A/B image variants
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/xogot-screenshot
+          for frame in /tmp/xogot-grip-*.png; do
+            [[ -s "$frame" ]] || continue
+            cp "$frame" build/xogot-screenshot/
+          done
+          ls -lh build/xogot-screenshot/*grip*.png || true
+
+      - name: Upload meter-scale probe logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-MP40-Grip-Basis-Diagnostic-Logs
+          path: build/xogot-screenshot/*.log
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-MP40-Source-Grip-Orientation-Sheet
+          path: |
+            build/xogot-screenshot/xogot-grip-*.png
+            build/xogot-screenshot/xogot-current-game.png
+            build/xogot-screenshot/xogot-current-ads.png
+            build/xogot-screenshot/xogot-current-exterior.png
+          if-no-files-found: error
+          retention-days: 14
