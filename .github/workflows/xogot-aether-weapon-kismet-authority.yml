@@ -96,21 +96,21 @@ jobs:
           New-Item -ItemType Directory -Force -Path $appDir | Out-Null
           Copy-Item tools/maps/UENuketownGameplayTruth/Program.cs "$appDir\Program.cs"
           $cueProj=(Join-Path $env:CUE4PARSE_ROOT 'CUE4Parse\CUE4Parse.csproj').Replace('\','/')
-          $proj=@"
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
-  <ItemGroup>
-    <ProjectReference Include="$cueProj" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-  </ItemGroup>
-</Project>
-"@
-          Set-Content -Path "$appDir\AetherKismetCurrent.csproj" -Value $proj -Encoding utf8
+          $projLines=@(
+            '<Project Sdk="Microsoft.NET.Sdk">',
+            '  <PropertyGroup>',
+            '    <OutputType>Exe</OutputType>',
+            '    <TargetFramework>net10.0</TargetFramework>',
+            '    <ImplicitUsings>enable</ImplicitUsings>',
+            '    <Nullable>enable</Nullable>',
+            '  </PropertyGroup>',
+            '  <ItemGroup>',
+            ('    <ProjectReference Include="' + $cueProj + '" />'),
+            '    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />',
+            '  </ItemGroup>',
+            '</Project>'
+          )
+          Set-Content -Path "$appDir\AetherKismetCurrent.csproj" -Value $projLines -Encoding utf8
           dotnet restore "$appDir\AetherKismetCurrent.csproj"
           if($LASTEXITCODE -ne 0){throw 'current CUE4Parse restore failed'}
           dotnet build "$appDir\AetherKismetCurrent.csproj" -c Release --no-restore
