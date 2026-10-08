@@ -143,12 +143,37 @@ func _run() -> void:
 							return
 						frames += 1
 						native.set_bone_pose(bone_idx,pose)
+					# Native-source bind/rest against the original PSA at frame 0.
+					# If full-rest still has the detached "second pistol", then it is
+					# a mesh/skin bind issue, not a single bad idle animation joint.
+					var original_poses: Array[Transform3D] = []
+					for idx in range(native.get_bone_count()):
+						original_poses.append(native.get_bone_pose(idx))
+					native.reset_bone_poses()
+					if not await _save_frame(id + "-ads-full-native-rest"):
+						_fail("cannot capture source full bind rest " + id)
+						return
+					frames += 1
+					for idx in range(original_poses.size()):
+						native.set_bone_pose(idx,original_poses[idx])
+					# Also test only the two suspect detachable/reload joints as
+					# a set. Comparison is reversible, NEVER a production patch.
+					for tag in ["j_bolt", "j_clip"]:
+						var idx := native.find_bone(tag)
+						if idx >= 0:
+							native.reset_bone_pose(idx)
+					if not await _save_frame(id + "-ads-bolt-clip-rest"):
+						_fail("cannot capture isolated reload-joint rest " + id)
+						return
+					frames += 1
+					for idx in range(original_poses.size()):
+						native.set_bone_pose(idx,original_poses[idx])
 					weapon.set_process(true)
 		player.set_meta("ads_toggled", false)
-	if frames < 20:
-		_fail("expected at least 20 genuine captures got " + str(frames))
+	if frames != 38:
+		_fail("expected exactly 38 genuine original source captures got " + str(frames))
 		return
 	print("XZOGOT_NATIVE_IDLE_AB_FRAMES count=", frames,
-		" six_guns=true five_original_pistols=true source_skeleton_unchanged=true",
+		" five_original_pistols=true full_rest_tested=true original_bone_poses_restored=true",
 		" original_HIP_ADS_table_unchanged=true")
 	quit(0)
