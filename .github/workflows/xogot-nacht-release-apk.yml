@@ -172,7 +172,25 @@ jobs:
           timeout 900 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64             --headless --path xogot             --script res://ci/nacht_full_map_probe.gd             2>&1 | tee build/nacht-release/probe.log
           grep -q "XZOGOT_NACHT_GAMEPLAY_PROBE_GREEN" build/nacht-release/probe.log
           grep -q "XZOGOT_NACHT_FULL_MAP_PROBE_GREEN" build/nacht-release/probe.log
-          grep -q "XZOGOT_NACHT_SOURCE_DOUBLE_TAP_GREEN" build/nacht-release/probe.log
+
+          # The shared player/weapon layer carries the source-authored ADS,
+          # perks and Pack-a-Punch behavior used by the Nacht shipping scene.
+          # Prove those behaviors directly instead of grepping for a marker
+          # that the full-map probe does not emit.
+          timeout 180 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot \
+            --script res://ci/mobile_survival_probe.gd \
+            2>&1 | tee build/nacht-release/mobile-source.log
+          grep -q "XZOGOT_28_SOURCE_ADS_PROFILES_GREEN" build/nacht-release/mobile-source.log
+          grep -q "XZOGOT_SOURCE_PERK_CONSTANTS_GREEN" build/nacht-release/mobile-source.log
+          grep -q "XZOGOT_SOURCE_PERK_RUNTIME_GREEN" build/nacht-release/mobile-source.log
+          grep -q "XZOGOT_PACK_SOURCE_TABLE_GREEN" build/nacht-release/mobile-source.log
+          grep -q "XZOGOT_TT33_PAP_BURST_SOURCE_GREEN" build/nacht-release/mobile-source.log
+          grep -q "XZOGOT_WALTHER_PAP_AUTO_SOURCE_GREEN" build/nacht-release/mobile-source.log
+          grep -q "XZOGOT_PAP_SELECTFIRE_SOURCE_GREEN" build/nacht-release/mobile-source.log
+          grep -q "XZOGOT_MOBILE_COMBAT_GATE_GREEN" build/nacht-release/mobile-source.log || \
+            grep -q "XZOGOT_MOBILE_SURVIVAL_PROBE_GREEN" build/nacht-release/mobile-source.log
+          echo "XZOGOT_RELEASE_SOURCE_COMBAT_GREEN"
           echo "XZOGOT_RELEASE_GAMEPLAY_GREEN"
 
       - name: Export Android ARM64 Nacht APK
@@ -211,6 +229,7 @@ jobs:
             dist/you-wont-win-nacht-arm64.apk
             build/nacht-release/import.log
             build/nacht-release/probe.log
+            build/nacht-release/mobile-source.log
             build/nacht-release/export.log
             build/nacht-release/apk-files.txt
             build/nacht-release/apk-badging.txt
