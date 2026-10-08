@@ -58,7 +58,7 @@ func _run() -> void:
 		machine.price = 950
 		machine.one_shot = false
 		machine.source_external_item = kind == InteractableScript.Kind.WALLBUY
-		machine.source_item_pool = ["gun1911", "raygun"]
+		machine.source_item_pool = source_pool
 		machine.name = "NachtUnbuiltSource%d" % kind
 		root.add_child(machine)
 		if not _check(not machine.call("interact", buyer), "phantom machine succeeded: " + str(kind)):
