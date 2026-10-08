@@ -1691,6 +1691,9 @@ func _build_source_lights() -> void:
 		var type := str(row.get("componentType", ""))
 		var source_position := _vec3(row.get("worldPositionMeters", []))
 		var color := _color3(row.get("color", []))
+		# Zero is an authored source light value (Nacht LightSource = 0.0).
+		# Failing to honor it caused a second full-strength white sun in the
+		# ACTUAL benchmark loader, even though an unused helper was fixed.
 		var intensity := float(row.get("intensity", 1.0))
 		match type:
 			"point":
@@ -1699,7 +1702,7 @@ func _build_source_lights() -> void:
 				light.position = source_position
 				light.light_color = color
 				light.omni_range = float(row.get("radiusMeters", 10.0))
-				light.light_energy = 1.0
+				light.light_energy = 0.0 if is_zero_approx(intensity) else 1.0
 				# Source positional intensity is in candelas. Preserve the
 				# physically equivalent lumens for projects using physical units.
 				if str(row.get("units", "")) == "Candelas":
@@ -1717,7 +1720,7 @@ func _build_source_lights() -> void:
 				light.spot_range = float(row.get("radiusMeters", 10.0))
 				light.spot_angle = float(row.get("outerConeAngleDegrees", 45.0))
 				light.basis = _directional_basis_xziel(row.get("worldRotationUE", {}))
-				light.light_energy = 1.0
+				light.light_energy = 0.0 if is_zero_approx(intensity) else 1.0
 				var source_units := str(row.get("units", ""))
 				if source_units == "Lumens":
 					light.light_intensity_lumens = intensity
@@ -1735,7 +1738,7 @@ func _build_source_lights() -> void:
 				light.name = str(row.get("id", "SourceDirectionalLight"))
 				light.position = source_position
 				light.light_color = color
-				light.light_energy = 1.0
+				light.light_energy = 0.0 if is_zero_approx(intensity) else 1.0
 				light.light_intensity_lux = intensity
 				light.basis = _directional_basis_xziel(row.get("worldRotationUE", {}))
 				_apply_source_light_semantics(light, row)
