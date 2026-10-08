@@ -50,7 +50,37 @@ jobs:
             GAMEPLAY_SHA="$(git rev-parse HEAD)"
             echo "XZOGOT_RELEASE_WAITING_FOR_STAGE gameplay_sha=$GAMEPLAY_SHA"
             SOURCE_RUN=""
-            for attempt in $(seq 1 80); do
+            # Reuse a source-validated Stage only across exactly verified
+            # CI-only changes. Any game asset/code change requires a new stage.
+            STAGE_CANDIDATES="$(gh api \
+              "/repos/${GITHUB_REPOSITORY}/actions/workflows/xogot-stage-nacht-full-map.yml/runs?branch=feature%2Fgodot-aaa-rebuild-v1&event=push&per_page=30" \
+              --jq '[.workflow_runs[] | select(.status == "completed" and .conclusion == "success") | {id, sha: .head_sha}]')"
+            while IFS=$'\t' read -r CANDIDATE_RUN CANDIDATE_SHA; do
+              [[ -n "$CANDIDATE_RUN" ]] || continue
+              COMPARE="$(gh api \
+                "/repos/${GITHUB_REPOSITORY}/compare/${CANDIDATE_SHA}...${GAMEPLAY_SHA}" \
+                2>/dev/null || true)"
+              [[ -n "$COMPARE" ]] || continue
+              if jq -e '
+                (.status == "identical" or .status == "ahead")
+                and (.total_commits <= 20)
+                and ((.files | length) < 299)
+                and ([
+                  .files[].filename | select(
+                    . != ".github/workflows/xogot-nacht-release-apk.yml"
+                    and . != ".github/workflows/xogot-nacht-apk-manifest-audit.yml"
+                    and . != ".github/workflows/xogot-nacht-interactive-particle-bytecode.yml"
+                    and . != "benchmarks/nuketown_xziel/source_manifest.json"
+                  )
+                ] | length == 0)
+              ' <<< "$COMPARE" > /dev/null; then
+                SOURCE_RUN="$CANDIDATE_RUN"
+                echo "XZOGOT_RELEASE_STAGE_CONTENT_COMPATIBLE_GREEN run=$SOURCE_RUN source_sha=$CANDIDATE_SHA gameplay_sha=$GAMEPLAY_SHA"
+                break
+              fi
+            done < <(jq -r '.[] | [.id, .sha] | @tsv' <<< "$STAGE_CANDIDATES")
+            if [[ -z "$SOURCE_RUN" ]]; then
+              for attempt in $(seq 1 80); do
               SOURCE_RUN="$(gh api                 -H "Accept: application/vnd.github+json"                 "/repos/${GITHUB_REPOSITORY}/actions/workflows/xogot-stage-nacht-full-map.yml/runs?branch=feature%2Fgodot-aaa-rebuild-v1&event=push&per_page=30"                 --jq "[.workflow_runs[] | select(.head_sha == \"$GAMEPLAY_SHA\" and .status == \"completed\" and .conclusion == \"success\")][0].id // empty"                 || true)"
               if [[ -n "$SOURCE_RUN" ]]; then
                 break
@@ -61,7 +91,8 @@ jobs:
                 exit 31
               fi
               sleep 20
-            done
+              done
+            fi
             if [[ -z "$SOURCE_RUN" ]]; then
               echo "XZOGOT_RELEASE_STAGE_TIMEOUT gameplay_sha=$GAMEPLAY_SHA"
               exit 32
