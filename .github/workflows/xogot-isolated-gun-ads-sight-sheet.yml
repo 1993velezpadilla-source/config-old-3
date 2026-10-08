@@ -9,6 +9,7 @@ on:
       - "xogot/ci/ads_dummy_player.gd"
       - "xogot/ci/isolated_all_gun_ads_sheet.gd"
       - "xogot/scripts/weapon.gd"
+      - "xogot/data/weapon_viewmodel_source_presentation.json"
       - ".github/workflows/xogot-isolated-gun-ads-sight-sheet.yml"
 
 permissions:
