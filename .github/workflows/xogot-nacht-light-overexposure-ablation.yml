@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       source_stage:
-        description: "Validated Stage Nacht world artifact run"
+        description: "Validated Stage Nacht world artifact run with two source Blueprint interaction contracts"
         required: false
         type: string
 
@@ -27,7 +27,7 @@ jobs:
     timeout-minutes: 60
     env:
       GH_TOKEN: ${{ github.token }}
-      STAGE_RUN: ${{ inputs.source_stage || '37714627719' }}
+      STAGE_RUN: ${{ inputs.source_stage || '37719736071' }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -48,6 +48,16 @@ jobs:
           test -n "$manifest"
           source="$(dirname "$manifest")"
           test -s "$source/nacht-static-scene.json"
+          python3 - "$source/nacht-particle-activation-authority.json" <<'PY'
+          import json,sys
+          from pathlib import Path
+          path=Path(sys.argv[1]);assert path.is_file(),path
+          authority=json.loads(path.read_text())
+          contracts=authority.get("sourceInteractionContracts",[])
+          assert len(contracts)==2,[c.get("fileName") for c in contracts]
+          assert {c.get("fileName") for c in contracts}=={"MachineGumball.uasset","MysteryBox.uasset"}
+          print("XZOGOT_NACHT_LIGHT_ABLATION_TWO_CONTRACT_STAGE_GREEN")
+          PY
           rm -rf xogot/assets/benchmarks/nacht_chronicles
           mkdir -p xogot/assets/benchmarks
           cp -a "$source" xogot/assets/benchmarks/nacht_chronicles
