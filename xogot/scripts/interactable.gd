@@ -392,7 +392,27 @@ func _use_generic_source_interaction(player: Node, role: String, result: String)
 	print("XZOGOT_SOURCE_INTERACTION ", name, " role=", role, " result=", _last_result)
 	return true
 
+func _is_unimplemented_nacht_source_purchase() -> bool:
+	# Nacht UMAP source actors are still placement/contract-only. Generic
+	# church machines must never take points in Nacht then grant a fake gun,
+	# a random perk or an animation without the original Blueprint effect.
+	if not is_inside_tree():
+		return false
+	if str(get_tree().get_meta("active_map_id", "")) != "nacht_chronicles_full":
+		return false
+	match interaction_kind:
+		Kind.MYSTERY, Kind.GUMBALL, Kind.WUNDERFIZZ:
+			return true
+		Kind.WALLBUY:
+			return source_external_item
+	return false
+
+
 func interact(player: Node) -> bool:
+	if _is_unimplemented_nacht_source_purchase():
+		_last_result = "NACHT_SOURCE_REWARD_NOT_READY"
+		print("XZOGOT_NACHT_SOURCE_UNFINISHED_PURCHASE_BLOCKED ", name)
+		return false
 	if _used and one_shot:
 		return false
 

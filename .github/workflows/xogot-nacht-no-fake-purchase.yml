@@ -1,0 +1,61 @@
+name: Nacht Source Purchase Safety Gate
+
+on:
+  push:
+    branches:
+      - fix/nacht-no-phantom-source-purchases
+    paths:
+      - "xogot/scripts/interactable.gd"
+      - "xogot/scripts/weapon.gd"
+      - "xogot/ci/nacht_no_fake_purchase*"
+      - "xogot/ci/nacht_no_fake_purchases_probe.gd"
+      - ".github/workflows/xogot-nacht-no-fake-purchase.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source_purchase_guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: fix/nacht-no-phantom-source-purchases
+
+      - name: Install Godot 4.6.1 host renderer
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 4 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot-probe.zip
+          mkdir -p /tmp/godot-probe
+          unzip -q /tmp/godot-probe.zip -d /tmp/godot-probe
+          chmod +x /tmp/godot-probe/Godot_v4.6.1-stable_linux.x86_64
+
+      - name: Run live Godot purchase safety probe without faked source rewards
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-safe-purchase
+          timeout 180 /tmp/godot-probe/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit \
+            2>&1 | tee build/nacht-safe-purchase/import.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|ERROR: Failed to load script' \
+            build/nacht-safe-purchase/import.log
+          timeout 90 /tmp/godot-probe/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/nacht_no_fake_purchases_probe.gd \
+            2>&1 | tee build/nacht-safe-purchase/probe.log
+          grep -q 'XZOGOT_NACHT_NO_FAKE_PURCHASE_PROBE_GREEN' build/nacht-safe-purchase/probe.log
+          echo "XZOGOT_NACHT_PURCHASE_SAFETY_GATE_GREEN"
+
+      - name: Upload gate logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Purchase-Safety-Logs
+          path: build/nacht-safe-purchase/
+          if-no-files-found: warn
+          retention-days: 14
