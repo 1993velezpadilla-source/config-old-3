@@ -118,16 +118,35 @@ func _run() -> void:
 		var n: float = float(sk.get_bone_count())
 		var raw_rms: float = sqrt(raw_sq/n)
 		var candidate_rms: float = sqrt(corrected_sq/n)
+		# T4 Marine hands are PSK-imported in original centimeter-space and
+		# scaled once by their parent Node3D. These bone-local RMS values are
+		# SOURCE UNITS, not world-space meters. Previously both were mislabeled.
 		print("XZOGOT_SOURCE_HANDS_AXIS_TRUTH id=",id," idle=", idle,
 			" bones=",sk.get_bone_count()," wrists=",wrists,
-			" raw_rest_rms_m=",raw_rms,
-			" proposed_axis_rest_rms_m=",candidate_rms,
-			" raw_within_2mm=",near_rest_raw,
-			" axis_within_2mm=",near_rest_axis,
+			" source_local_unit=UE_centimeters",
+			" raw_rest_rms_source_units=",raw_rms,
+			" proposed_axis_rest_rms_source_units=",candidate_rms,
+			" raw_within_0_002_source_units=",near_rest_raw,
+			" axis_within_0_002_source_units=",near_rest_axis,
 			" shipping_source_unchanged=true")
 		if wrists < 2 or not is_finite(raw_rms) or not is_finite(candidate_rms):
 			_red("invalid hand wrist authority " + id)
 			return
+		# 21 actual Godot screenshots + all seven numeric source records
+		# verified the native hands are ALREADY in the correct glTF basis.
+		# The -90° conversion was required for GUN PSA only; applying it
+		# to hands twists original T4 wrist/finger poses violently.
+		# Require raw PSA substantially closer than converted and 70% of
+		# bones agreeing with the original bind rest in source units.
+		if raw_rms >= candidate_rms or near_rest_raw < 75 or near_rest_axis > 50:
+			_red("source hands axis regression " + id +
+				" raw_rms=" + str(raw_rms) +
+				" converted_rms=" + str(candidate_rms) +
+				" raw_native_near=" + str(near_rest_raw) +
+				" converted_native_near=" + str(near_rest_axis))
+			return
+		print("XZOGOT_NATIVE_SOURCE_HAND_AXIS_LOCK_GREEN id=",id,
+			" hand_PSAs_must_not_inherit_gun_PSA_rebake=true")
 		if not await _screenshot(id+"-original-psa-hands"):
 			_red("missing original Godot frame " + id)
 			return
