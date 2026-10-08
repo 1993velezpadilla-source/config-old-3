@@ -102,7 +102,9 @@ func _capture() -> void:
 			if not bool(gun.get("found", false)) or largest < 0.15 or largest > 2.5:
 				failures.append(weapon_id + ":" + pose + ":bounds=" + str(largest))
 			var source_pistol: bool = weapon_id in ["colt", "walther", "nambu", "tt33", "357"]
-			var expected_roll := 180.0 if source_pistol else 90.0
+			# See independent original HIP+ADS 4-way rotation matrix #37857367033.
+			var confirmed_upright_long: bool = weapon_id in ["stg", "browning", "type99"]
+			var expected_roll := 180.0 if source_pistol or confirmed_upright_long else 90.0
 			if absf(roll - expected_roll) > 0.01:
 				failures.append(weapon_id + ":" + pose + ":roll=" + str(roll) + " expected=" + str(expected_roll))
 			var frame: Image = root.get_texture().get_image()
