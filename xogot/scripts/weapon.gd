@@ -576,8 +576,10 @@ func _find_skeleton_bone_attachment(node: Node, aliases: Array[String], attachme
 		for bone_idx in range(skeleton.get_bone_count()):
 			var bone_name: String = str(skeleton.get_bone_name(bone_idx))
 			var lower_name: String = bone_name.to_lower()
+			# NEVER accept tag_weapon_end/tag_weapon1 as primary grip sockets.
+			# The real source hand PSA supplies an exact tag_weapon bone.
 			for alias: String in aliases:
-				if lower_name == alias.to_lower() or lower_name.contains(alias.to_lower()):
+				if lower_name == alias.to_lower():
 					# Use a plain Node3D driven from Skeleton3D's animated pose.
 					# BoneAttachment3D was re-applying its bind/rest transform after
 					# runtime updates, leaving the gun frozen while the hands animated.
@@ -587,6 +589,7 @@ func _find_skeleton_bone_attachment(node: Node, aliases: Array[String], attachme
 					_source_hands_skeleton = skeleton
 					_source_weapon_attachment = attachment
 					_source_weapon_bone_idx = bone_idx
+					set_meta("weapon_source_attachment_bone_name", bone_name)
 					if not skeleton.skeleton_updated.is_connected(_on_source_hands_skeleton_updated):
 						skeleton.skeleton_updated.connect(_on_source_hands_skeleton_updated)
 					_sync_source_weapon_attachment()
