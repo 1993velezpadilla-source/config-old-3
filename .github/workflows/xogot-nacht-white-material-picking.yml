@@ -51,7 +51,7 @@ jobs:
           rm -rf xogot/assets/benchmarks/nacht_chronicles
           mkdir -p xogot/assets/benchmarks
           cp -a "$source" xogot/assets/benchmarks/nacht_chronicles
-          echo "XZOGOT_NACHT_SKY_ABLATION_STAGE_MOUNT_GREEN run=$STAGE_RUN"
+          echo "XZOGOT_NACHT_MATERIAL_PICK_STAGE_MOUNT_GREEN run=$STAGE_RUN"
 
       - name: Inject test-only material-ID ray probes into existing overview
         shell: bash
@@ -83,7 +83,7 @@ jobs:
           unzip -q /tmp/godot-sky.zip -d /tmp/godot-sky
           chmod +x /tmp/godot-sky/Godot_v4.6.1-stable_linux.x86_64
 
-      - name: Import exact world and capture same overview under black sky
+      - name: Import exact world and raypick the real overview material IDs
         shell: bash
         run: |
           set -euo pipefail
@@ -122,7 +122,7 @@ jobs:
           test "$(wc -l < build/nacht-sky-ablation/picks.log)" -eq 8
           echo 'XZOGOT_NACHT_WHITE_SURFACE_MATERIAL_TRACE_GREEN hits=8 actual_whites_still_red=true'
 
-      - name: Upload exact white-material traces and runtime captures
+      - name: Upload ray hits and exact source renders
         if: always()
         uses: actions/upload-artifact@v4
         with:
