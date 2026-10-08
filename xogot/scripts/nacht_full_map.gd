@@ -32,6 +32,7 @@ const PARTICLES_FILE := "nacht-particles.json"
 const PARTICLE_GRAPHS_FILE := "nacht-particle-graphs.json"
 const PARTICLE_RUNTIME_AUTHORITY_FILE := "nacht-particle-runtime-authority.json"
 const PARTICLE_ACTIVATION_AUTHORITY_FILE := "nacht-particle-activation-authority.json"
+const INTERACTIVE_PLACEMENTS_FILE := "nacht-interactive-placements.json"
 const ENVIRONMENT_SCENE_FILE := "nacht-environment-scene.json"
 const ENVIRONMENT_RUNTIME_AUTHORITY_FILE := "nacht-environment-runtime-authority.json"
 const AUDIO_SCENE_FILE := "nacht-audio-scene.json"
@@ -66,6 +67,7 @@ var _particle_scene: Dictionary = {}
 var _particle_graphs: Dictionary = {}
 var _particle_runtime_authority: Dictionary = {}
 var _particle_activation_authority: Dictionary = {}
+var _interactive_placements: Dictionary = {}
 var _environment_scene: Dictionary = {}
 var _environment_runtime_authority: Dictionary = {}
 var _audio_scene: Dictionary = {}
@@ -155,6 +157,7 @@ func _boot() -> void:
 	_particle_activation_authority = _read_json(
 		_source_path(PARTICLE_ACTIVATION_AUTHORITY_FILE)
 	)
+	_interactive_placements = _read_json(_source_path(INTERACTIVE_PLACEMENTS_FILE))
 	_environment_scene = _read_json(_source_path(ENVIRONMENT_SCENE_FILE))
 	_environment_runtime_authority = _read_json(_source_path(ENVIRONMENT_RUNTIME_AUTHORITY_FILE))
 	_audio_scene = _read_json(_source_path(AUDIO_SCENE_FILE))
@@ -254,6 +257,15 @@ func _boot() -> void:
 	set_meta(
 		"source_interaction_contract_count",
 		int(_particle_activation_authority.get("sourceInteractionContractCount", 0))
+	)
+	set_meta("source_interactive_placements_ready", bool(_interactive_placements.get("ready", false)))
+	set_meta(
+		"source_interactive_placement_counts",
+		(_interactive_placements.get("counts", {}) as Dictionary).duplicate(true)
+	)
+	set_meta(
+		"source_interactive_authority",
+		str(_interactive_placements.get("authority", ""))
 	)
 	set_meta("source_environment_component_count", int(_environment_scene.get("environmentComponentCount", -1)))
 	set_meta("runtime_environment_authority_count", (_environment_scene.get("components", []) as Array).size())
@@ -552,6 +564,41 @@ func _validate_authority() -> bool:
 		if int(_particle_runtime_authority.get("resolvedPlacementCount", 0)) != 29:
 			push_error("NACHT_FULL_MAP: placed particle graph coverage mismatch")
 			return false
+	if _interactive_placements.is_empty():
+		push_error("NACHT_FULL_MAP: interactive placement authority missing")
+		return false
+	if int(_interactive_placements.get("schemaVersion", 0)) != 1:
+		push_error("NACHT_FULL_MAP: interactive placement schema mismatch")
+		return false
+	if not bool(_interactive_placements.get("ready", false)):
+		push_error("NACHT_FULL_MAP: interactive placement authority is not ready")
+		return false
+	if int(_interactive_placements.get("sourceActorAnchorCount", -1)) != 11023:
+		push_error("NACHT_FULL_MAP: interactive placement actor authority mismatch")
+		return false
+	var missing_interactives: Array = _interactive_placements.get("missingRequiredCategories", []) as Array
+	if not missing_interactives.is_empty():
+		push_error("NACHT_FULL_MAP: required source interactives missing " + str(missing_interactives))
+		return false
+	var interactive_counts := _interactive_placements.get("counts", {}) as Dictionary
+	var required_interactive_minimums := {
+		"mystery_box": 1,
+		"mystery_box_location": 1,
+		"pack_a_punch": 1,
+		"gumball_machine": 1,
+		"perk_machine": 1,
+		"power_switch": 1,
+		"wallbuy": 1,
+		"barricade": 1,
+		"zombie_spawner": 22,
+		"buyable_door": 1,
+	}
+	for category_var: Variant in required_interactive_minimums.keys():
+		var category := str(category_var)
+		if int(interactive_counts.get(category, 0)) < int(required_interactive_minimums[category]):
+			push_error("NACHT_FULL_MAP: interactive placement coverage missing " + category)
+			return false
+
 	if _particle_activation_authority.is_empty():
 		push_error("NACHT_FULL_MAP: particle activation bytecode authority missing")
 		return false

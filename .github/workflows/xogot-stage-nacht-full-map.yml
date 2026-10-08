@@ -8,6 +8,7 @@ on:
       - ".github/workflows/xogot-stage-nacht-full-map.yml"
       - ".github/workflows/xogot-nacht-full-map-capture.yml"
       - "tools/maps/compile_nacht_*"
+      - "tools/maps/compile_nacht_interactive_placements.py"
       - "tools/maps/compile_ue_material_bindings.py"
       - "tools/ue_bridge/material_graph_resolver.py"
       - "tools/maps/UEParticleGraphExtract/**"
@@ -313,6 +314,10 @@ jobs:
           cp "$AUTH/nacht-audio-scene.json" "$root/"
           cp "$AUTH/nacht-audio-cues.json" "$root/"
           cp "$AUTH/nacht-materials.json" "$root/"
+          python3 tools/maps/compile_nacht_interactive_placements.py \
+            --scene "$root/nacht-static-scene.json" \
+            --output "$root/nacht-interactive-placements.json"
+          echo "XZOGOT_NACHT_STAGE_INTERACTIVE_PLACEMENTS_GREEN"
           cp "$PARTICLE_ACTIVATION_AUTHORITY" "$root/nacht-particle-activation-authority.json"
           echo "XZOGOT_NACHT_STAGE_PARTICLE_ACTIVATION_MOUNT_GREEN"
 
@@ -563,8 +568,27 @@ jobs:
           dds=json.loads((root/"native-dds-report.json").read_text())
           xzml=json.loads((root/"xzml-report.json").read_text())
           complete_textures=json.loads((root/"complete-xztx-report.json").read_text())
+          interactive=json.loads((root/"nacht-interactive-placements.json").read_text())
 
           assert handoff["sourcePackageCount"] == 3871, handoff
+          assert interactive["ready"] is True, interactive
+          assert interactive["sourceActorAnchorCount"] == 11023, interactive
+          assert interactive["missingRequiredCategories"] == [], interactive
+          required_counts={
+              "mystery_box":1,
+              "mystery_box_location":1,
+              "pack_a_punch":1,
+              "gumball_machine":1,
+              "perk_machine":1,
+              "power_switch":1,
+              "wallbuy":1,
+              "barricade":1,
+              "zombie_spawner":22,
+              "buyable_door":1,
+          }
+          for category,minimum in required_counts.items():
+              assert int(interactive["counts"].get(category,0)) >= minimum, (category,interactive["counts"])
+          print("XZOGOT_NACHT_INTERACTIVE_UMAP_GREEN", interactive["counts"])
           assert scene["summary"]["ready"] is True, scene["summary"]
           assert scene["summary"]["actorAnchorCount"] == 11023, scene["summary"]
           assert scene["summary"]["sceneInstanceCount"] == 10793, scene["summary"]
@@ -750,6 +774,8 @@ jobs:
               "sourceParticleCfgLinkedActions":particle_activation_authority["cfgLinkedActionCount"],
               "sourceParticleReplaySafeEvents":particle_activation_authority["replaySafeEventCount"],
               "sourceInteractionContracts":particle_activation_authority["sourceInteractionContractCount"],
+              "sourceInteractivePlacementCounts":interactive["counts"],
+              "sourceInteractivePlacementReady":interactive["ready"],
               "sourcePlacedParticleSystems":particle_runtime_authority["uniquePlacedSystemCount"],
               "sourceParticleMeshes":particle_mesh_bindings["meshCount"],
               "sourceMaterials":mats["summary"]["usedMaterialCount"],

@@ -378,6 +378,27 @@ func _run() -> void:
 		JSON.stringify(mystery_vertical_gate)
 	)
 
+	var interactive_ready := bool(scene.get_meta("source_interactive_placements_ready", false))
+	var interactive_counts := scene.get_meta("source_interactive_placement_counts", {}) as Dictionary
+	if not interactive_ready:
+		_fail(37, "source interactive placement authority not ready")
+		return
+	var interactive_required := [
+		"mystery_box", "mystery_box_location", "pack_a_punch", "gumball_machine",
+		"perk_machine", "power_switch", "wallbuy", "barricade", "buyable_door",
+	]
+	for category: String in interactive_required:
+		if int(interactive_counts.get(category, 0)) <= 0:
+			_fail(37, "source interactive placement missing " + category)
+			return
+	if int(interactive_counts.get("zombie_spawner", 0)) != 22:
+		_fail(37, "source interactive zombie spawner count mismatch")
+		return
+	if str(scene.get_meta("source_interactive_authority", "")) != "Nacht UMAP actor anchors; no synthetic placements":
+		_fail(37, "source interactive placement provenance mismatch")
+		return
+	print("XZOGOT_NACHT_INTERACTIVE_PLACEMENTS_RUNTIME_GREEN ", JSON.stringify(interactive_counts))
+
 	var packages := int(scene.get_meta("source_package_count", -1))
 	var meshes := int(scene.get_meta("source_mesh_count", -1))
 	var source_instances := int(scene.get_meta("source_instance_count", -1))
