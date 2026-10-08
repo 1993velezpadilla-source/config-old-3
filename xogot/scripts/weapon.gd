@@ -195,6 +195,9 @@ func _clear_view_model() -> void:
 	_source_weapon_attachment = null
 	_source_weapon_bone_idx = -1
 	_pending_ads_geometry_solved = false
+	set_meta("weapon_ads_visual_alignment_mode", "source_provenance_pending")
+	set_meta("weapon_ads_visual_sight_anchor", "")
+	set_meta("weapon_ads_visual_source_pending", false)
 	_melee_animation_player = null
 	_melee_model_root = null
 	_melee_overlay_timer = 0.0
@@ -790,6 +793,7 @@ func _bind_weapon_to_source_hands() -> bool:
 		_source_ads_in_time = WeaponViewmodelSourcePresentation.ads_in_time(_weapon_id)
 		_source_ads_out_time = WeaponViewmodelSourcePresentation.ads_out_time(_weapon_id)
 		_ads_calibration_mode = "source_datatable"
+		set_meta("weapon_ads_visual_alignment_mode", "source_datatable")
 		_view_root.position = _hip_pose_position
 		_view_root.quaternion = _hip_pose_rotation
 		set_meta("weapon_source_hand_transform_position", _hip_pose_position)
@@ -2019,6 +2023,13 @@ func _derive_pending_source_ads_sight_preview() -> void:
 	if _hands_animation_player != null:
 		var source_hand_action := str(_hands_animation_player.current_animation).to_lower()
 		if not source_hand_action.contains("idle") and not source_hand_action.contains("hold"):
+			return
+	if _asset_animation_player != null:
+		# The imported gun animation moves tag_iron_sights/tag_scope while
+		# EQUIPPING. Calibrating before that clip finishes caused measured
+		# 0.1-0.7 m off-center sights after its final idle handoff.
+		var source_gun_action := str(_asset_animation_player.current_animation).to_lower()
+		if not source_gun_action.contains("idle"):
 			return
 	var aim_world := Vector3.ZERO
 	var anchor_kind := ""
