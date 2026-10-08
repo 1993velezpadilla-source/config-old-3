@@ -251,10 +251,24 @@ func _run_probe() -> void:
 		var source_pose_ready := bool(weapon.get_meta("weapon_source_hip_pose_ready", false))
 		var source_status := WeaponViewmodelSourcePose.status(id)
 		if id == "sawnoff":
-			if source_pose_ready or source_status != "missing_idle_hands":
-				_fail(30, "Sawed-Off must stay PENDING_SOURCE until idle-hands pose is recovered")
+			# UE5.7 original DT_Weapons Hands references for Sawed-Off and
+			# DoubleBarrel match exactly on idle/fire/reload/raise. The source
+			# reuses its REAL DoubleBarrel hands, no invented or retargeted PSA.
+			var saw_record: Dictionary = WeaponViewmodelSourcePresentation.record(id)
+			var dbl_record: Dictionary = WeaponViewmodelSourcePresentation.record("doublebarrel")
+			var saw_hand_anims: Dictionary = saw_record.get("hand_animation_sources", {}) as Dictionary
+			var dbl_hand_anims: Dictionary = dbl_record.get("hand_animation_sources", {}) as Dictionary
+			for role: String in ["idle", "fire", "reload", "emptyreload", "raise", "drop"]:
+				if str(saw_hand_anims.get(role, "")) != str(dbl_hand_anims.get(role, "")):
+					_fail(30, "Sawed-Off exact UE source shared hands differs on " + role)
+					return
+			if not source_pose_ready or source_status != "source_authored":
+				_fail(30, "Sawed-Off original shared DoubleBarrel hands HIP pose missing")
 				return
-			print("XZOGOT_AAA_WEAPON_SOURCE_PENDING sawnoff missing_idle_hands")
+			if not str(weapon.get_meta("weapon_hands_asset", "")).contains("/doublebarrel/"):
+				_fail(30, "Sawed-Off is not using proven shared DoubleBarrel Hands PSA GLB")
+				return
+			print("XZOGOT_SAWNOFF_REAL_SHARED_SOURCE_HANDS_GREEN")
 		else:
 			if not WeaponViewmodelSourcePose.has_source_hip_pose(id):
 				_fail(30, "source-authored HIP pose missing " + id)
