@@ -7,8 +7,14 @@ extends RefCounted
 # Do not delete or transform any GLB. Retain its fully skinned mesh for reload;
 # suppress ONLY 100%-reload-part triangles in HIP/ADS and restore on reload.
 # MOSIN: j_clip, tag_stripper, tag_round1, tag_round2 (619 source vertices).
-# PTRS: j_clip (485 source vertices). Both values measured in recovered glTF.
+# PTRS: j_clip (485 source vertices).
+# ARISAKA: actual GLB has two separate 100%-reload-only primitives
+# (553+90=643 vertices, 448+96 triangles): z=-0.970..-0.916m, strictly
+# bound to j_round/j_round1/j_clip/j_stripper; the rifle itself has z>-0.03m.
+# Proven by decoding source glTF vertex POSITION, JOINTS_0 and WEIGHTS_0.
 static func _reload_only_bone(weapon_id: String, bone: String) -> bool:
+	if weapon_id == "arisaka":
+		return bone in ["j_stripper", "j_round1", "j_round", "j_clip"]
 	if weapon_id == "mosin":
 		return bone in ["j_clip", "tag_stripper", "tag_round1", "tag_round2"]
 	if weapon_id == "ptrs":
@@ -27,7 +33,7 @@ static func _skinned_mesh(node: Node) -> MeshInstance3D:
 	return null
 
 static func prepare(root: Node3D, weapon_id: String) -> Dictionary:
-	if root == null or weapon_id not in ["mosin", "ptrs"]:
+	if root == null or weapon_id not in ["mosin", "ptrs", "arisaka"]:
 		return {}
 	var item: MeshInstance3D = _skinned_mesh(root)
 	if item == null:
@@ -63,7 +69,8 @@ static func prepare(root: Node3D, weapon_id: String) -> Dictionary:
 						strongest_bone = str(skin.get_bind_name(binding))
 			# Source-authoritative distance, not an invented animated pose.
 			# Never remove body, scope, handle or actual barrel vertices.
-			if strongest >= 0.95 and verts[vid].z < -1.0 and _reload_only_bone(weapon_id, strongest_bone):
+			var stage_limit_m := -0.75 if weapon_id == "arisaka" else -1.0
+			if strongest >= 0.95 and verts[vid].z < stage_limit_m and _reload_only_bone(weapon_id, strongest_bone):
 				auxiliary[vid] = 1
 				removed_vertices += 1
 		var kept := PackedInt32Array()
