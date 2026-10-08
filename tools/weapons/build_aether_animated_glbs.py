@@ -262,6 +262,12 @@ def main() -> int:
                     result = bpy.ops.psa.import_all(
                         filepath=str(psa),
                         should_convert_to_samples=True,
+                        # Source ActorX PSA bone translations are UE centimeters;
+                        # recovered Aether GLB armatures and meshes are meters.
+                        # Without 0.01, source idle clips move many weapon joints
+                        # 10-100 meters (28-gun Godot geometry gate measured 98m).
+                        # The upstream PSA importer documents this exact parameter.
+                        translation_scale=0.01,
                     )
                     if "FINISHED" not in result:
                         import_failures.append(f"{psa.name}:{result}")
@@ -294,6 +300,7 @@ def main() -> int:
             "source_glb": source_glb.name,
             "psa_source": psa_source,
             "psa_files": len(psas),
+            "psa_translation_scale": 0.01 if animation_mode == "embedded_psa_actions" else None,
             "actions_imported": len(new_actions),
             "actions_nla_bound": len(new_actions) if animation_mode == "embedded_psa_actions" else 0,
             "import_failures": import_failures,
