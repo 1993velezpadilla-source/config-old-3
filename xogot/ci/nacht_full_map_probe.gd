@@ -1262,7 +1262,7 @@ func _run() -> void:
 			or particle_activation_bindings != 5
 			or particle_activation_linked != 17
 			or particle_activation_replay_safe != 4
-			or source_interaction_contracts != 1
+			or source_interaction_contracts != 2
 		):
 			_fail(
 				35,
@@ -1843,6 +1843,30 @@ func _run() -> void:
 			+ "wonderfizz_beam_off_s=18.0 wonderfizz_all_on_s=20.0 "
 			+ "gumball_components=2 wonderfizz_components=5 reset=true"
 		)
+
+		# Two distinct source Blueprints are authoritative. MysteryBox is a
+		# spawned actor and its UMAP location marker must not be mistaken for
+		# a directly placed active box; the contract is still source-verifiable.
+		var mystery_desc_raw: Variant = scene.call(
+			"_source_interaction_contract_for_blueprint", "MysteryBox.uasset"
+		)
+		var mystery_desc := (
+			mystery_desc_raw as Dictionary
+			if mystery_desc_raw is Dictionary
+			else {}
+		)
+		var mystery_pool: Variant = mystery_desc.get("weaponPool", [])
+		if (
+			str(mystery_desc.get("fileName", "")) != "MysteryBox.uasset"
+			or int(mystery_desc.get("baseCost", -1)) != 950
+			or int(mystery_desc.get("fireSaleCost", -1)) != 10
+			or str(mystery_desc.get("spawnClass", "")) != "MysteryBox_C"
+			or not (mystery_pool is Array)
+			or (mystery_pool as Array).size() != 62
+		):
+			_fail(35, "MysteryBox runtime source contract mismatch " + str(mystery_desc))
+			return
+		print("XZOGOT_NACHT_MYSTERY_INTERACTION_CONTRACT_GREEN source_pool=62 purchase_live=false")
 
 		var gumball_desc_raw: Variant = scene.call(
 			"describe_source_gumball_interaction",
