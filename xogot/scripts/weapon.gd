@@ -424,9 +424,15 @@ func _apply_sw357_idle_cylinder_rest() -> bool:
 		set_meta("weapon_sw357_idle_close_reason", "missing_original_skinned_mesh_filter")
 		return false
 	var original_idle := WeaponAssetRegistry.animation_name_for_role("357", "idle")
+	# AnimationPlayer.current_animation is empty after pause()/stop() in
+	# Godot, even when a specific source PSA is still assigned. Read the
+	# assigned clip as well; do NOT touch active fire/reload/equip clips.
 	var active := str(_asset_animation_player.current_animation)
-	if original_idle.is_empty() or active != original_idle:
-		set_meta("weapon_sw357_idle_close_reason", "source_idle_not_current:" + active + " expected:" + original_idle)
+	var assigned := str(_asset_animation_player.get_assigned_animation())
+	if original_idle.is_empty() or (active != original_idle and assigned != original_idle):
+		set_meta("weapon_sw357_idle_close_reason",
+			"source_idle_not_assigned:current=" + active
+			+ " assigned=" + assigned + " expected=" + original_idle)
 		return false
 	var closed: bool = WeaponSW357ReloadGeometry.close_idle_cylinder(_sw357_reload_meshes)
 	set_meta("weapon_sw357_idle_close_reason", "source_rest_applied" if closed else "source_j_bolt_rest_failed")

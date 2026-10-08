@@ -199,6 +199,9 @@ func _run() -> void:
 	gun_anim.play(source_idle, 0.0)
 	gun_anim.seek(0.0, true)
 	gun_anim.pause()
+	print("XZOGOT_SW357_IDLE_ASSIGNMENT_PROOF current=",
+		gun_anim.current_animation, " assigned=",
+		gun_anim.get_assigned_animation(), " playing=", gun_anim.is_playing())
 	var raw_idle_bolt: Transform3D = native_skeleton.get_bone_pose(j_bolt_idx)
 	if raw_idle_bolt.origin.length() < 0.01:
 		push_error("XZOGOT_SW357_SOURCE_IDLE_BOLT_DELTA_MISSING")
