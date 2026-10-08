@@ -2107,11 +2107,31 @@ func _track_pending_ads_sight_center() -> void:
 		aim_world = real_sight.get("position", Vector3.ZERO)
 	else:
 		return
+	# A centered rear sight is not aligned if the barrel points sideways.
+	# Correct BOTH bore angle and roll, rotating the whole hands+gun rig.
+	var gun_basis: Basis = (
+		_camera.global_transform.basis.inverse()
+		* _weapon_model_root.global_transform.basis
+	).orthonormalized()
+	var bore: Vector3 = gun_basis.x.normalized()
+	var up: Vector3 = gun_basis.y.normalized()
+	if not bore.is_finite() or not up.is_finite():
+		return
+	var align_bore: Quaternion = Quaternion(bore, Vector3.FORWARD).normalized()
+	var aligned_up: Vector3 = align_bore * up
+	var align_roll := Quaternion(Vector3.FORWARD, -atan2(aligned_up.x, aligned_up.y))
+	_view_root.quaternion = ((align_roll * align_bore) * _view_root.quaternion).normalized()
+	# Rotating moves the sight socket: measure again before translation.
+	if kind == "mesh_rear_preview":
+		aim_world = _weapon_model_root.to_global(_pending_ads_sight_local)
+	else:
+		var updated_sight: Dictionary = _gun_skeleton_bone_world(kind)
+		if not bool(updated_sight.get("found", false)):
+			return
+		aim_world = updated_sight.get("position", Vector3.ZERO)
 	var point: Vector3 = _camera.to_local(aim_world)
 	if not point.is_finite():
 		return
-	# The rig is parented to the Camera3D. Thus its local X/Y translate one to
-	# one with sight X/Y; exact residual correction (no accumulating drift).
 	_view_root.position.x -= point.x
 	_view_root.position.y -= point.y
 	var after: Vector3 = _camera.to_local(
@@ -2120,6 +2140,12 @@ func _track_pending_ads_sight_center() -> void:
 		(_gun_skeleton_bone_world(kind) as Dictionary).get("position", aim_world)
 	)
 	set_meta("weapon_ads_visual_sight_error_m", Vector2(after.x, after.y).length())
+	var bore_after: Vector3 = (
+		_camera.global_transform.basis.inverse()
+		* _weapon_model_root.global_transform.basis
+	).orthonormalized().x.normalized()
+	set_meta("weapon_ads_visual_bore_error_deg",
+		rad_to_deg(acos(clampf(bore_after.dot(Vector3.FORWARD), -1.0, 1.0))))
 
 func _update_visual_recoil(delta: float) -> void:
 	# Presentation only. Ballistic ray direction/spread was already computed above.
