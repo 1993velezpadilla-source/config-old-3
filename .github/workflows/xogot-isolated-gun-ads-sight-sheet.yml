@@ -59,7 +59,7 @@ jobs:
             --resolution 1280x720 \
             --script res://ci/isolated_all_gun_ads_sheet.gd \
             2>&1 | tee build/studio/frames.log
-          grep -q "XZOGOT_ISOLATED_SIGHT_CAPTURE_GREEN 56" build/studio/frames.log
+          grep -q "XZOGOT_ISOLATED_ALL_28_SOURCE_ADS_CAPTURE_GREEN 56" build/studio/frames.log
           test "$(find /tmp/xogot-isolated-sight-proof -name '*.png' | wc -l)" -eq 56
           ! grep -E "SCRIPT ERROR|Parse Error|XZOGOT_ISOLATED_SIGHTS_RED" build/studio/frames.log
       - name: Upload zoomable individual HIP and ADS images
