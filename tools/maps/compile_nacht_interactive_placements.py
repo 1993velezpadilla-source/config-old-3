@@ -13,7 +13,9 @@ import json
 from pathlib import Path
 
 CATEGORIES = {
-    "mystery_box": ("mysterybox_c",),
+    # Nacht's placed Mystery Box actors are authored as Box5 / Box_complete.
+    # MysteryBox_C is the support/base Blueprint, not the placed map class.
+    "mystery_box": ("mysterybox_c", "box5_c", "box_complete_c"),
     "mystery_box_location": ("mysteryboxlocation_c",),
     "pack_a_punch": ("punchapackmachine_c",),
     "gumball_machine": ("machinegumball_c",),
@@ -112,6 +114,10 @@ def main() -> int:
     output = {
         "schemaVersion": 1,
         "authority": "Nacht UMAP actor anchors; no synthetic placements",
+        "sourceAbsentCategories": [
+            category for category in ("power_switch",)
+            if counts.get(category, 0) == 0
+        ],
         "sourceActorAnchorCount": len(anchors),
         "categories": categories,
         "counts": counts,

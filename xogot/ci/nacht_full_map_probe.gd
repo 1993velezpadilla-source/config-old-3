@@ -397,6 +397,14 @@ func _run() -> void:
 		if int(interactive_counts.get(category, 0)) <= 0:
 			_fail(37, "source interactive placement missing " + category)
 			return
+	if int(interactive_counts.get("power_switch", -1)) != 0:
+		_fail(37, "Nacht source must not synthesize a power switch")
+		return
+	if not bool(scene.get_meta("nacht_source_power_switch_absent", false)):
+		_fail(37, "Nacht source-absent power switch provenance missing")
+		return
+	print("XZOGOT_NACHT_POWER_SWITCH_SOURCE_ABSENT_GREEN")
+
 	var placed_zombie_spawners := int(scene.get_meta("nacht_source_zombie_spawn_expected_count", -1))
 	if (
 		placed_zombie_spawners <= 0

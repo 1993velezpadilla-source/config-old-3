@@ -604,6 +604,15 @@ func _validate_authority() -> bool:
 		if int(interactive_counts.get(category, 0)) < int(required_interactive_minimums[category]):
 			push_error("NACHT_FULL_MAP: interactive placement coverage missing " + category)
 			return false
+	if int(interactive_counts.get("power_switch", 0)) != 0:
+		push_error("NACHT_FULL_MAP: source Nacht unexpectedly contains a power switch")
+		return false
+	var source_absent: Array = _interactive_placements.get("sourceAbsentCategories", []) as Array
+	if not source_absent.has("power_switch"):
+		push_error("NACHT_FULL_MAP: source-absent power switch provenance missing")
+		return false
+	set_meta("nacht_source_power_switch_absent", true)
+
 	var placed_zombie_spawners := 0
 	for source_raw: Variant in _scene.get("actorAnchors", []):
 		if (
