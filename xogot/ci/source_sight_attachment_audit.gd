@@ -27,7 +27,7 @@ func _mesh_bounds_in_root(root_node: Node3D) -> Dictionary:
 	var stack: Array[Node] = [root_node]
 	var bounds := AABB()
 	while not stack.is_empty():
-		var node := stack.pop_back()
+		var node: Node = stack.pop_back()
 		if node is MeshInstance3D:
 			var mesh_node := node as MeshInstance3D
 			if mesh_node.mesh != null:
@@ -74,8 +74,8 @@ func _inspect() -> void:
 		var gun: Node3D = weapon.get("_weapon_model_root") as Node3D
 		var hands: Node3D = weapon.get("_hands_model_root") as Node3D
 		var muzzle: Node3D = weapon.get("_muzzle_anchor") as Node3D
-		var hands_skeleton := _find_skeleton(hands) if hands != null else null
-		var gun_skeleton := _find_skeleton(gun) if gun != null else null
+		var hands_skeleton: Skeleton3D = _find_skeleton(hands) if hands != null else null
+		var gun_skeleton: Skeleton3D = _find_skeleton(gun) if gun != null else null
 		var candidate_bones: Dictionary = {}
 		for skel in [hands_skeleton,gun_skeleton]:
 			if skel == null:
