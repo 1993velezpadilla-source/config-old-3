@@ -48,10 +48,10 @@ jobs:
             --path xogot --audio-driver Dummy --rendering-method gl_compatibility \
             --resolution 1280x720 --script res://ci/revolver_idle_pose_diagnostic.gd \
             2>&1 | tee build/sw357/render.log
-          grep -q "XZOGOT_SW357_ANIMATION_AB_IMAGES_READY 6" build/sw357/render.log
-          test "$(find /tmp/xogot-revolver-357-anim -maxdepth 1 -name '*.png' | wc -l)" -eq 6
+          grep -q "XZOGOT_SW357_ANIMATION_AB_IMAGES_READY 7" build/sw357/render.log
+          test "$(find /tmp/xogot-revolver-357-anim -maxdepth 1 -name '*.png' | wc -l)" -eq 7
           ! grep -E "SCRIPT ERROR|Parse Error|XZOGOT_SW357_NO_FRAME" build/sw357/render.log
-      - name: Six independent zoomable original SW357 source comparison PNGs
+      - name: Seven independent zoomable original SW357 source comparison PNGs
         if: always()
         uses: actions/upload-artifact@v4
         with:
