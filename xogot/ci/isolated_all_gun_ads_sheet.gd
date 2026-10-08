@@ -73,7 +73,29 @@ func _start() -> void:
 	await process_frame
 	var total := 0
 	var errs: Array[String] = []
+	var reference_path := "res://data/waw_2008_iron_sight_visual_reference.json"
+	var original_references: Variant = JSON.parse_string(
+		FileAccess.get_file_as_string(reference_path)
+	)
+	if not (original_references is Dictionary):
+		_fail("missing original 2008 World at War ADS source screenshot index")
+		return
+	var authored_references: Dictionary = (original_references as Dictionary).get("weapons", {})
+	if authored_references.size() != 28:
+		_fail("original WaW reference list is not complete")
+		return
 	for id: String in FIREARMS:
+		if not authored_references.has(id):
+			errs.append(id+":missing_original_2008_reference")
+			continue
+		var original: Dictionary = authored_references[id]
+		print("XZOGOT_WAW_2008_ORIGINAL_SIGHT_COMPARE_REQUIRED id=",id,
+			" original_aim_photo=",original.get("original_2008_imfdb_ads_image_number"),
+			" original_hip_photo=",original.get("original_2008_imfdb_hip_image_number"),
+			" original_scope_photo=",original.get("alternate_ads_image_number"),
+			" aim_type=",original.get("aim_view"),
+			" source=",original.get("source_url"),
+			" match_status=NOT_YET_VISUALLY_VERIFIED")
 		player.set_meta("ads_toggled", false)
 		if not bool(weapon.call("equip_weapon", id, true)):
 			errs.append(id+":equip")
