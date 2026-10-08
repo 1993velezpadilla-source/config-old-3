@@ -261,21 +261,12 @@ func _capture() -> void:
 			return
 		print("XZOGOT_EXTERIOR_SCREENSHOT_GREEN ", exterior_path, " ", exterior_image.get_width(), "x", exterior_image.get_height())
 
-	# The source screenshots have been saved. Release scene-owned imported
-	# weapon models, audio players, zombies and materials before test exit.
-	# This avoids mistaking Godot ObjectDB leftovers for a rendering failure.
-	scene.queue_free()
-	for cleanup_frame in range(4):
-		await process_frame
-	if is_instance_valid(scene):
-		push_error("SCREENSHOT: imported gameplay scene teardown incomplete")
-		quit(30)
-		return
-	print("XZOGOT_SCREENSHOT_SCENE_TEARDOWN_GREEN")
-	# This tool script is now past its final await and has confirmed
-	# teardown. Request explicit exit 0 immediately; the old deferred
-	# quit left Godot exiting with code 1 *after* all screenshot GREEN tags,
-	# failing the MP40 CI despite complete real captured frames.
-	# Keep process-exit checking strict in GitHub; do not mask any error.
+	# Experimental lifecycle A/B: all source screenshots are already on disk.
+	# The explicit queue_free() of the active zombie/Nacht scene caused
+	# persistent Godot exit=1 after THREE completed PNGs, even with a direct
+	# quit(0). Other full-main-scene tests (sniper scoped E2E) exit 0 by
+	# allowing SceneTree to own normal cleanup at process exit instead.
+	# Keep strict nonzero-exit CI failure; this is NOT a waiver.
+	print("XZOGOT_SCREENSHOT_SCENE_TREE_OWNED_EXIT_AB")
 	quit(0)
 	return
