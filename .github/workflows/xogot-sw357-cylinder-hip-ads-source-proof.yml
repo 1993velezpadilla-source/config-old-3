@@ -50,7 +50,7 @@ jobs:
             2>&1 | tee build/sw357/render.log
           grep -q "XZOGOT_SW357_ANIMATION_AB_IMAGES_READY 7" build/sw357/render.log
           test "$(find /tmp/xogot-revolver-357-anim -maxdepth 1 -name '*.png' | wc -l)" -eq 7
-          ! grep -E "SCRIPT ERROR|Parse Error|XZOGOT_SW357_NO_FRAME" build/sw357/render.log
+          ! grep -E "SCRIPT ERROR|Parse Error|XZOGOT_SW357_NO_FRAME|ERROR: Invalid array format for surface|XZOGOT_SW357_FILTER_ARRAY_BUILD_RED" build/sw357/render.log
       - name: Seven independent zoomable original SW357 source comparison PNGs
         if: always()
         uses: actions/upload-artifact@v4
