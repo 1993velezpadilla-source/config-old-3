@@ -1,0 +1,36 @@
+name: Xogot Original WaW 2008 ADS Visual Reference Authority
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/source-viewmodel-inherited-hands-unit-scale
+    paths:
+      - "xogot/data/waw_2008_iron_sight_visual_reference.json"
+      - "tools/weapons/verify_waw_2008_iron_sight_visual_reference.py"
+      - ".github/workflows/xogot-original-waw-2008-ads-reference-gate.yml"
+permissions:
+  contents: read
+jobs:
+  original-screenshot-authority:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v5
+      - name: Confirm all screenshot captions refer to original 2008 World at War
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/weapons/verify_waw_2008_iron_sight_visual_reference.py \
+            | tee original-waw-sights.log
+          grep -q "XZOGOT_ORIGINAL_WAW_2008_28_ADS_REFERENCE_INDEX_GREEN indexed=28" original-waw-sights.log
+          grep -q "XZOGOT_ORIGINAL_WAW_2008_VISUAL_MATCH_UNVERIFIED 28" original-waw-sights.log
+      - name: Upload numbered original screenshot reference index log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-WaW-2008-Original-Iron-Sight-Reference-Index
+          path: |
+            original-waw-sights.log
+            xogot/data/waw_2008_iron_sight_visual_reference.json
+          if-no-files-found: warn
+          retention-days: 30
