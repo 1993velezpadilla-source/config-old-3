@@ -4080,6 +4080,11 @@ func _build_source_lights() -> void:
 		var source_position := _vec3(row.get("worldPositionMeters", []))
 		var color := _color3(row.get("color", []))
 		var intensity := float(row.get("intensity", 0.0))
+		# UE source 'LightSource.LightComponent0' has exact intensity 0.0.
+		# Godot ignores light_intensity_lux unless physical units are on.
+		# A hardcoded energy=1 fabricated a second full-strength sun.
+		# Honor authored zero for ALL light types without deleting the
+		# source node or changing any nonzero source light power.
 		var created: Node = null
 
 		match type:
@@ -4089,7 +4094,7 @@ func _build_source_lights() -> void:
 				light.position = source_position
 				light.light_color = color
 				light.omni_range = float(row.get("radiusMeters", 0.0))
-				light.light_energy = 1.0
+				light.light_energy = 0.0 if is_zero_approx(intensity) else 1.0
 				if str(row.get("units", "")) == "Candelas":
 					light.light_intensity_lumens = intensity * 4.0 * PI
 				created = light
@@ -4101,14 +4106,14 @@ func _build_source_lights() -> void:
 				light.spot_range = float(row.get("radiusMeters", 0.0))
 				light.spot_angle = float(props.get("outerConeAngleDegrees", 45.0))
 				light.basis = _directional_basis_xziel(row.get("worldRotationUE", {}))
-				light.light_energy = 1.0
+				light.light_energy = 0.0 if is_zero_approx(intensity) else 1.0
 				created = light
 			"directional":
 				var light := DirectionalLight3D.new()
 				light.name = source_id
 				light.position = source_position
 				light.light_color = color
-				light.light_energy = 1.0
+				light.light_energy = 0.0 if is_zero_approx(intensity) else 1.0
 				light.light_intensity_lux = intensity
 				light.basis = _directional_basis_xziel(row.get("worldRotationUE", {}))
 				created = light
