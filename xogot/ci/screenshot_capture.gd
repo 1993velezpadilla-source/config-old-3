@@ -272,8 +272,10 @@ func _capture() -> void:
 		quit(30)
 		return
 	print("XZOGOT_SCREENSHOT_SCENE_TEARDOWN_GREEN")
-	# Do not destroy the SceneTree while this coroutine still holds temporary
-	# PackedScene, Image, and Node references. Exit in the next idle turn,
-	# *after* the source capture stack has returned and released resources.
-	call_deferred("quit", 0)
+	# This tool script is now past its final await and has confirmed
+	# teardown. Request explicit exit 0 immediately; the old deferred
+	# quit left Godot exiting with code 1 *after* all screenshot GREEN tags,
+	# failing the MP40 CI despite complete real captured frames.
+	# Keep process-exit checking strict in GitHub; do not mask any error.
+	quit(0)
 	return
