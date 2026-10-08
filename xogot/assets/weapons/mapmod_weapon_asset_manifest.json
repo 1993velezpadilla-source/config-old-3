@@ -176,7 +176,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "colt": {
@@ -270,7 +270,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "m1": {
@@ -364,7 +364,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "mp40": {
@@ -459,7 +459,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "trench": {
@@ -553,7 +553,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "thompson": {
@@ -683,7 +683,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "bar": {
@@ -777,7 +777,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "browning": {
@@ -871,7 +871,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "doublebarrel": {
@@ -965,7 +965,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "sawnoff": {
@@ -979,7 +979,8 @@
           "reload": "res://assets/audio/weapons/mapmod/sawnoff/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/sawnoff/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/sawnoff/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/doublebarrel/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -1009,7 +1010,8 @@
         "Real Aether UE5.7 viewmodel staged from SawedOffDB.",
         "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
         "Aether UE5.7 skeletal GLB now contains 17 imported real animation Actions.",
-        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists.",
+        "UE5.7 DT_Weapons row 10 HandAnims.idle/fire/reload/raise refer to the SAME DoubleBarrel Hands PSA assets as row 9; reuse the real source viewhands, not a custom substitute."
       ],
       "optional_animation_aliases": {
         "ads_in": [
@@ -1048,8 +1050,19 @@
         ]
       },
       "hands_source": {
-        "authority": "source_pending",
-        "reason": "SawedOffDB has no recovered Hands PSA in the validated WaW artifact"
+        "authority": "Project Aether UE5.7 DT_Weapons row 10 verified same DoubleBarrel Hands PSA assets as row 9",
+        "source_dir": "DoubleBarrel",
+        "source_psa_count": 11,
+        "core_roles": {
+          "idle": true,
+          "fire": true,
+          "reload": true,
+          "equip": true
+        },
+        "source_mesh_scale": 0.01,
+        "translation_scale": 1,
+        "shared_source_hand_animation_weapon": "doublebarrel",
+        "source_row_index": 10
       }
     },
     "fg42": {
@@ -1143,7 +1156,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "gewehr": {
@@ -1237,7 +1250,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "m1a1": {
@@ -1331,7 +1344,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "mg42": {
@@ -1427,7 +1440,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "ppsh": {
@@ -1521,7 +1534,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "ptrs": {
@@ -1615,7 +1628,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "stg": {
@@ -1709,7 +1722,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "type100": {
@@ -1803,7 +1816,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "springfield": {
@@ -1897,7 +1910,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "ray": {
@@ -2150,7 +2163,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "dp28": {
@@ -2244,7 +2257,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "kar98k": {
@@ -2338,7 +2351,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "mosin": {
@@ -2432,7 +2445,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "nambu": {
@@ -2526,7 +2539,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "svt40": {
@@ -2620,7 +2633,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "tt33": {
@@ -2714,7 +2727,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "type99": {
@@ -2808,7 +2821,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     },
     "walther": {
@@ -2902,7 +2915,7 @@
           "equip": true
         },
         "source_mesh_scale": 0.01,
-        "translation_scale": 1.0
+        "translation_scale": 1
       }
     }
   }
