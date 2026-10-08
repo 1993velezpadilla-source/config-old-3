@@ -131,14 +131,20 @@ func _inspect() -> void:
 			barrel_angle_deg = rad_to_deg(acos(clampf(barrel_camera.dot(Vector3.FORWARD), -1.0, 1.0)))
 		if solved_translation < 0.003 and solved_angle < 0.005:
 			bad_ads.append(id + ":ads_equals_hip")
-		# 1.5 cm in camera-space is a precise, meaningful physical eye-line;
-		# old 8 cm tolerance hid plainly misaligned sights in screenshots.
-		if marker_error_m >= 0.0 and marker_error_m > 0.015:
+		# For original imported iron/scope sight tags, 1 cm alignment
+		# maximum. The entire real hands+gun view-root optical correction
+		# must not mutate the recovered DT_Weapons ADS transform itself.
+		if marker_error_m >= 0.0 and marker_error_m > 0.01:
 			bad_ads.append(id + ":source_sight_off_center=" + str(marker_error_m))
-		if marker_error_m >= 0.0 and marker_camera_depth_m >= -0.05:
-			bad_ads.append(id + ":source_sight_behind_camera=" + str(marker_camera_depth_m))
+		if marker_error_m >= 0.0 and marker_camera_depth_m > -0.16:
+			bad_ads.append(id + ":source_sight_clipped_by_near_plane=" + str(marker_camera_depth_m))
+		if marker_error_m >= 0.0 and str(weapon.get_meta("weapon_ads_source_sight_registration", "")) != "runtime_optical_registration":
+			bad_ads.append(id + ":source_sight_runtime_registration_not_applied")
 		if barrel_angle_deg >= 0.0 and barrel_angle_deg > 3.0:
 			bad_ads.append(id + ":barrel_off_camera_forward_deg=" + str(barrel_angle_deg))
+		if marker_error_m < 0.0:
+			print("XZOGOT_SIGHT_AUDIT_NO_IMPORTED_REAR_SIGHT id=", id,
+				" source_registration=visual_approval_required")
 		print("XZOGOT_SIGHT_AUDIT_ADS_RESULT id=",id,
 			" mode=",str(weapon.get_meta("weapon_ads_visual_alignment_mode", mode)),
 			" sight=",sight_source,
