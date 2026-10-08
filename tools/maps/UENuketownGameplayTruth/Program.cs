@@ -39,8 +39,8 @@ EGame sourceGame =
 var provider = new DefaultFileProvider(
     root,
     SearchOption.AllDirectories,
-    true,
-    new VersionContainer(sourceGame))
+    new VersionContainer(sourceGame),
+    StringComparer.OrdinalIgnoreCase)
 {
     MappingsContainer = new FileUsmapTypeMappingsProvider(mappingsPath)
 };
@@ -48,6 +48,24 @@ var provider = new DefaultFileProvider(
 provider.Initialize();
 provider.PostMount();
 provider.LoadVirtualPaths();
+
+Console.Error.WriteLine(
+    $"XZOGOT_PROVIDER_READY root={root} game={sourceGameName} files={provider.Files.Count}");
+
+foreach (var target in targets)
+{
+    var needle = Path.GetFileName(target);
+    var candidates = provider.Files.Values
+        .Where(file => Path.GetFileName(file.Path)
+            .Equals(needle, StringComparison.OrdinalIgnoreCase))
+        .Select(file => file.Path)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .Take(12)
+        .ToArray();
+    Console.Error.WriteLine(
+        $"XZOGOT_PROVIDER_TARGET target={target} candidates={candidates.Length} " +
+        string.Join(" | ", candidates));
+}
 
 var serializer = Newtonsoft.Json.JsonSerializer.Create(
     new JsonSerializerSettings
