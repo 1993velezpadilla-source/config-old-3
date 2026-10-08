@@ -136,7 +136,7 @@ jobs:
           $rc=$LASTEXITCODE
           if($rc -ne 0){throw "current CUE4Parse Kismet extraction failed $rc"}
 
-      - name: Prove weapon graph structure and splash source authority
+      - name: Prove burst Double Tap hyperburst and splash source graph
         shell: pwsh
         run: |
           @'
@@ -147,6 +147,8 @@ jobs:
           assert d["ready"] is True,d
           assert d["packageSuccessCount"]==3,d
           assert d["packageFailureCount"]==0,d
+          assert d["bytecodeAvailable"] is True,d
+          assert d["dumpedFunctionsWithBytecode"]>0,d
 
           proof={}
           for pkg in d["packages"]:
@@ -156,13 +158,18 @@ jobs:
               exports_by_name={}
               for ex in pkg["exports"]:
                   exports_by_name[ex.get("name","")]=ex
+                  if int(ex.get("scriptStatementCount") or 0)>0:
+                      function_rows[ex.get("name","")]={
+                          "scriptStatementCount":int(ex["scriptStatementCount"]),
+                          "scriptBytecode":ex.get("scriptBytecode"),
+                      }
                   for fn in ex.get("classFunctions") or []:
                       fn_name=fn.get("name","")
                       if fn_name:
                           function_rows[fn_name]={
                               "functionFlags":fn.get("functionFlags"),
                               "scriptStatementCount":int(fn.get("scriptStatementCount") or 0),
-                              "scriptBytecodeAvailable":bool(fn.get("scriptBytecode")),
+                              "scriptBytecode":fn.get("scriptBytecode"),
                           }
                   pseudo=ex.get("decompiledPseudo")
                   if pseudo:
@@ -171,59 +178,84 @@ jobs:
                   "packagePath":pkg["packagePath"],
                   "functions":function_rows,
                   "decompiledPseudo":"\n\n".join(pseudos),
-                  "bytecodeAvailable":bool(d.get("bytecodeAvailable",False)),
+                  "bytecodeAvailable":True,
               }
-
-              # Preserve exact authored component properties needed by runtime.
               if key=="BP_ExplosiveTracer":
                   sphere=exports_by_name.get("SplashDamage_GEN_VARIABLE",{})
-                  radius=next(
+                  proof[key]["splashSphereRadiusUEcm"]=next(
                       (p.get("value") for p in sphere.get("properties",[])
-                       if p.get("name")=="SphereRadius"),
-                      None,
-                  )
-                  proof[key]["splashSphereRadiusUEcm"]=radius
+                       if p.get("name")=="SphereRadius"),None)
               elif key=="BP_Master_SplashDamage":
                   sphere=exports_by_name.get("SplashRadius_GEN_VARIABLE",{})
-                  radius=next(
+                  proof[key]["splashSphereRadiusUEcm"]=next(
                       (p.get("value") for p in sphere.get("properties",[])
-                       if p.get("name")=="SphereRadius"),
-                      None,
-                  )
-                  proof[key]["splashSphereRadiusUEcm"]=radius
+                       if p.get("name")=="SphereRadius"),None)
 
-          base=proof.get("BP_WeaponBase",{})
-          names=set(base.get("functions",{}))
+          base=proof["BP_WeaponBase"]
+          names=set(base["functions"])
           required={
               "TryFire","TryBurst","BurstStep","FinishBurst","OnBurstCooldownExpired",
-              "OnFireReleased","DoubleTapFireRate","DoubleTapDamage","AutoFireTick"
+              "OnFireReleased","DoubleTapFireRate","DoubleTapDamage","AutoFireTick",
+              "Set Weapon Stats"
           }
           missing=sorted(required-names)
           assert not missing,{"missing":missing,"available":sorted(names)}
 
-          # Function graph identity is source-proven, but this cooked build strips
-          # function ScriptBytecode. Keep timing internals explicitly unresolved
-          # rather than inventing Double Tap / hyperburst math.
-          assert d.get("bytecodeAvailable") is False,d.get("bytecodeAvailable")
-          base["semanticStatus"]="FUNCTION_GRAPH_PROVEN_BODY_STRIPPED"
-          base["pendingExactBodies"]=[
-              "DoubleTapFireRate","TryBurst","BurstStep","AutoFireTick"
-          ]
+          def consts(node, token):
+              out=[]
+              if isinstance(node,dict):
+                  if node.get("Token")==token and "Value" in node:
+                      out.append(node["Value"])
+                  for v in node.values():
+                      out.extend(consts(v,token))
+              elif isinstance(node,list):
+                  for v in node:
+                      out.extend(consts(v,token))
+              return out
+
+          dt_rate=base["functions"]["DoubleTapFireRate"]["scriptBytecode"]
+          dt_damage=base["functions"]["DoubleTapDamage"]["scriptBytecode"]
+          burst_step=base["functions"]["BurstStep"]["scriptBytecode"]
+          set_stats=base["functions"]["Set Weapon Stats"]["scriptBytecode"]
+
+          rate_doubles=consts(dt_rate,"EX_DoubleConst")
+          damage_doubles=consts(dt_damage,"EX_DoubleConst")
+          assert rate_doubles.count(0.77)==3,rate_doubles
+          assert damage_doubles.count(1.0)==2,damage_doubles
+
+          dt_rate_blob=json.dumps(dt_rate,separators=(",",":"))
+          burst_blob=json.dumps(burst_step,separators=(",",":"))
+          stats_blob=json.dumps(set_stats,separators=(",",":"))
+          assert '"Value":3' in dt_rate_blob, "Double Tap perk index 3 missing"
+          assert "Burst Time Between Shots" in burst_blob, "burst shot timer source missing"
+          assert "Burst Time Between Burst" in stats_blob, "burst cooldown source missing"
+          assert "DoubleTapFireRate" in stats_blob, "DoubleTapFireRate binding missing"
+          assert "DoubleTapDamage" in stats_blob, "DoubleTapDamage binding missing"
+
+          base["decodedSemantics"]={
+              "doubleTapPerkIndex":3,
+              "fireIntervalMultiplier":0.77,
+              "hyperburstIntervalMultiplier":0.77,
+              "burstCooldownMultiplier":0.77,
+              "damageMultiplier":1.0,
+              "burstShotDelayAffectedByDoubleTap":False,
+              "burstShotDelaySource":"Burst Time Between Shots",
+              "burstCooldownSource":"Burst Time Between Burst",
+          }
 
           tracer=proof["BP_ExplosiveTracer"]
           splash=proof["BP_Master_SplashDamage"]
           assert tracer["splashSphereRadiusUEcm"]==250.0,tracer
           assert splash["splashSphereRadiusUEcm"]==225.0,splash
-          tracer["semanticStatus"]="STRUCTURE_AND_RADIUS_PROVEN_BODY_STRIPPED"
-          splash["semanticStatus"]="STRUCTURE_AND_RADIUS_PROVEN_BODY_STRIPPED"
 
           Path("build/aether-kismet/weapon-kismet-proof.json").write_text(
               json.dumps(proof,indent=2)+"\n")
           print(
-              "XZOGOT_AETHER_WEAPON_KISMET_STRUCTURE_GREEN",
+              "XZOGOT_AETHER_WEAPON_KISMET_GREEN",
               {
                   "weaponFunctions":len(names),
-                  "bytecodeAvailable":False,
+                  "doubleTapInterval":0.77,
+                  "doubleTapDamage":1.0,
                   "explosiveTracerRadiusUEcm":250.0,
                   "masterSplashRadiusUEcm":225.0,
               }

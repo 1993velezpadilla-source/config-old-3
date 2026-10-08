@@ -1,9 +1,10 @@
 class_name SourceModifierPolicy
 extends RefCounted
 
-# Classic/BO3 Zombies gameplay modifiers only.
-# These values mirror the COD perk behavior / DVAR semantics rather than
-# project-authored balance guesses.
+# Source-backed Zombies gameplay modifiers.
+# Double Tap values below are decoded directly from Project Aether's
+# BP_WeaponBase Kismet bytecode; other perk values retain their COD source
+# contracts until equivalent Aether bytecode is recovered.
 const AUTHORITY := "COD_CLASSIC_DVAR_AND_BO3_ZOMBIES"
 
 const JUGGERNOG_MAX_HEALTH := 250.0
@@ -11,8 +12,8 @@ const SPEED_COLA_RELOAD_TIME_MULTIPLIER := 0.50
 const STAMIN_UP_MOVE_SPEED_MULTIPLIER := 1.07
 const STAMIN_UP_SPRINT_ENDURANCE_MULTIPLIER := 2.0
 const DEADSHOT_SPREAD_MULTIPLIER := 0.65
-const DOUBLE_TAP_INTERVAL_MULTIPLIER := 0.75
-const DOUBLE_TAP_PROJECTILE_DAMAGE_MULTIPLIER := 2.0
+const DOUBLE_TAP_INTERVAL_MULTIPLIER := 0.77
+const DOUBLE_TAP_PROJECTILE_DAMAGE_MULTIPLIER := 1.0
 const QUICK_REVIVE_TIME_MULTIPLIER := 0.50
 
 const SOURCE_PERK_BY_RUNTIME_ID: Dictionary = {
@@ -33,10 +34,8 @@ static func fire_interval_multiplier(has_double_tap: bool) -> float:
 static func projectile_damage_multiplier(has_double_tap: bool, weapon_family: String) -> float:
 	if not has_double_tap:
 		return 1.0
-	# BO3 Double Tap II doubles ordinary projectile weapon damage. Wonder /
-	# explosive families must not inherit that multiplier by accident.
-	if weapon_family in ["wonder", "explosive"]:
-		return 1.0
+	# Project Aether BP_WeaponBase::DoubleTapDamage multiplies both MaxDamage
+	# and MinDamage by 1.0 when perk index 3 is active. No damage buff here.
 	return DOUBLE_TAP_PROJECTILE_DAMAGE_MULTIPLIER
 
 static func reload_time_multiplier(has_speed_cola: bool) -> float:

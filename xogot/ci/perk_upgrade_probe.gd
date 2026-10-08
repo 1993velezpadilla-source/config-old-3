@@ -108,11 +108,11 @@ func _run() -> void:
 	if absf(float(player.call("get_recoil_multiplier")) - 1.0) > 0.001:
 		_fail(21, "Deadshot must not invent a recoil multiplier")
 		return
-	if absf(float(player.call("get_fire_interval_multiplier")) - 0.75) > 0.001:
+	if absf(float(player.call("get_fire_interval_multiplier")) - 0.77) > 0.001:
 		_fail(22, "Double Tap II source fire-cycle effect wrong")
 		return
-	if absf(float(player.call("get_weapon_damage_multiplier")) - 2.0) > 0.001:
-		_fail(23, "Double Tap II source projectile damage effect wrong")
+	if absf(float(player.call("get_weapon_damage_multiplier")) - 1.0) > 0.001:
+		_fail(23, "Double Tap source damage identity effect wrong")
 		return
 	if absf(float(player.call("get_revive_progress_multiplier")) - 2.0) > 0.001:
 		_fail(24, "Quick Revive source revive-speed effect wrong")

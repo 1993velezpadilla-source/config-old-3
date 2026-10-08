@@ -1774,7 +1774,14 @@ func _finish_source_burst() -> void:
 	_source_burst_active = false
 	_source_burst_shots_remaining = 0
 	_source_burst_timer = 0.0
-	_cooldown = maxf(_cooldown, _source_burst_delay)
+	# BP_WeaponBase::Set Weapon Stats routes authored BurstDelay through
+	# DoubleTapFireRate. Kismet multiplies that cooldown by 0.77 when perk
+	# index 3 is active. Burst Time Between Shots is assigned separately and
+	# therefore intentionally remains the raw authored ShotDelay.
+	_cooldown = maxf(
+		_cooldown,
+		_source_burst_delay * _player_modifier("get_fire_interval_multiplier")
+	)
 
 func _cancel_source_burst() -> void:
 	_source_burst_active = false
