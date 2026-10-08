@@ -34,6 +34,46 @@ func _reset_gun_to_import_rest(gun_root: Node3D) -> void:
 
 # The production helper now owns the source geometry filter; this A/B
 # must validate the exact runtime code instead of duplicating its algorithm.
+# Which single original SW357 gun bone drives the cylinder open while its
+# source idle PSA is playing? Only an evidence A/B: no production correction.
+func _find_native_gun_skeleton(node: Node) -> Skeleton3D:
+	if node is Skeleton3D:
+		return node as Skeleton3D
+	for child: Node in node.get_children():
+		var found := _find_native_gun_skeleton(child)
+		if found != null:
+			return found
+	return null
+
+func _compare_idle_bone_to_source_rest(
+	gun_anim: AnimationPlayer, native_gun: Node3D, source_idle: String
+) -> bool:
+	var skeleton := _find_native_gun_skeleton(native_gun)
+	if skeleton == null:
+		push_error("XZOGOT_SW357_BONE_AB_NATIVE_SKELETON_MISSING")
+		return false
+	gun_anim.play(source_idle, 0.0)
+	gun_anim.seek(0.0, true)
+	gun_anim.pause()
+	await _screenshot("08-filtered-original-source-idle-ads")
+	var suspects: Array[String] = ["joint2", "j_bolt", "joint1", "j_clip"]
+	var frame_number := 9
+	for bone_name: String in suspects:
+		var idx := skeleton.find_bone(bone_name)
+		if idx < 0:
+			push_error("XZOGOT_SW357_BONE_AB_MISSING_SOURCE_BONE " + bone_name)
+			return false
+		var pose: Transform3D = skeleton.get_bone_pose(idx)
+		print("XZOGOT_SW357_BONE_AB_SOURCE_DELTA bone=", bone_name,
+			" translation_m=", pose.origin.length(),
+			" rotation_deg=", rad_to_deg(pose.basis.get_rotation_quaternion().get_angle()))
+		skeleton.reset_bone_pose(idx)
+		await _screenshot("%02d-filtered-rest-only-%s-ads" % [frame_number, bone_name])
+		skeleton.set_bone_pose(idx, pose)
+		frame_number += 1
+	print("XZOGOT_SW357_BONE_AB_PROOF_READY original_idle=1 rest_one_bone=4")
+	return true
+
 func _run() -> void:
 	DirAccess.make_dir_recursive_absolute(OUT)
 	var scene := Node3D.new()
@@ -142,5 +182,10 @@ func _run() -> void:
 		quit(16)
 		return
 	print("XZOGOT_SW357_PRODUCTION_RELOAD_MESH_SWITCH_GREEN original_restored_then_hidden=true")
-	print("XZOGOT_SW357_ANIMATION_AB_IMAGES_READY 7 source_action=",source_idle)
+	if not await _compare_idle_bone_to_source_rest(
+		gun_anim, weapon.get("_weapon_model_root") as Node3D, source_idle
+	):
+		quit(17)
+		return
+	print("XZOGOT_SW357_ANIMATION_AB_IMAGES_READY 12 source_action=", source_idle)
 	quit(0)
