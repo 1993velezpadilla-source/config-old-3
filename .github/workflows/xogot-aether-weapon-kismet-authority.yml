@@ -136,7 +136,7 @@ jobs:
           $rc=$LASTEXITCODE
           if($rc -ne 0){throw "current CUE4Parse Kismet extraction failed $rc"}
 
-      - name: Prove burst hyperburst and splash source graph
+      - name: Prove weapon graph structure and splash source authority
         shell: pwsh
         run: |
           @'
@@ -147,44 +147,87 @@ jobs:
           assert d["ready"] is True,d
           assert d["packageSuccessCount"]==3,d
           assert d["packageFailureCount"]==0,d
-          assert d["dumpedFunctionsWithBytecode"]>0,d
 
           proof={}
           for pkg in d["packages"]:
               key=Path(pkg["packagePath"]).stem
-              functions={}
+              function_rows={}
               pseudos=[]
+              exports_by_name={}
               for ex in pkg["exports"]:
-                  name=ex.get("name","")
-                  if int(ex.get("scriptStatementCount") or 0)>0:
-                      functions[name]={
-                          "scriptStatementCount":ex["scriptStatementCount"],
-                          "scriptBytecode":ex.get("scriptBytecode"),
-                      }
+                  exports_by_name[ex.get("name","")]=ex
                   for fn in ex.get("classFunctions") or []:
                       fn_name=fn.get("name","")
-                      if int(fn.get("scriptStatementCount") or 0)>0:
-                          functions[fn_name]=fn
+                      if fn_name:
+                          function_rows[fn_name]={
+                              "functionFlags":fn.get("functionFlags"),
+                              "scriptStatementCount":int(fn.get("scriptStatementCount") or 0),
+                              "scriptBytecodeAvailable":bool(fn.get("scriptBytecode")),
+                          }
                   pseudo=ex.get("decompiledPseudo")
                   if pseudo:
                       pseudos.append(pseudo)
               proof[key]={
                   "packagePath":pkg["packagePath"],
-                  "functions":functions,
+                  "functions":function_rows,
                   "decompiledPseudo":"\n\n".join(pseudos),
+                  "bytecodeAvailable":bool(d.get("bytecodeAvailable",False)),
               }
+
+              # Preserve exact authored component properties needed by runtime.
+              if key=="BP_ExplosiveTracer":
+                  sphere=exports_by_name.get("SplashDamage_GEN_VARIABLE",{})
+                  radius=next(
+                      (p.get("value") for p in sphere.get("properties",[])
+                       if p.get("name")=="SphereRadius"),
+                      None,
+                  )
+                  proof[key]["splashSphereRadiusUEcm"]=radius
+              elif key=="BP_Master_SplashDamage":
+                  sphere=exports_by_name.get("SplashRadius_GEN_VARIABLE",{})
+                  radius=next(
+                      (p.get("value") for p in sphere.get("properties",[])
+                       if p.get("name")=="SphereRadius"),
+                      None,
+                  )
+                  proof[key]["splashSphereRadiusUEcm"]=radius
 
           base=proof.get("BP_WeaponBase",{})
           names=set(base.get("functions",{}))
-          required={"TryFire","TryBurst","BurstStep","FinishBurst","OnFireReleased","DoubleTapFireRate","AutoFireTick"}
+          required={
+              "TryFire","TryBurst","BurstStep","FinishBurst","OnBurstCooldownExpired",
+              "OnFireReleased","DoubleTapFireRate","DoubleTapDamage","AutoFireTick"
+          }
           missing=sorted(required-names)
           assert not missing,{"missing":missing,"available":sorted(names)}
-          assert "BP_ExplosiveTracer" in proof,proof.keys()
-          assert "BP_Master_SplashDamage" in proof,proof.keys()
+
+          # Function graph identity is source-proven, but this cooked build strips
+          # function ScriptBytecode. Keep timing internals explicitly unresolved
+          # rather than inventing Double Tap / hyperburst math.
+          assert d.get("bytecodeAvailable") is False,d.get("bytecodeAvailable")
+          base["semanticStatus"]="FUNCTION_GRAPH_PROVEN_BODY_STRIPPED"
+          base["pendingExactBodies"]=[
+              "DoubleTapFireRate","TryBurst","BurstStep","AutoFireTick"
+          ]
+
+          tracer=proof["BP_ExplosiveTracer"]
+          splash=proof["BP_Master_SplashDamage"]
+          assert tracer["splashSphereRadiusUEcm"]==250.0,tracer
+          assert splash["splashSphereRadiusUEcm"]==225.0,splash
+          tracer["semanticStatus"]="STRUCTURE_AND_RADIUS_PROVEN_BODY_STRIPPED"
+          splash["semanticStatus"]="STRUCTURE_AND_RADIUS_PROVEN_BODY_STRIPPED"
 
           Path("build/aether-kismet/weapon-kismet-proof.json").write_text(
               json.dumps(proof,indent=2)+"\n")
-          print("XZOGOT_AETHER_WEAPON_KISMET_GREEN",{"functions":len(names)})
+          print(
+              "XZOGOT_AETHER_WEAPON_KISMET_STRUCTURE_GREEN",
+              {
+                  "weaponFunctions":len(names),
+                  "bytecodeAvailable":False,
+                  "explosiveTracerRadiusUEcm":250.0,
+                  "masterSplashRadiusUEcm":225.0,
+              }
+          )
           '@ | python -
 
       - uses: actions/upload-artifact@v4
