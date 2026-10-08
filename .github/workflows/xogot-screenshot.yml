@@ -85,7 +85,11 @@ jobs:
           cp /tmp/xogot-current-ads.png build/xogot-screenshot/xogot-current-ads.png
           cp /tmp/xogot-current-exterior.png build/xogot-screenshot/xogot-current-exterior.png
 
+      # Preserve the REAL PNGs even if Godot exits nonzero *after* writing
+      # all three captures (ObjectDB instance leak, exit=1 in run #63).
+      # This does not mask/turn GREEN a failed renderer or visual gate.
       - name: Upload screenshot
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: Xogot-Current-Gameplay-Screenshot
