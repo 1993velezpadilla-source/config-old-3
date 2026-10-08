@@ -33,9 +33,17 @@ func _capture() -> void:
 		return
 	player.global_position = Vector3(3.4, 0.38, 6.2)
 	player.rotation.y = deg_to_rad(7.2)
+	# Run in two parallel CI shards: 14 weapons each so all 56 original
+	# Godot screenshots can finish without a single 11-minute GPU timeout.
+	var first_index: int = clampi(int(OS.get_environment("XOGOT_GRIP_START").to_int()), 0, 28)
+	var last_index: int = clampi(int(OS.get_environment("XOGOT_GRIP_END").to_int()), first_index, 28)
+	if OS.get_environment("XOGOT_GRIP_END").is_empty():
+		last_index = FIREARMS.size()
+	var expected_frames: int = (last_index - first_index) * 2
 	var images_saved := 0
 	var failures: Array[String] = []
-	for weapon_id: String in FIREARMS:
+	for weapon_idx in range(first_index, last_index):
+		var weapon_id: String = FIREARMS[weapon_idx]
 		player.set_meta("ads_toggled", false)
 		if not bool(weapon.call("equip_weapon", weapon_id, true)):
 			failures.append(weapon_id + ":equip")
@@ -70,19 +78,19 @@ func _capture() -> void:
 				" source_ads=", centered_source_ads,
 				" path=", path)
 	player.set_meta("ads_toggled", false)
-	print("XZOGOT_ALL_GUNS_VISUAL_CAPTURE_TOTAL ", images_saved, "/56")
+	print("XZOGOT_ALL_GUNS_VISUAL_CAPTURE_TOTAL ", images_saved, "/", expected_frames, " shard=",first_index,"-",last_index)
 	if failures.size() > 0:
 		print("XZOGOT_ALL_GUNS_VISUAL_FAILURES ", failures)
 		scene.queue_free()
 		await process_frame
 		_fail(4, "visual suite found: " + str(failures))
 		return
-	if images_saved != 56:
+	if images_saved != expected_frames:
 		scene.queue_free()
 		await process_frame
-		_fail(5, "expected 56 actual images, got " + str(images_saved))
+		_fail(5, "expected " + str(expected_frames) + " actual images, got " + str(images_saved))
 		return
-	print("XZOGOT_ALL_28_GUNS_VISUAL_SHEET_GREEN 56")
+	print("XZOGOT_ALL_GUNS_VISUAL_SHARD_GREEN count=", images_saved, " start=", first_index, " end=", last_index)
 	scene.queue_free()
 	await process_frame
 	quit(0)
