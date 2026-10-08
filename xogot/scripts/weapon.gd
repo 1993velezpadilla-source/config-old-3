@@ -775,7 +775,8 @@ func _bind_weapon_to_source_hands() -> bool:
 	# The original Aether meter-space GLBs have the gun's vertical plane 90°
 	# off the source hands' tag_weapon socket. Real MP40 HIP/ADS A/B captures
 	# demonstrated that +90° about the gun's own +X forward axis restores
-	# gravity-down magazine orientation AND an upright, centered ADS sight.
+	# gravity-down magazine orientation on MP40. Centered sights are NOT
+	# guaranteed by roll alone and must pass actual source socket/eye-line QA.
 	# This is a shared import-axis conversion for EVERY Aether firearm, NOT
 	# a weapon-specific pose/hand offset. The authored hands skeleton/PSA and
 	# per-weapon source HIP/ADS datatable transforms stay untouched.
