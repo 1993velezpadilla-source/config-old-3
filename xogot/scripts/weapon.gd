@@ -464,6 +464,24 @@ func _sync_source_weapon_attachment() -> void:
 	# offsets or guessed corrections are involved.
 	var animated_pose := _source_hands_skeleton.get_bone_global_pose(_source_weapon_bone_idx)
 	_source_weapon_attachment.transform = animated_pose
+	# The hand skeleton carries its cm->m import scale, while the real MapMod
+	# weapon GLBs are already authored in meters. Cancel only that inherited
+	# rig scale so a 0.7 m MP40 cannot become a microscopic ~0.007 m model
+	# after parenting under the animated tag_weapon socket.
+	if _weapon_model_root != null and is_instance_valid(_weapon_model_root):
+		var inherited_units := _source_weapon_attachment.global_transform.basis.get_scale()
+		if (
+			inherited_units.x > 0.000001
+			and inherited_units.y > 0.000001
+			and inherited_units.z > 0.000001
+		):
+			_weapon_model_root.scale = Vector3(
+				1.0 / inherited_units.x,
+				1.0 / inherited_units.y,
+				1.0 / inherited_units.z
+			)
+			set_meta("weapon_source_attachment_inherited_scale", inherited_units)
+			set_meta("weapon_source_attachment_meter_units_restored", true)
 	set_meta("weapon_source_attachment_manual_pose_sync", true)
 	set_meta("weapon_source_attachment_pose", animated_pose)
 
