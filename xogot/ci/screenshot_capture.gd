@@ -261,4 +261,15 @@ func _capture() -> void:
 			return
 		print("XZOGOT_EXTERIOR_SCREENSHOT_GREEN ", exterior_path, " ", exterior_image.get_width(), "x", exterior_image.get_height())
 
+	# The source screenshots have been saved. Release scene-owned imported
+	# weapon models, audio players, zombies and materials before test exit.
+	# This avoids mistaking Godot ObjectDB leftovers for a rendering failure.
+	scene.queue_free()
+	for cleanup_frame in range(4):
+		await process_frame
+	if is_instance_valid(scene):
+		push_error("SCREENSHOT: imported gameplay scene teardown incomplete")
+		quit(30)
+		return
+	print("XZOGOT_SCREENSHOT_SCENE_TEARDOWN_GREEN")
 	quit(0)
