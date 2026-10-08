@@ -1138,6 +1138,48 @@ func _run() -> void:
 	var source_interaction_contracts := int(
 		scene.get_meta("source_interaction_contract_count", 0)
 	)
+	# Physical source box is staged exactly but is deliberately NOT yet a
+	# functional shop. False purchases are worse than an honest pending gate.
+	var source_gumball_placements := (
+		scene.get_meta("source_interactive_placement_counts", {}) as Dictionary
+	)
+	var source_gumball_sensor_count := int(
+		scene.get_meta("nacht_source_gumball_sensor_count", -1)
+	)
+	var source_gumball_sensors := get_nodes_in_group(
+		"nacht_gumball_interaction_sensor_pending"
+	)
+	if (
+		source_gumball_sensor_count <= 0
+		or source_gumball_sensor_count != int(source_gumball_placements.get("gumball_machine", -1))
+		or source_gumball_sensors.size() != source_gumball_sensor_count
+		or bool(scene.get_meta("nacht_interactable_gameplay_ready", true))
+	):
+		_fail(35, "Gumball physical source coverage / purchase readiness mismatch")
+		return
+	for volume_raw: Node in source_gumball_sensors:
+		if not (volume_raw is Area3D):
+			_fail(35, "Gumball physical area missing")
+			return
+		var volume := volume_raw as Area3D
+		var collider := volume.get_node_or_null("ExactSourceInteractBox") as CollisionShape3D
+		var box := collider.shape as BoxShape3D if collider != null else null
+		if (
+			collider == null or box == null or not collider.disabled
+			or volume.collision_layer != 0
+			or volume.monitorable or volume.monitoring
+			or bool(volume.get_meta("source_purchase_live", true))
+			or str(volume.get_meta("source_component_name", "")) != "Pavlov_InteractBox"
+			or box.size.distance_to(Vector3(0.5251738739, 0.5304168701, 0.8718269920)) > 0.00001
+			or volume.position.distance_to(Vector3(0.05999908447, -0.000000526545, 0.5905227661)) > 0.00001
+		):
+			_fail(35, "Gumball source physical box diverged " + volume.name)
+			return
+	print(
+		"XZOGOT_NACHT_GUMBALL_PHYSICAL_AUTHORITY_GREEN sensors=",
+		source_gumball_sensor_count,
+		" purchase_live=false collider_disabled=true"
+	)
 	var runtime_environment_components := int(scene.get_meta("runtime_environment_component_count", 0))
 	var runtime_environment_visual_nodes := int(scene.get_meta("runtime_environment_visual_node_count", 0))
 	var source_environment_runtime := bool(scene.get_meta("source_environment_runtime_ready", false))
