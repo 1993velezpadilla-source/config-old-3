@@ -58,7 +58,7 @@ func apply_mobile_settings(settings: Node) -> void:
 	queue_redraw()
 
 func _draw_pause_button() -> void:
-	var center: Vector2 = _screen(MobileLayout.PAUSE_CENTER)
+	var center: Vector2 = _screen(MobileLayout.center_for("pause"))
 	var radius: float = MobileLayout.PAUSE_RADIUS * size.y
 	var alpha: float = _hud_opacity
 	draw_circle(center, radius, Color(0.04, 0.04, 0.05, 0.64 * alpha))
@@ -107,7 +107,7 @@ func _draw_latest_control(
 	_draw_tex_center(texture, center, diameter, alpha)
 
 func _draw_joystick() -> void:
-	var center: Vector2 = _screen(MobileLayout.JOY_CENTER)
+	var center: Vector2 = _screen(MobileLayout.center_for("joy"))
 	var ring_radius: float = MobileLayout.JOY_VISUAL_RADIUS * size.y
 	var ring_diameter: float = ring_radius * 2.12
 	_draw_tex_center(TEX_JOY_RING, center, ring_diameter, 0.78)
@@ -286,37 +286,37 @@ func _draw() -> void:
 		reload_pressed = bool(_weapon.call("is_reloading"))
 
 	_draw_latest_control(
-		MobileLayout.FIRE_CENTER,
+		MobileLayout.center_for("fire"),
 		MobileLayout.FIRE_RADIUS,
 		HUD_FIRE,
 		fire_pressed
 	)
 	_draw_latest_control(
-		MobileLayout.ADSFIRE_CENTER,
+		MobileLayout.center_for("adsfire"),
 		MobileLayout.ADSFIRE_RADIUS,
 		HUD_ADSFIRE,
 		adsfire_pressed
 	)
 	_draw_latest_control(
-		MobileLayout.ADS_CENTER,
+		MobileLayout.center_for("ads"),
 		MobileLayout.ADS_RADIUS,
 		HUD_ADS,
 		ads_pressed
 	)
 	_draw_latest_control(
-		MobileLayout.RELOAD_CENTER,
+		MobileLayout.center_for("reload"),
 		MobileLayout.RELOAD_RADIUS,
 		HUD_RELOAD,
 		reload_pressed
 	)
 	_draw_latest_control(
-		MobileLayout.USE_CENTER,
+		MobileLayout.center_for("use"),
 		MobileLayout.USE_RADIUS,
 		HUD_CLAW,
 		false
 	)
 	_draw_latest_control(
-		MobileLayout.JUMP_CENTER,
+		MobileLayout.center_for("jump"),
 		MobileLayout.JUMP_RADIUS,
 		HUD_JUMP,
 		false
@@ -331,7 +331,7 @@ func _draw() -> void:
 			knife_pressed = bool(_player.call("is_knifing"))
 	if show_knife:
 		_draw_latest_control(
-			MobileLayout.KNIFE_CENTER,
+			MobileLayout.center_for("knife"),
 			MobileLayout.KNIFE_RADIUS,
 			HUD_KNIFE,
 			knife_pressed
@@ -342,7 +342,7 @@ func _draw() -> void:
 	# Same gameplay button: crouch at normal pace, tactical slide while sprinting.
 	var stance_texture: Texture2D = HUD_SLIDE if (sprinting or sliding) else HUD_CROUCH
 	_draw_latest_control(
-		MobileLayout.SLIDE_CENTER,
+		MobileLayout.center_for("slide"),
 		MobileLayout.SLIDE_RADIUS,
 		stance_texture,
 		stance_pressed
@@ -351,8 +351,8 @@ func _draw() -> void:
 	# Historical requirement: auto-sprint icon is an indicator, not another hit target.
 	if sprinting:
 		var sprint_center := Vector2(
-			MobileLayout.JOY_CENTER.x,
-			MobileLayout.JOY_CENTER.y - 0.145
+			MobileLayout.center_for("joy").x,
+			MobileLayout.center_for("joy").y - 0.145
 		)
 		_draw_latest_control(sprint_center, 0.034, HUD_SPRINT, true, 0.94)
 
