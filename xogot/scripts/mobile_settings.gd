@@ -2,6 +2,8 @@ extends Control
 
 const WeaponCatalog = preload("res://scripts/weapon_catalog.gd")
 const WeaponAssetRegistry = preload("res://scripts/weapon_asset_registry.gd")
+const MobileLayout = preload("res://scripts/mobile_layout.gd")
+const HUDLayoutEditor = preload("res://scripts/mobile_hud_layout_editor.gd")
 const CONFIG_PATH := "user://xogot_mobile_settings.cfg"
 
 # Intentional: the DEV lab is present in optimized Release builds too so the
@@ -37,6 +39,7 @@ var dev_noclip: bool = false
 var dev_speed_boost: bool = false
 
 var _panel: PanelContainer
+var _hud_layout_editor: Control
 var _page_pause: VBoxContainer
 var _page_settings: VBoxContainer
 var _page_network: VBoxContainer
@@ -65,6 +68,7 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_load_settings()
+	MobileLayout.load_centers()
 	_build_ui()
 	visible = false
 	call_deferred("_apply_to_player")
@@ -187,6 +191,11 @@ func _build_ui() -> void:
 	_build_settings_page()
 	_build_network_page()
 	_build_dev_page()
+	_hud_layout_editor = HUDLayoutEditor.new()
+	_hud_layout_editor.name = "MobileHUDLayoutEditor"
+	_hud_layout_editor.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_hud_layout_editor)
+	_hud_layout_editor.connect("editor_finished", Callable(self, "_on_layout_editor_finished"))
 	_show_page("pause")
 	_refresh_labels()
 	_refresh_dev_labels()
@@ -233,8 +242,24 @@ func _build_settings_page() -> void:
 	_add_setting("knife_button_range_only", _toggle_knife_button_visibility)
 	_add_setting("auto_rebuild", _toggle_auto_rebuild)
 	_add_setting("hud_opacity", _cycle_hud_opacity)
+	var customize := _button(_page_settings, "EditHUDLayout", "EDIT TOUCH HUD LAYOUT")
+	customize.pressed.connect(_open_layout_editor)
 	var back := _button(_page_settings, "SettingsBack", "BACK")
 	back.pressed.connect(func(): _show_page("pause"))
+
+func _open_layout_editor() -> void:
+	if _hud_layout_editor == null:
+		return
+	_panel.visible = false
+	get_node("PauseShade").visible = false
+	_hud_layout_editor.call("begin_edit")
+	print("XZOGOT_TOUCH_HUD_EDITOR_OPEN")
+
+func _on_layout_editor_finished(saved: bool) -> void:
+	_panel.visible = true
+	get_node("PauseShade").visible = true
+	_show_page("settings")
+	print("XZOGOT_TOUCH_HUD_EDITOR_CLOSED saved=", saved)
 
 func _network_manager_node() -> Node:
 	return get_node_or_null("../../NetworkManager")
@@ -939,6 +964,8 @@ func open_pause_menu() -> void:
 	print("XZOGOT_PAUSE_MENU OPEN online=", online, " world_paused=", get_tree().paused)
 
 func close_menu() -> void:
+	if _hud_layout_editor != null and _hud_layout_editor.visible:
+		_hud_layout_editor.call("_cancel")
 	visible = false
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	get_tree().paused = false
