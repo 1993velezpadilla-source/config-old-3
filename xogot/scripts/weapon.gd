@@ -836,7 +836,9 @@ func _bind_weapon_to_source_hands() -> bool:
 		# sight planes at 180 degrees, while generic 90 gives sideways
 		# and/or obstructed sight views. Other long guns remain pending
 		# independent source mesh/sight QA; do not guess a global angle.
-		var confirmed_upright_long_ids: Array[String] = ["stg", "browning", "type99"]
+		var confirmed_upright_long_ids: Array[String] = [
+			"stg", "browning", "type99", "bar", "dp28", "thompson", "trench"
+		]
 		gun_roll_deg = 180.0 if _weapon_id in pistol_ids or _weapon_id in confirmed_upright_long_ids else 90.0
 	_weapon_model_root.quaternion = Quaternion(Vector3.RIGHT, deg_to_rad(gun_roll_deg))
 	set_meta("weapon_source_gun_roll_correction_deg", gun_roll_deg)
