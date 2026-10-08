@@ -272,4 +272,8 @@ func _capture() -> void:
 		quit(30)
 		return
 	print("XZOGOT_SCREENSHOT_SCENE_TEARDOWN_GREEN")
-	quit(0)
+	# Do not destroy the SceneTree while this coroutine still holds temporary
+	# PackedScene, Image, and Node references. Exit in the next idle turn,
+	# *after* the source capture stack has returned and released resources.
+	call_deferred("quit", 0)
+	return
