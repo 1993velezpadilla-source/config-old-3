@@ -147,6 +147,26 @@ func _inspect() -> void:
 			" authored_sight_error_m=",marker_error_m,
 			" sight_depth_m=",marker_camera_depth_m,
 			" barrel_camera_alignment_deg=",barrel_angle_deg)
+		# Prove that returning from ADS really restores the source HIP pose.
+		# A perfectly centered screenshot is not enough if aim-release drifts.
+		player.set_meta("ads_toggled", false)
+		await create_timer(0.72).timeout
+		await process_frame
+		var hip_restore_alpha: float = float(weapon.get("_ads_pose_alpha"))
+		var hip_restore_pose: Vector3 = weapon.get("_view_pose_position")
+		var hip_reference_pose: Vector3 = weapon.get("_hip_pose_position")
+		var hip_restore_angle: float = (
+			(weapon.get("_view_pose_rotation") as Quaternion).angle_to(
+				weapon.get("_hip_pose_rotation") as Quaternion
+			)
+		)
+		var hip_restore_error: float = hip_restore_pose.distance_to(hip_reference_pose)
+		print("XZOGOT_SIGHT_AUDIT_RETURN_TO_HIP id=", id,
+			" alpha=", hip_restore_alpha,
+			" position_error_m=", hip_restore_error,
+			" rotation_error_rad=", hip_restore_angle)
+		if hip_restore_alpha > 0.015 or hip_restore_error > 0.015 or hip_restore_angle > 0.015:
+			bad_ads.append(id + ":ads_release_did_not_restore_hip")
 		print("XZOGOT_SIGHT_AUDIT id=",id," mode=",mode,
 			" hip_ads_translation_delta_m=",delta_pos,
 			" rotation_delta_rad=",delta_angle,
