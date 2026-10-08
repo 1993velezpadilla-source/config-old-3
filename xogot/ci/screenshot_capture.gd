@@ -26,6 +26,49 @@ extends SceneTree
 func _init() -> void:
 	call_deferred("_capture")
 
+# QA ONLY. This is not a production weapon transform; screenshots are
+# held for visual selection against original source MP40/HANDS alignment.
+func _capture_source_grip_roll_sheet(weapon: Node, pose: String) -> void:
+	if OS.get_environment("XZOGOT_SOURCE_GRIP_SHEET") != "1":
+		return
+	var gun := weapon.get("_weapon_model_root") as Node3D
+	if gun == null or not is_instance_valid(gun):
+		push_error("XZOGOT_MP40_GRIP_SHEET_RED weapon model absent")
+		quit(38)
+		return
+	var camera := weapon.get_node_or_null("../Head/Camera3D") as Camera3D
+	# The exact camera node is an independent ancestor of the Weapon node.
+	if camera == null:
+		camera = root.get_node_or_null("Main/Player/Head/Camera3D") as Camera3D
+	var baseline: Quaternion = gun.quaternion
+	for roll_deg in [-90, 0, 90, 180]:
+		gun.quaternion = baseline * Quaternion(Vector3.RIGHT, deg_to_rad(float(roll_deg)))
+		await process_frame
+		await process_frame
+		var rendered: Image = root.get_texture().get_image()
+		if rendered == null or rendered.is_empty():
+			push_error("XZOGOT_MP40_GRIP_SHEET_RED no frame at roll=" + str(roll_deg))
+			quit(39)
+			return
+		var suffix := "neg90" if roll_deg == -90 else str(roll_deg)
+		var path := "/tmp/xogot-grip-%s-roll-%s.png" % [pose, suffix]
+		if rendered.save_png(path) != OK:
+			push_error("XZOGOT_MP40_GRIP_SHEET_RED save " + path)
+			quit(40)
+			return
+		var forward_camera := Vector3.ZERO
+		var up_camera := Vector3.ZERO
+		if camera != null:
+			var orient: Basis = camera.global_transform.basis.inverse() * gun.global_transform.basis.orthonormalized()
+			forward_camera = orient.x
+			up_camera = orient.y
+		print("XZOGOT_MP40_GRIP_SHEET_FRAME_GREEN pose=",pose,
+			" roll_deg=",roll_deg," gun_forward_camera=",forward_camera,
+			" gun_up_camera=",up_camera," path=",path)
+	gun.quaternion = baseline
+	await process_frame
+
+
 func _capture() -> void:
 	var orientation_setting: int = int(ProjectSettings.get_setting("display/window/handheld/orientation", -1))
 	if orientation_setting != 4:
@@ -213,6 +256,7 @@ func _capture() -> void:
 			quit(25)
 			return
 		print("XZOGOT_SCREENSHOT_HAND_UNITS_GREEN scale=0.01")
+		await _capture_source_grip_roll_sheet(weapon, "hip")
 		player.set_meta("ads_toggled", true)
 		# Recovered DT_Weapons ADS in/out time is 0.20 s; wait beyond the
 		# authored transition so the screenshot captures settled ADS.
@@ -238,6 +282,7 @@ func _capture() -> void:
 			" mode=", weapon.call("get_ads_calibration_mode"),
 			" alpha=", weapon.get_meta("weapon_ads_pose_alpha", 0.0)
 		)
+		await _capture_source_grip_roll_sheet(weapon, "ads")
 
 	# Third independent view: exterior/front facade audit from the playable yard.
 	if player != null:
