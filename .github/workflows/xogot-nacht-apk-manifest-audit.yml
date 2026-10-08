@@ -1,0 +1,83 @@
+name: Nacht APK Manifest AAPT2 Audit
+
+on:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-nacht-apk-manifest-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-nacht-apk-manifest-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RELEASE_RUN: "37714627909"
+    steps:
+      - name: Download exported Nacht APK without rebuilding the world
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/apk-proof" "$RUNNER_TEMP/nacht-release" build/nacht-apk-audit
+          gh run download "$SOURCE_RELEASE_RUN" \
+            -R "$GITHUB_REPOSITORY" \
+            -n Xogot-Nacht-Android-Release-Gauntlet \
+            -D "$RUNNER_TEMP/apk-proof"
+          apk="$(find "$RUNNER_TEMP/apk-proof" -type f -name 'you-wont-win-nacht-arm64.apk' -print -quit)"
+          test -n "$apk" && test -s "$apk"
+          echo "NACHT_AUDIT_APK=$apk" >> "$GITHUB_ENV"
+          echo "XZOGOT_NACHT_EXISTING_APK_GREEN bytes=$(stat -c%s "$apk")"
+
+      - name: Install modern Android build-tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          sdk="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$sdk" ]]; then
+            sdk="$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | sort -V | tail -n1)"
+          fi
+          test -x "$sdk"
+          "$sdk" "build-tools;35.0.1"
+          test -x "$ANDROID_HOME/build-tools/35.0.1/aapt2"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+
+      - name: Verify actual source-staged signed APK with AAPT2
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$NACHT_AUDIT_APK"
+          zipinfo -1 "$APK" > build/nacht-apk-audit/apk-files.txt
+          grep -q '^lib/arm64-v8a/' build/nacht-apk-audit/apk-files.txt
+          if grep -q '^lib/x86_64/' build/nacht-apk-audit/apk-files.txt; then
+            echo 'XZOGOT_NACHT_AUDIT_UNEXPECTED_X86'
+            exit 61
+          fi
+          "$ANDROID_HOME/build-tools/35.0.1/aapt2" dump badging "$APK" \
+            | tee build/nacht-apk-audit/aapt2-badging.txt
+          grep -Fq "package: name='com.xziel.youwontwin'" build/nacht-apk-audit/aapt2-badging.txt
+          grep -Eq "application-label:'YOU WON'T WIN'|application: label='YOU WON'T WIN'" build/nacht-apk-audit/aapt2-badging.txt
+          "$ANDROID_HOME/build-tools/35.0.1/apksigner" verify --verbose "$APK" \
+            | tee build/nacht-apk-audit/signature.txt
+          printf 'source_release_run=%s\napk_bytes=%s\n' "$SOURCE_RELEASE_RUN" "$(stat -c%s "$APK")" \
+            > build/nacht-apk-audit/identity.txt
+          echo 'XZOGOT_NACHT_EXISTING_APK_AAPT2_SIGNATURE_GREEN'
+
+      - name: Upload small audit proof
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Nacht-APK-AAPT2-Identity-Proof
+          path: build/nacht-apk-audit/
+          retention-days: 14
+          if-no-files-found: warn
