@@ -94,7 +94,13 @@ func _idle_mesh_without_original_reload_props(model: Node3D) -> bool:
 			else:
 				keep.append_array(PackedInt32Array([i0,i1,i2]))
 		a[Mesh.ARRAY_INDEX] = keep
-		filtered.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,a)
+		# Keep the source 8-bone weight layout; passing default flags made
+		# Godot reject the source vertex arrays as an invalid surface.
+		var format_flags: int = source_mesh.surface_get_format(surface_idx) & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS
+		filtered.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,a,[],{},format_flags)
+		if filtered.get_surface_count() != surface_idx + 1:
+			push_error("XZOGOT_SW357_FILTER_ARRAY_BUILD_RED surface=" + str(surface_idx))
+			return false
 		filtered.surface_set_material(surface_idx,source_mesh.surface_get_material(surface_idx))
 	gun_mesh.mesh = filtered
 	print("XZOGOT_SW357_ORIGINAL_RELOAD_ONLY_FACES_SUPPRESSED triangles=",dropped_total,
