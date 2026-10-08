@@ -1,0 +1,132 @@
+name: Nacht White Surface Material Picking
+
+on:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-nacht-white-material-picking.yml"
+  workflow_dispatch:
+    inputs:
+      source_stage:
+        description: "Validated Stage Nacht world artifact run"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-nacht-white-material-picking
+  cancel-in-progress: true
+
+jobs:
+  ablation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+      STAGE_RUN: ${{ inputs.source_stage || '37714627719' }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/godot-aaa-rebuild-v1
+
+      - name: Mount unchanged source-approved Nacht Stage #208
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/nacht-sky-test" build/nacht-sky-ablation
+          status="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/$STAGE_RUN" \
+            --jq '.status + ":" + (.conclusion // "")')"
+          test "$status" = "completed:success"
+          gh run download "$STAGE_RUN" -R "$GITHUB_REPOSITORY" \
+            -n Xogot-Nacht-Chronicles-Godot-Runtime \
+            -D "$RUNNER_TEMP/nacht-sky-test"
+          manifest="$(find "$RUNNER_TEMP/nacht-sky-test" -type f -name source_manifest.json -print -quit)"
+          test -n "$manifest"
+          source="$(dirname "$manifest")"
+          test -s "$source/nacht-static-scene.json"
+          rm -rf xogot/assets/benchmarks/nacht_chronicles
+          mkdir -p xogot/assets/benchmarks
+          cp -a "$source" xogot/assets/benchmarks/nacht_chronicles
+          echo "XZOGOT_NACHT_SKY_ABLATION_STAGE_MOUNT_GREEN run=$STAGE_RUN"
+
+      - name: Inject test-only material-ID ray probes into existing overview
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("xogot/ci/nacht_full_map_capture.gd")
+          s = p.read_text()
+          needle = '\tif not (await _save_view("/tmp/xogot-nacht-overview.png", "overview")):\n'
+          assert s.count(needle) == 1
+          probe = "\t# Material ID tracing from actual shot: raycast through source white areas.\n\tawait process_frame\n\tvar white_pixels: Array[Vector2] = [\n\t\tVector2(805, 391), Vector2(1063, 584), Vector2(1193, 613),\n\t\tVector2(909, 410), Vector2(70, 100), Vector2(99, 230),\n\t\tVector2(640, 360), Vector2(500, 300)\n\t]\n\tfor pixel: Vector2 in white_pixels:\n\t\tvar origin := overview_camera.project_ray_origin(pixel)\n\t\tvar direction := overview_camera.project_ray_normal(pixel)\n\t\tvar query := PhysicsRayQueryParameters3D.create(origin, origin + direction * overview_camera.far)\n\t\tquery.collide_with_areas = false\n\t\tvar hit: Dictionary = overview_camera.get_world_3d().direct_space_state.intersect_ray(query)\n\t\tvar label := \"none\"\n\t\tvar materials: Array[String] = []\n\t\tvar source_component_path := \"\"\n\t\tvar scene_mesh_index := -1\n\t\tvar hit_node: Node = hit.get(\"collider\", null) as Node\n\t\tvar node: Node = hit_node\n\t\tvar levels := 0\n\t\twhile node != null and levels < 14:\n\t\t\tif source_component_path.is_empty() and node.has_meta(\"source_component_path\"):\n\t\t\t\tsource_component_path = str(node.get_meta(\"source_component_path\"))\n\t\t\t\tscene_mesh_index = int(node.get_meta(\"source_scene_mesh_index\", -1))\n\t\t\tif node is MeshInstance3D:\n\t\t\t\tvar mesh_node := node as MeshInstance3D\n\t\t\t\tif mesh_node.mesh != null:\n\t\t\t\t\tfor surface_index in range(mesh_node.mesh.get_surface_count()):\n\t\t\t\t\t\tvar mat := mesh_node.get_active_material(surface_index)\n\t\t\t\t\t\tif mat != null:\n\t\t\t\t\t\t\tmaterials.append(str(mat.get_meta(\"source_material_path\", mat.resource_path)))\n\t\t\tlabel = node.name\n\t\t\tnode = node.get_parent()\n\t\t\tlevels += 1\n\t\tprint(\"XZOGOT_NACHT_WHITE_PIXEL_SOURCE_PICK \", JSON.stringify({\n\t\t\t\"xy\": [int(pixel.x), int(pixel.y)],\n\t\t\t\"hit\": not hit.is_empty(),\n\t\t\t\"hitNode\": str(hit_node.name) if hit_node != null else \"\",\n\t\t\t\"meshAncestor\": label,\n\t\t\t\"componentPath\": source_component_path,\n\t\t\t\"sourceSceneMeshIndex\": scene_mesh_index,\n\t\t\t\"materials\": materials,\n\t\t\t\"worldPosition\": str(hit.get(\"position\", Vector3.ZERO))\n\t\t}))\n\tprint(\"XZOGOT_NACHT_WHITE_PIXEL_RAYCAST_DIAGNOSTIC_GREEN count=\", white_pixels.size())\n"
+          p.write_text(s.replace(needle, probe + needle))
+          print("XZOGOT_NACHT_WHITE_PIXEL_RAYCAST_INJECTION_GREEN")
+          PY
+          echo "Test-only diagnostic; no source/material change shipped." > build/nacht-sky-ablation/source-parity.txt
+      - name: Install tested renderer and visual QA tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          export DEBIAN_FRONTEND=noninteractive
+          timeout 400 sudo apt-get update -qq
+          timeout 600 sudo apt-get install -y -qq unzip curl xvfb libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+          python3 -m pip install --user "pillow==11.3.0" || python3 -m pip install --break-system-packages "pillow==11.3.0"
+          curl -L --fail --retry 4 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot-sky.zip
+          mkdir -p /tmp/godot-sky
+          unzip -q /tmp/godot-sky.zip -d /tmp/godot-sky
+          chmod +x /tmp/godot-sky/Godot_v4.6.1-stable_linux.x86_64
+
+      - name: Import exact world and capture same overview under black sky
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 900 /tmp/godot-sky/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit \
+            2>&1 | tee build/nacht-sky-ablation/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|MAX_MESH_SURFACES" build/nacht-sky-ablation/import.log
+          timeout 1200 xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot-sky/Godot_v4.6.1-stable_linux.x86_64 \
+            --path xogot --rendering-method gl_compatibility \
+            --resolution 1280x720 --script res://ci/nacht_full_map_capture.gd \
+            2>&1 | tee build/nacht-sky-ablation/capture.log
+          grep -q 'XZOGOT_NACHT_WHITE_PIXEL_RAYCAST_DIAGNOSTIC_GREEN count=8' build/nacht-sky-ablation/capture.log
+          grep -q 'XZOGOT_NACHT_CAPTURE_WORLD_GREEN' build/nacht-sky-ablation/capture.log
+          test -s /tmp/xogot-nacht-overview.png
+          test -s /tmp/xogot-nacht-spawn.png
+          cp /tmp/xogot-nacht-overview.png build/nacht-sky-ablation/
+          cp /tmp/xogot-nacht-spawn.png build/nacht-sky-ablation/
+          echo 'XZOGOT_NACHT_WHITE_MATERIAL_CAPTURE_GREEN'
+
+      - name: Confirm source-white pixel persistence and preserve real ray hit report
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          python3 tools/maps/nacht_visual_void_guard.py \
+            --overview build/nacht-sky-ablation/xogot-nacht-overview.png \
+            --spawn build/nacht-sky-ablation/xogot-nacht-spawn.png \
+            --report build/nacht-sky-ablation/metrics.json \
+            --max-white-ratio 0.005 --max-white-blob 500
+          rc=$?
+          set -e
+          test "$rc" -eq 3
+          grep 'XZOGOT_NACHT_WHITE_PIXEL_SOURCE_PICK ' \
+            build/nacht-sky-ablation/capture.log > build/nacht-sky-ablation/picks.log
+          test "$(wc -l < build/nacht-sky-ablation/picks.log)" -eq 8
+          echo 'XZOGOT_NACHT_WHITE_SURFACE_MATERIAL_TRACE_GREEN hits=8 actual_whites_still_red=true'
+
+      - name: Upload exact white-material traces and runtime captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-White-Material-Ray-Trace
+          path: build/nacht-sky-ablation/
+          retention-days: 14
+          if-no-files-found: warn
