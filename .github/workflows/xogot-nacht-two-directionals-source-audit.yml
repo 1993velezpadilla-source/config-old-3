@@ -1,0 +1,87 @@
+name: Nacht Two Directional Source Photometry Audit
+
+on:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-nacht-two-directionals-source-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  source_light_provenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Recover UE photometry source from validated Stage #211
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/nacht-source-light" build/nacht-source-light
+          gh run download 37722343640 \
+            -R 1993velezpadilla-source/config-old-3 \
+            -n Xogot-Nacht-Chronicles-Godot-Runtime \
+            -D "$RUNNER_TEMP/nacht-source-light"
+          report="$(find "$RUNNER_TEMP/nacht-source-light" -name nacht-environment-report.json -type f -print -quit)"
+          test -s "$report"
+          root="$(dirname "$report")"
+          test -s "$root/nacht-lights.json"
+          python3 - "$root/nacht-lights.json" "$report" <<'PY'
+          import json,sys
+          from pathlib import Path
+          lights=json.loads(Path(sys.argv[1]).read_text())
+          report=json.loads(Path(sys.argv[2]).read_text())
+          source={str(v.get("id","")):v for v in lights.get("lights",[])}
+          items=report.get("lights",[])
+          assert len(items)==166 and int(report.get("lightCount",-1))==166
+          directional=[v for v in items if v.get("componentType")=="directional"]
+          assert len(directional)==2,len(directional)
+          rows=[]
+          for row in directional:
+              src=source.get(str(row.get("id","")),{})
+              assert src
+              props=src.get("properties",{})
+              obj={
+                "id":row.get("id"), "sourcePath":src.get("sourcePath"),
+                "sourceType":row.get("componentType"),
+                "sourceIntensity":row.get("intensity"),
+                "units":row.get("units"), "visible":row.get("visible"),
+                "sourceVisible":src.get("visible"), "color":row.get("color"),
+                "rotation":row.get("worldRotationUE"), "properties":props,
+                "compilerRuntime": {
+                  "physicalUnitsEnabledInShippingProject":False,
+                  "energyWrittenByRuntime":1.0,
+                  "sourceIntensityMappedTo":"DirectionalLight3D.light_intensity_lux",
+                  "sourceIntensityMappedOnlyWhenPhysicalUnitsEnabled":True
+                }
+              }
+              rows.append(obj)
+          result={
+            "name":"Nacht directional photometry source audit",
+            "sourceStageRun":37722343640, "lightCount":len(items),
+            "directionalCount":len(rows),
+            "pointCount":sum(x.get("componentType")=="point" for x in items),
+            "spotCount":sum(x.get("componentType")=="spot" for x in items),
+            "directionalSources":rows,
+            "unresolved":"Do not change source light intensity without UE exposure conversion."
+          }
+          Path("build/nacht-source-light/directional-source-report.json").write_text(json.dumps(result,indent=2)+"\n")
+          print("XZOGOT_NACHT_SOURCE_TWO_DIRECTIONALS_AUDIT_GREEN count=2")
+          for row in rows:
+              print("XZOGOT_NACHT_DIRECTIONAL_SOURCE",json.dumps(row,sort_keys=True,default=str))
+          PY
+      - name: Upload source photometric authority
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Two-Directional-Photometric-Truth
+          path: build/nacht-source-light/
+          retention-days: 14
+          if-no-files-found: warn
