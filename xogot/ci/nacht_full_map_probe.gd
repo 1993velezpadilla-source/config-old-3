@@ -432,6 +432,22 @@ func _run() -> void:
 	var collisions := int(scene.get_meta("world_collision_count", -1))
 	var source_lights := int(scene.get_meta("source_light_count", -1))
 	var runtime_lights := int(scene.get_meta("runtime_light_count", -1))
+	# Regressions: source-exact original UMAP LightSource has intensity=0,
+	# but an old bridge manufactured a white DirectionalLight energy=1.
+	# Keep the source actor, do NOT discard the light count; require
+	# rendered emission=0 for zero-intensity source at runtime.
+	var zero_source_sun := scene.find_child("light_0001", true, false) as DirectionalLight3D
+	var active_source_sun := scene.find_child("light_0000", true, false) as DirectionalLight3D
+	if (
+		zero_source_sun == null
+		or active_source_sun == null
+		or not is_zero_approx(zero_source_sun.light_energy)
+		or not is_zero_approx(zero_source_sun.light_intensity_lux)
+		or is_zero_approx(active_source_sun.light_energy)
+	):
+		_fail(60, "source-authored zero-intensity directional LightSource must emit zero")
+		return
+	print("XZOGOT_NACHT_SOURCE_ZERO_SUN_RUNTIME_GREEN inactive=light_0001 authored=0 energy=0 active=light_0000 preserved=true")
 	var complete_textures := int(scene.get_meta("source_complete_texture_catalog_count", -1))
 	var texture_failures := int(scene.get_meta("source_texture_load_failures", -1))
 	var textured_materials := int(scene.get_meta("source_material_textured_count", -1))
