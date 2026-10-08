@@ -92,6 +92,46 @@ func _start() -> void:
 				errs.append(id+":"+pose+":png_failed")
 				continue
 			total += 1
+			# Baseline before scope-glass fix: Mosin central glass mean 211/255,
+			# PTRS 197/255 in 48px optical aperture (completely opaque).
+			# Check actual rendered pixel transmission, not merely shader flags.
+			if pose == "ads" and (id == "mosin" or id == "ptrs"):
+				var sx: int = image.get_width() / 2
+				var sy: int = image.get_height() / 2
+				var sum_luminance: float = 0.0
+				var samples: int = 0
+				for ix in range(-22, 23, 4):
+					for iy in range(-22, 23, 4):
+						if absi(ix) < 8 and absi(iy) < 8:
+							continue
+						var pix: Color = image.get_pixel(sx + ix, sy + iy)
+						sum_luminance += (pix.r + pix.g + pix.b) / 3.0
+						samples += 1
+				var aperture_light: float = sum_luminance / maxf(float(samples), 1.0)
+				print("XZOGOT_SCOPED_LENS_TRANSMISSION id=",id,
+					" aperture_mean_0_1=",aperture_light,
+					" old_opaque_baseline_mosin_0_1=0.827 ptrs_0_1=0.771")
+				if aperture_light > 0.59:
+					errs.append(id+":scope_lens_blocks_camera_optical_axis="+str(aperture_light))
+			var gun_node: Node3D = weapon.get("_weapon_model_root") as Node3D
+			var glass_seen := false
+			if gun_node != null:
+				for render_node: Node in gun_node.find_children("*", "MeshInstance3D", true, false):
+					if not (render_node is MeshInstance3D):
+						continue
+					var mesh_node := render_node as MeshInstance3D
+					if mesh_node.mesh == null:
+						continue
+					for surface_idx in range(mesh_node.mesh.get_surface_count()):
+						var surf_material := mesh_node.get_active_material(surface_idx)
+						if surf_material != null and "scope_glass" in surf_material.resource_name:
+							glass_seen = true
+							if surf_material is StandardMaterial3D:
+								var glass := surf_material as StandardMaterial3D
+								if glass.transparency != BaseMaterial3D.TRANSPARENCY_ALPHA:
+									errs.append(id+":scope_lens_material_still_opaque")
+			if not glass_seen:
+				errs.append(id+":real_scope_glass_surface_not_found")
 			var result_angle := float(weapon.get_meta("weapon_ads_visual_bore_error_deg", -1.0))
 			var result_sight := float(weapon.get_meta("weapon_ads_source_sight_error_m", -1.0))
 			if pose == "ads":
