@@ -62,7 +62,9 @@ static func _collect_animation_names(node: Node, out: Array[String]) -> void:
 				var full_name: String = str(anim_name)
 				if str(lib_name) != "":
 					full_name = str(lib_name) + "/" + full_name
-				# Preserve exact imported GLB capitalization: Godot AnimationPlayer\n			# has_animation()/play() are case-sensitive. Only comparisons are lowercased.\n			out.append(full_name)
+				# Preserve exact imported GLB capitalization: Godot AnimationPlayer
+			# has_animation()/play() are case-sensitive. Only comparisons are lowercased.
+			out.append(full_name)
 	for child: Node in node.get_children():
 		_collect_animation_names(child, out)
 
