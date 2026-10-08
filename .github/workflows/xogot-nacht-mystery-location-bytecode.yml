@@ -1,0 +1,204 @@
+name: Xogot Nacht Mystery Box Location Bytecode
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-nacht-mystery-location-bytecode.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xogot-nacht-mystery-location-bytecode
+  cancel-in-progress: true
+
+jobs:
+  extract:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      WORKSHOP_APP_ID: "555160"
+      WORKSHOP_ITEM_ID: "2755515831"
+      XZOGOT_ENGINE_VERSION: "VER_UE4_21"
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/godot-aaa-rebuild-v1
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Download exact Nacht source and select MysteryBoxLocation
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $steam=Join-Path $env:RUNNER_TEMP 'steamcmd'
+          New-Item -ItemType Directory -Force -Path $steam | Out-Null
+          Invoke-WebRequest 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip' -OutFile "$env:RUNNER_TEMP\steamcmd.zip"
+          Expand-Archive "$env:RUNNER_TEMP\steamcmd.zip" -DestinationPath $steam -Force
+          & (Join-Path $steam 'steamcmd.exe') +login anonymous +workshop_download_item $env:WORKSHOP_APP_ID $env:WORKSHOP_ITEM_ID validate +quit
+          $global:LASTEXITCODE=0
+
+          $root=Get-ChildItem $steam,$env:RUNNER_TEMP -Directory -Recurse -ErrorAction SilentlyContinue |
+            Where-Object {$_.FullName -like "*steamapps\workshop\content\$env:WORKSHOP_APP_ID\$env:WORKSHOP_ITEM_ID"} |
+            Select-Object -First 1
+          if(-not $root){throw 'Nacht workshop payload not found'}
+          $pak=Join-Path $root.FullName 'WindowsNoEditor.pak'
+          if(-not (Test-Path $pak)){throw 'Nacht PAK missing'}
+          if((Get-Item $pak).Length -ne 2543506907){throw 'Nacht PAK byte authority mismatch'}
+
+          Invoke-WebRequest 'https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-pc-windows-msvc.zip' -OutFile "$env:RUNNER_TEMP\repak.zip"
+          $repakDir="$env:RUNNER_TEMP\repak"
+          Expand-Archive "$env:RUNNER_TEMP\repak.zip" -DestinationPath $repakDir -Force
+          $repak=Get-ChildItem $repakDir -Filter repak.exe -Recurse | Select-Object -First 1
+          if(-not $repak){throw 'repak missing'}
+
+          & $repak.FullName list $pak | Set-Content build-all-paths.txt -Encoding utf8
+          @'
+          from pathlib import Path
+          lines=sorted(set(
+              x.strip().replace("\\","/")
+              for x in Path("build-all-paths.txt").read_text(
+                  encoding="utf-8-sig",errors="ignore"
+              ).splitlines() if x.strip()
+          ))
+          uassets=[
+              x for x in lines
+              if Path(x).name.lower()=="mysteryboxlocation.uasset"
+              and "/Blueprints/" in x
+          ]
+          if len(uassets)!=1:
+              raise SystemExit(f"MysteryBoxLocation source mismatch {uassets}")
+          base=uassets[0][:-len(".uasset")]
+          selected=[
+              x for x in lines
+              if x.lower().startswith(base.lower()+".")
+          ]
+          if not selected:
+              raise SystemExit("MysteryBoxLocation package files missing")
+          Path("mystery-location-uasset.txt").write_text(
+              uassets[0]+"\n",encoding="utf-8"
+          )
+          Path("mystery-location-files.txt").write_text(
+              "\n".join(selected)+"\n",encoding="utf-8"
+          )
+          print("XZOGOT_NACHT_MYSTERY_LOCATION_SOURCE_FOUND",uassets[0],selected)
+          '@ | python -
+
+          Remove-Item nacht-mystery-location -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path nacht-mystery-location | Out-Null
+          $args=@('unpack',$pak,'-o','nacht-mystery-location','--force')
+          Get-Content mystery-location-files.txt | ForEach-Object {
+            if($_){$args += @('-i',$_)}
+          }
+          & $repak.FullName @args
+          if($LASTEXITCODE -ne 0){throw "selective repak failed $LASTEXITCODE"}
+          $global:LASTEXITCODE=0
+          Write-Host 'XZOGOT_NACHT_MYSTERY_LOCATION_SOURCE_GREEN'
+
+      - name: Pin Pavlov UE4 mappings
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          Invoke-WebRequest 'https://raw.githubusercontent.com/THW-Reaper/PavlovVRMappings/4976647b4f3a209042460bc55a7a3122662d05b7/PavMappings.usmap' -OutFile PavMappings.usmap
+          $hash=(Get-FileHash PavMappings.usmap -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($hash -ne '6d19f9731cc3fbaba34ca8e0833e81e4ffdf1b407edf24de48b1ccb5c63b060c'){throw "mappings mismatch $hash"}
+
+      - name: Build proven Blueprint bytecode extractor
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $project='tools/maps/UENuketownWallbuyBytecode/UENuketownWallbuyBytecode.csproj'
+          dotnet restore $project
+          dotnet build $project -c Release --no-restore
+          if($LASTEXITCODE -ne 0){throw 'bytecode extractor build failed'}
+
+      - name: Decompile MysteryBoxLocation bytecode
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          New-Item -ItemType Directory -Force -Path build/nacht-mystery-location | Out-Null
+          $relative=(Get-Content mystery-location-uasset.txt | Select-Object -First 1).Replace('/','\')
+          $asset=Join-Path (Resolve-Path nacht-mystery-location).Path $relative
+          if(-not (Test-Path $asset)){throw "MysteryBoxLocation asset missing after unpack $asset"}
+          $app='tools/maps/UENuketownWallbuyBytecode/bin/Release/net10.0/UENuketownWallbuyBytecode.dll'
+          dotnet $app PavMappings.usmap build/nacht-mystery-location/MysteryBoxLocation.json $asset 2>&1 |
+            Tee-Object build/nacht-mystery-location/MysteryBoxLocation.log
+          if($LASTEXITCODE -ne 0){throw "bytecode extractor failed $LASTEXITCODE"}
+          if(-not (Select-String -Path build/nacht-mystery-location/MysteryBoxLocation.log -Pattern 'XZOGOT_NUKETOWN_WALLBUY_BYTECODE_GREEN' -Quiet)){
+            throw 'bytecode GREEN marker missing'
+          }
+
+          @'
+          import json
+          from pathlib import Path
+          src=Path("build/nacht-mystery-location/MysteryBoxLocation.json")
+          doc=json.loads(src.read_text())
+          assert doc.get("ready") is True,doc
+          assert int(doc.get("packageSuccessCount",0))==1,doc
+          assert int(doc.get("failureCount",0))==0,doc
+          pkg=doc["packages"][0]
+          assert pkg.get("fileName")=="MysteryBoxLocation.uasset",pkg.get("fileName")
+          functions=[
+              {
+                  "name":str(fn.get("name","")),
+                  "topLevelExpressionCount":len(fn.get("topLevelExpressions",[]) or []),
+              }
+              for fn in pkg.get("functions",[])
+          ]
+          imports=[
+              row for row in pkg.get("imports",[])
+              if any(
+                  token in json.dumps(row).lower()
+                  for token in ("mysterybox","spawnactor","random","location")
+              )
+          ]
+          refs=[
+              row for row in pkg.get("objectReferences",[])
+              if any(
+                  token in json.dumps(row).lower()
+                  for token in ("mysterybox","spawn","location")
+              )
+          ]
+          cdo=[
+              row for row in pkg.get("normalExportProperties",[])
+              if str(row.get("objectName",""))=="Default__MysteryBoxLocation_C"
+          ]
+          summary={
+              "schemaVersion":1,
+              "fileName":pkg.get("fileName"),
+              "functions":functions,
+              "relevantImports":imports,
+              "relevantObjectReferences":refs,
+              "defaultObject":cdo[0] if len(cdo)==1 else None,
+              "ready":len(cdo)==1,
+          }
+          Path("build/nacht-mystery-location/mystery-location-authority.json").write_text(
+              json.dumps(summary,indent=2)+"\n"
+          )
+          print("XZOGOT_NACHT_MYSTERY_LOCATION_BYTECODE_SUMMARY",json.dumps({
+              "functions":len(functions),
+              "relevantImports":len(imports),
+              "relevantObjectReferences":len(refs),
+              "defaultObject":len(cdo),
+          },separators=(",",":")))
+          if not summary["ready"]:
+              raise SystemExit("MysteryBoxLocation CDO authority missing")
+          print("XZOGOT_NACHT_MYSTERY_LOCATION_BYTECODE_GREEN")
+          '@ | python -
+
+      - name: Upload MysteryBoxLocation authority
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nacht-Mystery-Box-Location-Bytecode
+          path: |
+            build/nacht-mystery-location/
+            mystery-location-uasset.txt
+            mystery-location-files.txt
+          if-no-files-found: error
+          retention-days: 7

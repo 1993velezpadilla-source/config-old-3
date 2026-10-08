@@ -575,10 +575,10 @@ jobs:
           assert interactive["sourceActorAnchorCount"] == 11023, interactive
           assert interactive["missingRequiredCategories"] == [], interactive
           # Direct actor requirements must match the UMAP, not desired gameplay.
-          # MysteryBox_C is represented by MysteryBoxLocation_C here, and the
-          # source has no direct PowerSwitch_C actor anchor.
+          # MysteryBox_C is runtime-managed through MysteryBoxLocation_C here;
+          # Box5_C / Box_complete_C are Easter-egg actors, not Mystery Box.
+          # The source also has no direct PowerSwitch_C actor anchor.
           required_counts={
-              "mystery_box":1,
               "mystery_box_location":1,
               "pack_a_punch":1,
               "gumball_machine":1,
@@ -587,6 +587,7 @@ jobs:
               "barricade":1,
               "buyable_door":1,
           }
+          assert int(interactive["counts"].get("mystery_box",0)) == 0, interactive["counts"]
           assert int(interactive["counts"].get("power_switch",0)) == 0, interactive["counts"]
           for category,minimum in required_counts.items():
               assert int(interactive["counts"].get(category,0)) >= minimum, (category,interactive["counts"])

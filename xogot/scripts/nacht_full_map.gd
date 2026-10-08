@@ -581,11 +581,11 @@ func _validate_authority() -> bool:
 		push_error("NACHT_FULL_MAP: required source interactives missing " + str(missing_interactives))
 		return false
 	var interactive_counts := _interactive_placements.get("counts", {}) as Dictionary
-	# Gate only direct UMAP placements. MysteryBox_C is spawned from the
-	# MysteryBoxLocation_C authority and this Nacht source has no direct
+	# Gate only direct UMAP placements. MysteryBox_C is runtime-managed from
+	# MysteryBoxLocation_C authority. Box5_C / Box_complete_C are Easter-egg
+	# actors and must not satisfy this category. This source also has no direct
 	# PowerSwitch_C actor anchor.
 	var required_interactive_minimums := {
-		"mystery_box": 1,
 		"mystery_box_location": 1,
 		"pack_a_punch": 1,
 		"gumball_machine": 1,
@@ -594,6 +594,9 @@ func _validate_authority() -> bool:
 		"barricade": 1,
 		"buyable_door": 1,
 	}
+	if int(interactive_counts.get("mystery_box", -1)) != 0:
+		push_error("NACHT_FULL_MAP: direct MysteryBox_C placement diverged from source")
+		return false
 	if int(interactive_counts.get("power_switch", -1)) != 0:
 		push_error("NACHT_FULL_MAP: direct power switch placement diverged from source")
 		return false

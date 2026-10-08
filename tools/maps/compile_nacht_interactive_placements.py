@@ -13,9 +13,10 @@ import json
 from pathlib import Path
 
 CATEGORIES = {
-    # Nacht's placed Mystery Box actors are authored as Box5 / Box_complete.
-    # MysteryBox_C is the support/base Blueprint, not the placed map class.
-    "mystery_box": ("mysterybox_c", "box5_c", "box_complete_c"),
+    # MysteryBox_C is the actual weapon-box Blueprint. Box5_C and
+    # Box_complete_C are unrelated Easter-egg actors (Box_complete owns the
+    # five doll locations) and must never be promoted into Mystery Box actors.
+    "mystery_box": ("mysterybox_c",),
     "mystery_box_location": ("mysteryboxlocation_c",),
     "pack_a_punch": ("punchapackmachine_c",),
     "gumball_machine": ("machinegumball_c",),
@@ -31,9 +32,9 @@ CATEGORIES = {
 
 # These systems are expected for a playable Nacht source-world handoff.
 REQUIRED = (
-    # The placed source classes are Box5_C / Box_complete_C; the classifier
-    # above maps them into mystery_box without synthesizing MysteryBox_C.
-    "mystery_box",
+    # The UMAP places MysteryBoxLocation_C authority. MysteryBox_C itself is
+    # runtime-managed by that system, so direct placement is intentionally
+    # not required here.
     "mystery_box_location",
     "pack_a_punch",
     "gumball_machine",
