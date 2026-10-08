@@ -2147,6 +2147,49 @@ func _track_pending_ads_sight_center() -> void:
 	set_meta("weapon_ads_visual_bore_error_deg",
 		rad_to_deg(acos(clampf(bore_after.dot(Vector3.FORWARD), -1.0, 1.0))))
 
+# Imported UE5.7 DT_Weapons HIP/ADS transforms remain the source authority.
+# Godot's imported viewhands/socket conversion differs by centimeters, so at
+# fully aimed idle pose register an AUTHORED sight socket with the camera ray.
+# Apply this offset only to the rendered whole hands+gun rig, never to
+# _ads_pose_position, bone poses, ballistic direction, or source timing.
+func _register_authored_source_sight() -> void:
+	if _camera == null or _view_root == null or _weapon_model_root == null:
+		return
+	if _ads_calibration_mode != "source_datatable" or _ads_pose_alpha < 0.98:
+		return
+	if _reloading:
+		return
+	var sight_kind := ""
+	var sight_world := Vector3.ZERO
+	for bone_name in ["tag_iron_sights", "tag_scope", "tag_no_scope"]:
+		var candidate: Dictionary = _gun_skeleton_bone_world(bone_name)
+		if bool(candidate.get("found", false)):
+			sight_world = candidate.get("position", Vector3.ZERO)
+			sight_kind = bone_name
+			break
+	if sight_kind.is_empty():
+		set_meta("weapon_ads_source_sight_registration", "missing_original_sight_socket")
+		return
+	var before: Vector3 = _camera.to_local(sight_world)
+	if not before.is_finite():
+		return
+	# No fabricated per-weapon offset. Center the real source tag optical ray.
+	# The imported scope socket must stay in FRONT of the camera near plane.
+	var min_depth_m: float = maxf(_camera.near + 0.09, 0.17)
+	var depth_correction: float = minf(0.0, -min_depth_m - before.z)
+	_view_root.position += Vector3(-before.x, -before.y, depth_correction)
+	var source_after: Dictionary = _gun_skeleton_bone_world(sight_kind)
+	var after: Vector3 = _camera.to_local(
+		source_after.get("position", sight_world)
+	)
+	set_meta("weapon_ads_source_sight_registration", "runtime_optical_registration")
+	set_meta("weapon_ads_source_sight_socket", sight_kind)
+	set_meta("weapon_ads_source_sight_initial_offset_m", Vector2(before.x, before.y).length())
+	set_meta("weapon_ads_source_sight_error_m", Vector2(after.x, after.y).length())
+	set_meta("weapon_ads_source_sight_depth_m", after.z)
+	set_meta("weapon_ads_source_optical_correction_m",
+		Vector3(-before.x, -before.y, depth_correction).length())
+
 func _update_visual_recoil(delta: float) -> void:
 	# Presentation only. Ballistic ray direction/spread was already computed above.
 	var spring: float = 54.0
@@ -2188,6 +2231,8 @@ func _update_visual_recoil(delta: float) -> void:
 		set_meta("weapon_ads_pose_alpha", _ads_pose_alpha)
 		if is_ads_active() and _pending_ads_geometry_solved:
 			_track_pending_ads_sight_center()
+		if is_ads_active() and source_presentation:
+			_register_authored_source_sight()
 
 func set_dev_infinite_ammo(enabled: bool) -> void:
 	_dev_infinite_ammo = enabled
