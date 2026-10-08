@@ -20,7 +20,18 @@ concurrency:
 jobs:
   render:
     runs-on: ubuntu-latest
-    timeout-minutes: 19
+    timeout-minutes: 16
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - start: 0
+            end: 14
+          - start: 14
+            end: 28
+    env:
+      XOGOT_GRIP_START: ${{ matrix.start }}
+      XOGOT_GRIP_END: ${{ matrix.end }}
     steps:
       - uses: actions/checkout@v5
 
@@ -47,7 +58,7 @@ jobs:
             2>&1 | tee build/grip-visual/import.log
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/grip-visual/import.log
 
-      - name: Render 28 guns x HIP plus ADS
+      - name: Render 14 real guns HIP plus ADS
         shell: bash
         run: |
           set -euo pipefail
@@ -57,15 +68,15 @@ jobs:
             --resolution 1280x720 \
             --script res://ci/all_gun_grip_visual_sheet.gd \
             2>&1 | tee build/grip-visual/render.log
-          grep -q "XZOGOT_ALL_28_GUNS_VISUAL_SHEET_GREEN 56" build/grip-visual/render.log
-          test "$(find /tmp/xogot-all-guns -name '*.png' | wc -l)" -eq 56
+          grep -q "XZOGOT_ALL_GUNS_VISUAL_SHARD_GREEN count=28" build/grip-visual/render.log
+          test "$(find /tmp/xogot-all-guns -name '*.png' | wc -l)" -eq 28
           ! grep -E "SCRIPT ERROR|Parse Error|ALL_GUN_GRIP_VISUAL_RED" build/grip-visual/render.log
 
       - name: Upload ALL original Godot HIP ADS PNGs even if renderer is RED
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Xogot-All-28-Real-Gun-HIP-ADS-Images
+          name: Xogot-Real-Guns-HIP-ADS-Images-${{ matrix.start }}-${{ matrix.end }}
           path: /tmp/xogot-all-guns/*.png
           if-no-files-found: warn
           retention-days: 14
@@ -74,7 +85,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Xogot-All-28-Real-Gun-Visual-Logs
+          name: Xogot-Real-Guns-Visual-Logs-${{ matrix.start }}-${{ matrix.end }}
           path: build/grip-visual/*.log
           if-no-files-found: warn
           retention-days: 14
