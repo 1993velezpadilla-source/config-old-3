@@ -54,7 +54,7 @@ func _run() -> void:
 		total += 1
 		player.set_meta("ads_toggled", true)
 		await create_timer(0.85).timeout
-		var is_scoped := id in ["mosin", "ptrs"]
+		var is_scoped: bool = str(id) in ["mosin", "ptrs"]
 		if mask.visible != is_scoped:
 			_fail("scope overlay state wrong in ADS " + id)
 			return
