@@ -109,6 +109,9 @@ func _run() -> void:
 	if not animator.has_animation("PSA_HandIdleMP40"):
 		_fail("actual original HandIdleMP40 clip missing")
 		return
+	if str(weapon.get_meta("weapon_source_attachment_bone_name", "")) != "tag_weapon":
+		_fail("actual source grip bone is not exactly tag_weapon; helper/end bone selected")
+		return
 	if not bool(weapon.get_meta("weapon_source_weapon_attachment_ready", false)):
 		_fail("original hand to gun socket not bound")
 		return
