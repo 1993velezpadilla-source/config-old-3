@@ -8,6 +8,8 @@ on:
       - "xogot/ci/source_sight_attachment_audit.gd"
       - "xogot/scripts/weapon.gd"
       - "xogot/data/weapon_viewmodel_source_presentation.json"
+      - "xogot/data/weapon_viewmodel_source_pose.json"
+      - "xogot/assets/weapons/mapmod_weapon_asset_manifest.json"
       - ".github/workflows/xogot-all-guns-ads-sight-audit.yml"
 permissions:
   contents: read
