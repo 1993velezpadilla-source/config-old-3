@@ -100,6 +100,28 @@ func _capture() -> void:
 			"/", weapon.get_meta("weapon_texture_surfaces", 0)
 		)
 
+	# The source weapon manifest explicitly requires real meter-space guns,
+	# longest axis 0.3–1.5 m. Prior screenshot #65 was erroneously GREEN
+	# with a microscopic MP40 0.0071 m long, invisible behind bare fists.
+	if weapon != null and weapon.has_method("get_first_person_debug_snapshot"):
+		var snapshot := weapon.call("get_first_person_debug_snapshot") as Dictionary
+		var mesh_bounds := snapshot.get("weapon", {}) as Dictionary
+		var size := mesh_bounds.get("size", Vector3.ZERO) as Vector3
+		var longest := maxf(size.x, maxf(size.y, size.z))
+		if (
+			not bool(mesh_bounds.get("found", false))
+			or longest < 0.3
+			or longest > 1.5
+			or not bool(weapon.get_meta("weapon_source_attachment_meter_units_restored", false))
+		):
+			push_error("SCREENSHOT: real MP40 source meter-space AABB invalid: " + str(mesh_bounds))
+			quit(34)
+			return
+		print(
+			"XZOGOT_MP40_RUNTIME_METER_BOUNDS_GREEN longest_m=", longest,
+			" rig_inherited_scale=", weapon.get_meta("weapon_source_attachment_inherited_scale", Vector3.ONE)
+		)
+
 	var round_manager: Node = scene.get_node_or_null("RoundManager")
 	if round_manager != null:
 		round_manager.set("auto_start", false)
@@ -239,4 +261,19 @@ func _capture() -> void:
 			return
 		print("XZOGOT_EXTERIOR_SCREENSHOT_GREEN ", exterior_path, " ", exterior_image.get_width(), "x", exterior_image.get_height())
 
-	quit(0)
+	# The source screenshots have been saved. Release scene-owned imported
+	# weapon models, audio players, zombies and materials before test exit.
+	# This avoids mistaking Godot ObjectDB leftovers for a rendering failure.
+	scene.queue_free()
+	for cleanup_frame in range(4):
+		await process_frame
+	if is_instance_valid(scene):
+		push_error("SCREENSHOT: imported gameplay scene teardown incomplete")
+		quit(30)
+		return
+	print("XZOGOT_SCREENSHOT_SCENE_TEARDOWN_GREEN")
+	# Do not destroy the SceneTree while this coroutine still holds temporary
+	# PackedScene, Image, and Node references. Exit in the next idle turn,
+	# *after* the source capture stack has returned and released resources.
+	call_deferred("quit", 0)
+	return

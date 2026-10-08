@@ -56,6 +56,9 @@ func _run_probe() -> void:
 		_fail(53, "base DT_Weapons source table must cover exactly 28 firearms")
 		return
 
+	var source_geometry_blockers: Array[String] = []
+	var source_attachment_blockers: Array[String] = []
+
 	for id: String in FIREARMS:
 		if not WeaponCatalog.has_weapon(id):
 			_fail(10, "catalog missing " + id)
@@ -167,6 +170,44 @@ func _run_probe() -> void:
 		if absf(yaw_fix - 90.0) > 0.01:
 			_fail(27, "forward-axis correction missing " + id + " yaw=" + str(yaw_fix))
 			return
+
+		# Keep the original source asset failure visible, but continue to
+		# the other weapons so all 28 receive an honest independent verdict.
+		if viewmodel_path.contains("/aether_waw_real/"):
+			var attachment_ready := bool(weapon.get_meta("weapon_source_weapon_attachment_ready", false))
+			var gun_roll_deg := float(weapon.get_meta("weapon_source_gun_roll_correction_deg", -1.0))
+			var gun_node := weapon.get("_weapon_model_root") as Node3D
+			var hand_socket := weapon.get("_source_weapon_attachment") as Node3D
+			var connected := gun_node != null and hand_socket != null
+			if connected:
+				connected = gun_node.get_parent() == hand_socket
+			var inherited_meters_ok := bool(weapon.get_meta("weapon_source_attachment_meter_units_restored", false))
+			var local_up_ok := false
+			if gun_node != null:
+				var up_in_socket := gun_node.transform.basis.orthonormalized() * Vector3.UP
+				local_up_ok = up_in_socket.distance_to(Vector3.BACK) <= 0.01
+			if (not attachment_ready or not connected
+				or absf(gun_roll_deg - 90.0) > 0.01
+				or not inherited_meters_ok or not local_up_ok):
+				source_attachment_blockers.append(id)
+				print("XZOGOT_ALL_GUNS_ATTACHMENT_BLOCKER ", id,
+					" source_socket=", attachment_ready,
+					" socket_parent=", connected,
+					" local_roll_deg=", gun_roll_deg,
+					" meter_units=", inherited_meters_ok,
+					" local_up_correct=", local_up_ok)
+			var source_snapshot: Dictionary = weapon.call("get_first_person_debug_snapshot")
+			var gun_bounds: Dictionary = source_snapshot.get("weapon", {}) as Dictionary
+			var gun_size: Vector3 = gun_bounds.get("size", Vector3.ZERO)
+			var gun_max_axis: float = maxf(gun_size.x, maxf(gun_size.y, gun_size.z))
+			if not bool(gun_bounds.get("found", false)) or gun_max_axis < 0.15 or gun_max_axis > 2.5:
+				source_geometry_blockers.append(id + ":" + str(gun_max_axis))
+				print("XZOGOT_ALL_GUNS_GEOMETRY_BLOCKER ", id,
+					" longest_m=", gun_max_axis, " camera_aabb=", gun_bounds)
+			elif attachment_ready and connected and local_up_ok and inherited_meters_ok:
+				print("XZOGOT_ALL_GUNS_GRIP_BASIS_GREEN ", id,
+					" roll_deg=", gun_roll_deg, " gun_m=", gun_max_axis,
+					" camera_aabb=", gun_bounds, " animated_socket=", attachment_ready)
 
 		var texture_surfaces := int(weapon.get_meta("weapon_texture_surfaces", 0))
 		var resolved_surfaces := int(weapon.get_meta("weapon_resolved_surfaces", 0))
@@ -312,6 +353,11 @@ func _run_probe() -> void:
 		)
 
 	print("XZOGOT_AAA_28_BASE_DT_WEAPONS_GREEN 28")
+	if not source_geometry_blockers.is_empty() or not source_attachment_blockers.is_empty():
+		_fail(70, "source viewmodel blockers: geometry=" + str(source_geometry_blockers)
+			+ " attachment=" + str(source_attachment_blockers))
+		return
+	print("XZOGOT_ALL_28_GUNS_GRIP_BASIS_GREEN count=28")
 	print("XZOGOT_AAA_28_FIREARMS_GREEN 28")
 	print("XZOGOT_AAA_WEAPON_RUNTIME_GATE_GREEN")
 	scene.queue_free()

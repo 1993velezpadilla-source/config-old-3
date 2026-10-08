@@ -1,0 +1,80 @@
+name: Xogot All Gun Grip HIP ADS Visual Sheet
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/source-viewmodel-inherited-hands-unit-scale
+    paths:
+      - "xogot/ci/all_gun_grip_visual_sheet.gd"
+      - "xogot/scripts/weapon.gd"
+      - ".github/workflows/xogot-all-gun-grip-visual-sheet.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xogot-all-source-gun-grips-visual-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 19
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install render dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+
+      - name: Import and parse assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/grip-visual /tmp/xogot-all-guns
+          timeout 240 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit \
+            2>&1 | tee build/grip-visual/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/grip-visual/import.log
+
+      - name: Render 28 guns x HIP plus ADS
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 660 xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --path xogot --audio-driver Dummy --rendering-method gl_compatibility \
+            --resolution 1280x720 \
+            --script res://ci/all_gun_grip_visual_sheet.gd \
+            2>&1 | tee build/grip-visual/render.log
+          grep -q "XZOGOT_ALL_28_GUNS_VISUAL_SHEET_GREEN 56" build/grip-visual/render.log
+          test "$(find /tmp/xogot-all-guns -name '*.png' | wc -l)" -eq 56
+          ! grep -E "SCRIPT ERROR|Parse Error|ALL_GUN_GRIP_VISUAL_RED" build/grip-visual/render.log
+
+      - name: Upload ALL original Godot HIP ADS PNGs even if renderer is RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-All-28-Real-Gun-HIP-ADS-Images
+          path: /tmp/xogot-all-guns/*.png
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload all grip rendering logs even on RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-All-28-Real-Gun-Visual-Logs
+          path: build/grip-visual/*.log
+          if-no-files-found: warn
+          retention-days: 14

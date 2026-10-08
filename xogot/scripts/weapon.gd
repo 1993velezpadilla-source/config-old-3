@@ -464,6 +464,27 @@ func _sync_source_weapon_attachment() -> void:
 	# offsets or guessed corrections are involved.
 	var animated_pose := _source_hands_skeleton.get_bone_global_pose(_source_weapon_bone_idx)
 	_source_weapon_attachment.transform = animated_pose
+	# The source hand Skeleton3D still carries its cm→m import scale,
+	# but MapMod gun GLBs are authored in meters (manifest quality contract).
+	# Parenting the meter-space gun directly under tag_weapon otherwise
+	# scales the whole gun *again*: MP40 becomes 0.007 m long in camera,
+	# despite real material/animation gates saying GREEN. Cancel ONLY the
+	# inherited skeleton rig scale, derived from its actual world basis,
+	# while preserving exact animated bone translation/rotation.
+	if _weapon_model_root != null and is_instance_valid(_weapon_model_root):
+		var inherited_units := _source_weapon_attachment.global_transform.basis.get_scale()
+		if (
+			inherited_units.x > 0.000001
+			and inherited_units.y > 0.000001
+			and inherited_units.z > 0.000001
+		):
+			_weapon_model_root.scale = Vector3(
+				1.0 / inherited_units.x,
+				1.0 / inherited_units.y,
+				1.0 / inherited_units.z
+			)
+			set_meta("weapon_source_attachment_inherited_scale", inherited_units)
+			set_meta("weapon_source_attachment_meter_units_restored", true)
 	set_meta("weapon_source_attachment_manual_pose_sync", true)
 	set_meta("weapon_source_attachment_pose", animated_pose)
 
@@ -500,6 +521,8 @@ func _find_skeleton_bone_attachment(node: Node, aliases: Array[String], attachme
 func _orient_imported_viewmodel(model: Node3D, model_path: String) -> void:
 	if model == null:
 		return
+	# Track import basis per equip, never reuse a previous gun's source metadata.
+	set_meta("weapon_source_imported_aether", model_path.contains("/aether_waw_real/"))
 	# Aether/WaW source convention: tag_flash is authored along +X.
 	# Godot camera forward is -Z, therefore +90 deg around Y maps +X -> -Z.
 	if model_path.contains("/aether_waw_real/"):
@@ -715,6 +738,16 @@ func _bind_weapon_to_source_hands() -> bool:
 	# tag_weapon bone supplies the authored per-weapon HIP placement.
 	_weapon_model_root.reparent(attachment, false)
 	_weapon_model_root.transform = Transform3D.IDENTITY
+	# The original Aether meter-space GLBs have the gun's vertical plane 90°
+	# off the source hands' tag_weapon socket. Real MP40 HIP/ADS A/B captures
+	# demonstrated that +90° about the gun's own +X forward axis restores
+	# gravity-down magazine orientation AND an upright, centered ADS sight.
+	# This is a shared import-axis conversion for EVERY Aether firearm, NOT
+	# a weapon-specific pose/hand offset. The authored hands skeleton/PSA and
+	# per-weapon source HIP/ADS datatable transforms stay untouched.
+	var gun_roll_deg := 90.0 if bool(get_meta("weapon_source_imported_aether", false)) else 0.0
+	_weapon_model_root.quaternion = Quaternion(Vector3.RIGHT, deg_to_rad(gun_roll_deg))
+	set_meta("weapon_source_gun_roll_correction_deg", gun_roll_deg)
 	_weapon_model_root.scale = Vector3.ONE
 	_sync_source_weapon_attachment()
 
