@@ -83,6 +83,26 @@ func _capture() -> void:
 			push_error("SCREENSHOT: heuristic viewmodel scale detected")
 			quit(17)
 			return
+		var source_roll_deg := float(weapon.get_meta("weapon_source_gun_roll_correction_deg", -999.0))
+		if absf(source_roll_deg - 90.0) > 0.01:
+			push_error("SCREENSHOT: MP40 proven source grip roll missing " + str(source_roll_deg))
+			quit(26)
+			return
+		var source_gun := weapon.get("_weapon_model_root") as Node3D
+		var source_socket := weapon.get("_source_weapon_attachment") as Node3D
+		if source_gun == null or source_socket == null or source_gun.get_parent() != source_socket:
+			push_error("SCREENSHOT: MP40 source gun/socket hierarchy invalid after grip correction")
+			quit(27)
+			return
+		var gun_up_in_socket := source_gun.transform.basis.orthonormalized() * Vector3.UP
+		if gun_up_in_socket.distance_to(Vector3.BACK) > 0.01:
+			push_error("SCREENSHOT: MP40 source grip axis still sideways " + str(gun_up_in_socket))
+			quit(28)
+			return
+		print(
+			"XZOGOT_MP40_PROVEN_GRIP_GREEN roll_deg=", source_roll_deg,
+			" gun_up_socket=", gun_up_in_socket
+		)
 		if not bool(weapon.get_meta("weapon_texture_ready", false)):
 			push_error(
 				"SCREENSHOT: weapon texture binding incomplete "
