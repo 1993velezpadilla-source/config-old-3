@@ -65,6 +65,41 @@ func _trace_hand_wrist_grip(skeleton: Skeleton3D, camera: Camera3D, id: String, 
 		" skeleton=",skeleton.name," bones=",skeleton.get_bone_count(),
 		" tracked=",found.size()," wrist_data=",found)
 
+# True joint-to-joint grip measurements (different from broad weapon AABBs).
+# Use native imported gun grip sockets and the animated original hand wrists,
+# never manufactured contact targets or per-weapon guessed offsets.
+func _trace_gun_hand_native_contact(gun_sk: Skeleton3D, hand_sk: Skeleton3D,
+		camera: Camera3D, id: String, pose_name: String) -> void:
+	if gun_sk == null or hand_sk == null or camera == null:
+		print("XZOGOT_SOURCE_NATIVE_GRIP_POINTS_PENDING id=",id,
+			" pose=",pose_name," reason=missing_source_skeleton")
+		return
+	var gun_contact_bones: Dictionary = {}
+	var hand_contact_bones: Dictionary = {}
+	for bone_idx in range(gun_sk.get_bone_count()):
+		var bone_name: String = str(gun_sk.get_bone_name(bone_idx))
+		if bone_name.to_lower().contains("grip") or bone_name == "j_gun":
+			gun_contact_bones[bone_name] = camera.to_local(
+				(gun_sk.global_transform * gun_sk.get_bone_global_pose(bone_idx)).origin)
+	for bone_name: String in ["j_wrist_ri","j_thumb_ri_3","j_pinkypalm_ri",
+			"j_wrist_le","j_thumb_le_3","j_pinkypalm_le"]:
+		var idx: int = hand_sk.find_bone(bone_name)
+		if idx >= 0:
+			hand_contact_bones[bone_name] = camera.to_local(
+				(hand_sk.global_transform * hand_sk.get_bone_global_pose(idx)).origin)
+	var right_wrist_gap_m := -1.0
+	if hand_contact_bones.has("j_wrist_ri"):
+		for gun_bone_name: String in gun_contact_bones:
+			var gap: float = (gun_contact_bones[gun_bone_name]
+				as Vector3).distance_to(hand_contact_bones["j_wrist_ri"] as Vector3)
+			if right_wrist_gap_m < 0.0 or gap < right_wrist_gap_m:
+				right_wrist_gap_m = gap
+	print("XZOGOT_SOURCE_NATIVE_GRIP_POINTS id=",id," pose=",pose_name,
+		" candidate_source_grips=",gun_contact_bones,
+		" animated_source_hands=",hand_contact_bones,
+		" nearest_right_wrist_m=",right_wrist_gap_m,
+		" visual_fingers_contour_approval=REQUIRED")
+
 func _inspect() -> void:
 	var packed := load("res://main.tscn") as PackedScene
 	if packed == null:
@@ -111,6 +146,7 @@ func _inspect() -> void:
 			gun_up = basis.y
 		var muzzle_cam := cam.to_local(muzzle.global_position) if muzzle != null else Vector3.ZERO
 		var gun_geom: Dictionary = _mesh_bounds_in_root(gun) if gun != null else {}
+		_trace_gun_hand_native_contact(gun_skeleton,hands_skeleton,cam,id,"hip")
 		if id == "357" or id == "type100" or id == "mp40":
 			_trace_hand_wrist_grip(hands_skeleton, cam, id, "hip")
 		var hip_pos: Vector3 = weapon.get("_hip_pose_position")
@@ -125,6 +161,7 @@ func _inspect() -> void:
 		player.set_meta("ads_toggled", true)
 		await create_timer(0.60).timeout
 		await process_frame
+		_trace_gun_hand_native_contact(gun_skeleton,hands_skeleton,cam,id,"ads")
 		if id == "357" or id == "type100" or id == "mp40":
 			_trace_hand_wrist_grip(hands_skeleton, cam, id, "ads")
 		var solved_hip: Vector3 = weapon.get("_hip_pose_position")
