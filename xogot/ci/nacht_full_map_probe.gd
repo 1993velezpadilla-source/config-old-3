@@ -1867,6 +1867,51 @@ func _run() -> void:
 			_fail(35, "MysteryBox runtime source contract mismatch " + str(mystery_desc))
 			return
 		print("XZOGOT_NACHT_MYSTERY_INTERACTION_CONTRACT_GREEN source_pool=62 purchase_live=false")
+		var selected_0_raw: Variant = scene.call(
+			"select_source_mystery_weapon_by_index", 0
+		)
+		var selected_last_raw: Variant = scene.call(
+			"select_source_mystery_weapon_by_index", 61
+		)
+		var selected_invalid_raw: Variant = scene.call(
+			"select_source_mystery_weapon_by_index", 62
+		)
+		var selection_meta_raw: Variant = scene.call(
+			"describe_source_mystery_box_selection"
+		)
+		var selection_meta := selection_meta_raw as Dictionary if selection_meta_raw is Dictionary else {}
+		var selected_0 := selected_0_raw as Dictionary if selected_0_raw is Dictionary else {}
+		var selected_last := selected_last_raw as Dictionary if selected_last_raw is Dictionary else {}
+		var selected_invalid := selected_invalid_raw as Dictionary if selected_invalid_raw is Dictionary else {}
+		var normal_cost := scene.call("evaluate_source_mystery_box_affordability", 950, false) as Dictionary
+		var fire_cost := scene.call("evaluate_source_mystery_box_affordability", 10, true) as Dictionary
+		var deny_cost := scene.call("evaluate_source_mystery_box_affordability", 949, false) as Dictionary
+		if (
+			not bool(selection_meta.get("ready", false))
+			or int(selection_meta.get("locationMarkers", -1)) != 1
+			or int(selection_meta.get("directPlacedBoxes", -1)) != 0
+			or str(selection_meta.get("randomFunction", "")) != "KismetMathLibrary.RandomInteger(Array_Length)"
+			or int(selection_meta.get("sourceWeaponPoolSize", 0)) != 62
+			or int(selection_meta.get("previewCount", -1)) != 29
+			or int(selection_meta.get("teddyRefund", -1)) != 950
+			or bool(selection_meta.get("purchaseLive", true))
+			or str(selected_0.get("sourceWeaponId", "")) != "gun1911"
+			or str(selected_last.get("sourceWeaponId", "")) != "kuda"
+			or bool(selected_invalid.get("ready", true))
+			or not bool(normal_cost.get("canAfford", false))
+			or int(normal_cost.get("cashAfter", -1)) != 0
+			or int(normal_cost.get("selectedCost", -1)) != 950
+			or bool(normal_cost.get("purchaseLive", true))
+			or not bool(fire_cost.get("canAfford", false))
+			or int(fire_cost.get("cashAfter", -1)) != 0
+			or int(fire_cost.get("selectedCost", -1)) != 10
+			or bool(deny_cost.get("canAfford", true))
+			or int(deny_cost.get("cashAfter", -1)) != 949
+		):
+			_fail(35, "MysteryBox pure source selection/price contract mismatch " + str(selection_meta))
+			return
+		print("XZOGOT_NACHT_MYSTERY_SELECTION_PURE_GREEN pool=62 source_first=gun1911 last=kuda price=950 firesale=10 no_purchase=true")
+
 
 		var gumball_desc_raw: Variant = scene.call(
 			"describe_source_gumball_interaction",
