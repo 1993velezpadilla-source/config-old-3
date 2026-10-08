@@ -59,6 +59,30 @@ func _report_component_camera_bounds(root_node: Node3D, camera: Camera3D, weapon
 		for child: Node in item.get_children():
 			stack.append(child)
 
+# Evidence-only Aether revolver diagnostic. The actual rendered .357 HIP/ADS
+# images show six cartridges and the cylinder floating on camera-right.
+# Identify imported nodes and bone coordinates before any source pose edit.
+func _report_detached_revolver_parts(root_node: Node3D, camera: Camera3D) -> void:
+	if root_node == null or camera == null:
+		return
+	var nodes: Array[Node] = [root_node]
+	while not nodes.is_empty():
+		var item: Node = nodes.pop_back()
+		if item is Node3D:
+			var n3: Node3D = item as Node3D
+			print("XZOGOT_357_ORIGINAL_RIG_NODE name=",n3.name,
+				" type=",n3.get_class()," camera_m=",camera.to_local(n3.global_position))
+		if item is Skeleton3D:
+			var sk: Skeleton3D = item as Skeleton3D
+			for idx in range(sk.get_bone_count()):
+				var bone_name := str(sk.get_bone_name(idx))
+				var position_m: Vector3 = camera.to_local(
+					(sk.global_transform * sk.get_bone_global_pose(idx)).origin)
+				print("XZOGOT_357_ORIGINAL_GUN_BONE name=",bone_name,
+					" camera_m=",position_m, " parent=",sk.get_bone_parent(idx))
+		for child in item.get_children():
+			nodes.append(child)
+
 func _find_animation_player(node: Node) -> AnimationPlayer:
 	if node is AnimationPlayer:
 		return node as AnimationPlayer
@@ -247,6 +271,16 @@ func _run_probe() -> void:
 					" local_roll_deg=", gun_roll_deg,
 					" meter_units=", inherited_meters_ok,
 					" local_up_correct=", local_up_ok)
+			if id == "357":
+				_report_component_camera_bounds(
+					weapon.get("_weapon_model_root") as Node3D,
+					scene.get_node_or_null("Player/Head/Camera3D") as Camera3D,
+					id
+				)
+				_report_detached_revolver_parts(
+					weapon.get("_weapon_model_root") as Node3D,
+					scene.get_node_or_null("Player/Head/Camera3D") as Camera3D
+				)
 			var source_snapshot: Dictionary = weapon.call("get_first_person_debug_snapshot")
 			var gun_bounds: Dictionary = source_snapshot.get("weapon", {}) as Dictionary
 			var gun_size: Vector3 = gun_bounds.get("size", Vector3.ZERO)
