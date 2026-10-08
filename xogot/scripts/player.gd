@@ -242,12 +242,12 @@ func _update_mobile_adsfire_trigger() -> void:
 func _handle_touch(event: InputEventScreenTouch) -> void:
 	var size: Vector2 = get_viewport().get_visible_rect().size
 	if event.pressed:
-		if MobileLayout.inside(event.position, size, MobileLayout.PAUSE_CENTER, MobileLayout.PAUSE_RADIUS):
+		if MobileLayout.inside_control(event.position, size, "pause"):
 			var settings: Node = get_node_or_null("../HUD/MobileSettings")
 			if settings != null and settings.has_method("toggle_menu"):
 				settings.call("toggle_menu")
 			return
-		if MobileLayout.inside(event.position, size, MobileLayout.ADSFIRE_CENTER, MobileLayout.ADSFIRE_RADIUS) and _adsfire_touch < 0:
+		if MobileLayout.inside_control(event.position, size, "adsfire") and _adsfire_touch < 0:
 			_adsfire_touch = event.index
 			_adsfire_trigger_engaged = false
 			_suppress_mobile_sprint_for_action()
@@ -255,33 +255,33 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			if not _mobile_adsfire_release_mode() and _mobile_adsfire_ready():
 				_set_mobile_trigger_held(true)
 				_adsfire_trigger_engaged = true
-		elif MobileLayout.inside(event.position, size, MobileLayout.FIRE_CENTER, MobileLayout.FIRE_RADIUS) and _fire_touch < 0:
+		elif MobileLayout.inside_control(event.position, size, "fire") and _fire_touch < 0:
 			_fire_touch = event.index
 			_suppress_mobile_sprint_for_action()
 			_set_mobile_trigger_held(true)
-		elif MobileLayout.inside(event.position, size, MobileLayout.ADS_CENTER, MobileLayout.ADS_RADIUS) and _ads_touch < 0:
+		elif MobileLayout.inside_control(event.position, size, "ads") and _ads_touch < 0:
 			_reload_restore_ads = false
 			_suppress_mobile_sprint_for_action()
 			if ads_toggle_mode:
 				set_meta("ads_toggled", not bool(get_meta("ads_toggled", false)))
 			else:
 				_ads_touch = event.index
-		elif MobileLayout.inside(event.position, size, MobileLayout.RELOAD_CENTER, MobileLayout.RELOAD_RADIUS):
+		elif MobileLayout.inside_control(event.position, size, "reload"):
 			_request_mobile_reload()
-		elif MobileLayout.inside(event.position, size, MobileLayout.SLIDE_CENTER, MobileLayout.SLIDE_RADIUS) and _crouch_touch < 0:
+		elif MobileLayout.inside_control(event.position, size, "slide") and _crouch_touch < 0:
 			_crouch_touch = event.index
-		elif MobileLayout.inside(event.position, size, MobileLayout.JUMP_CENTER, MobileLayout.JUMP_RADIUS):
+		elif MobileLayout.inside_control(event.position, size, "jump"):
 			_jump_requested = true
-		elif MobileLayout.inside(event.position, size, MobileLayout.USE_CENTER, MobileLayout.USE_RADIUS) and _use_touch < 0:
+		elif MobileLayout.inside_control(event.position, size, "use") and _use_touch < 0:
 			_use_touch = event.index
 			request_interact()
-		elif MobileLayout.inside(event.position, size, MobileLayout.KNIFE_CENTER, MobileLayout.KNIFE_RADIUS) and _knife_touch < 0:
+		elif MobileLayout.inside_control(event.position, size, "knife") and _knife_touch < 0:
 			_knife_touch = event.index
 			_suppress_mobile_sprint_for_action()
 			request_knife()
-		elif MobileLayout.inside(event.position, size, MobileLayout.JOY_CENTER, MobileLayout.JOY_RADIUS) and _move_touch < 0:
+		elif MobileLayout.inside_control(event.position, size, "joy") and _move_touch < 0:
 			_move_touch = event.index
-			_move_origin = MobileLayout.screen_point(MobileLayout.JOY_CENTER, size)
+			_move_origin = MobileLayout.screen_point(MobileLayout.center_for("joy"), size)
 			_move_raw_vector = (event.position - _move_origin) / maxf(MobileLayout.JOY_RADIUS * size.y * 0.90, 1.0)
 			_move_vector = _move_raw_vector.limit_length(1.0)
 		elif _look_touch < 0:
