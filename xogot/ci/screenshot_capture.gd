@@ -277,6 +277,13 @@ func _capture() -> void:
 			return
 		print("XZOGOT_EXTERIOR_SCREENSHOT_GREEN ", exterior_path, " ", exterior_image.get_width(), "x", exterior_image.get_height())
 
+	print(
+		"XZOGOT_MP40_FINAL_VISUAL_PROOF_GREEN roll_deg=",
+		weapon.get_meta("weapon_source_gun_roll_correction_deg", -999.0) if weapon != null else -999.0,
+		" meter_restored=",
+		weapon.get_meta("weapon_source_attachment_meter_units_restored", false) if weapon != null else false
+	)
+
 	# Release the imported gameplay scene before process exit so a successful
 	# GPU capture is not reported RED by late ObjectDB/audio cleanup.
 	scene.queue_free()
