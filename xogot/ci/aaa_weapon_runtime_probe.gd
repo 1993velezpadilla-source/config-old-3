@@ -168,6 +168,42 @@ func _run_probe() -> void:
 			_fail(27, "forward-axis correction missing " + id + " yaw=" + str(yaw_fix))
 			return
 
+		# Validate the GRIP, not just the old +X -> -Z yaw. This gate
+		# exercises the single shared implementation for every Aether firearm.
+		if viewmodel_path.contains("/aether_waw_real/"):
+			var attachment_ready := bool(weapon.get_meta("weapon_source_weapon_attachment_ready", false))
+			var gun_roll_deg := float(weapon.get_meta("weapon_source_gun_roll_correction_deg", -1.0))
+			if not attachment_ready:
+				_fail(65, "source tag_weapon hand-grip attachment missing " + id)
+				return
+			if absf(gun_roll_deg - 90.0) > 0.01:
+				_fail(66, "source firearm vertical grip conversion missing " + id + " roll=" + str(gun_roll_deg))
+				return
+			if not bool(weapon.get_meta("weapon_source_attachment_meter_units_restored", false)):
+				_fail(67, "source weapon meter scale correction missing " + id)
+				return
+			var gun_node := weapon.get("_weapon_model_root") as Node3D
+			var hand_socket := weapon.get("_source_weapon_attachment") as Node3D
+			if gun_node == null or hand_socket == null or gun_node.get_parent() != hand_socket:
+				_fail(68, "source weapon not parented to authored hand socket " + id)
+				return
+			# Rotating around local +X MUST make the gun's +Y axis point +Z
+			# in tag_weapon space; no world-space/player-hand twisting permitted.
+			var gun_up_in_socket := gun_node.transform.basis.orthonormalized() * Vector3.UP
+			if gun_up_in_socket.distance_to(Vector3.BACK) > 0.01:
+				_fail(69, "gun grip basis still sideways " + id + " axis=" + str(gun_up_in_socket))
+				return
+			var source_snapshot: Dictionary = weapon.call("get_first_person_debug_snapshot")
+			var gun_bounds: Dictionary = source_snapshot.get("weapon", {}) as Dictionary
+			var gun_size: Vector3 = gun_bounds.get("size", Vector3.ZERO)
+			var gun_max_axis: float = maxf(gun_size.x, maxf(gun_size.y, gun_size.z))
+			if not bool(gun_bounds.get("found", false)) or gun_max_axis < 0.15 or gun_max_axis > 2.5:
+				_fail(70, "gun is invisible, miniature or oversize " + id + " longest_m=" + str(gun_max_axis))
+				return
+			print("XZOGOT_ALL_GUNS_GRIP_BASIS_GREEN ", id,
+				" roll_deg=", gun_roll_deg, " gun_m=", gun_max_axis,
+				" animated_socket=", attachment_ready)
+
 		var texture_surfaces := int(weapon.get_meta("weapon_texture_surfaces", 0))
 		var resolved_surfaces := int(weapon.get_meta("weapon_resolved_surfaces", 0))
 		var textured_surfaces := int(weapon.get_meta("weapon_textured_surfaces", 0))
@@ -312,6 +348,7 @@ func _run_probe() -> void:
 		)
 
 	print("XZOGOT_AAA_28_BASE_DT_WEAPONS_GREEN 28")
+	print("XZOGOT_ALL_28_GUNS_GRIP_BASIS_GREEN count=28")
 	print("XZOGOT_AAA_28_FIREARMS_GREEN 28")
 	print("XZOGOT_AAA_WEAPON_RUNTIME_GATE_GREEN")
 	scene.queue_free()
