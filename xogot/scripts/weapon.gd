@@ -2012,6 +2012,14 @@ func _derive_pending_source_ads_sight_preview() -> void:
 		return
 	if not bool(get_meta("weapon_source_imported_aether", false)):
 		return
+	# Source equip/reload PSA bone transforms are transient; sight calibration
+	# must use the real settled source idle hand pose, never mid-animation.
+	if _reloading:
+		return
+	if _hands_animation_player != null:
+		var source_hand_action := str(_hands_animation_player.current_animation).to_lower()
+		if not source_hand_action.contains("idle") and not source_hand_action.contains("hold"):
+			return
 	var aim_world := Vector3.ZERO
 	var anchor_kind := ""
 	for bone_name in ["tag_iron_sights", "tag_scope", "tag_no_scope"]:
@@ -2051,7 +2059,6 @@ func _derive_pending_source_ads_sight_preview() -> void:
 	set_meta("weapon_ads_visual_alignment_mode", "geometry_preview_requires_visual_approval")
 	set_meta("weapon_ads_visual_sight_anchor", anchor_kind)
 	set_meta("weapon_ads_visual_source_pending", true)
-	set_meta("weapon_ads_visual_sight_error_target_m", Vector2.ZERO)
 	print("XZOGOT_ADS_SOURCE_PENDING_GEOMETRY_PREVIEW ", _weapon_id,
 		" sight=", anchor_kind, " bore=", bore_cam,
 		" target_ads_pos=", _ads_pose_position,
