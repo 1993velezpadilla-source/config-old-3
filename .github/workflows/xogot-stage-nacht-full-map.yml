@@ -18,6 +18,7 @@ on:
       - "xogot/scripts/nacht_cascade_runtime.gd"
       - "xogot/scripts/nacht_cascade_visual_runtime.gd"
       - "xogot/scripts/xziel_benchmark_loader.gd"
+      - "xogot/scripts/source_navigation_runtime.gd"
       - "xogot/ci/nacht_full_map_probe.gd"
   workflow_dispatch:
     inputs:

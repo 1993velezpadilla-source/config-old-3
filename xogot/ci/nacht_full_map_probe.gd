@@ -2809,7 +2809,7 @@ func _run() -> void:
 	round_manager.set_process(false)
 	round_manager.call("reset_network_match")
 	round_manager.call("start_next_round")
-	var source_zombie := round_manager.call("spawn_one")
+	var source_zombie: Node = round_manager.call("spawn_one") as Node
 	if source_zombie == null:
 		_fail(13, "Nacht source spawn director could not spawn round-1 zombie")
 		return
