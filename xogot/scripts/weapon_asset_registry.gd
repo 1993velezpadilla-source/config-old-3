@@ -62,7 +62,7 @@ static func _collect_animation_names(node: Node, out: Array[String]) -> void:
 				var full_name: String = str(anim_name)
 				if str(lib_name) != "":
 					full_name = str(lib_name) + "/" + full_name
-				out.append(full_name.to_lower())
+				# Preserve exact imported GLB capitalization: Godot AnimationPlayer\n			# has_animation()/play() are case-sensitive. Only comparisons are lowercased.\n			out.append(full_name)
 	for child: Node in node.get_children():
 		_collect_animation_names(child, out)
 
@@ -89,9 +89,10 @@ static func animation_names_for(id: String) -> Array[String]:
 
 static func _role_found(names: Array[String], aliases: Array) -> bool:
 	for name: String in names:
+		var lower_name: String = name.to_lower()
 		for alias_var: Variant in aliases:
 			var alias := str(alias_var).to_lower()
-			if not alias.is_empty() and name.contains(alias):
+			if not alias.is_empty() and lower_name.contains(alias):
 				return true
 	return false
 
