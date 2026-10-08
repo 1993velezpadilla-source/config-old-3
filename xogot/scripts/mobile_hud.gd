@@ -1,6 +1,8 @@
 extends Control
 
 const MobileLayout = preload("res://scripts/mobile_layout.gd")
+const SOURCE_SNIPER_SCOPE_SHADER = preload("res://shaders/source_sniper_scope_mask.gdshader")
+
 
 # Exact Sep-29 Touch+Gyro artwork restored from the historical APK contract.
 const HUD_ADS = preload("res://assets/hud/latest_12/hud_ads.webp")
@@ -30,6 +32,8 @@ const IDLE_ALPHA := 210.0 / 255.0
 const PRESSED_ALPHA := 246.0 / 255.0
 
 var _hud_opacity: float = 0.82
+var _source_scope_mask: ColorRect = null
+var _source_scope_active: bool = false
 
 @onready var _player: Node = get_node_or_null("../../Player")
 @onready var _weapon: Node = get_node_or_null("../../Player/Weapon")
@@ -37,6 +41,18 @@ var _hud_opacity: float = 0.82
 @onready var _powerups: Node = get_node_or_null("../../PowerUpManager")
 
 func _ready() -> void:
+	# Layer scope beneath our custom touch-control skins. Crosshair and world
+	# are shown through the actual transparent aperture; touch remains safe.
+	_source_scope_mask = ColorRect.new()
+	_source_scope_mask.name = "SourceSniperScopeMask"
+	_source_scope_mask.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_source_scope_mask.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_source_scope_mask.z_index = -1
+	var scope_material := ShaderMaterial.new()
+	scope_material.shader = SOURCE_SNIPER_SCOPE_SHADER
+	_source_scope_mask.material = scope_material
+	_source_scope_mask.visible = false
+	add_child(_source_scope_mask)
 	set_process(true)
 	var settings: Node = get_node_or_null("../MobileSettings")
 	if settings != null:
@@ -47,6 +63,22 @@ func _ready() -> void:
 	print("XZOGOT_FIRE_SKIN_VALID_PNG_READY")
 
 func _process(_delta: float) -> void:
+	# The real 2008 WoW scoped rifles use a sniper reticle overlay, not the
+	# opaque rear of a physically modeled scope tube. Never show this while
+	# HIP, reloading, switching weapons, or until ADS is fully settled.
+	var show_scope := false
+	if (_player != null and _player.has_method("is_ads_active")
+		and bool(_player.call("is_ads_active"))
+		and _weapon != null and _weapon.has_method("get_weapon_id")):
+		var weapon_id := str(_weapon.call("get_weapon_id"))
+		if weapon_id in ["mosin", "ptrs"]:
+			var reloading := _weapon.has_method("is_reloading") and bool(_weapon.call("is_reloading"))
+			show_scope = not reloading and float(_weapon.get_meta("weapon_ads_pose_alpha", 0.0)) >= 0.98
+	if _source_scope_mask != null:
+		_source_scope_mask.visible = show_scope
+	if _weapon != null:
+		_weapon.set_meta("weapon_scope_overlay_active", show_scope)
+	_source_scope_active = show_scope
 	queue_redraw()
 
 func _screen(center: Vector2) -> Vector2:
@@ -242,7 +274,27 @@ func _draw_downed_revive_state() -> void:
 		draw_rect(Rect2(pos, Vector2(bar.x * revive_ratio, bar.y)), Color(0.74, 0.84, 0.70, 0.92), true)
 		draw_string(font, pos + Vector2(0.0, -8.0), "REVIVING", HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(0.92, 0.96, 0.88, 0.96))
 
+func _draw_original_sniper_scope_reticle() -> void:
+	if not _source_scope_active:
+		return
+	# Same original WaW multiplayer sniper reticle family on both rifles:
+	# extremely thin cross-lines, subtle lens ring and lower ranging hashes.
+	# Constructed geometrically, not by embedding a copyrighted texture.
+	var c := size * 0.5
+	var r := size.y * 0.465
+	var dark := Color(0.035, 0.037, 0.038, 0.94)
+	draw_arc(c, r - 2.0, 0.0, TAU, 120, Color(0.12, 0.11, 0.10, 0.88), maxf(1.8, size.y * 0.005))
+	draw_line(c + Vector2(-r * 0.95, 0.0), c + Vector2(-2.0, 0.0), dark, 1.25, true)
+	draw_line(c + Vector2(2.0, 0.0), c + Vector2(r * 0.95, 0.0), dark, 1.25, true)
+	draw_line(c + Vector2(0.0, -r * 0.95), c + Vector2(0.0, -2.0), dark, 1.25, true)
+	draw_line(c + Vector2(0.0, 2.0), c + Vector2(0.0, r * 0.95), dark, 1.25, true)
+	for tick in range(1, 5):
+		var point := c + Vector2(0.0, r * float(tick) * 0.135)
+		var half_width := r * (0.027 if tick % 2 else 0.043)
+		draw_line(point + Vector2(-half_width, 0.0), point + Vector2(half_width, 0.0), dark, 1.2, true)
+
 func _draw() -> void:
+	_draw_original_sniper_scope_reticle()
 	var s: Vector2 = size
 	var white := Color(1.0, 1.0, 1.0, 0.72)
 	var warm := Color(1.0, 0.42, 0.12, 0.24)

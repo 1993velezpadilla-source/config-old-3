@@ -197,6 +197,8 @@ func _clear_view_model() -> void:
 	_sw357_reload_meshes.clear()
 	_source_offstage_reload_meshes.clear()
 	set_meta("weapon_sw357_reload_mesh_filter_ready", false)
+	set_meta("weapon_scope_overlay_active", false)
+	set_meta("weapon_scope_viewmodel_masked", false)
 	set_meta("weapon_source_offstage_reload_filter_ready", false)
 	_asset_animation_player = null
 	_weapon_model_root = null
@@ -2305,6 +2307,20 @@ func _update_visual_recoil(delta: float) -> void:
 			_track_pending_ads_sight_center()
 		if is_ads_active() and source_presentation:
 			_register_authored_source_sight()
+		# WaW scoped sniper ADS displays a rendered scope reticle. Mask the
+		# tube and hands ONLY when a real HUD scope overlay exists and is
+		# active. All original meshes / source clips stay loaded and keep
+		# animating, visible again immediately for HIP/fire/reload/equip.
+		# In the isolated Godot rig tests there is no HUD, so this remains
+		# disabled and original 3D evidence can still be audited.
+		var scoped_overlay := (
+			_weapon_id in ["mosin", "ptrs"]
+			and bool(get_meta("weapon_scope_overlay_active", false))
+			and _ads_pose_alpha >= 0.98
+			and not _reloading
+		)
+		_view_root.visible = not scoped_overlay
+		set_meta("weapon_scope_viewmodel_masked", scoped_overlay)
 
 func set_dev_infinite_ammo(enabled: bool) -> void:
 	_dev_infinite_ammo = enabled
