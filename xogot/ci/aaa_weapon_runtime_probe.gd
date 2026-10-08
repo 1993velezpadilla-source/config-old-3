@@ -56,6 +56,8 @@ func _run_probe() -> void:
 		_fail(53, "base DT_Weapons source table must cover exactly 28 firearms")
 		return
 
+	var source_geometry_blockers: Array[String] = []
+
 	for id: String in FIREARMS:
 		if not WeaponCatalog.has_weapon(id):
 			_fail(10, "catalog missing " + id)
@@ -197,12 +199,19 @@ func _run_probe() -> void:
 			var gun_bounds: Dictionary = source_snapshot.get("weapon", {}) as Dictionary
 			var gun_size: Vector3 = gun_bounds.get("size", Vector3.ZERO)
 			var gun_max_axis: float = maxf(gun_size.x, maxf(gun_size.y, gun_size.z))
+			# Record EVERY gun, not only the first outlier: a source gun can
+			# have the correct roll but still be grossly oversized/off camera.
+			# A 28/28 machine-green must NEVER conceal red visual geometry.
 			if not bool(gun_bounds.get("found", false)) or gun_max_axis < 0.15 or gun_max_axis > 2.5:
-				_fail(70, "gun is invisible, miniature or oversize " + id + " longest_m=" + str(gun_max_axis))
-				return
-			print("XZOGOT_ALL_GUNS_GRIP_BASIS_GREEN ", id,
-				" roll_deg=", gun_roll_deg, " gun_m=", gun_max_axis,
-				" animated_socket=", attachment_ready)
+				source_geometry_blockers.append(id + ":" + str(gun_max_axis))
+				print("XZOGOT_ALL_GUNS_GEOMETRY_BLOCKER ", id,
+					" longest_m=", gun_max_axis,
+					" camera_aabb=", gun_bounds)
+			else:
+				print("XZOGOT_ALL_GUNS_GRIP_BASIS_GREEN ", id,
+					" roll_deg=", gun_roll_deg, " gun_m=", gun_max_axis,
+					" camera_aabb=", gun_bounds,
+					" animated_socket=", attachment_ready)
 
 		var texture_surfaces := int(weapon.get_meta("weapon_texture_surfaces", 0))
 		var resolved_surfaces := int(weapon.get_meta("weapon_resolved_surfaces", 0))
@@ -348,6 +357,9 @@ func _run_probe() -> void:
 		)
 
 	print("XZOGOT_AAA_28_BASE_DT_WEAPONS_GREEN 28")
+	if not source_geometry_blockers.is_empty():
+		_fail(70, "source geometry outliers require visual repair: " + str(source_geometry_blockers))
+		return
 	print("XZOGOT_ALL_28_GUNS_GRIP_BASIS_GREEN count=28")
 	print("XZOGOT_AAA_28_FIREARMS_GREEN 28")
 	print("XZOGOT_AAA_WEAPON_RUNTIME_GATE_GREEN")
