@@ -2,6 +2,7 @@ extends Node
 
 const WeaponCatalog = preload("res://scripts/weapon_catalog.gd")
 const WeaponAssetRegistry = preload("res://scripts/weapon_asset_registry.gd")
+const WeaponSW357ReloadGeometry = preload("res://scripts/weapon_sw357_reload_geometry.gd")
 const WeaponBalanceAAA = preload("res://scripts/weapon_balance_aaa.gd")
 const WeaponSourceCombat = preload("res://scripts/weapon_source_combat.gd")
 const WeaponTextureRegistry = preload("res://scripts/weapon_texture_registry.gd")
@@ -53,6 +54,7 @@ var _mechanical_audio: AudioStreamPlayer3D
 var _dry_fire_audio: AudioStreamPlayer3D
 var _asset_animation_player: AnimationPlayer
 var _weapon_model_root: Node3D
+var _sw357_reload_meshes: Dictionary = {}
 var _hands_animation_player: AnimationPlayer
 var _hands_model_root: Node3D
 var _source_hands_skeleton: Skeleton3D
@@ -188,6 +190,8 @@ func _build_view_runtime() -> void:
 	_camera.add_child(_dry_fire_audio)
 
 func _clear_view_model() -> void:
+	_sw357_reload_meshes.clear()
+	set_meta("weapon_sw357_reload_mesh_filter_ready", false)
 	_asset_animation_player = null
 	_weapon_model_root = null
 	_hands_animation_player = null
@@ -1363,6 +1367,13 @@ func _refresh_view_assets(def: Dictionary) -> void:
 			source_attachment_ready
 		)
 
+	# The authored SW357 has reload-only speedloader/cartridge geometry in
+	# the same skinned surface as the actual revolver. Hide those triangles
+	# for HIP/ADS while preserving the COMPLETE original mesh for reload.
+	if _weapon_id == "357" and _weapon_model_root != null:
+		_sw357_reload_meshes = WeaponSW357ReloadGeometry.prepare(_weapon_model_root)
+		set_meta("weapon_sw357_reload_mesh_filter_ready", not _sw357_reload_meshes.is_empty())
+
 	var melee_path := WeaponAssetRegistry.preferred_melee_viewmodel_path(_weapon_id)
 	var melee_res: Resource = _load_optional_asset(melee_path)
 	if melee_res is PackedScene and _view_root != null:
@@ -1886,6 +1897,8 @@ func request_reload() -> void:
 		return
 	_reloading = true
 	_trigger_held = false
+	if _weapon_id == "357":
+		WeaponSW357ReloadGeometry.set_reload_props_visible(_sw357_reload_meshes, true)
 	_reload_timer = reload_time * _player_modifier("get_reload_multiplier")
 	var reload_role: String = "reload_empty" if _magazine <= 0 else "reload"
 	if not _play_asset_animation(reload_role, 0.06) and reload_role != "reload":
@@ -1898,6 +1911,8 @@ func _finish_reload() -> void:
 		_magazine = magazine_size
 		_reloading = false
 		_reload_timer = 0.0
+		if _weapon_id == "357":
+			WeaponSW357ReloadGeometry.set_reload_props_visible(_sw357_reload_meshes, false)
 		return
 	var needed: int = magazine_size - _magazine
 	var loaded: int = mini(needed, reserve_ammo)
@@ -1905,6 +1920,8 @@ func _finish_reload() -> void:
 	reserve_ammo -= loaded
 	_reloading = false
 	_reload_timer = 0.0
+	if _weapon_id == "357":
+		WeaponSW357ReloadGeometry.set_reload_props_visible(_sw357_reload_meshes, false)
 
 func is_ads_active() -> bool:
 	if _body != null and _body.has_method("is_ads_active"):
