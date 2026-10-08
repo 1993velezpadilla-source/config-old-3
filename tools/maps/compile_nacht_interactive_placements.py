@@ -31,8 +31,9 @@ CATEGORIES = {
 
 # These systems are expected for a playable Nacht source-world handoff.
 REQUIRED = (
-    # MysteryBox_C is spawned/managed through MysteryBoxLocation_C in this
-    # source UMAP; there is no direct MysteryBox_C actor anchor to invent.
+    # The placed source classes are Box5_C / Box_complete_C; the classifier
+    # above maps them into mystery_box without synthesizing MysteryBox_C.
+    "mystery_box",
     "mystery_box_location",
     "pack_a_punch",
     "gumball_machine",

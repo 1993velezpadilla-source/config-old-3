@@ -585,6 +585,7 @@ func _validate_authority() -> bool:
 	# MysteryBoxLocation_C authority and this Nacht source has no direct
 	# PowerSwitch_C actor anchor.
 	var required_interactive_minimums := {
+		"mystery_box": 1,
 		"mystery_box_location": 1,
 		"pack_a_punch": 1,
 		"gumball_machine": 1,
@@ -593,9 +594,6 @@ func _validate_authority() -> bool:
 		"barricade": 1,
 		"buyable_door": 1,
 	}
-	if int(interactive_counts.get("mystery_box", -1)) != 0:
-		push_error("NACHT_FULL_MAP: direct mystery box placement diverged from source")
-		return false
 	if int(interactive_counts.get("power_switch", -1)) != 0:
 		push_error("NACHT_FULL_MAP: direct power switch placement diverged from source")
 		return false
