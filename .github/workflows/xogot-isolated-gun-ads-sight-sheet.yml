@@ -1,0 +1,77 @@
+name: Xogot All 28 Isolated ADS Sight Frames
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/source-viewmodel-inherited-hands-unit-scale
+    paths:
+      - "xogot/ci/ads_dummy_player.gd"
+      - "xogot/ci/isolated_all_gun_ads_sheet.gd"
+      - "xogot/scripts/weapon.gd"
+      - ".github/workflows/xogot-isolated-gun-ads-sight-sheet.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xogot-isolated-28-ads-frames-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v5
+      - name: Prepare real Godot 4.6.1 render runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq xvfb
+          fi
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          mkdir -p /tmp/godot build/studio /tmp/xogot-isolated-sight-proof
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+      - name: Import real Aether models and source Hands PSA in Godot
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 240 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit \
+            2>&1 | tee build/studio/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error" build/studio/import.log
+      - name: Capture all 56 authentic runtime HIP and ADS weapon poses
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 380 xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --path xogot --audio-driver Dummy --rendering-method gl_compatibility \
+            --resolution 1280x720 \
+            --script res://ci/isolated_all_gun_ads_sheet.gd \
+            2>&1 | tee build/studio/frames.log
+          grep -q "XZOGOT_ISOLATED_SIGHT_CAPTURE_GREEN 56" build/studio/frames.log
+          test "$(find /tmp/xogot-isolated-sight-proof -name '*.png' | wc -l)" -eq 56
+          ! grep -E "SCRIPT ERROR|Parse Error|XZOGOT_ISOLATED_SIGHTS_RED" build/studio/frames.log
+      - name: Upload zoomable individual HIP and ADS images
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-All-28-Isolated-ADS-HIP-Images
+          path: /tmp/xogot-isolated-sight-proof/*.png
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Upload logs even on RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Isolated-28-Sight-Logs
+          path: build/studio/*.log
+          if-no-files-found: warn
+          retention-days: 14
