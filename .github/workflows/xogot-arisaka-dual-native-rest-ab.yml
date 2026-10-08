@@ -1,0 +1,60 @@
+name: Xogot Arisaka Real Hands PSA vs Native Rest Forensic
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/source-viewmodel-inherited-hands-unit-scale
+    paths:
+      - "xogot/ci/source_arisaka_dual_native_rest_ab.gd"
+      - ".github/workflows/xogot-arisaka-dual-native-rest-ab.yml"
+permissions:
+  contents: read
+jobs:
+  arisaka-dual-original-forensics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install real Godot 4.6.1 renderer
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip -o /tmp/godot.zip
+          mkdir -p /tmp/godot /tmp/xogot-arisaka-dual-native-rest build/arisaka-dual
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+      - name: Import original source hands and gun
+        run: |
+          set -euo pipefail
+          timeout 240 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit 2>&1 | tee build/arisaka-dual/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error" build/arisaka-dual/import.log
+      - name: Render 8 genuine original HIP ADS hand-rest versus gun-rest frames
+        run: |
+          set -euo pipefail
+          timeout 380 xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --path xogot --audio-driver Dummy --rendering-method gl_compatibility \
+            --resolution 1280x720 --script res://ci/source_arisaka_dual_native_rest_ab.gd \
+            2>&1 | tee build/arisaka-dual/render.log
+          grep -q "XZOGOT_ARISAKA_DUAL_REST_AB_GREEN" build/arisaka-dual/render.log
+          test "$(find /tmp/xogot-arisaka-dual-native-rest -maxdepth 1 -name '*.png' | wc -l)" -eq 8
+          ! grep -E "SCRIPT ERROR|Parse Error|XZOGOT_ARISAKA_DUAL_REST_RED" build/arisaka-dual/render.log
+      - name: Preserve all real screenshots even when red
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Arisaka-Original-Hands-and-Gun-Rest-8PNG
+          path: /tmp/xogot-arisaka-dual-native-rest/*.png
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Preserve original bone and grip diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Arisaka-Dual-Rest-Logs
+          path: build/arisaka-dual/*.log
+          if-no-files-found: warn
+          retention-days: 14
