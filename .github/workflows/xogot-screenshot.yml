@@ -66,17 +66,24 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build/xogot-screenshot
-          set +e
-          xvfb-run -a -s "-screen 0 1280x720x24" \
+          render_rc=0
+          # GitHub invokes bash with -e -o pipefail. Put the Godot+tee
+          # pipeline in an if-condition (errexit-exempt), then capture the
+          # individual pipeline statuses immediately in the failure branch.
+          if xvfb-run -a -s "-screen 0 1280x720x24" \
             /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
             --path xogot \
             --audio-driver Dummy \
             --rendering-method gl_compatibility \
             --resolution 1280x720 \
             --script res://ci/screenshot_capture.gd \
-            2>&1 | tee build/xogot-screenshot/render.log
-          render_rc=${PIPESTATUS[0]}
-          set -e
+            2>&1 | tee build/xogot-screenshot/render.log; then
+            render_rc=0
+          else
+            pipeline_status=("${PIPESTATUS[@]}")
+            render_rc="${pipeline_status[0]}"
+          fi
+          echo "XZOGOT_SCREENSHOT_RENDER_PROCESS_RC rc=$render_rc"
           grep -q "XZOGOT_MONJA_BASICA_LOADED" build/xogot-screenshot/render.log
           ! grep -q "XZOGOT_MONJA_BASICA_FALLBACK" build/xogot-screenshot/render.log
           ! grep -q "ALSA lib" build/xogot-screenshot/render.log
