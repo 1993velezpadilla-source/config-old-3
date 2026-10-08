@@ -72,73 +72,69 @@ jobs:
           "AETHER_PAKDIR=$($pakDir.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "XZOGOT_AETHER_KISMET_PAKS_READY"
 
-      - name: Convert exact weapon authority packages to loose legacy files
+      - name: Clone current CUE4Parse source
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
-          $release=Invoke-RestMethod -Headers @{ 'User-Agent'='xogot-ci' } 'https://api.github.com/repos/trumank/retoc/releases/latest'
-          $asset=$release.assets |
-            Where-Object { $_.name -match '(?i)(windows|pc-windows-msvc).*\.zip$' } |
-            Select-Object -First 1
-          if(-not $asset){throw 'retoc Windows zip asset not found'}
-          $retocZip="$env:RUNNER_TEMP\retoc.zip"
-          Invoke-WebRequest $asset.browser_download_url -OutFile $retocZip
-          $retocDir="$env:RUNNER_TEMP\retoc"
-          Expand-Archive $retocZip -DestinationPath $retocDir -Force
-          $retoc=Get-ChildItem $retocDir -Filter 'retoc*.exe' -Recurse | Select-Object -First 1
-          if(-not $retoc){throw 'retoc.exe missing'}
-
-          $out="$PWD\build\aether-kismet\legacy"
-          Remove-Item $out -Recurse -Force -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Force -Path $out | Out-Null
-          $filters=@(
-            'ProjectAether/Content/Assets/BP/Weapons/BP_WeaponBase.uasset',
-            'ProjectAether/Content/FirstPerson/Blueprints/Weapons/Misc/WonderWeapons/BP_ExplosiveTracer.uasset',
-            'ProjectAether/Content/Assets/BP/Lethals/BP_Master_SplashDamage.uasset'
-          )
-          $args=@('to-legacy','--no-shaders',"$env:AETHER_PAKDIR")
-          foreach($filter in $filters){$args += @('--filter',$filter)}
-          $args += $out
-          & $retoc.FullName @args 2>&1 | Tee-Object build/aether-kismet/retoc-loose.log
-          if($LASTEXITCODE -ne 0){throw "retoc loose conversion failed $LASTEXITCODE"}
-
-          foreach($needle in @('BP_WeaponBase.uasset','BP_ExplosiveTracer.uasset','BP_Master_SplashDamage.uasset')){
-            $assetFile=Get-ChildItem $out -Recurse -File -Filter $needle | Select-Object -First 1
-            if(-not $assetFile){throw "retoc loose asset missing $needle"}
-            Write-Host "XZOGOT_AETHER_LOOSE_ASSET_READY $needle bytes=$($assetFile.Length)"
-          }
-          "AETHER_LEGACY_ROOT=$out" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
-          Write-Host "XZOGOT_AETHER_KISMET_LOOSE_GREEN"
+          $cue="$env:RUNNER_TEMP\cue4parse-current"
+          git clone --depth 1 https://github.com/joric/CUE4Parse.CLI.git $cue
+          if($LASTEXITCODE -ne 0){throw 'CUE4Parse current clone failed'}
+          $sha=(git -C $cue rev-parse HEAD).Trim()
+          "CUE4PARSE_ROOT=$cue" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "CUE4PARSE_CURRENT_SHA=$sha" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "XZOGOT_CUE4PARSE_CURRENT_READY sha=$sha"
 
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
 
-      - name: Build CUE4Parse Blueprint truth extractor
+      - name: Build Blueprint truth extractor against current CUE4Parse
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
-          dotnet restore tools/maps/UENuketownGameplayTruth/UENuketownGameplayTruth.csproj
-          dotnet build tools/maps/UENuketownGameplayTruth/UENuketownGameplayTruth.csproj -c Release --no-restore
-          if($LASTEXITCODE -ne 0){throw 'CUE4Parse Blueprint truth build failed'}
-          Write-Host "XZOGOT_AETHER_KISMET_EXTRACTOR_BUILD_GREEN"
+          $appDir="$env:RUNNER_TEMP\aether-kismet-current"
+          New-Item -ItemType Directory -Force -Path $appDir | Out-Null
+          Copy-Item tools/maps/UENuketownGameplayTruth/Program.cs "$appDir\Program.cs"
+          $cueProj=(Join-Path $env:CUE4PARSE_ROOT 'CUE4Parse\CUE4Parse.csproj').Replace('\','/')
+          $proj=@"
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="$cueProj" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+  </ItemGroup>
+</Project>
+"@
+          Set-Content -Path "$appDir\AetherKismetCurrent.csproj" -Value $proj -Encoding utf8
+          dotnet restore "$appDir\AetherKismetCurrent.csproj"
+          if($LASTEXITCODE -ne 0){throw 'current CUE4Parse restore failed'}
+          dotnet build "$appDir\AetherKismetCurrent.csproj" -c Release --no-restore
+          if($LASTEXITCODE -ne 0){throw 'current CUE4Parse extractor build failed'}
+          "AETHER_KISMET_APP=$appDir\bin\Release\net10.0\AetherKismetCurrent.dll" |
+            Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "XZOGOT_AETHER_KISMET_CURRENT_BUILD_GREEN sha=$env:CUE4PARSE_CURRENT_SHA"
 
-      - name: Decompile weapon Kismet authority from loose UE5.7 assets
+      - name: Decompile weapon Kismet authority directly from original IoStore
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
-          $app='tools/maps/UENuketownGameplayTruth/bin/Release/net10.0/UENuketownGameplayTruth.dll'
+          New-Item -ItemType Directory -Force -Path build/aether-kismet | Out-Null
           $toolArgs=@(
-            "$env:AETHER_LEGACY_ROOT",
+            "$env:AETHER_PAKDIR",
             'Mappings.usmap',
             'build/aether-kismet/weapon-kismet.json',
-            'BP_WeaponBase.uasset',
-            'BP_ExplosiveTracer.uasset',
-            'BP_Master_SplashDamage.uasset'
+            'ProjectAether/Content/Assets/BP/Weapons/BP_WeaponBase.uasset',
+            'ProjectAether/Content/FirstPerson/Blueprints/Weapons/Misc/WonderWeapons/BP_ExplosiveTracer.uasset',
+            'ProjectAether/Content/Assets/BP/Lethals/BP_Master_SplashDamage.uasset'
           )
-          & dotnet $app @toolArgs 2>&1 | Tee-Object build/aether-kismet/extract.log
+          & dotnet "$env:AETHER_KISMET_APP" @toolArgs 2>&1 | Tee-Object build/aether-kismet/extract.log
           $rc=$LASTEXITCODE
-          if($rc -ne 0){throw "CUE4Parse loose Kismet extraction failed $rc"}
+          if($rc -ne 0){throw "current CUE4Parse Kismet extraction failed $rc"}
 
       - name: Prove burst hyperburst and splash source graph
         shell: pwsh
@@ -199,6 +195,5 @@ jobs:
             build/aether-kismet/weapon-kismet.json
             build/aether-kismet/weapon-kismet-proof.json
             build/aether-kismet/extract.log
-            build/aether-kismet/retoc-loose.log
           if-no-files-found: warn
           retention-days: 14
