@@ -276,8 +276,12 @@ func _run_probe() -> void:
 			# This verifies only the orientation gate, NOT natural hand grips.
 			var pistol_ids: Array[String] = ["colt", "walther", "nambu", "tt33", "357"]
 			var is_source_pistol: bool = id in pistol_ids
-			var expected_roll_deg := 180.0 if is_source_pistol else 90.0
-			var expected_socket_up := Vector3.DOWN if is_source_pistol else Vector3.BACK
+			# Proven by all 64 source-socket HIP/ADS roll A/B images in #37857367033.
+			# Roll=90 for these three puts the metal/iron-sight plane sideways.
+			var upright_long_ids: Array[String] = ["stg", "browning", "type99"]
+			var upright: bool = is_source_pistol or id in upright_long_ids
+			var expected_roll_deg := 180.0 if upright else 90.0
+			var expected_socket_up := Vector3.DOWN if upright else Vector3.BACK
 			var local_up_ok := false
 			if gun_node != null:
 				var up_in_socket := gun_node.transform.basis.orthonormalized() * Vector3.UP
