@@ -8,6 +8,7 @@ on:
     paths:
       - "xogot/ci/all_gun_grip_visual_sheet.gd"
       - "xogot/scripts/weapon.gd"
+      - "xogot/scripts/weapon_asset_registry.gd"
       - "xogot/data/weapon_viewmodel_source_presentation.json"
       - "xogot/data/weapon_viewmodel_source_pose.json"
       - "xogot/assets/weapons/mapmod_weapon_asset_manifest.json"
