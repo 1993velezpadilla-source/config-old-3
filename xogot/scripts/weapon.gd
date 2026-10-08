@@ -59,6 +59,7 @@ var _source_hands_skeleton: Skeleton3D
 var _source_weapon_attachment: Node3D
 var _source_weapon_bone_idx: int = -1
 var _pending_ads_geometry_solved: bool = false
+var _pending_ads_sight_local: Vector3 = Vector3.ZERO
 var _melee_animation_player: AnimationPlayer
 var _melee_model_root: Node3D
 var _melee_overlay_timer: float = 0.0
@@ -195,6 +196,7 @@ func _clear_view_model() -> void:
 	_source_weapon_attachment = null
 	_source_weapon_bone_idx = -1
 	_pending_ads_geometry_solved = false
+	_pending_ads_sight_local = Vector3.ZERO
 	set_meta("weapon_ads_visual_alignment_mode", "source_provenance_pending")
 	set_meta("weapon_ads_visual_sight_anchor", "")
 	set_meta("weapon_ads_visual_source_pending", false)
@@ -2024,13 +2026,6 @@ func _derive_pending_source_ads_sight_preview() -> void:
 		var source_hand_action := str(_hands_animation_player.current_animation).to_lower()
 		if not source_hand_action.contains("idle") and not source_hand_action.contains("hold"):
 			return
-	if _asset_animation_player != null:
-		# The imported gun animation moves tag_iron_sights/tag_scope while
-		# EQUIPPING. Calibrating before that clip finishes caused measured
-		# 0.1-0.7 m off-center sights after its final idle handoff.
-		var source_gun_action := str(_asset_animation_player.current_animation).to_lower()
-		if not source_gun_action.contains("idle"):
-			return
 	var aim_world := Vector3.ZERO
 	var anchor_kind := ""
 	for bone_name in ["tag_iron_sights", "tag_scope", "tag_no_scope"]:
@@ -2047,6 +2042,7 @@ func _derive_pending_source_ads_sight_preview() -> void:
 		# The Aether meshes use local +X as the barrel axis. Upper rear
 		# geometry is only an inferred sight point, not an authored socket.
 		var local_rear := box.position + box.size * Vector3(0.23, 0.87, 0.50)
+		_pending_ads_sight_local = local_rear
 		aim_world = _weapon_model_root.to_global(local_rear)
 		anchor_kind = "mesh_rear_preview"
 	var cam_basis := _camera.global_transform.basis.inverse()
@@ -2075,6 +2071,39 @@ func _derive_pending_source_ads_sight_preview() -> void:
 		" target_ads_pos=", _ads_pose_position,
 		" target_ads_rot=", _ads_pose_rotation,
 		" movement_m=", _hip_pose_position.distance_to(_ads_pose_position))
+
+# Source gun animations can move a tagged sight after initial hip/equip
+# calibration. At full ADS, keep the REAL sight in camera crosshair center
+# using measured runtime error, never a per-weapon invented screen offset.
+# The entire rig moves as one (hands and gun remain parented together).
+func _track_pending_ads_sight_center() -> void:
+	if not _pending_ads_geometry_solved or _weapon_model_root == null:
+		return
+	if _camera == null or _ads_pose_alpha < 0.98:
+		return
+	var kind := str(get_meta("weapon_ads_visual_sight_anchor", ""))
+	var aim_world := Vector3.ZERO
+	if kind == "mesh_rear_preview":
+		aim_world = _weapon_model_root.to_global(_pending_ads_sight_local)
+	elif kind.begins_with("tag_"):
+		var sight_bone := _gun_skeleton_bone_world(kind)
+		if not bool(sight_bone.get("found", false)):
+			return
+		aim_world = sight_bone.get("position", Vector3.ZERO)
+	else:
+		return
+	var aim_cam := _camera.to_local(aim_world)
+	if not aim_cam.is_finite():
+		return
+	var screen_error := Vector2(aim_cam.x, aim_cam.y)
+	set_meta("weapon_ads_visual_sight_error_m", screen_error.length())
+	# Move only view-root translation in camera coordinates, not local gun
+	# or skeleton transforms. Clamp to avoid transient equip-animation jumps.
+	_ads_pose_position -= Vector3(
+		clampf(screen_error.x, -0.10, 0.10),
+		clampf(screen_error.y, -0.10, 0.10),
+		0.0
+	)
 
 func _update_visual_recoil(delta: float) -> void:
 	# Presentation only. Ballistic ray direction/spread was already computed above.
@@ -2115,6 +2144,8 @@ func _update_visual_recoil(delta: float) -> void:
 		_view_root.position = _view_pose_position + Vector3(0.0, 0.0, recoil_push)
 		_view_root.quaternion = _view_pose_rotation
 		set_meta("weapon_ads_pose_alpha", _ads_pose_alpha)
+		if is_ads_active() and _pending_ads_geometry_solved:
+			_track_pending_ads_sight_center()
 
 func set_dev_infinite_ammo(enabled: bool) -> void:
 	_dev_infinite_ammo = enabled
