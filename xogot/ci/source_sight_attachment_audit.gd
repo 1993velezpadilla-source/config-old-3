@@ -155,11 +155,9 @@ func _inspect() -> void:
 		var hip_restore_alpha: float = float(weapon.get("_ads_pose_alpha"))
 		var hip_restore_pose: Vector3 = weapon.get("_view_pose_position")
 		var hip_reference_pose: Vector3 = weapon.get("_hip_pose_position")
-		var hip_restore_angle: float = (
-			(weapon.get("_view_pose_rotation") as Quaternion).angle_to(
-				weapon.get("_hip_pose_rotation") as Quaternion
-			)
-		)
+		var restored_rotation: Quaternion = weapon.get("_view_pose_rotation")
+		var hip_rotation: Quaternion = weapon.get("_hip_pose_rotation")
+		var hip_restore_angle: float = restored_rotation.angle_to(hip_rotation)
 		var hip_restore_error: float = hip_restore_pose.distance_to(hip_reference_pose)
 		print("XZOGOT_SIGHT_AUDIT_RETURN_TO_HIP id=", id,
 			" alpha=", hip_restore_alpha,
