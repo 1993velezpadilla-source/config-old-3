@@ -378,6 +378,10 @@ func _play_asset_animation(role: String, blend: float = 0.06) -> bool:
 		played = _play_aux_animation(_hands_animation_player, role, blend) or played
 	return played
 
+# Source-glTF weapon clips are now post-baked from native ActorX's (x,y,z)
+# to UE glTF skin bind axes (x,z,-y). No per-frame pistol pose guessing.
+# This explicit source conversion is validated separately by the 21-frame
+# real-Godot PSA-vs-native-rest A/B and must NOT change source hands or stats.
 func _ensure_asset_idle() -> void:
 	# Keep gun and source hands idle independently. The old implementation
 	# watched only the gun AnimationPlayer and then called _play_asset_animation,
