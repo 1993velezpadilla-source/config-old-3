@@ -391,8 +391,28 @@
       ]
     },
     "sawnoff": {
-      "status": "missing_idle_hands",
-      "source_dir": "SawedOffDB"
+      "status": "source_authored",
+      "source_dir": "SawedOffDB",
+      "idle_psa": "viewmodel_double_barrel_shotgun_idle.psa",
+      "tag_weapon_ue_cm": [
+        8.896519,
+        -6.999986,
+        -11.262758
+      ],
+      "tag_weapon_quat_ue_xyzw": [
+        0,
+        0,
+        0,
+        -1
+      ],
+      "godot_position_m": [
+        -0.06999986,
+        -0.11262758,
+        -0.08896519
+      ],
+      "source_idle_hand_reused_from": "DoubleBarrel",
+      "source_datatable_row": 10,
+      "source_identity": "Project Aether DT_Weapons row 10 Hands.idle exactly matches DoubleBarrel row 9"
     },
     "springfield": {
       "status": "source_authored",
