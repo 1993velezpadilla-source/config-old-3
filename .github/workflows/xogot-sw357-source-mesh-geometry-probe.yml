@@ -1,0 +1,31 @@
+name: Xogot SW357 Source Reload Prop Skin Geometry
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/source-viewmodel-inherited-hands-unit-scale
+    paths:
+      - "tools/weapons/audit_sw357_source_mesh_skin.py"
+      - ".github/workflows/xogot-sw357-source-mesh-geometry-probe.yml"
+permissions:
+  contents: read
+jobs:
+  source-gltf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v5
+      - name: Trace untouched original .357 gun mesh skin and accessory vertex clusters
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/weapons/audit_sw357_source_mesh_skin.py | tee /tmp/sw357-source-skin.log
+          grep -q "XZOGOT_SW357_NATIVE_MESH_AUDIT_COMPLETE" /tmp/sw357-source-skin.log
+      - name: Preserve original geometry forensic report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: SW357-Source-Skin-and-Reload-Prop-Geometry-Report
+          path: /tmp/sw357-source-skin.log
+          if-no-files-found: warn
+          retention-days: 14
