@@ -1,0 +1,134 @@
+name: Xogot Aether Source PSA Centimeter to Meter Re-Bake
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/source-viewmodel-inherited-hands-unit-scale
+    paths:
+      - "tools/weapons/build_aether_animated_glbs.py"
+      - ".github/workflows/xogot-aether-psa-meter-rebake.yml"
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: xogot-source-psa-meter-rebake
+  cancel-in-progress: false
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN_ID: "37244741312"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: fix/source-viewmodel-inherited-hands-unit-scale
+          fetch-depth: 0
+
+      - name: Retrieve existing source Aether mesh plus ActorX PSA authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p aether-artifact animated-output
+          gh run download "$SOURCE_RUN_ID" -n aether-waw-usmap-real-weapons -D aether-artifact
+          test -d aether-artifact/recovered-export
+          test -d aether-artifact/recovered-actorx
+          echo "XZOGOT_PSA_METER_ORIGINAL_SOURCE_READY"
+
+      - name: Install original Blender 5 importer environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check blender-downloader
+          BLENDER_PATH=$(blender-downloader 5.0 --extract --remove-compressed --print-blender-executable)
+          test -x "$BLENDER_PATH"
+          echo "BLENDER=$BLENDER_PATH" >> "$GITHUB_ENV"
+          git clone --depth 1 https://github.com/DarklightGames/io_scene_psk_psa.git "$RUNNER_TEMP/io_scene_psk_psa"
+          WHEEL=$(find "$RUNNER_TEMP/io_scene_psk_psa/io_scene_psk_psa/wheels" -maxdepth 1 -type f -name 'psk_psa_py-*.whl' | sort | tail -n 1)
+          test -n "$WHEEL"
+          mkdir -p "$RUNNER_TEMP/psk_psa_py_installed"
+          python3 -m pip install --no-deps --disable-pip-version-check --target "$RUNNER_TEMP/psk_psa_py_installed" "$WHEEL"
+          echo "PSK_PSA_PY_TARGET=$RUNNER_TEMP/psk_psa_py_installed" >> "$GITHUB_ENV"
+
+      - name: Rebuild original gun Actions with Unreal centimeters converted to GLB meters
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BLENDER" --background --factory-startup \
+            --python tools/weapons/build_aether_animated_glbs.py \
+            -- "$PWD/aether-artifact" "$RUNNER_TEMP/io_scene_psk_psa" \
+               "$PSK_PSA_PY_TARGET" "$PWD/animated-output" \
+            2>&1 | tee animated-weapons-meter-bake.log
+          grep -q "XZOGOT_28_ANIMATED_FIREARMS_1_THROWABLE_GREEN" animated-weapons-meter-bake.log
+          test -s animated-output/animated-inventory.json
+
+      - name: Fail closed unless every GLB and centimeter-to-meter record is present
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, struct
+          from pathlib import Path
+          inv = json.loads(Path("animated-output/animated-inventory.json").read_text())
+          assert inv["animated_weapon_count"] == 28, inv
+          assert inv["throwable_count"] == 1, inv
+          for row in inv["weapons"]:
+              binary = Path(row["output"]).read_bytes()
+              assert binary[:4] == b"glTF", row["runtime_id"]
+              n, typ = struct.unpack_from("<II", binary, 12)
+              doc = json.loads(binary[20:20+n].rstrip(b" \t\r\n\0"))
+              assert doc.get("meshes") and doc.get("skins"), row["runtime_id"]
+              if row["animation_mode"] == "embedded_psa_actions":
+                  assert row["psa_translation_scale"] == 0.01, row
+                  assert doc.get("animations"), row["runtime_id"]
+          print("XZOGOT_28_REAL_SOURCE_PSA_METER_REBAKE_PAYLOAD_GREEN")
+          PY
+
+      - name: Stage original re-baked GLBs without editing combat stats or hands
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, shutil
+          from pathlib import Path
+          inv = json.loads(Path("animated-output/animated-inventory.json").read_text())
+          root = Path("xogot/assets/weapons/aether_waw_real")
+          for row in inv["weapons"]:
+              dest = root / row["runtime_id"] / "viewmodel.glb"
+              dest.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(row["output"], dest)
+          shutil.copy2("animated-output/animated-inventory.json", root / "animated-inventory.json")
+          print("XZOGOT_PSA_METER_VIEWS_STAGED", len(inv["weapons"]))
+          PY
+
+      - name: Commit only source gun animation GLB rebake on draft branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add xogot/assets/weapons/aether_waw_real
+          if git diff --cached --quiet; then
+            echo "XZOGOT_PSA_METER_NO_BINARY_CHANGE"
+            exit 0
+          fi
+          git commit -m "Rebake 28 source Aether gun animations with UE centimeter-to-meter translation"
+          git pull --rebase origin fix/source-viewmodel-inherited-hands-unit-scale
+          git push origin HEAD:fix/source-viewmodel-inherited-hands-unit-scale
+          echo "XZOGOT_SOURCE_PSA_METER_BINARY_COMMIT_GREEN"
+
+      - name: Upload provenance and build logs even if rebake fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-28-Original-PSA-Meter-Rebake-Evidence
+          path: |
+            animated-output/animated-inventory.json
+            animated-weapons-meter-bake.log
+          if-no-files-found: warn
+          retention-days: 14
