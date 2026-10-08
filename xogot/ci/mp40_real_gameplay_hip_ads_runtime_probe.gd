@@ -24,6 +24,57 @@ func _capture(frame: String) -> bool:
 		return false
 	return image.save_png(OUT + "/" + frame + ".png") == OK
 
+# A green scale or ADS metadata check does not prove that the gun actually
+# appears in the rendered viewport. Use the live framebuffer and a reversible
+# gun-only visibility A/B/A test. The A-to-C difference is natural background
+# motion/particle drift; B must differ substantially MORE than that drift.
+# Never modify source meshes, PSAs, sockets, authored poses or animations.
+func _pixel_difference(a: Image, b: Image) -> Dictionary:
+	if a == null or b == null or a.is_empty() or b.is_empty():
+		return {"count": 0, "samples": 0}
+	if a.get_size() != b.get_size():
+		return {"count": 0, "samples": 0}
+	var changed := 0
+	var samples := 0
+	for y in range(int(a.get_height() * 0.12), int(a.get_height() * 0.95), 4):
+		for x in range(int(a.get_width() * 0.12), int(a.get_width() * 0.88), 4):
+			var ca: Color = a.get_pixel(x, y)
+			var cb: Color = b.get_pixel(x, y)
+			var diff: float = (absf(ca.r - cb.r) + absf(ca.g - cb.g) + absf(ca.b - cb.b)) / 3.0
+			if diff > 0.12:
+				changed += 1
+			samples += 1
+	return {"count": changed, "samples": samples}
+
+func _gun_screen_presence(gun: Node3D, pose: String) -> bool:
+	if gun == null or not gun.is_visible_in_tree():
+		return false
+	await process_frame
+	await process_frame
+	var with_gun: Image = root.get_texture().get_image()
+	gun.visible = false
+	await process_frame
+	await process_frame
+	var without_gun: Image = root.get_texture().get_image()
+	gun.visible = true
+	await process_frame
+	await process_frame
+	var with_gun_again: Image = root.get_texture().get_image()
+	var contrast: Dictionary = _pixel_difference(with_gun, without_gun)
+	var baseline: Dictionary = _pixel_difference(with_gun, with_gun_again)
+	var sample_count: int = int(contrast.get("samples", 0))
+	var changed: int = int(contrast.get("count", 0))
+	var drift: int = int(baseline.get("count", 0))
+	print("XZOGOT_MP40_RENDER_VISIBILITY pose=", pose,
+		" gun_toggle_changed_pixels=", changed,
+		" background_drift_pixels=", drift, " samples=", sample_count,
+		" restored_visible=", gun.is_visible_in_tree())
+	# A bare-hands frame or a microscopic gun may have correct socket data.
+	# Reject that false GREEN. The drift reference prevents moving scenery
+	# alone from satisfying the visible-firearm gate.
+	return (sample_count > 1000 and changed > maxi(80, int(float(drift) * 1.5))
+		and gun.is_visible_in_tree())
+
 func _run() -> void:
 	DirAccess.make_dir_recursive_absolute(OUT)
 	var source: PackedScene = load("res://main.tscn") as PackedScene
@@ -92,6 +143,9 @@ func _run() -> void:
 	if hip.distance_to(ads) < 0.02:
 		_fail("source HIP and ADS presentation are identical")
 		return
+	if not await _gun_screen_presence(gun, "hip"):
+		_fail("original MP40 gun not demonstrably visible in real HIP screenshot")
+		return
 	if not await _capture("01-source-mp40-hip"):
 		_fail("source MP40 HIP full game PNG not captured")
 		return
@@ -108,6 +162,9 @@ func _run() -> void:
 		return
 	if not animator.has_animation("PSA_HandIdleMP40") or gun.get_parent() != socket:
 		_fail("native hand/weapon lost connection in ADS")
+		return
+	if not await _gun_screen_presence(gun, "ads"):
+		_fail("original MP40 gun not demonstrably visible in real ADS screenshot")
 		return
 	if not await _capture("02-source-mp40-ads"):
 		_fail("source MP40 ADS full game PNG not captured")
