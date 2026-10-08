@@ -7,7 +7,7 @@ const STUB_PLAYER = preload("res://ci/ads_dummy_player.gd")
 const Weapon = preload("res://scripts/weapon.gd")
 const Registry = preload("res://scripts/weapon_asset_registry.gd")
 const OUT := "/tmp/xogot-pistol-roll-ab"
-const IDS: Array[String] = ["colt", "357", "mp40"]
+const IDS: Array[String] = ["colt", "walther", "nambu", "tt33", "357", "mp40"]
 const ROLLS: Array[float] = [90.0, 0.0, -90.0, 180.0]
 
 func _init() -> void:
@@ -111,10 +111,10 @@ func _run() -> void:
 					return
 				frames += 1
 		player.set_meta("ads_toggled", false)
-	if frames != 24:
-		_fail("expected 24 genuine captures got " + str(frames))
+	if frames != 48:
+		_fail("expected 48 genuine captures got " + str(frames))
 		return
 	print("XZOGOT_ROLL_SOURCE_DIAGNOSTIC_CAPTURED count=", frames,
-		" 3_guns=true source_skeleton_unchanged=true",
+		" six_guns=true five_original_pistols=true source_skeleton_unchanged=true",
 		" original_HIP_ADS_table_unchanged=true")
 	quit(0)

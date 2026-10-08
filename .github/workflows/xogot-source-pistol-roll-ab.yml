@@ -1,4 +1,4 @@
-name: Xogot Source Pistol Gangster Roll A-B
+name: Xogot 5 Original Pistols Roll Visual A-B
 
 on:
   workflow_dispatch:
@@ -46,14 +46,14 @@ jobs:
             --audio-driver Dummy --rendering-method gl_compatibility \
             --resolution 1280x720 --script res://ci/source_pistol_roll_ab.gd \
             2>&1 | tee build/pistol-roll/render.log
-          grep -q "XZOGOT_ROLL_SOURCE_DIAGNOSTIC_CAPTURED count=24" build/pistol-roll/render.log
-          test "$(find /tmp/xogot-pistol-roll-ab -maxdepth 1 -name '*.png' | wc -l)" -eq 24
+          grep -q "XZOGOT_ROLL_SOURCE_DIAGNOSTIC_CAPTURED count=48" build/pistol-roll/render.log
+          test "$(find /tmp/xogot-pistol-roll-ab -maxdepth 1 -name '*.png' | wc -l)" -eq 48
           ! grep -E "SCRIPT ERROR|Parse Error|XZOGOT_PISTOL_ROLL_AB_RED" build/pistol-roll/render.log
       - name: Upload original pistol grip and sight comparisons
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Xogot-Original-Pistol-vs-MP40-4-Roll-HIP-ADS-24PNG
+          name: Xogot-Five-Pistols-and-MP40-4-Roll-HIP-ADS-48PNG
           path: /tmp/xogot-pistol-roll-ab/*.png
           if-no-files-found: warn
           retention-days: 14
