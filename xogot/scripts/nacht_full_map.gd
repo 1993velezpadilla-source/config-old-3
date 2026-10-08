@@ -1818,6 +1818,87 @@ func evaluate_source_gumball_interaction(
 	}
 
 
+
+func describe_source_mystery_box_selection() -> Dictionary:
+	# Blueprint #37 supplies an exact weapon pool and manager-owned spawn
+	# contract. The UMAP marker is not an already spawned purchasable box.
+	var contract := _source_interaction_contract_for_blueprint("MysteryBox.uasset")
+	var raw_pool: Variant = contract.get("weaponPool", [])
+	var counts := _interactive_placements.get("counts", {}) as Dictionary
+	if (
+		str(contract.get("fileName", "")) != "MysteryBox.uasset"
+		or str(contract.get("managerFunction", "")) != "SpawnMystreyBox"
+		or str(contract.get("weaponSelectionFunction", "")) != "KismetMathLibrary.RandomInteger(Array_Length)"
+		or not (raw_pool is Array)
+		or (raw_pool as Array).size() != 62
+		or int(counts.get("mystery_box", -1)) != 0
+		or int(counts.get("mystery_box_location", -1)) != 1
+	):
+		return {
+			"ready": false,
+			"error": "source MysteryBox manager/selection authority mismatch",
+		}
+	return {
+		"ready": true,
+		"manager": str(contract.get("managerFunction", "")),
+		"spawnClass": str(contract.get("spawnClass", "")),
+		"locationMarkers": int(counts.get("mystery_box_location", 0)),
+		"directPlacedBoxes": int(counts.get("mystery_box", 0)),
+		"sourceWeaponPool": (raw_pool as Array).duplicate(true),
+		"sourceWeaponPoolSize": (raw_pool as Array).size(),
+		"randomFunction": str(contract.get("weaponSelectionFunction", "")),
+		"previewCount": int(contract.get("previewCount", 0)),
+		"previewCadenceSeconds": float(contract.get("previewCadenceSeconds", 0.0)),
+		"price": int(contract.get("baseCost", 0)),
+		"fireSalePrice": int(contract.get("fireSaleCost", 0)),
+		"teddyRefund": int((contract.get("teddy", {}) as Dictionary).get("refundCash", 0)),
+		"purchaseLive": false,
+	}
+
+
+func select_source_mystery_weapon_by_index(source_index: int) -> Dictionary:
+	var description := describe_source_mystery_box_selection()
+	if not bool(description.get("ready", false)):
+		return description
+	var pool := description.get("sourceWeaponPool", []) as Array
+	if source_index < 0 or source_index >= pool.size():
+		return {
+			"ready": false,
+			"error": "source MysteryBox array index out of bounds",
+			"index": source_index,
+		}
+	return {
+		"ready": true,
+		"selectedIndex": source_index,
+		"sourceWeaponId": str(pool[source_index]),
+		"purchaseLive": false,
+	}
+
+
+func evaluate_source_mystery_box_affordability(
+	player_cash: int,
+	fire_sale_active: bool
+) -> Dictionary:
+	# Pure source-authored arithmetic only. No charge, weapon grant, animation,
+	# teddy/relocation, or claim that the box is live in the actual world.
+	var description := describe_source_mystery_box_selection()
+	if not bool(description.get("ready", false)):
+		return description
+	var cost: int = (
+		int(description.get("fireSalePrice", 0)) if fire_sale_active
+		else int(description.get("price", 0))
+	)
+	return {
+		"ready": true,
+		"canAfford": player_cash >= cost,
+		"cashBefore": player_cash,
+		"cashAfter": player_cash - cost if player_cash >= cost else player_cash,
+		"selectedCost": cost,
+		"fireSaleActive": fire_sale_active,
+		"purchaseLive": false,
+	}
+
+
 func _source_particle_activation_action_for_offset(
 	blueprint_file: String,
 	start_offset: int
