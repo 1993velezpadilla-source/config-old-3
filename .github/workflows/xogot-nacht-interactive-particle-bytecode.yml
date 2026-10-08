@@ -112,6 +112,7 @@ jobs:
               "powerupbase.uasset":"/Blueprints/PowerUps/",
               "zombiegamelogic.uasset":"/Blueprints/ProxiesAndGameLogics/",
               "mysterybox.uasset":"/Blueprints/Objects/",
+              "mysteryboxlocation.uasset":"/Blueprints/Objects/",
               "limitedammomarker.uasset":"/Blueprints/KillerJimslimitedAmmo/",
               "grenadevaluedatatable.uasset":"/Blueprints/CustomItems/",
               "bp_codz_playerproxy.uasset":"/Blueprints/ProxiesAndGameLogics/",
@@ -357,8 +358,8 @@ jobs:
               Get-Item $full
             }
           )
-          if($supportAssets.Count -ne 6){
-            throw "Gumball support asset count mismatch: $($supportAssets.Count)"
+          if($supportAssets.Count -ne 7){
+            throw "Gumball/Mystery support asset count mismatch: $($supportAssets.Count)"
           }
           $supportIndex=0
           foreach($asset in $supportAssets){
@@ -2714,6 +2715,274 @@ jobs:
           print(
               "XZOGOT_NACHT_INTERACTIVE_PARTICLE_BYTECODE_GREEN",
               f"packages={len(rows)} calls={total_calls} trees={total_trees}"
+          )
+          '@ | python -
+
+      - name: Augment exact Mystery Box source contract
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          @'
+          import json
+          from pathlib import Path
+
+          root=Path("build/nacht-interactive-particle-bytecode")
+          authority_path=root/"particle-activation-authority.json"
+          authority=json.loads(authority_path.read_text())
+          assert authority.get("ready") is True,authority
+          contracts=authority.get("sourceInteractionContracts",[])
+          assert len(contracts)==1 and contracts[0].get("fileName")=="MachineGumball.uasset",contracts
+
+          def support(stem):
+              rows=sorted(root.glob(f"support-*-{stem}.json"))
+              if len(rows)!=1:
+                  raise SystemExit(f"{stem} support artifact mismatch {rows}")
+              doc=json.loads(rows[0].read_text())
+              if doc.get("ready") is not True or int(doc.get("failureCount",0))!=0:
+                  raise SystemExit(f"{stem} support bytecode not GREEN")
+              packages=doc.get("packages",[])
+              if len(packages)!=1:
+                  raise SystemExit(f"{stem} package mismatch {len(packages)}")
+              return packages[0]
+
+          logic=support("ZombieGameLogic")
+          box=support("MysteryBox")
+          location=support("MysteryBoxLocation")
+          assert logic.get("fileName")=="ZombieGameLogic.uasset",logic.get("fileName")
+          assert box.get("fileName")=="MysteryBox.uasset",box.get("fileName")
+          assert location.get("fileName")=="MysteryBoxLocation.uasset",location.get("fileName")
+
+          def function(pkg,name):
+              rows=[x for x in pkg.get("functions",[]) if x.get("name")==name]
+              if len(rows)!=1:
+                  raise SystemExit(f"{pkg.get('fileName')} function mismatch {name} {len(rows)}")
+              return rows[0]
+
+          def tops(fn):
+              return {int(x.get("startOffset",-1)):x.get("expression",{}) for x in fn.get("topLevelExpressions",[])}
+
+          def require(top,offset,*tokens):
+              if offset not in top:
+                  raise SystemExit(f"missing source offset {offset}")
+              raw=json.dumps(top[offset],separators=(",",":"))
+              missing=[x for x in tokens if x not in raw]
+              if missing:
+                  raise SystemExit(f"offset {offset} missing {missing}: {raw[:900]}")
+
+          def props(pkg,name):
+              rows=[x for x in pkg.get("normalExportProperties",[]) if x.get("objectName")==name]
+              if len(rows)!=1:
+                  raise SystemExit(f"{name} export mismatch {len(rows)}")
+              return {str(x.get("Name","")):x.get("Value") for x in rows[0].get("properties",[])}
+
+          def vec(raw,name):
+              if not isinstance(raw,list) or len(raw)!=1:
+                  raise SystemExit(f"{name} vector wrapper mismatch {raw}")
+              val=raw[0].get("Value",{})
+              return {k:float(val[k]) for k in ("X","Y","Z")}
+
+          def rot(raw,name):
+              if not isinstance(raw,list) or len(raw)!=1:
+                  raise SystemExit(f"{name} rotator wrapper mismatch {raw}")
+              val=raw[0].get("Value",{})
+              def f(v):
+                  if isinstance(v,str) and v.startswith("+"):
+                      v=v[1:]
+                  return float(v)
+              return {k:f(val[k]) for k in ("Pitch","Yaw","Roll")}
+
+          # MysteryBoxLocation is a marker/component Blueprint; selection and
+          # MysteryBox_C spawning are authored by ZombieGameLogic.SpawnMystreyBox.
+          loc_funcs=location.get("functions",[])
+          if [str(x.get("name","")) for x in loc_funcs] != ["UserConstructionScript"]:
+              raise SystemExit(f"unexpected MysteryBoxLocation functions {[x.get('name') for x in loc_funcs]}")
+          loc_top=tops(loc_funcs[0])
+          if sorted(loc_top)!=[0,2]:
+              raise SystemExit(f"MysteryBoxLocation construction bytecode changed {sorted(loc_top)}")
+
+          spawn=function(logic,"SpawnMystreyBox")
+          st=tops(spawn)
+          # Availability scan: a location is selectable if it is powered,
+          # has no power flags, or explicitly uses BoxRequiresPowerInstead.
+          require(st,16,"GetAllActorsOfClass","MysteryBoxLocation_C")
+          require(st,326,"PowerSwitchFlags","Array_Length")
+          require(st,441,"BooleanOR","Powered")
+          require(st,501,"BooleanOR","BoxRequiresPowerInstead")
+          require(st,571,"IsMysteryBoxAvailable","EX_True")
+          # Source also recognizes a forced first location while unpowered.
+          require(st,893,"Not_PreBool","Powered")
+          require(st,944,"PowerSwitchFlags","Array_Length")
+          require(st,1025,"Not_PreBool","BoxRequiresPowerInstead")
+          require(st,1148,"BooleanAND","AlwaySpawnHereFirst")
+          require(st,1256,"IsMysteryBoxAvailable","EX_True")
+          # Existing boxes are destroyed before a fresh location is chosen.
+          require(st,1751,"GetAllActorsOfClass","MysteryBox_C")
+          require(st,2050,"K2_DestroyActor")
+          # Starting-location path.
+          require(st,2338,"Not_PreBool","MysteryHasStartingLocation")
+          require(st,2426,"BooleanAND","AlwaySpawnHereFirst")
+          require(st,2496,"MysteryHasStartingLocation","EX_True")
+          require(st,2576,"CurrentMysteryBoxLocation")
+          require(st,2654,"GetTransform")
+          require(st,2704,"BeginDeferredActorSpawnFromClass","MysteryBox_C")
+          require(st,2827,"SetObjectPropertyByName","CurrentBoxLocation")
+          require(st,2890,"SetArrayPropertyByName","PowerSwitchFlags")
+          require(st,2975,"SetBoolPropertyByName","Powered")
+          require(st,3169,"FinishSpawningActor")
+          require(st,3288,"SetActorHiddenInGame","HideMysteryBoxLocation")
+          # Random fallback/search loop.
+          require(st,3349,"MysteryBoxSearchLoop","EX_True")
+          require(st,3386,"GetAllActorsOfClass","MysteryBoxLocation_C")
+          require(st,3506,"RandomInteger","Array_Length")
+          require(st,3602,"RandomMysteryBoxLocation")
+          require(st,3736,"BooleanOR","Powered")
+          require(st,3796,"BooleanOR","BoxRequiresPowerInstead")
+          require(st,3876,"CurrentMysteryBoxLocation","RandomMysteryBoxLocation")
+          require(st,3945,"BeginDeferredActorSpawnFromClass","MysteryBox_C")
+          require(st,4009,"SetObjectPropertyByName","CurrentBoxLocation")
+          require(st,4072,"SetArrayPropertyByName","PowerSwitchFlags")
+          require(st,4157,"SetBoolPropertyByName","Powered")
+          require(st,4292,"FinishSpawningActor")
+          require(st,4352,"SetActorHiddenInGame","HideMysteryBoxLocation")
+          require(st,4397,"MysteryBoxSearchLoop","EX_False")
+
+          box_cdo=props(box,"Default__MysteryBox_C")
+          if int(box_cdo.get("Cost",-1))!=950:
+              raise SystemExit(f"MysteryBox Cost mismatch {box_cdo.get('Cost')}")
+          if abs(float(box_cdo.get("TimetoRaise",-1))-5.5)>1e-6:
+              raise SystemExit(f"MysteryBox TimetoRaise mismatch {box_cdo.get('TimetoRaise')}")
+          if abs(float(box_cdo.get("TimetoFall",-1))-8.0)>1e-6:
+              raise SystemExit(f"MysteryBox TimetoFall mismatch {box_cdo.get('TimetoFall')}")
+
+          interact=props(box,"Pavlov_InteractBox_GEN_VARIABLE")
+          gunpos=props(box,"GunPos_GEN_VARIABLE")
+          interact_extent=vec(interact["BoxExtent"],"MysteryBox interact extent")
+          interact_location=vec(interact["RelativeLocation"],"MysteryBox interact location")
+          gun_location=vec(gunpos["RelativeLocation"],"MysteryBox GunPos location")
+          gun_rotation=rot(gunpos["RelativeRotation"],"MysteryBox GunPos rotation")
+
+          server=function(
+              box,
+              "BndEvt__Pavlov_InteractBox_K2Node_ComponentBoundEvent_3_"
+              "OnInteractBoxServerSignature__DelegateSignature",
+          )
+          server_raw=json.dumps(server,separators=(",",":"))
+          if '"Value":15470' not in server_raw:
+              raise SystemExit("MysteryBox server entry offset mismatch")
+
+          uber=function(box,"ExecuteUbergraph_MysteryBox")
+          bt=tops(uber)
+          # Source interaction + presentation/grab/teddy facts.
+          require(bt,6892,"Delay",'"Value":0.1666','"Value":6969')
+          require(bt,10444,"GunFloatingDown","EX_True")
+          require(bt,10455,"Delay",'"Value":2.0','"Value":10532')
+          require(bt,10977,"BoxTimer",'"Value":8')
+          require(bt,11000,"Delay",'"Value":1.0','"Value":11077')
+          require(bt,11300,"K2_DestroyActor")
+          require(bt,11396,"Delay",'"Value":2.0','"Value":11473')
+          require(bt,12593,"IsValid")
+          require(bt,12658,"GetAttachParentActor")
+          require(bt,12700,"NotEqual_ObjectObject")
+          require(bt,12759,"Delay",'"Value":0.61','"Value":12593')
+          require(bt,6818,"GivePlayerCash",'"Value":950')
+          require(bt,6873,"MysteryBoxGone")
+          require(bt,4152,"RandomIntegerInRange")
+          require(bt,4190,"TeddyChance")
+          require(bt,4224,"TeddyChance")
+          require(bt,6616,"MoveTeddyBear")
+
+          def name_consts(expr):
+              out=[]
+              def walk(v):
+                  if isinstance(v,dict):
+                      if v.get("$type")=="EX_NameConst":
+                          out.append(str(v.get("Value","")))
+                      for child in v.values():
+                          walk(child)
+                  elif isinstance(v,list):
+                      for child in v:
+                          walk(child)
+              walk(expr)
+              return out
+          pool_a=name_consts(bt[2474])
+          pool_b=name_consts(bt[4909])
+          if pool_a!=pool_b or len(pool_a)!=62:
+              raise SystemExit(f"MysteryBox weapon pool mismatch {len(pool_a)}/{len(pool_b)}")
+
+          contract={
+              "fileName":"MysteryBox.uasset",
+              "blueprintName":"MysteryBox",
+              "managerFileName":"ZombieGameLogic.uasset",
+              "managerFunction":"SpawnMystreyBox",
+              "locationFileName":"MysteryBoxLocation.uasset",
+              "locationBlueprintName":"MysteryBoxLocation",
+              "locationBlueprintRole":"marker_only_selection_and_spawn_managed_by_ZombieGameLogic",
+              "baseCost":950,
+              "fireSaleCost":10,
+              "timeToRaiseSeconds":5.5,
+              "timeToFallSeconds":8.0,
+              "serverEntryOffset":15470,
+              "weaponPool":pool_a,
+              "weaponSelectionFunction":"KismetMathLibrary.RandomInteger(Array_Length)",
+              "previewCount":29,
+              "previewCadenceSeconds":0.1666,
+              "spawnClass":"MysteryBox_C",
+              "spawnTransformSource":"selected MysteryBoxLocation_C.GetTransform",
+              "spawnPropertyCopies":["CurrentBoxLocation","PowerSwitchFlags","Powered"],
+              "availabilityPaths":[
+                  {
+                      "kind":"ordinary",
+                      "rule":"Powered || PowerSwitchFlags.length <= 0 || BoxRequiresPowerInstead",
+                      "proofOffsets":[326,441,501,571],
+                  },
+                  {
+                      "kind":"forced_start",
+                      "rule":"!Powered && PowerSwitchFlags.length > 0 && AlwaySpawnHereFirst && !BoxRequiresPowerInstead",
+                      "proofOffsets":[893,944,1025,1148,1256],
+                  },
+              ],
+              "startingLocationRule":"first AlwaySpawnHereFirst while MysteryHasStartingLocation is false",
+              "startingLocationProofOffsets":[2338,2426,2496,2576,2704,2827,2890,2975,3169,3288],
+              "randomLocationRule":"RandomInteger(Array_Length(MysteryBoxLocation_C actors)); repeat until ordinary availability rule passes",
+              "randomLocationProofOffsets":[3349,3386,3506,3602,3736,3796,3876,3945,4009,4072,4157,4292,4352,4397],
+              "interactBox":{
+                  "componentName":"Pavlov_InteractBox",
+                  "extentUEcm":interact_extent,
+                  "relativeLocationUEcm":interact_location,
+              },
+              "gunPos":{
+                  "componentName":"GunPos",
+                  "relativeLocationUEcm":gun_location,
+                  "relativeRotationDegrees":gun_rotation,
+              },
+              "teddy":{
+                  "randomFunction":"RandomIntegerInRange",
+                  "chanceProperty":"TeddyChance",
+                  "moveEvent":"MoveTeddyBear",
+                  "refundCash":950,
+                  "goneEvent":"MysteryBoxGone",
+                  "proofOffsets":[4152,4190,4224,6616,6818,6873],
+              },
+              "grabResetRule":{
+                  "pollIntervalSeconds":0.61,
+                  "timeoutCounterSeconds":8,
+                  "timeoutTickSeconds":1.0,
+                  "timeoutDestroyIfStillAttached":True,
+                  "gunFloatingDown":True,
+                  "lowerDelaySeconds":2.0,
+                  "closeResetDelaySeconds":2.0,
+                  "proofOffsets":[10444,10455,10977,11000,11300,11396,12593,12658,12700,12759],
+              },
+          }
+          contracts.append(contract)
+          authority["sourceInteractionContracts"]=contracts
+          authority["sourceInteractionContractCount"]=len(contracts)
+          authority["mysteryBoxSourceAuthority"]=contract
+          authority_path.write_text(json.dumps(authority,indent=2)+"\n")
+          print(
+              "XZOGOT_NACHT_MYSTERY_BOX_INTERACTION_AUTHORITY_GREEN",
+              f"cost=950 firesale=10 pool={len(pool_a)} previews=29 "
+              "manager=SpawnMystreyBox paths=2"
           )
           '@ | python -
 
