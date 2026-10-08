@@ -76,6 +76,26 @@ jobs:
           test -s xogot/assets/benchmarks/nacht_chronicles/source_manifest.json
           test -s xogot/assets/benchmarks/nacht_chronicles/nacht-particle-graphs.json
           test -s xogot/assets/benchmarks/nacht_chronicles/nacht-particle-runtime-authority.json
+          # Older GREEN stage artifacts predate interactive placement authority.
+          # Recompile from the staged source UMAP scene with the CURRENT source
+          # classifier so the fast gate never inherits stale gameplay semantics.
+          test -s xogot/assets/benchmarks/nacht_chronicles/nacht-static-scene.json
+          python3 tools/maps/compile_nacht_interactive_placements.py \
+            --scene xogot/assets/benchmarks/nacht_chronicles/nacht-static-scene.json \
+            --output xogot/assets/benchmarks/nacht_chronicles/nacht-interactive-placements.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("xogot/assets/benchmarks/nacht_chronicles/nacht-interactive-placements.json")
+          d=json.loads(p.read_text())
+          assert d.get("ready") is True,d
+          assert d.get("missingRequiredCategories")==[],d
+          counts=d.get("counts",{})
+          assert int(counts.get("mystery_box",0))==0,counts
+          assert int(counts.get("mystery_box_location",0))>0,counts
+          assert int(counts.get("power_switch",0))==0,counts
+          print("XZOGOT_NACHT_FAST_INTERACTIVE_PLACEMENTS_GREEN",json.dumps(counts,sort_keys=True))
+          PY
           echo "XZOGOT_NACHT_FAST_SEMANTIC_STAGE_GREEN run=$SOURCE_RUN"
 
       - name: Inject current particle activation authority
