@@ -652,15 +652,41 @@ func _validate_authority() -> bool:
 	if int(_particle_activation_authority.get("normalizedActionCount", 0)) != 17:
 		push_error("NACHT_FULL_MAP: particle activation action count mismatch")
 		return false
-	if int(_particle_activation_authority.get("sourceInteractionContractCount", 0)) != 1:
+	if int(_particle_activation_authority.get("sourceInteractionContractCount", 0)) != 2:
 		push_error("NACHT_FULL_MAP: source interaction contract count mismatch")
 		return false
 	var source_contracts_raw: Variant = _particle_activation_authority.get(
 		"sourceInteractionContracts",
 		[]
 	)
-	if not (source_contracts_raw is Array) or (source_contracts_raw as Array).size() != 1:
+	if not (source_contracts_raw is Array) or (source_contracts_raw as Array).size() != 2:
 		push_error("NACHT_FULL_MAP: source interaction contract authority incomplete")
+		return false
+
+	# Interactive Blueprint decoder #37 independently resolved the actual
+	# MysteryBox_C contract. Keep it separate from Gumball: the box is
+	# runtime-managed from MysteryBoxLocation_C, not UMAP-placed directly.
+	var mystery_contract := (source_contracts_raw as Array)[1] as Dictionary
+	var mystery_box := mystery_contract.get("interactBox", {}) as Dictionary
+	var mystery_teddy := mystery_contract.get("teddy", {}) as Dictionary
+	var mystery_pool: Variant = mystery_contract.get("weaponPool", [])
+	if (
+		str(mystery_contract.get("fileName", "")) != "MysteryBox.uasset"
+		or str(mystery_contract.get("managerFileName", "")) != "ZombieGameLogic.uasset"
+		or str(mystery_contract.get("managerFunction", "")) != "SpawnMystreyBox"
+		or str(mystery_contract.get("locationFileName", "")) != "MysteryBoxLocation.uasset"
+		or str(mystery_contract.get("spawnClass", "")) != "MysteryBox_C"
+		or int(mystery_contract.get("baseCost", -1)) != 950
+		or int(mystery_contract.get("fireSaleCost", -1)) != 10
+		or int(mystery_contract.get("serverEntryOffset", -1)) != 15470
+		or int(mystery_contract.get("previewCount", -1)) != 29
+		or str(mystery_contract.get("weaponSelectionFunction", "")) != "KismetMathLibrary.RandomInteger(Array_Length)"
+		or str(mystery_box.get("componentName", "")) != "Pavlov_InteractBox"
+		or int(mystery_teddy.get("refundCash", -1)) != 950
+		or not (mystery_pool is Array)
+		or (mystery_pool as Array).size() != 62
+	):
+		push_error("NACHT_FULL_MAP: MysteryBox source interaction contract mismatch")
 		return false
 	var source_gumball_contract := (source_contracts_raw as Array)[0] as Dictionary
 	var source_gumball_box := source_gumball_contract.get("interactBox", {}) as Dictionary
