@@ -37,7 +37,8 @@ func _run() -> void:
 		return
 	if not _check(not weapon.call("buy_source_wall_weapon", "gun1911", 950, buyer), "external source charged wallbuy"):
 		return
-	if not _check(str(weapon.call("roll_source_mystery_weapon", ["gun1911", "raygun"])) == "", "mystery rolled placeholder"):
+	var source_pool: Array[String] = ["gun1911", "raygun"]
+	if not _check(str(weapon.call("roll_source_mystery_weapon", source_pool)) == "", "mystery rolled placeholder"):
 		return
 	if not _check(int(buyer.get("spend_attempts")) == 0 and int(buyer.get("points")) == 1200, "money spent or attempted"):
 		return
