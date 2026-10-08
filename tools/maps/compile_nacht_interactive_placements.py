@@ -116,6 +116,27 @@ def main() -> int:
             str(r.get("objectPath", "")).lower(),
         ))
 
+    # Presence in a UMAP is not proof of a usable gameplay contract. Record
+    # exactly which source properties were exported per category so runtime
+    # adapters cannot silently substitute guessed prices or rewards.
+    source_property_coverage: dict[str, dict] = {}
+    for category, rows in categories.items():
+        key_counts: dict[str, int] = {}
+        with_properties = 0
+        for row in rows:
+            props = row.get("sourceGameplayProperties", {})
+            if not isinstance(props, dict) or not props:
+                continue
+            with_properties += 1
+            for key in props:
+                name = str(key)
+                key_counts[name] = key_counts.get(name, 0) + 1
+        source_property_coverage[category] = {
+            "sourceActorCount": len(rows),
+            "actorsWithGameplayProperties": with_properties,
+            "propertyKeyCounts": dict(sorted(key_counts.items())),
+        }
+
     output = {
         "schemaVersion": 1,
         "authority": "Nacht UMAP actor anchors; no synthetic placements",
@@ -129,6 +150,7 @@ def main() -> int:
         "requiredCategories": list(REQUIRED),
         "missingRequiredCategories": missing,
         "multiCategoryMatches": multi_category,
+        "sourceGameplayPropertyCoverage": source_property_coverage,
         "ready": not missing,
     }
 
@@ -145,6 +167,15 @@ def main() -> int:
     if missing:
         print("XZOGOT_NACHT_INTERACTIVE_PLACEMENTS_FAILURE")
         return 5
+
+    print("XZOGOT_NACHT_SOURCE_PROPERTY_COVERAGE", json.dumps({
+        category: {
+            "actors": coverage["sourceActorCount"],
+            "withProperties": coverage["actorsWithGameplayProperties"],
+            "keys": list(coverage["propertyKeyCounts"]),
+        }
+        for category, coverage in source_property_coverage.items()
+    }, sort_keys=True))
 
     print("XZOGOT_NACHT_INTERACTIVE_PLACEMENTS_GREEN")
     return 0
