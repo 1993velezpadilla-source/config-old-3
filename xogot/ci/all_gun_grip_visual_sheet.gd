@@ -62,8 +62,9 @@ func _capture() -> void:
 			var centered_source_ads: bool = weapon_id == "mp40" and pose == "ads"
 			if not bool(gun.get("found", false)) or largest < 0.15 or largest > 2.5:
 				failures.append(weapon_id + ":" + pose + ":bounds=" + str(largest))
-			if absf(roll - 90.0) > 0.01:
-				failures.append(weapon_id + ":" + pose + ":roll=" + str(roll))
+			var expected_roll := 180.0 if weapon_id == "357" else 90.0
+			if absf(roll - expected_roll) > 0.01:
+				failures.append(weapon_id + ":" + pose + ":roll=" + str(roll) + " expected=" + str(expected_roll))
 			var frame: Image = root.get_texture().get_image()
 			if frame == null or frame.is_empty():
 				failures.append(weapon_id + ":" + pose + ":empty_image")

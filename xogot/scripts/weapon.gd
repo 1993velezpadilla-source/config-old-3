@@ -410,14 +410,27 @@ func _update_asset_animation_state() -> void:
 		_ensure_asset_idle()
 
 func _apply_sw357_idle_cylinder_rest() -> bool:
-	if (_weapon_id != "357" or _reloading or _cooldown > 0.0
-		or _asset_animation_player == null or not is_instance_valid(_asset_animation_player)
-		or _sw357_reload_meshes.is_empty()):
+	# Expose exact guard failure to the real 13-frame smoke. Never pretend the
+	# cylinder has been closed merely because the filtered mesh is present.
+	if _weapon_id != "357":
+		return false
+	if _reloading or _cooldown > 0.0:
+		set_meta("weapon_sw357_idle_close_reason", "busy_reload_or_fire")
+		return false
+	if _asset_animation_player == null or not is_instance_valid(_asset_animation_player):
+		set_meta("weapon_sw357_idle_close_reason", "no_original_gun_animation_player")
+		return false
+	if _sw357_reload_meshes.is_empty():
+		set_meta("weapon_sw357_idle_close_reason", "missing_original_skinned_mesh_filter")
 		return false
 	var original_idle := WeaponAssetRegistry.animation_name_for_role("357", "idle")
-	if original_idle.is_empty() or str(_asset_animation_player.current_animation) != original_idle:
+	var active := str(_asset_animation_player.current_animation)
+	if original_idle.is_empty() or active != original_idle:
+		set_meta("weapon_sw357_idle_close_reason", "source_idle_not_current:" + active + " expected:" + original_idle)
 		return false
-	return WeaponSW357ReloadGeometry.close_idle_cylinder(_sw357_reload_meshes)
+	var closed: bool = WeaponSW357ReloadGeometry.close_idle_cylinder(_sw357_reload_meshes)
+	set_meta("weapon_sw357_idle_close_reason", "source_rest_applied" if closed else "source_j_bolt_rest_failed")
+	return closed
 
 func _finish_melee_overlay() -> void:
 	if _melee_model_root != null and is_instance_valid(_melee_model_root):
@@ -789,15 +802,16 @@ func _bind_weapon_to_source_hands() -> bool:
 	# tag_weapon bone supplies the authored per-weapon HIP placement.
 	_weapon_model_root.reparent(attachment, false)
 	_weapon_model_root.transform = Transform3D.IDENTITY
-	# The original Aether meter-space GLBs have the gun's vertical plane 90°
-	# off the source hands' tag_weapon socket. Real MP40 HIP/ADS A/B captures
-	# demonstrated that +90° about the gun's own +X forward axis restores
-	# gravity-down magazine orientation on MP40. Centered sights are NOT
-	# guaranteed by roll alone and must pass actual source socket/eye-line QA.
-	# This is a shared import-axis conversion for EVERY Aether firearm, NOT
-	# a weapon-specific pose/hand offset. The authored hands skeleton/PSA and
-	# per-weapon source HIP/ADS datatable transforms stay untouched.
-	var gun_roll_deg := 90.0 if bool(get_meta("weapon_source_imported_aether", false)) else 0.0
+	# Source-meter imported gun roll must be proven against source hands/PSA,
+	# NOT blindly shared across all gun types. Actual 24-frame Godot A/B
+	# #37831370705: original .357 +90 -> pistol sideways; +180 -> rear/front
+	# upright and visually registered. MP40 still needs its +90 magazine down.
+	# Change ONLY the visually proven .357. Other guns stay unchanged pending
+	# independent HIP/ADS per-weapon comparison and grip/geometry signoff.
+	# Source DT_Weapons translations, timings, hand PSA and source GLB untouched.
+	var gun_roll_deg := 0.0
+	if bool(get_meta("weapon_source_imported_aether", false)):
+		gun_roll_deg = 180.0 if _weapon_id == "357" else 90.0
 	_weapon_model_root.quaternion = Quaternion(Vector3.RIGHT, deg_to_rad(gun_roll_deg))
 	set_meta("weapon_source_gun_roll_correction_deg", gun_roll_deg)
 	_weapon_model_root.scale = Vector3.ONE

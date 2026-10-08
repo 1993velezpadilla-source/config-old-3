@@ -271,12 +271,16 @@ func _run_probe() -> void:
 			if connected:
 				connected = gun_node.get_parent() == hand_socket
 			var inherited_meters_ok := bool(weapon.get_meta("weapon_source_attachment_meter_units_restored", false))
+			# Preserve original MP40 roll, but do not force visually wrong
+			# 90-degree gangster cant on the SW357 after true 24-frame A/B.
+			var expected_roll_deg := 180.0 if id == "357" else 90.0
+			var expected_socket_up := Vector3.DOWN if id == "357" else Vector3.BACK
 			var local_up_ok := false
 			if gun_node != null:
 				var up_in_socket := gun_node.transform.basis.orthonormalized() * Vector3.UP
-				local_up_ok = up_in_socket.distance_to(Vector3.BACK) <= 0.01
+				local_up_ok = up_in_socket.distance_to(expected_socket_up) <= 0.01
 			if (not attachment_ready or not connected
-				or absf(gun_roll_deg - 90.0) > 0.01
+				or absf(gun_roll_deg - expected_roll_deg) > 0.01
 				or not inherited_meters_ok or not local_up_ok):
 				source_attachment_blockers.append(id)
 				print("XZOGOT_ALL_GUNS_ATTACHMENT_BLOCKER ", id,

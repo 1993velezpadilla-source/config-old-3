@@ -205,7 +205,12 @@ func _run() -> void:
 		quit(19)
 		return
 	if not bool(weapon.call("_apply_sw357_idle_cylinder_rest")):
-		push_error("XZOGOT_SW357_RUNTIME_IDLE_CLOSE_FAILED")
+		push_error("XZOGOT_SW357_RUNTIME_IDLE_CLOSE_FAILED reason=" + str(
+			weapon.get_meta("weapon_sw357_idle_close_reason", "unspecified"))
+			+ " active=" + str(gun_anim.current_animation)
+			+ " expected=" + source_idle
+			+ " reload=" + str(weapon.get("_reloading"))
+			+ " cooldown=" + str(weapon.get("_cooldown")))
 		quit(20)
 		return
 	var closed: Transform3D = native_skeleton.get_bone_pose(j_bolt_idx)
