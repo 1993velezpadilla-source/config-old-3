@@ -1,0 +1,61 @@
+name: Xogot Source Scoped Rifle ADS Eye-Line A-B
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/source-viewmodel-inherited-hands-unit-scale
+    paths:
+      - "xogot/ci/source_scoped_ads_eyeline_ab.gd"
+      - ".github/workflows/xogot-source-scoped-ads-eyeline-ab.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install native Godot 4.6.1 renderer
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip -o /tmp/godot.zip
+          mkdir -p /tmp/godot /tmp/xogot-scoped-eyeline build/scoped-eyeline
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+      - name: Import source original weapons and PSA
+        run: |
+          set -euo pipefail
+          timeout 240 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 --headless --editor --path xogot --quit 2>&1 | tee build/scoped-eyeline/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error" build/scoped-eyeline/import.log
+      - name: Compare real Godot camera at 5 depths against source sight tag
+        run: |
+          set -euo pipefail
+          timeout 240 xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 --path xogot --audio-driver Dummy \
+            --rendering-method gl_compatibility --resolution 1280x720 \
+            --script res://ci/source_scoped_ads_eyeline_ab.gd 2>&1 | tee build/scoped-eyeline/render.log
+          grep -q "XZOGOT_SCOPE_EYELINE_DIAGNOSTIC_GREEN count=10" build/scoped-eyeline/render.log
+          test "$(find /tmp/xogot-scoped-eyeline -maxdepth 1 -name '*.png' | wc -l)" -eq 10
+          ! grep -E "SCRIPT ERROR|Parse Error|XZOGOT_SCOPE_EYELINE_AB_RED" build/scoped-eyeline/render.log
+      - name: Upload 10 full-resolution original Godot ADS A-B captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Scoped-ADS-Source-Eyeline-10PNG
+          path: /tmp/xogot-scoped-eyeline/*.png
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Upload sight socket positional evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Scoped-ADS-Source-Eyeline-Logs
+          path: build/scoped-eyeline/*.log
+          if-no-files-found: warn
+          retention-days: 14
