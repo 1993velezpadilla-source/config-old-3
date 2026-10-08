@@ -7,6 +7,7 @@ on:
       - fix/source-viewmodel-inherited-hands-unit-scale
     paths:
       - "xogot/scripts/weapon.gd"
+      - "xogot/scripts/weapon_asset_registry.gd"
       - "xogot/ci/aaa_weapon_runtime_probe.gd"
       - "xogot/assets/weapons/mapmod_weapon_asset_manifest.json"
       - ".github/workflows/xogot-all-weapon-grip-orientation-gate.yml"
