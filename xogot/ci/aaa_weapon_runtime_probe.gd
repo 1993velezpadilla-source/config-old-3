@@ -5,6 +5,7 @@ const WeaponAssetRegistry = preload("res://scripts/weapon_asset_registry.gd")
 const WeaponBalanceAAA = preload("res://scripts/weapon_balance_aaa.gd")
 const WeaponSourceCombat = preload("res://scripts/weapon_source_combat.gd")
 const WeaponViewmodelSourcePose = preload("res://scripts/weapon_viewmodel_source_pose.gd")
+const WeaponViewmodelSourcePresentation = preload("res://scripts/weapon_viewmodel_source_presentation.gd")
 
 const FIREARMS: Array[String] = ["colt","walther","nambu","tt33","357","mp40","thompson","ppsh","type100","stg","m1","m1a1","gewehr","svt40","arisaka","kar98k","springfield","mosin","ptrs","trench","doublebarrel","sawnoff","bar","fg42","mg42","browning","dp28","type99"]
 
@@ -162,9 +163,25 @@ func _run_probe() -> void:
 				_fail(46, "MP40 source hands PSA translation scale must be UE cm -> GLB m")
 				return
 		else:
-			if ads_mode != "source_pending":
-				_fail(20, "ADS must remain source_pending until exact archive metadata is bound " + id)
+			# CUE4Parse verified DT_Weapons all 28 original HandTransform and
+			# ADSTransform records have now been recovered. Never mistake the
+			# retired source_pending geometric preview for source authority.
+			if not WeaponViewmodelSourcePresentation.has_source_presentation(id):
+				_fail(20, "Original UE5.7 DT_Weapons ADS row missing for " + id)
 				return
+			var expected_mode := "source_datatable" if bool(weapon.get_meta("weapon_source_weapon_attachment_ready", false)) else "source_datatable_pending_hands"
+			if ads_mode != expected_mode:
+				_fail(20, "Source ADS mode mismatch for " + id + " expected=" + expected_mode + " actual=" + ads_mode)
+				return
+			if ads_mode == "source_datatable":
+				var original_row: Dictionary = WeaponViewmodelSourcePresentation.record(id)
+				var actual_row := int(weapon.get_meta("weapon_source_presentation_row", -1))
+				if actual_row != int(original_row.get("source_row_index", -2)):
+					_fail(20, "Source DT_Weapons row mismatch for " + id)
+					return
+				if str(weapon.get_meta("weapon_ads_visual_alignment_mode", "")) != "source_datatable":
+					_fail(20, "Geometric preview not retired for source-authored " + id)
+					return
 
 		var yaw_fix := float(weapon.get_meta("weapon_model_yaw_correction_deg", 0.0))
 		if absf(yaw_fix - 90.0) > 0.01:
