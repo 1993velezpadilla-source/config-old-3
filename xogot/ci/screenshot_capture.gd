@@ -119,6 +119,24 @@ func _capture() -> void:
 			" materials=", weapon.get_meta("weapon_resolved_surfaces", 0),
 			"/", weapon.get_meta("weapon_texture_surfaces", 0)
 		)
+		var meter_snapshot := weapon.call("get_first_person_debug_snapshot") as Dictionary
+		var meter_bounds := meter_snapshot.get("weapon", {}) as Dictionary
+		var meter_size := meter_bounds.get("size", Vector3.ZERO) as Vector3
+		var longest_m := maxf(meter_size.x, maxf(meter_size.y, meter_size.z))
+		if (
+			not bool(meter_bounds.get("found", false))
+			or longest_m < 0.3
+			or longest_m > 1.5
+			or not bool(weapon.get_meta("weapon_source_attachment_meter_units_restored", false))
+		):
+			push_error("SCREENSHOT: real MP40 meter-space AABB invalid: " + str(meter_bounds))
+			quit(34)
+			return
+		print(
+			"XZOGOT_MP40_RUNTIME_METER_BOUNDS_GREEN longest_m=", longest_m,
+			" rig_inherited_scale=",
+			weapon.get_meta("weapon_source_attachment_inherited_scale", Vector3.ONE)
+		)
 
 	var round_manager: Node = scene.get_node_or_null("RoundManager")
 	if round_manager != null:
@@ -259,4 +277,15 @@ func _capture() -> void:
 			return
 		print("XZOGOT_EXTERIOR_SCREENSHOT_GREEN ", exterior_path, " ", exterior_image.get_width(), "x", exterior_image.get_height())
 
-	quit(0)
+	# Release the imported gameplay scene before process exit so a successful
+	# GPU capture is not reported RED by late ObjectDB/audio cleanup.
+	scene.queue_free()
+	for cleanup_frame in range(4):
+		await process_frame
+	if is_instance_valid(scene):
+		push_error("SCREENSHOT: imported gameplay scene teardown incomplete")
+		quit(30)
+		return
+	print("XZOGOT_SCREENSHOT_SCENE_TEARDOWN_GREEN")
+	call_deferred("quit", 0)
+	return
