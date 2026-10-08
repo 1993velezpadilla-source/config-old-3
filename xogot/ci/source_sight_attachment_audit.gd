@@ -145,4 +145,8 @@ func _inspect() -> void:
 		print("XZOGOT_SIGHT_AUDIT_VISUAL_ACCEPTANCE_RED count=",bad_ads.size())
 	scene.queue_free()
 	await process_frame
+	if not bad_ads.is_empty():
+		quit(7)
+		return
+	print("XZOGOT_SIGHT_AUDIT_CENTERING_PROBE_GREEN 28")
 	quit(0)
