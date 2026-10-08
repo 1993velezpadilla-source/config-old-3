@@ -25,6 +25,40 @@ func _find_mesh(node: Node) -> MeshInstance3D:
 			return found
 	return null
 
+# Explains oversize camera AABBs without hiding geometry or weakening
+# the 2.5m guard. Per imported skinned mesh world-space bounds, not guesses.
+func _report_component_camera_bounds(root_node: Node3D, camera: Camera3D, weapon_id: String) -> void:
+	if root_node == null or camera == null:
+		return
+	var stack: Array[Node] = [root_node]
+	while not stack.is_empty():
+		var item: Node = stack.pop_back()
+		if item is MeshInstance3D:
+			var part := item as MeshInstance3D
+			if part.mesh != null:
+				var box := part.get_aabb()
+				var local_box := AABB()
+				var found := false
+				for ix in range(2):
+					for iy in range(2):
+						for iz in range(2):
+							var pos := box.position + box.size * Vector3(ix,iy,iz)
+							var cp := camera.to_local(part.to_global(pos))
+							if not found:
+								local_box = AABB(cp, Vector3.ZERO)
+								found = true
+							else:
+								local_box = local_box.expand(cp)
+				print("XZOGOT_GUN_COMPONENT_M ",weapon_id,
+					" node=", part.name,
+					" visible=", part.visible,
+					" bounds=",local_box,
+					" mesh_local=",box,
+					" model_scale=",part.scale,
+					" mesh=",part.mesh.resource_name)
+		for child: Node in item.get_children():
+			stack.append(child)
+
 func _find_animation_player(node: Node) -> AnimationPlayer:
 	if node is AnimationPlayer:
 		return node as AnimationPlayer
@@ -221,6 +255,11 @@ func _run_probe() -> void:
 				source_geometry_blockers.append(id + ":" + str(gun_max_axis))
 				print("XZOGOT_ALL_GUNS_GEOMETRY_BLOCKER ", id,
 					" longest_m=", gun_max_axis, " camera_aabb=", gun_bounds)
+				if id == "mosin" or id == "ptrs":
+					_report_component_camera_bounds(
+						weapon.get("_weapon_model_root") as Node3D,
+						scene.get_node_or_null("Player/Head/Camera3D") as Camera3D, id
+					)
 			elif attachment_ready and connected and local_up_ok and inherited_meters_ok:
 				print("XZOGOT_ALL_GUNS_GRIP_BASIS_GREEN ", id,
 					" roll_deg=", gun_roll_deg, " gun_m=", gun_max_axis,
