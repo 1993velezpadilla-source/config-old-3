@@ -1,0 +1,69 @@
+name: Xogot Original Long-Gun HIP ADS Roll Visual A-B
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/source-viewmodel-inherited-hands-unit-scale
+    paths:
+      - "xogot/ci/source_long_gun_roll_ab.gd"
+      - ".github/workflows/xogot-source-long-gun-roll-ab.yml"
+permissions:
+  contents: read
+jobs:
+  original-long-guns:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {start: 0, end: 4}
+          - {start: 4, end: 8}
+    env:
+      XOGOT_LONG_START: ${{ matrix.start }}
+      XOGOT_LONG_END: ${{ matrix.end }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Godot 4.6.1 OpenGL
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip -o /tmp/godot.zip
+          mkdir -p /tmp/godot /tmp/xogot-long-guns-roll-ab build/long-roll
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+      - name: Import authentic weapon and hand rigs
+        run: |
+          set -euo pipefail
+          timeout 240 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit 2>&1 | tee build/long-roll/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error" build/long-roll/import.log
+      - name: Capture 32 real Godot HIP ADS images
+        run: |
+          set -euo pipefail
+          timeout 520 xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --path xogot --audio-driver Dummy --rendering-method gl_compatibility \
+            --resolution 1280x720 --script res://ci/source_long_gun_roll_ab.gd \
+            2>&1 | tee build/long-roll/render.log
+          grep -q "XZOGOT_LONG_ROLL_SOURCE_DIAGNOSTIC_CAPTURED count=32" build/long-roll/render.log
+          test "$(find /tmp/xogot-long-guns-roll-ab -maxdepth 1 -name '*.png' | wc -l)" -eq 32
+          ! grep -E "SCRIPT ERROR|Parse Error|XZOGOT_LONG_GUN_ROLL_AB_RED" build/long-roll/render.log
+      - name: Preserve roll A-B screenshots even if failed
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Long-Gun-Roll-${{ matrix.start }}-${{ matrix.end }}-32PNG
+          path: /tmp/xogot-long-guns-roll-ab/*.png
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Preserve source diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Long-Gun-Roll-Logs-${{ matrix.start }}-${{ matrix.end }}
+          path: build/long-roll/*.log
+          if-no-files-found: warn
+          retention-days: 14
