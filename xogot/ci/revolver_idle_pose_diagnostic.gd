@@ -85,6 +85,12 @@ func _idle_mesh_without_original_reload_props(model: Node3D) -> bool:
 				best_name == "tag_speedloader" or best_name == "tag_bullets"
 				)
 			) else 0
+		var isolated_vertices: int = 0
+		for auxiliary_flag in auxiliary:
+			isolated_vertices += int(auxiliary_flag)
+		print("XZOGOT_SW357_SKIN_ROLE_ANALYSIS surface=", surface_idx,
+			" imported_vertices=", vertices.size(), " reload_only_vertices=", isolated_vertices,
+			" source_triangles=", orig.size() / 3)
 		var keep: PackedInt32Array = PackedInt32Array()
 		for tri in range(0,orig.size(),3):
 			var i0: int = orig[tri]
