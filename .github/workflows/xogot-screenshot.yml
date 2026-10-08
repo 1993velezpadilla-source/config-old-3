@@ -88,6 +88,25 @@ jobs:
       # Preserve the REAL PNGs even if Godot exits nonzero *after* writing
       # all three captures (ObjectDB instance leak, exit=1 in run #63).
       # This does not mask/turn GREEN a failed renderer or visual gate.
+      # Godot #63/#64 did save all three PNG files to /tmp, but a
+      # nonzero process exit in cleanup meant the preceding step never
+      # copied them to build/, so even upload if:always had nothing.
+      # Preserve original process RED and retain real rendered evidence.
+      - name: Recover genuine Godot PNGs even on render RED
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/xogot-screenshot
+          for frame in xogot-current-game xogot-current-ads xogot-current-exterior; do
+            if [[ -s "/tmp/${frame}.png" ]]; then
+              cp "/tmp/${frame}.png" "build/xogot-screenshot/${frame}.png"
+              echo "XZOGOT_SCREENSHOT_RECOVERED_FROM_RENDER_FRAME file=${frame}.png"
+            else
+              echo "XZOGOT_SCREENSHOT_FRAME_MISSING file=${frame}.png"
+            fi
+          done
+
       - name: Upload screenshot
         if: always()
         uses: actions/upload-artifact@v4
