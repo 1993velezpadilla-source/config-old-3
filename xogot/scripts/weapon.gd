@@ -2007,6 +2007,10 @@ func _gun_mesh_bounds_local() -> Dictionary:
 			stack.append(child)
 	return {"found": found, "box": box}
 
+# Pending-source ADS is a visual preview, not recovered DT_Weapons data.
+# The sight marker is measured IN THE VIEW ROOT'S LOCAL COORDINATES; the
+# resulting target pose is solved analytically, not guessed from camera offsets.
+# This moves the whole original hands+gun hierarchy, not the mesh alone.
 func _derive_pending_source_ads_sight_preview() -> void:
 	if _pending_ads_geometry_solved or _camera == null or _view_root == null:
 		return
@@ -2016,94 +2020,106 @@ func _derive_pending_source_ads_sight_preview() -> void:
 		return
 	if WeaponViewmodelSourcePresentation.has_source_presentation(_weapon_id):
 		return
-	if not bool(get_meta("weapon_source_imported_aether", false)):
-		return
-	# Source equip/reload PSA bone transforms are transient; sight calibration
-	# must use the real settled source idle hand pose, never mid-animation.
-	if _reloading:
+	if not bool(get_meta("weapon_source_imported_aether", false)) or _reloading:
 		return
 	if _hands_animation_player != null:
-		var source_hand_action := str(_hands_animation_player.current_animation).to_lower()
-		if not source_hand_action.contains("idle") and not source_hand_action.contains("hold"):
+		var source_action: String = str(_hands_animation_player.current_animation).to_lower()
+		if not source_action.contains("idle") and not source_action.contains("hold"):
 			return
+
 	var aim_world := Vector3.ZERO
 	var anchor_kind := ""
+	# Prefer true authored sight bones. "tag_scope" is NOT an iron sight when a
+	# rear iron marker exists; old code could pick an arbitrary mesh point.
 	for bone_name in ["tag_iron_sights", "tag_scope", "tag_no_scope"]:
-		var source_bone: Dictionary = _gun_skeleton_bone_world(bone_name)
-		if bool(source_bone.get("found", false)):
-			aim_world = source_bone.get("position", Vector3.ZERO)
+		var real_sight: Dictionary = _gun_skeleton_bone_world(bone_name)
+		if bool(real_sight.get("found", false)):
+			aim_world = real_sight.get("position", Vector3.ZERO)
 			anchor_kind = bone_name
 			break
+
 	if anchor_kind.is_empty():
-		var geom := _gun_mesh_bounds_local()
+		# Unverified optics: derived visual aid ONLY, requires visual approval.
+		# Do not pretend mesh AABB samples are authentic iron sight geometry.
+		var geom: Dictionary = _gun_mesh_bounds_local()
 		if not bool(geom.get("found", false)):
 			return
 		var box: AABB = geom.get("box", AABB())
-		# The Aether meshes use local +X as the barrel axis. Upper rear
-		# geometry is only an inferred sight point, not an authored socket.
-		var local_rear := box.position + box.size * Vector3(0.23, 0.87, 0.50)
-		_pending_ads_sight_local = local_rear
-		aim_world = _weapon_model_root.to_global(local_rear)
+		_pending_ads_sight_local = box.position + box.size * Vector3(0.23, 0.87, 0.50)
+		aim_world = _weapon_model_root.to_global(_pending_ads_sight_local)
 		anchor_kind = "mesh_rear_preview"
-	var cam_basis := _camera.global_transform.basis.inverse()
-	var gun_basis := _weapon_model_root.global_transform.basis.orthonormalized()
-	var bore_cam := (cam_basis * gun_basis.x).normalized()
-	var up_cam := (cam_basis * gun_basis.y).normalized()
-	if not bore_cam.is_finite() or bore_cam.length_squared() < 0.9:
+
+	# Both the barrel and the authored sight are measured relative to
+	# WeaponViewRoot. This avoids mixing camera-space points with view-root
+	# rotations (the previous calculation created off-center ADS).
+	var sight_local: Vector3 = _view_root.to_local(aim_world)
+	var gun_axis_in_view: Basis = (
+		_view_root.global_transform.basis.inverse()
+		* _weapon_model_root.global_transform.basis
+	).orthonormalized()
+	var bore: Vector3 = gun_axis_in_view.x.normalized()
+	var top: Vector3 = gun_axis_in_view.y.normalized()
+	if not bore.is_finite() or not top.is_finite() or bore.length_squared() < 0.9:
 		return
-	# Rotate the entire arms+weapon rig so the Aether barrel axis is -Z;
-	# separately remove camera roll to prevent sideways/gangster ADS.
-	var align_forward := Quaternion(bore_cam, Vector3.FORWARD).normalized()
-	var upright := align_forward * up_cam
-	var align_roll := Quaternion(Vector3.FORWARD, -atan2(upright.x, upright.y))
-	var correction := (align_roll * align_forward).normalized()
-	var sight_in_camera := _camera.to_local(aim_world)
-	var hip_origin := _view_root.position
-	var sight_relative_rotated := correction * (sight_in_camera - hip_origin)
-	_ads_pose_position = Vector3(0.0, 0.0, -0.60) - sight_relative_rotated
-	_ads_pose_rotation = (correction * _view_root.quaternion).normalized()
+	var to_forward: Quaternion = Quaternion(bore, Vector3.FORWARD).normalized()
+	var raised_top: Vector3 = to_forward * top
+	# Keep iron sight upright (no gangster roll) after barrel faces -Z.
+	var flatten_roll: Quaternion = Quaternion(
+		Vector3.FORWARD, -atan2(raised_top.x, raised_top.y)
+	)
+	var solved_basis: Quaternion = (flatten_roll * to_forward).normalized()
+	# _view_root is a direct camera child. The final ADS position must obey:
+	# target_position + target_rotation * sight_local == (0,0,-0.55).
+	_ads_pose_rotation = solved_basis
+	_ads_pose_position = Vector3(0.0, 0.0, -0.55) - (_ads_pose_rotation * sight_local)
 	_pending_ads_geometry_solved = true
 	set_meta("weapon_ads_visual_alignment_mode", "geometry_preview_requires_visual_approval")
 	set_meta("weapon_ads_visual_sight_anchor", anchor_kind)
 	set_meta("weapon_ads_visual_source_pending", true)
-	print("XZOGOT_ADS_SOURCE_PENDING_GEOMETRY_PREVIEW ", _weapon_id,
-		" sight=", anchor_kind, " bore=", bore_cam,
-		" target_ads_pos=", _ads_pose_position,
-		" target_ads_rot=", _ads_pose_rotation,
-		" movement_m=", _hip_pose_position.distance_to(_ads_pose_position))
+	set_meta("weapon_ads_preview_forward_axis", bore)
+	set_meta("weapon_ads_preview_target_sight_local", sight_local)
+	print("XZOGOT_ADS_PREVIEW_SOURCE_SIGHT_GEOMETRY ", _weapon_id,
+		" sight=", anchor_kind,
+		" sight_local=", sight_local,
+		" forward=", bore,
+		" solved_position=", _ads_pose_position,
+		" solved_rotation=", _ads_pose_rotation)
 
-# Source gun animations can move a tagged sight after initial hip/equip
-# calibration. At full ADS, keep the REAL sight in camera crosshair center
-# using measured runtime error, never a per-weapon invented screen offset.
-# The entire rig moves as one (hands and gun remain parented together).
+# The imported hand/gun clips may change the sight socket *after* a preview
+# pose has been calculated. Apply the measured residual to the displayed
+# view-root THIS frame. Do not accumulate errors into _ads_pose_position:
+# that target must stay stable for correct ADS transition and ADS-out.
 func _track_pending_ads_sight_center() -> void:
 	if not _pending_ads_geometry_solved or _weapon_model_root == null:
 		return
-	if _camera == null or _ads_pose_alpha < 0.98:
+	if _camera == null or _view_root == null or _ads_pose_alpha < 0.98:
 		return
-	var kind := str(get_meta("weapon_ads_visual_sight_anchor", ""))
+	if _reloading:
+		return
+	var kind: String = str(get_meta("weapon_ads_visual_sight_anchor", ""))
 	var aim_world := Vector3.ZERO
 	if kind == "mesh_rear_preview":
 		aim_world = _weapon_model_root.to_global(_pending_ads_sight_local)
 	elif kind.begins_with("tag_"):
-		var sight_bone := _gun_skeleton_bone_world(kind)
-		if not bool(sight_bone.get("found", false)):
+		var real_sight: Dictionary = _gun_skeleton_bone_world(kind)
+		if not bool(real_sight.get("found", false)):
 			return
-		aim_world = sight_bone.get("position", Vector3.ZERO)
+		aim_world = real_sight.get("position", Vector3.ZERO)
 	else:
 		return
-	var aim_cam := _camera.to_local(aim_world)
-	if not aim_cam.is_finite():
+	var point: Vector3 = _camera.to_local(aim_world)
+	if not point.is_finite():
 		return
-	var screen_error := Vector2(aim_cam.x, aim_cam.y)
-	set_meta("weapon_ads_visual_sight_error_m", screen_error.length())
-	# Move only view-root translation in camera coordinates, not local gun
-	# or skeleton transforms. Clamp to avoid transient equip-animation jumps.
-	_ads_pose_position -= Vector3(
-		clampf(screen_error.x, -0.10, 0.10),
-		clampf(screen_error.y, -0.10, 0.10),
-		0.0
+	# The rig is parented to the Camera3D. Thus its local X/Y translate one to
+	# one with sight X/Y; exact residual correction (no accumulating drift).
+	_view_root.position.x -= point.x
+	_view_root.position.y -= point.y
+	var after: Vector3 = _camera.to_local(
+		_weapon_model_root.to_global(_pending_ads_sight_local)
+	) if kind == "mesh_rear_preview" else _camera.to_local(
+		(_gun_skeleton_bone_world(kind) as Dictionary).get("position", aim_world)
 	)
+	set_meta("weapon_ads_visual_sight_error_m", Vector2(after.x, after.y).length())
 
 func _update_visual_recoil(delta: float) -> void:
 	# Presentation only. Ballistic ray direction/spread was already computed above.
