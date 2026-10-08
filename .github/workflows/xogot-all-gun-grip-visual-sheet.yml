@@ -51,7 +51,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          timeout 450 xvfb-run -a -s "-screen 0 1280x720x24" \
+          timeout 660 xvfb-run -a -s "-screen 0 1280x720x24" \
             /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
             --path xogot --audio-driver Dummy --rendering-method gl_compatibility \
             --resolution 1280x720 \
