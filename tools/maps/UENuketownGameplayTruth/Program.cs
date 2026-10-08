@@ -44,7 +44,10 @@ var provider = new DefaultFileProvider(
     new VersionContainer(sourceGame),
     StringComparer.OrdinalIgnoreCase)
 {
-    MappingsContainer = new FileUsmapTypeMappingsProvider(mappingsPath)
+    MappingsContainer = new FileUsmapTypeMappingsProvider(mappingsPath),
+    // Required by CUE4Parse UStruct.Deserialize to decode Blueprint Kismet.
+    // Without this, FuncMap resolves but every ScriptBytecode array is empty.
+    ReadScriptData = true
 };
 
 provider.Initialize();
