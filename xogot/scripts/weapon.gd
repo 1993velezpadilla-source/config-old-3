@@ -58,6 +58,7 @@ var _hands_model_root: Node3D
 var _source_hands_skeleton: Skeleton3D
 var _source_weapon_attachment: Node3D
 var _source_weapon_bone_idx: int = -1
+var _pending_ads_geometry_solved: bool = false
 var _melee_animation_player: AnimationPlayer
 var _melee_model_root: Node3D
 var _melee_overlay_timer: float = 0.0
@@ -193,6 +194,7 @@ func _clear_view_model() -> void:
 	_source_hands_skeleton = null
 	_source_weapon_attachment = null
 	_source_weapon_bone_idx = -1
+	_pending_ads_geometry_solved = false
 	_melee_animation_player = null
 	_melee_model_root = null
 	_melee_overlay_timer = 0.0
@@ -1952,6 +1954,110 @@ func _apply_recoil_impulse() -> void:
 		* _player_modifier("get_recoil_multiplier")
 	)
 
+
+# Pending source-DT firearms previously had IDENTICAL HIP/ADS transforms and
+# zoomed the camera without ever aligning the actual iron sights. Aether's
+# gun +X bore axis and its imported skeleton sight sockets are real geometric
+# evidence. This is explicitly a PREVIEW (never a forged source DT_Weapons
+# entry) and moves the *entire hands+gun view rig*, preserving grip animation.
+func _gun_skeleton_bone_world(bone_name: String) -> Dictionary:
+	if _weapon_model_root == null:
+		return {}
+	var stack: Array[Node] = [_weapon_model_root]
+	while not stack.is_empty():
+		var node: Node = stack.pop_back()
+		if node is Skeleton3D:
+			var skeleton := node as Skeleton3D
+			var index := skeleton.find_bone(bone_name)
+			if index >= 0:
+				return {"found": true, "position": (skeleton.global_transform * skeleton.get_bone_global_pose(index)).origin}
+		for child: Node in node.get_children():
+			stack.append(child)
+	return {}
+
+func _gun_mesh_bounds_local() -> Dictionary:
+	if _weapon_model_root == null:
+		return {"found": false}
+	var stack: Array[Node] = [_weapon_model_root]
+	var box := AABB()
+	var found := false
+	while not stack.is_empty():
+		var node: Node = stack.pop_back()
+		if node is MeshInstance3D:
+			var mesh_node := node as MeshInstance3D
+			if mesh_node.mesh != null:
+				var mesh_aabb := mesh_node.get_aabb()
+				for xi in range(2):
+					for yi in range(2):
+						for zi in range(2):
+							var corner := mesh_aabb.position + mesh_aabb.size * Vector3(xi, yi, zi)
+							var local_corner := _weapon_model_root.to_local(mesh_node.to_global(corner))
+							if not found:
+								box = AABB(local_corner, Vector3.ZERO)
+								found = true
+							else:
+								box = box.expand(local_corner)
+		for child: Node in node.get_children():
+			stack.append(child)
+	return {"found": found, "box": box}
+
+func _derive_pending_source_ads_sight_preview() -> void:
+	if _pending_ads_geometry_solved or _camera == null or _view_root == null:
+		return
+	if _weapon_model_root == null or _source_weapon_attachment == null:
+		return
+	if not bool(get_meta("weapon_source_weapon_attachment_ready", false)):
+		return
+	if WeaponViewmodelSourcePresentation.has_source_presentation(_weapon_id):
+		return
+	if not bool(get_meta("weapon_source_imported_aether", false)):
+		return
+	var aim_world := Vector3.ZERO
+	var anchor_kind := ""
+	for bone_name in ["tag_iron_sights", "tag_scope", "tag_no_scope"]:
+		var source_bone: Dictionary = _gun_skeleton_bone_world(bone_name)
+		if bool(source_bone.get("found", false)):
+			aim_world = source_bone.get("position", Vector3.ZERO)
+			anchor_kind = bone_name
+			break
+	if anchor_kind.is_empty():
+		var geom := _gun_mesh_bounds_local()
+		if not bool(geom.get("found", false)):
+			return
+		var box: AABB = geom.get("box", AABB())
+		# The Aether meshes use local +X as the barrel axis. Upper rear
+		# geometry is only an inferred sight point, not an authored socket.
+		var local_rear := box.position + box.size * Vector3(0.23, 0.87, 0.50)
+		aim_world = _weapon_model_root.to_global(local_rear)
+		anchor_kind = "mesh_rear_preview"
+	var cam_basis := _camera.global_transform.basis.inverse()
+	var gun_basis := _weapon_model_root.global_transform.basis.orthonormalized()
+	var bore_cam := (cam_basis * gun_basis.x).normalized()
+	var up_cam := (cam_basis * gun_basis.y).normalized()
+	if not bore_cam.is_finite() or bore_cam.length_squared() < 0.9:
+		return
+	# Rotate the entire arms+weapon rig so the Aether barrel axis is -Z;
+	# separately remove camera roll to prevent sideways/gangster ADS.
+	var align_forward := Quaternion(bore_cam, Vector3.FORWARD).normalized()
+	var upright := align_forward * up_cam
+	var align_roll := Quaternion(Vector3.FORWARD, -atan2(upright.x, upright.y))
+	var correction := (align_roll * align_forward).normalized()
+	var sight_in_camera := _camera.to_local(aim_world)
+	var hip_origin := _view_root.position
+	var sight_relative_rotated := correction * (sight_in_camera - hip_origin)
+	_ads_pose_position = Vector3(0.0, 0.0, -0.60) - sight_relative_rotated
+	_ads_pose_rotation = (correction * _view_root.quaternion).normalized()
+	_pending_ads_geometry_solved = true
+	set_meta("weapon_ads_visual_alignment_mode", "geometry_preview_requires_visual_approval")
+	set_meta("weapon_ads_visual_sight_anchor", anchor_kind)
+	set_meta("weapon_ads_visual_source_pending", true)
+	set_meta("weapon_ads_visual_sight_error_target_m", Vector2.ZERO)
+	print("XZOGOT_ADS_SOURCE_PENDING_GEOMETRY_PREVIEW ", _weapon_id,
+		" sight=", anchor_kind, " bore=", bore_cam,
+		" target_ads_pos=", _ads_pose_position,
+		" target_ads_rot=", _ads_pose_rotation,
+		" movement_m=", _hip_pose_position.distance_to(_ads_pose_position))
+
 func _update_visual_recoil(delta: float) -> void:
 	# Presentation only. Ballistic ray direction/spread was already computed above.
 	var spring: float = 54.0
@@ -1967,6 +2073,8 @@ func _update_visual_recoil(delta: float) -> void:
 		# with recovered Aether DT_Weapons data, use the exact HandTransform and
 		# ADSTransform plus their authored transition times.
 		var ads_target: float = 1.0 if is_ads_active() else 0.0
+		if ads_target > 0.0 and _ads_calibration_mode == "source_pending":
+			_derive_pending_source_ads_sight_preview()
 		var source_presentation := _ads_calibration_mode == "source_datatable"
 		var source_timing := WeaponViewmodelSourcePresentation.has_source_movement(_weapon_id)
 		var ads_speed: float
