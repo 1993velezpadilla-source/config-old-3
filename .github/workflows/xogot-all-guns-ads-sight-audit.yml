@@ -1,0 +1,57 @@
+name: Xogot Real Gun ADS Sight Attachment Audit
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/source-viewmodel-inherited-hands-unit-scale
+    paths:
+      - "xogot/ci/source_sight_attachment_audit.gd"
+      - "xogot/scripts/weapon.gd"
+      - ".github/workflows/xogot-all-guns-ads-sight-audit.yml"
+permissions:
+  contents: read
+concurrency:
+  group: xogot-all-guns-real-sights-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Godot
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+      - name: Import
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/sights
+          timeout 240 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit \
+            2>&1 | tee build/sights/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error" build/sights/import.log
+      - name: Audit every original sight tag and HIP ADS difference
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 140 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/source_sight_attachment_audit.gd \
+            2>&1 | tee build/sights/sights.log
+          grep -q "XZOGOT_SIGHT_AUDIT_28_INSPECTED 28" build/sights/sights.log
+          ! grep -E "SCRIPT ERROR|Parse Error|XZOGOT_SIGHT_AUDIT_RED" build/sights/sights.log
+      - name: Preserve original diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Real-Gun-Sight-Socket-Audit
+          path: build/sights/*.log
+          if-no-files-found: warn
+          retention-days: 14
