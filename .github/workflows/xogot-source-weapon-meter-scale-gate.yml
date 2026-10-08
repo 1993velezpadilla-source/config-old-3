@@ -70,12 +70,14 @@ jobs:
           xvfb-run -a -s "-screen 0 1280x720x24" \
             /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
             --path xogot \
+            --audio-driver Dummy \
             --rendering-method gl_compatibility \
             --resolution 1280x720 \
             --script res://ci/screenshot_capture.gd \
             2>&1 | tee build/xogot-screenshot/render.log
           grep -q "XZOGOT_MONJA_BASICA_LOADED" build/xogot-screenshot/render.log
           ! grep -q "XZOGOT_MONJA_BASICA_FALLBACK" build/xogot-screenshot/render.log
+          ! grep -q "ALSA lib" build/xogot-screenshot/render.log
           grep -q "XZOGOT_MP40_RUNTIME_METER_BOUNDS_GREEN" build/xogot-screenshot/render.log
           grep -q "XZOGOT_SCREENSHOT_HIP_GREEN" build/xogot-screenshot/render.log
           grep -q "XZOGOT_SCREENSHOT_ADS_GREEN" build/xogot-screenshot/render.log
