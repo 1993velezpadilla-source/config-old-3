@@ -6,6 +6,8 @@ on:
       - fix/nacht-zero-source-light-photometric-fidelity
     paths:
       - ".github/workflows/xogot-nacht-zero-source-energy-proof.yml"
+      - "xogot/scripts/xziel_benchmark_loader.gd"
+      - "xogot/scripts/nacht_full_map.gd"
   workflow_dispatch:
     inputs:
       source_stage:
