@@ -217,7 +217,12 @@ func _run() -> void:
 		quit(20)
 		return
 	var closed: Transform3D = native_skeleton.get_bone_pose(j_bolt_idx)
-	if closed.origin.length() > 0.00001 or closed.basis.get_rotation_quaternion().get_angle() > 0.00001:
+	var source_rest: Transform3D = native_skeleton.get_bone_rest(j_bolt_idx)
+	# Godot 4 Skeleton3D.reset_bone_pose restores the authored bone REST,
+	# not Transform3D.IDENTITY! The former gate incorrectly failed valid poses.
+	print("XZOGOT_SW357_NATIVE_BONE_REST_COMPARE idle=", raw_idle_bolt,
+		" post_guard=", closed, " source_rest=", source_rest)
+	if not closed.is_equal_approx(source_rest):
 		push_error("XZOGOT_SW357_RUNTIME_J_BOLT_NOT_NATIVE_REST")
 		quit(21)
 		return
