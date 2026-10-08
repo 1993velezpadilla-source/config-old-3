@@ -491,6 +491,33 @@ func _sync_source_weapon_attachment() -> void:
 func _on_source_hands_skeleton_updated() -> void:
 	_sync_source_weapon_attachment()
 
+# Gun muzzle/shell skeleton sockets MUST NOT overwrite the hands tag_weapon
+# binding. Keep their animation update path entirely separate.
+func _sync_fx_bone_socket(skeleton: Skeleton3D, bone_idx: int, attachment: Node3D) -> void:
+	if is_instance_valid(skeleton) and is_instance_valid(attachment):
+		attachment.transform = skeleton.get_bone_global_pose(bone_idx)
+
+func _find_fx_skeleton_attachment(node: Node, aliases: Array[String], attachment_name: String) -> Node3D:
+	if node is Skeleton3D:
+		var skeleton := node as Skeleton3D
+		for bone_idx in range(skeleton.get_bone_count()):
+			var lower_name := str(skeleton.get_bone_name(bone_idx)).to_lower()
+			for alias: String in aliases:
+				if lower_name == alias.to_lower() or lower_name.contains(alias.to_lower()):
+					var attachment := Node3D.new()
+					attachment.name = attachment_name
+					skeleton.add_child(attachment)
+					_sync_fx_bone_socket(skeleton, bone_idx, attachment)
+					var update_fx := Callable(self, "_sync_fx_bone_socket").bind(skeleton, bone_idx, attachment)
+					if not skeleton.skeleton_updated.is_connected(update_fx):
+						skeleton.skeleton_updated.connect(update_fx)
+					return attachment
+	for child: Node in node.get_children():
+		var found := _find_fx_skeleton_attachment(child, aliases, attachment_name)
+		if found != null:
+			return found
+	return null
+
 func _find_skeleton_bone_attachment(node: Node, aliases: Array[String], attachment_name: String) -> Node3D:
 	if node is Skeleton3D:
 		var skeleton := node as Skeleton3D
@@ -1184,7 +1211,7 @@ func _bind_weapon_fx(model: Node3D) -> void:
 	if _muzzle_anchor != null:
 		set_meta("weapon_muzzle_anchor_mode", "node_socket")
 	else:
-		_muzzle_anchor = _find_skeleton_bone_attachment(model, muzzle_aliases, "MuzzleBoneAttachment")
+		_muzzle_anchor = _find_fx_skeleton_attachment(model, muzzle_aliases, "MuzzleBoneAttachment")
 		if _muzzle_anchor != null:
 			set_meta("weapon_muzzle_anchor_mode", "bone_socket")
 	if _muzzle_anchor == null:
@@ -1193,7 +1220,7 @@ func _bind_weapon_fx(model: Node3D) -> void:
 	var shell_aliases: Array[String] = ["tag_brass", "brass", "eject", "shell"]
 	_shell_anchor = _find_named_node3d(model, shell_aliases)
 	if _shell_anchor == null:
-		_shell_anchor = _find_skeleton_bone_attachment(model, shell_aliases, "ShellBoneAttachment")
+		_shell_anchor = _find_fx_skeleton_attachment(model, shell_aliases, "ShellBoneAttachment")
 	if _shell_anchor == null:
 		_shell_anchor = _muzzle_anchor
 
