@@ -243,7 +243,13 @@ func _inspect() -> void:
 				var rear_world := (gun_skeleton.global_transform * gun_skeleton.get_bone_global_pose(rear_idx)).origin
 				var front_world := (gun_skeleton.global_transform * gun_skeleton.get_bone_global_pose(flash_idx)).origin
 				var real_bore: Vector3 = cam.to_local(front_world) - cam.to_local(rear_world)
-				if real_bore.length() >= 0.15:
+				# A 10-cm rear-to-muzzle vector on a full rifle is not a valid
+				# optical line, even when the gun root itself happens to face -Z.
+				# Previously this silently skipped the source marker gate.
+				if real_bore.length() < 0.15:
+					bad_ads.append(id + ":original_rear_to_muzzle_marker_separation_unphysical_m=" + str(real_bore.length()))
+					print("XZOGOT_IRON_MARKER_SEPARATION_RED id=", id, " span_m=", real_bore.length())
+				else:
 					source_iron_bore_error = rad_to_deg(acos(clampf(real_bore.normalized().dot(Vector3.FORWARD),-1.0,1.0)))
 					if source_iron_bore_error > 1.0:
 						bad_ads.append(id + ":original_iron_to_muzzle_off_camera_deg=" + str(source_iron_bore_error))
