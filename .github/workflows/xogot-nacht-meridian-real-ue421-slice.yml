@@ -9,6 +9,7 @@ on:
       - ".github/workflows/xogot-nacht-meridian-real-ue421-slice.yml"
       - "tools/maps/nacht_meridian_source_bridge.py"
       - "tools/maps/validate_meridian_nacht_gltf.py"
+      - "tools/maps/validate_meridian_source_geometry.py"
 
 permissions:
   contents: read
@@ -78,6 +79,18 @@ jobs:
           python3 tools/maps/validate_meridian_nacht_gltf.py             --glb build/nacht-meridian-real/godot/assets/meshes/Nacht_Source_Bridge_Probe.glb             --report build/nacht-meridian-real/source-equivalence.json             --output build/nacht-meridian-real/transform-parity.json             2>&1 | tee build/nacht-meridian-real/transform-parity.log
           grep -q "XZOGOT_NACHT_MERIDIAN_SOURCE_XFORM_GREEN"             build/nacht-meridian-real/transform-parity.log
           echo "XZOGOT_NACHT_REAL_PAVLOV_SOURCE_TO_MERIDIAN_GREEN"
+      - name: Independent raw source native mesh -> Meridian exported GLB world-geometry bounds proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/validate_meridian_source_geometry.py \
+            --scene "$UE_SCENE" \
+            --native-glb-dir "$UE_MESHES" \
+            --meridian-glb build/nacht-meridian-real/godot/assets/meshes/Nacht_Source_Bridge_Probe.glb \
+            --report build/nacht-meridian-real/source-equivalence.json \
+            --output build/nacht-meridian-real/source-vertex-bounds-parity.json \
+            2>&1 | tee build/nacht-meridian-real/source-vertex-bounds-parity.log
+          grep -q "XZOGOT_NACHT_REAL_SOURCE_GEOMETRY_PARITY_GREEN" build/nacht-meridian-real/source-vertex-bounds-parity.log
       - name: Preserve all real source comparison evidence even on RED
         if: always()
         uses: actions/upload-artifact@v4
@@ -88,6 +101,7 @@ jobs:
             build/nacht-meridian-real/blender-real-source.log
             build/nacht-meridian-real/source-equivalence.json
             build/nacht-meridian-real/transform-parity.*
+            build/nacht-meridian-real/source-vertex-bounds-parity.*
             build/nacht-meridian-real/godot/project.godot
             build/nacht-meridian-real/godot/scenes/*.tscn
             build/nacht-meridian-real/godot/assets/meshes/*.glb
