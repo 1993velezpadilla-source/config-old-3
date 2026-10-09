@@ -159,6 +159,20 @@ func _probe() -> void:
             var drift: float = _transform_component_error(expected,actual)
             max_error=maxf(max_error,drift)
             if drift>0.0003:
+                print("XZOGOT_NACHT_GODOT_MULTIMESH_MATRIX_DIAGNOSTIC_RED",
+                      " actor=",str(ids[i]),
+                      " original=",expected,
+                      " received=",actual,
+                      " original_origin=",expected.origin,
+                      " received_origin=",actual.origin,
+                      " origin_delta_m=",expected.origin.distance_to(actual.origin),
+                      " basis_delta_x=",expected.basis.x.distance_to(actual.basis.x),
+                      " basis_delta_y=",expected.basis.y.distance_to(actual.basis.y),
+                      " basis_delta_z=",expected.basis.z.distance_to(actual.basis.z),
+                      " real_mm_count=",mm.instance_count,
+                      " instance_index=",i,
+                      " mmi_global=",instance.global_transform,
+                      " node_parent=",original.get_parent().name)
                 errors.append(str(ids[i])+" Godot MultiMesh transform differs in real Godot "+str(drift))
                 break
         if not errors.is_empty():
