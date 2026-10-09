@@ -2256,6 +2256,34 @@ func _register_authored_source_sight() -> void:
 	if sight_kind.is_empty():
 		set_meta("weapon_ads_source_sight_registration", "missing_original_sight_socket")
 		return
+	# Centering a point does not aim a rifle. Source FG42 had a real
+	# tag_iron_sights perfectly centered but the original tag_flash was still
+	# diagonally off-camera. Only with BOTH genuine imported source skeleton
+	# markers can the optical axis be measured, never from a guessed mesh AABB.
+	# This correction rotates the whole original hands+weapon display together;
+	# it never touches weapon bone poses, WaW ADSTransform, or ballistics.
+	# Skipped for sniper optics (HUD masking) and when source iron tags are absent.
+	if sight_kind == "tag_iron_sights":
+		var muzzle: Dictionary = _gun_skeleton_bone_world("tag_flash")
+		if bool(muzzle.get("found", false)):
+			var muzzle_cam: Vector3 = _camera.to_local(muzzle.get("position", Vector3.ZERO))
+			var rear_cam: Vector3 = _camera.to_local(sight_world)
+			var sight_to_muzzle: Vector3 = muzzle_cam - rear_cam
+			if sight_to_muzzle.is_finite() and sight_to_muzzle.length() >= 0.15:
+				var bore: Vector3 = sight_to_muzzle.normalized()
+				var source_angle: float = rad_to_deg(acos(clampf(bore.dot(Vector3.FORWARD), -1.0, 1.0)))
+				# Shortest-arc correction handles original source import yaw
+				# without inventing any per-gun angular offset.
+				var optical_turn: Quaternion = Quaternion(bore, Vector3.FORWARD).normalized()
+				_view_root.quaternion = (optical_turn * _view_root.quaternion).normalized()
+				var aligned_rear: Dictionary = _gun_skeleton_bone_world(sight_kind)
+				var aligned_muzzle: Dictionary = _gun_skeleton_bone_world("tag_flash")
+				if bool(aligned_rear.get("found", false)) and bool(aligned_muzzle.get("found", false)):
+					sight_world = aligned_rear.get("position", sight_world)
+					var aim: Vector3 = (_camera.to_local(aligned_muzzle.get("position", Vector3.ZERO)) - _camera.to_local(sight_world)).normalized()
+					set_meta("weapon_ads_source_iron_bore_error_deg", rad_to_deg(acos(clampf(aim.dot(Vector3.FORWARD), -1.0, 1.0))))
+					set_meta("weapon_ads_source_iron_original_bore_error_deg", source_angle)
+					set_meta("weapon_ads_source_iron_registration", "source_tag_iron_sights_to_tag_flash")
 	var before: Vector3 = _camera.to_local(sight_world)
 	if not before.is_finite():
 		return
