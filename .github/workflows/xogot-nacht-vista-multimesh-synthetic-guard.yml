@@ -1,0 +1,54 @@
+name: Nacht Godot 4.6.1 Native Vista MultiMesh Synthetic Safety Gate
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-vista-multimesh-synthetic-guard.yml"
+      - "tools/maps/nacht_apply_vista_spatial_multimesh_research.gd"
+      - "tools/maps/nacht_multimesh_source_synthetic_probe.gd"
+
+permissions:
+  contents: read
+
+jobs:
+  godot-461-original-source-node-synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install pinned actual Godot 4.6.1 (no fake engine simulator)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/nacht_godot" build/nacht-multimesh-synthetic/project
+          curl --fail -L --retry 3 \
+            -o "$RUNNER_TEMP/nacht_godot/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/nacht_godot/godot.zip" -d "$RUNNER_TEMP/nacht_godot"
+          chmod +x "$RUNNER_TEMP/nacht_godot/Godot_v4.6.1-stable_linux.x86_64"
+          echo "GODOT=$RUNNER_TEMP/nacht_godot/Godot_v4.6.1-stable_linux.x86_64" >> "$GITHUB_ENV"
+      - name: Fail-closed Godot parser and 10793-index 340-distinct-actor synthetic MultiMesh research probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '[application]\nconfig/name="Nacht-source-synthetic-only"\n[rendering]\nrenderer/rendering_method="gl_compatibility"\n' \
+            > build/nacht-multimesh-synthetic/project/project.godot
+          cp tools/maps/nacht_apply_vista_spatial_multimesh_research.gd \
+            build/nacht-multimesh-synthetic/project/nacht_apply_vista_spatial_multimesh_research.gd
+          cp tools/maps/nacht_multimesh_source_synthetic_probe.gd \
+            build/nacht-multimesh-synthetic/project/probe.gd
+          timeout 75 "$GODOT" --headless --path build/nacht-multimesh-synthetic/project \
+            --script res://probe.gd \
+            2>&1 | tee build/nacht-multimesh-synthetic/probe.log
+          grep -q XZOGOT_NACHT_GODOT461_SYNTHETIC_ORIGINAL_VISTA_MULTIMESH_GRAPH_GREEN \
+            build/nacht-multimesh-synthetic/probe.log
+      - name: Publish strict synthetic gate evidence; not real scene/FPS
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Godot461-Synthetic-Original-Vista-MultiMesh-Source-Guard
+          path: build/nacht-multimesh-synthetic/probe.log
+          retention-days: 14
+          if-no-files-found: warn
