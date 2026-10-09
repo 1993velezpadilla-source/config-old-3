@@ -72,7 +72,15 @@ jobs:
             2>&1 | tee build/nacht-native-multimesh/import.log
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load" \
             build/nacht-native-multimesh/import.log
-          "$GODOT" --headless --path "$PROJECT" \
+          # Godot --headless selects a Dummy RenderingServer on Linux.
+          # Dummy RS reports IDENTITY for MultiMesh.get_instance_transform()
+          # even after a valid set_instance_transform()! Use REAL Mesa GL via
+          # Xvfb to verify actual MultiMesh buffer roundtripping.
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+          timeout 240 xvfb-run -a -s "-screen 0 1280x720x24" \
+            "$GODOT" --path "$PROJECT" --rendering-method gl_compatibility \
+            --resolution 1280x720 \
             --script res://nacht_source_multimesh_transform_probe.gd \
             2>&1 | tee build/nacht-native-multimesh/godot-multimesh.log
           cp "$PROJECT/nacht-real-source-multimesh-research-report.json" \
