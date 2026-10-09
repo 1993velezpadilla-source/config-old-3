@@ -1,0 +1,80 @@
+name: Nacht Mesa Synthetic Spatial MultiMesh Pixel Parity Gate
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-vista-multimesh-synthetic-visual.yml"
+      - "tools/maps/nacht_vista_multimesh_synthetic_visual_parity.gd"
+      - "tools/maps/nacht_apply_vista_spatial_multimesh_research.gd"
+
+permissions:
+  contents: read
+
+jobs:
+  visual-parity-native-vista-batch-research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install pinned Godot 4.6.1 and real Mesa OpenGL llvmpipe under Xvfb
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/nacht_godot" build/nacht-synthetic-visual/project
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb unzip libgl1-mesa-dri libglx-mesa0
+          curl --fail -L --retry 3 \
+            -o "$RUNNER_TEMP/nacht_godot/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/nacht_godot/godot.zip" -d "$RUNNER_TEMP/nacht_godot"
+          chmod +x "$RUNNER_TEMP/nacht_godot/Godot_v4.6.1-stable_linux.x86_64"
+          echo "GODOT=$RUNNER_TEMP/nacht_godot/Godot_v4.6.1-stable_linux.x86_64" >> "$GITHUB_ENV"
+      - name: Two real GPU rendered synthetic screenshots, exact 340 original actors, source-preserving batch
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '[application]\nconfig/name="Nacht-source-synthetic-pixel-parity"\n[rendering]\nrenderer/rendering_method="gl_compatibility"\n' \
+            > build/nacht-synthetic-visual/project/project.godot
+          cp tools/maps/nacht_apply_vista_spatial_multimesh_research.gd \
+            build/nacht-synthetic-visual/project/nacht_apply_vista_spatial_multimesh_research.gd
+          cp tools/maps/nacht_vista_multimesh_synthetic_visual_parity.gd \
+            build/nacht-synthetic-visual/project/probe.gd
+          timeout 300 xvfb-run -a -s "-screen 0 640x360x24" \
+            "$GODOT" --path build/nacht-synthetic-visual/project \
+            --rendering-method gl_compatibility --resolution 640x360 \
+            --script res://probe.gd \
+            2>&1 | tee build/nacht-synthetic-visual/visual-gate.log
+          grep -q XZOGOT_NACHT_GODOT461_SYNTHETIC_MESA_MULTI_VISUAL_PIXEL_PARITY_GREEN \
+            build/nacht-synthetic-visual/visual-gate.log
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("build/nacht-synthetic-visual/project")
+          d=json.loads((root/"synthetic-render-parity-audit.json").read_text())
+          assert d["syntheticOriginalActorInstances"]==340
+          assert d["nativeSourceActorIDsPreservedInSyntheticIndex"]==10793
+          assert d["groupedCellMeters"]==32
+          assert d["originalHidden"]==340
+          assert d["actualSyntheticMultiMeshGroups"]==20
+          assert d["meanRGBDifferencePercent"]<=0.30
+          assert d["changedRGBPixelPercent"]<=1.50
+          assert not d["fullOriginalNachtVisualParityProven"]
+          assert not d["physicalAndroidFPSProven"]
+          for n in ("synthetic-original-original-meshinstances.png","synthetic-after-32m-multimesh.png"):
+            assert (root/n).stat().st_size>100
+          print("XZOGOT_NACHT_GODOT461_MESA_TRUE_PIXELS_SYNTHETIC_A_B_CHECK_GREEN")
+          PY
+      - name: Preserve actual rendered synthetic images and numeric pixel delta
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Godot461-Mesa-Synthetic-340-OriginalActors-SpatialMultiMesh-Visual-AB
+          path: |
+            build/nacht-synthetic-visual/project/synthetic-original-original-meshinstances.png
+            build/nacht-synthetic-visual/project/synthetic-after-32m-multimesh.png
+            build/nacht-synthetic-visual/project/synthetic-render-parity-audit.json
+            build/nacht-synthetic-visual/visual-gate.log
+          retention-days: 14
+          if-no-files-found: warn
