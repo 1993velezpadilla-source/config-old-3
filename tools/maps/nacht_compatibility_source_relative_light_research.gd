@@ -23,6 +23,15 @@ static func _source_candela_equivalent(light: Light3D) -> float:
         return source/(4.0*PI)
     return -1.0
 
+
+static func _median_positive(values: Array[float]) -> float:
+    if values.is_empty():
+        return 0.0
+    var count: int=values.size()
+    var middle: int=count/2
+    return values[middle] if count%2==1 else (
+        0.5*(values[middle-1]+values[middle]))
+
 func apply_original_source_light_ratios_research(
         light_root: Node3D, source_actors: int, max_relative_energy: float=4.0) -> Dictionary:
     if _running or not _original_energy.is_empty():
@@ -31,7 +40,8 @@ func apply_original_source_light_ratios_research(
         return {"errors":["original actor authority/light root/source ratio cap missing"]}
     var children: Array[Node]=light_root.find_children("*","Light3D",true,false)
     var list: Array[Light3D]=[]
-    var positive: Array[float]=[]
+    var photometric_positive: Array[float]=[]
+    var unitless_positive: Array[float]=[]
     var original_zero: int=0
     for n: Node in children:
         var light: Light3D=n as Light3D
@@ -46,20 +56,30 @@ func apply_original_source_light_ratios_research(
         if source==0.0:
             original_zero+=1
         if light is OmniLight3D or light is SpotLight3D:
-            var candela: float=_source_candela_equivalent(light)
-            if candela<0.0 or not is_finite(candela):
-                return {"errors":["unsupported or incomplete original UE4 point/spot source units "+str(light.get_meta("source_intensity_units",""))]}
-            if candela>0.0:
-                positive.append(candela)
-    if list.size()!=165 or positive.size()<20:
-        return {"errors":["missing exact 165 original 3D source light components or positive point/spot photometry"],
-                "lightsFound":list.size(),"sourceLitPointSpotCount":positive.size()}
-    positive.sort()
-    var mid: int=positive.size()/2
-    var median: float=positive[mid] if positive.size()%2==1 else (
-        (positive[mid-1]+positive[mid])*0.5)
-    if not is_finite(median) or median<=0.0:
-        return {"errors":["original source candela median is not finite positive"]}
+            var units: String=str(light.get_meta("source_intensity_units",""))
+            # UE source Unitless intensities are NOT candelas. Preserve their
+            # ratios as an entirely separate cohort: never mix their numeric
+            # values with genuine Lumens / Candelas.
+            if units=="Unitless":
+                if source>0.0:
+                    unitless_positive.append(source)
+            else:
+                var candela: float=_source_candela_equivalent(light)
+                if candela<0.0 or not is_finite(candela):
+                    return {"errors":["unsupported original UE4 source light units "+units]}
+                if candela>0.0:
+                    photometric_positive.append(candela)
+    if list.size()!=165 or photometric_positive.size()+unitless_positive.size()<20:
+        return {"errors":["missing 165 source lights or insufficient positive source-authored point/spot ratios"],
+                "lightsFound":list.size(),"photometricCount":photometric_positive.size(),
+                "unitlessCount":unitless_positive.size()}
+    photometric_positive.sort()
+    unitless_positive.sort()
+    var median_photo: float=_median_positive(photometric_positive)
+    var median_unitless: float=_median_positive(unitless_positive)
+    if (not photometric_positive.is_empty() and median_photo<=0.0) or (
+        not unitless_positive.is_empty() and median_unitless<=0.0):
+        return {"errors":["source authored intensity cohort median invalid"]}
     var proposed: Array[Dictionary]=[]
     var clipped: int=0
     var min_ratio: float=1.0e30
@@ -67,8 +87,14 @@ func apply_original_source_light_ratios_research(
     for l: Light3D in list:
         var energy: float=l.light_energy
         if (l is OmniLight3D or l is SpotLight3D) and energy>0.0:
-            var orig_cd: float=_source_candela_equivalent(l)
-            var uncapped: float=orig_cd/median
+            var is_unitless: bool=str(l.get_meta("source_intensity_units",""))=="Unitless"
+            var value: float=(
+                float(l.get_meta("source_intensity",0.0))
+                if is_unitless else _source_candela_equivalent(l))
+            var baseline: float=median_unitless if is_unitless else median_photo
+            if baseline<=0.0 or not is_finite(value) or value<0.0:
+                return {"errors":["invalid separately-normalized original light source cohort"]}
+            var uncapped: float=value/baseline
             # Research-only sane display cap; does NOT certify UE irradiance.
             var ratio: float=clampf(uncapped,0.10,max_relative_energy)
             if not is_finite(ratio) or ratio<=0.0:
@@ -88,9 +114,13 @@ func apply_original_source_light_ratios_research(
         "originalSourceActorsRetained":source_actors,
         "sourceLightNodeCountIncludingDirectional":list.size(),
         "sourceLightCountExcludingSky":165,
-        "positiveOriginalPhotometricPointSpotLights":positive.size(),
+        "positiveOriginalPhotometricPointSpotLights":photometric_positive.size(),
+        "positiveOriginalUnitlessPointSpotLights":unitless_positive.size(),
+        "positiveOriginalPointSpotLights":photometric_positive.size()+unitless_positive.size(),
         "originalZeroIntensityCount":original_zero,
-        "sourceCandelaEquivalentMedian":median,
+        "sourceCandelaEquivalentMedian":median_photo,
+        "sourceUnitlessMedian":median_unitless,
+        "unitlessValuesNeverMixedWithCandelaLumens":true,
         "clippedRatioCandidates":clipped,
         "minimumRelativeEnergyAssigned":min_ratio,
         "maximumRelativeEnergyAssigned":max_ratio,
