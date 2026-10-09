@@ -1,0 +1,66 @@
+name: Nacht Black Interior Source Material Truth Triage
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-black-interior-source-material-triage.yml"
+      - "tools/maps/nacht_black_interior_source_material_triage.py"
+permissions:
+  contents: read
+  actions: read
+jobs:
+  exact-10793-actor-source-black-shader-gap-inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Fetch exact previous original actor material and live Godot 4.6.1 binding evidence — no asset guesses
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-black-interior/source build/nacht-black-interior/godot
+          test "$(gh run view 37944732189 --json conclusion --jq '.conclusion')" = success
+          test "$(gh run view 37945872261 --json conclusion --jq '.conclusion')" = success
+          gh run download 37944732189 \
+            -n Nacht-10793-Original-574-Materials-16595-Source-Surface-Assignments \
+            -D build/nacht-black-interior/source
+          gh run download 37945872261 \
+            -n Nacht-Godot-10793-Original-574-Materials-718-DDS-Source-Proof \
+            -D build/nacht-black-interior/godot
+      - name: Audit missing source-cooked shader graph semantics versus known original fallback cubes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/maps/nacht_black_interior_source_material_triage.py
+          python3 tools/maps/nacht_black_interior_source_material_triage.py \
+            --actor-material-authority build/nacht-black-interior/source/nacht-actor-material-authority.json \
+            --godot-binding-report build/nacht-black-interior/godot/godot-all-authority-materials.json \
+            --output build/nacht-black-interior/real-source-interior-material-triage.json \
+            2>&1 | tee build/nacht-black-interior/material-triage.log
+          grep -q XZOGOT_NACHT_ARCHIVED_10793_ACTORS_574_MATERIAL_BLACK_VISUAL_TRIAGE_GREEN \
+            build/nacht-black-interior/material-triage.log
+          python3 - <<'PY'
+          import json
+          d=json.load(open("build/nacht-black-interior/real-source-interior-material-triage.json"))
+          assert d["fullNativeSourceActors"]==10793
+          assert d["sourceSurfaceBindings"]==16595
+          assert d["sourceEffectiveMaterials"]==574
+          assert d["effectiveCookedMaterialGraphStatuses"]["partial"]==570
+          assert set(d["flatDefaultEngineCubeSourceActors"])=={"ue_instance_000004","ue_instance_000005"}
+          assert not d["allUnrealMaterialGraphOutputsReconstructed"]
+          assert not d["allBlackScreenshotsCertifiedIntendedHoles"]
+          assert not d["shippingApproved"]
+          print("XZOGOT_NACHT_BLACK_ARCHITECTURE_NOT_FALSIFIED_AS_TEXTURES_DONE_GREEN")
+          PY
+      - name: Publish shader opacity architecture suspects; no stock or fake materials added
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Nacht-Original-574-Materials-Black-Interior-Shaders-Fidelity-Triage
+          path: build/nacht-black-interior/
+          retention-days: 14
+          if-no-files-found: warn
