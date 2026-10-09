@@ -376,13 +376,22 @@ func _capture() -> void:
         }
         night_comparisons.append(summary)
         print("XZOGOT_NACHT_NIGHT_LOOKDEV_SOURCE_DARK_MOON_DAYLIGHT_PIXEL_AB ",JSON.stringify(summary))
-        if not (mean_values[0]+0.007 < mean_values[2] and
-                mean_values[2]+0.005 < mean_values[1] and
-                mean_values[1]+0.015 < mean_values[3]):
-            push_error("XZOGOT_NACHT_NIGHT_LOOKDEV_EXPOSURE_ORDER_RED "+JSON.stringify(summary))
+        # UE4 source's local lights are already very bright on isolated
+        # pale surfaces. A less-flat night camera can LOWER full-frame
+        # mean while exposing MUCH MORE of the formerly pitch-black shadows.
+        # Thus do not require mean(night)>mean(source) for an interior!
+        # Gate objective retained shadow detail *and* distinguish the night
+        # profiles from the intentionally bright reference.
+        if not (mean_values[2]+0.005 < mean_values[1] and
+                mean_values[1]+0.015 < mean_values[3] and
+                black_ratios[2]+0.10 < black_ratios[0] and
+                black_ratios[1]+0.10 < black_ratios[0] and
+                mean_values[1]<0.28 and black_ratios[1]>0.05):
+            push_error("XZOGOT_NACHT_NIGHT_LOOKDEV_SHADOW_VISIBILITY_ORDER_RED "+
+                       JSON.stringify(summary))
             quit(33)
             return
-    print("XZOGOT_NACHT_NIGHT_LOOKDEV_EXPOSURE_BRACKET_GREEN both_camera_views=2")
+    print("XZOGOT_NACHT_NIGHT_LOOKDEV_SHADOW_VISIBILITY_BRACKET_GREEN both_camera_views=2")
     var audit: Dictionary={
         "authority":"Pavlov UE4.21 archived source - NOT original BO3 T7",
         "renderedGodot":Engine.get_version_info().get("string",""),
