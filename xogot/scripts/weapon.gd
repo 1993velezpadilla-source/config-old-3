@@ -2273,6 +2273,25 @@ func _register_authored_source_sight() -> void:
 	# Skipped for sniper optics (HUD masking) and when source iron tags are absent.
 	if sight_kind == "tag_iron_sights":
 		var muzzle: Dictionary = _gun_skeleton_bone_world("tag_flash")
+		if not bool(muzzle.get("found", false)):
+			set_meta("weapon_ads_source_sight_registration", "source_flash_tag_missing")
+			return
+		# The recovered Gewehr GLB proves the supposed rear sight at source
+		# x=+0.854 m is BEYOND its muzzle x=+0.728 m. It is not a
+		# physical rear-iron sight. Previously centering this false point
+		# dragged the actual rifle into the upper near-plane and falsely
+		# claimed optical registration. Fail closed for every source gun.
+		var sight_local: Vector3 = _weapon_model_root.to_local(sight_world)
+		var flash_local: Vector3 = _weapon_model_root.to_local(muzzle.get("position", Vector3.ZERO))
+		var ordered_span_m: float = flash_local.x - sight_local.x
+		if ordered_span_m < 0.15:
+			set_meta("weapon_ads_source_sight_registration", "invalid_original_rear_flash_ordering")
+			set_meta("weapon_ads_source_iron_tag_forward_span_m", ordered_span_m)
+			print("XZOGOT_SOURCE_IRON_TAG_ORDER_RED ", _weapon_id,
+				" source_forward_span_m=", ordered_span_m, " source_tag_flash=", flash_local,
+				" source_tag_iron_sights=", sight_local,
+				" did_not_apply_false_optic_camera_correction=true")
+			return
 		if bool(muzzle.get("found", false)):
 			var muzzle_cam: Vector3 = _camera.to_local(muzzle.get("position", Vector3.ZERO))
 			var rear_cam: Vector3 = _camera.to_local(sight_world)
