@@ -149,6 +149,27 @@ jobs:
           grep -q "XZOGOT_SCREENSHOT_NO_ZOMBIE_CLEANUP_AB" build/xogot-screenshot/no-zombie-ab.log
           grep -q "XZOGOT_SCREENSHOT_CAPTURE_SCOPE_RELEASED_CLEAN_EXIT" build/xogot-screenshot/no-zombie-ab.log
           echo "XZOGOT_MP40_NO_ZOMBIE_PROCESS_EXIT_GREEN actual_exit=0"
+      - name: Compare original zombie entity without imported skin
+        if: failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          XOGOT_CAPTURE_REMOVE_ZOMBIE_SKIN=1 timeout 220 xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --path xogot --audio-driver Dummy --rendering-method gl_compatibility \
+            --resolution 1280x720 --script res://ci/screenshot_capture.gd \
+            2>&1 | tee build/xogot-screenshot/zombie-no-skin-ab.log
+          grep -q "XZOGOT_SCREENSHOT_ZOMBIE_ENTITY_WITHOUT_SKIN_AB" build/xogot-screenshot/zombie-no-skin-ab.log
+          grep -q "XZOGOT_SCREENSHOT_CAPTURE_SCOPE_RELEASED_CLEAN_EXIT" build/xogot-screenshot/zombie-no-skin-ab.log
+          echo "XZOGOT_MP40_ZOMBIE_NO_SKIN_PROCESS_EXIT_GREEN actual_exit=0"
+      - name: Preserve zombie source-skin isolation log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-MP40-Zombie-GLB-Skin-Lifecycle-AB
+          path: build/xogot-screenshot/zombie-no-skin-ab.log
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Preserve no-zombie cleanup A-B logs
         if: always()
         uses: actions/upload-artifact@v4
