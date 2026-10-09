@@ -1,0 +1,450 @@
+name: XZIEL Sanctum HQ Gauntlet
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/sanctum-hq-gauntlet.yml"
+      - "scripts/patch_vril_sanctum_hq_lighting.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xziel-sanctum-hq-${{ github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  sanctum-hq:
+    name: Build + render HQ Sanctum
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Resolve latest validated St Giles XZSM source
+        id: source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          RUN_ID="$(python3 - <<'PY'
+          import json, os, urllib.request
+          repo=os.environ["REPO"]
+          req=urllib.request.Request(
+              f"https://api.github.com/repos/{repo}/actions/workflows/church-map-blender.yml/runs?status=success&per_page=20",
+              headers={
+                  "Authorization":f"Bearer {os.environ['GH_TOKEN']}",
+                  "Accept":"application/vnd.github+json",
+                  "X-GitHub-Api-Version":"2022-11-28",
+              },
+          )
+          data=json.load(urllib.request.urlopen(req))
+          runs=data.get("workflow_runs",[])
+          if not runs:
+              raise SystemExit("No successful church-map-blender run found")
+          runs.sort(key=lambda r:r["created_at"], reverse=True)
+          print(runs[0]["id"])
+          PY
+          )"
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "HQ source run: $RUN_ID"
+
+      - name: Download HQ St Giles runtime payload
+        uses: actions/download-artifact@v5
+        with:
+          name: Xziel-Sanctum-of-Ash-Runtime-Blockout
+          path: church-artifact
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.source.outputs.run_id }}
+
+      - name: Gate HQ visual payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s church-artifact/nzp_harness/sanctum_harness.bsp
+          test -s church-artifact/nzp_harness/sanctum_harness.nsz
+          test -s church-artifact/vril_static/models/xziel/sanctum/sanctum.xzsm
+          test -d church-artifact/vril_static/textures/xziel/sanctum
+          test -s church-artifact/vril_static_mesh_report.json
+
+          python3 - <<'PY' | tee hq-profile.txt
+          import json, os
+          from pathlib import Path
+          r=json.load(open("church-artifact/vril_static_mesh_report.json",encoding="utf-8"))
+          assert r["runtimeTriangles"] >= 620000, r
+          assert r.get("runtimeTotalTriangles",r["runtimeTriangles"]) >= 700000, r
+          assert r["textureMaxDimension"] >= 2048, r
+          assert r["batchCount"] <= 512, r
+          assert r["totalVertices"] <= 3000000, r
+          assert r["totalIndices"] <= 3500000, r
+          tex=list(Path("church-artifact/vril_static/textures/xziel/sanctum").glob("*"))
+          assert len(tex) >= 1
+          print("SANCTUM_HQ_PROFILE_OK")
+          print(json.dumps({
+              "runtimeTriangles":r["runtimeTriangles"],
+              "runtimeTotalTriangles":r.get("runtimeTotalTriangles"),
+              "dressingTriangles":r.get("dressingTriangles"),
+              "totalVertices":r["totalVertices"],
+              "totalIndices":r["totalIndices"],
+              "textureMaxDimension":r["textureMaxDimension"],
+              "batchCount":r["batchCount"],
+              "textureFiles":len(tex),
+              "xzsmBytes":os.path.getsize("church-artifact/vril_static/models/xziel/sanctum/sanctum.xzsm"),
+          },indent=2))
+          PY
+
+      - name: Resolve previous processed 4K HQ cache
+        id: hqcache
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, urllib.request
+          repo=os.environ["REPO"]
+          req=urllib.request.Request(
+              f"https://api.github.com/repos/{repo}/actions/workflows/sanctum-hq-gauntlet.yml/runs?status=success&per_page=20",
+              headers={
+                  "Authorization":f"Bearer {os.environ['GH_TOKEN']}",
+                  "Accept":"application/vnd.github+json",
+                  "X-GitHub-Api-Version":"2022-11-28",
+              },
+          )
+          data=json.load(urllib.request.urlopen(req))
+          current=int(os.environ["CURRENT_RUN_ID"])
+          run_id=""
+          for r in sorted(data.get("workflow_runs",[]), key=lambda x:x["created_at"], reverse=True):
+              if int(r["id"]) != current:
+                  run_id=str(r["id"])
+                  break
+          with open(os.environ["GITHUB_OUTPUT"],"a",encoding="utf-8") as f:
+              f.write(f"run_id={run_id}\n")
+          print("HQ_4K_CACHE_RUN",run_id or "NONE")
+          PY
+
+      - name: Download previous processed 4K HQ cache
+        if: steps.hqcache.outputs.run_id != ''
+        uses: actions/download-artifact@v5
+        with:
+          name: XZIEL-Sanctum-HQ-Gauntlet
+          path: hq-cache
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.hqcache.outputs.run_id }}
+
+      - name: Restore previous processed 4K atlases
+        id: restore4k
+        if: steps.hqcache.outputs.run_id != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find hq-cache -maxdepth 2 -type f -name '*Sanctum*debug.apk' | head -n 1)"
+          test -s "$APK"
+          mkdir -p hq-cache/apk hq-cache/nzp
+          unzip -j -o "$APK" assets/nzp-data.zip -d hq-cache/apk >/dev/null
+          unzip -o hq-cache/apk/nzp-data.zip 'nzp/textures/xziel/sanctum/*' -d hq-cache/nzp >/dev/null
+          cp -f hq-cache/nzp/nzp/textures/xziel/sanctum/* church-artifact/vril_static/textures/xziel/sanctum/
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import struct
+          root=Path("church-artifact/vril_static/textures/xziel/sanctum")
+          arch=[]
+          for p in sorted(root.glob("*.png")):
+              if p.stat().st_size < 256:
+                  continue
+              with p.open("rb") as f:
+                  sig=f.read(24)
+              if len(sig)>=24 and sig[:8]==b"\x89PNG\r\n\x1a\n":
+                  w,h=struct.unpack(">II",sig[16:24])
+                  if max(w,h)>=4096:
+                      arch.append((p.name,w,h))
+          if len(arch)<11:
+              raise SystemExit(f"4K cache incomplete: {arch}")
+          print("XZIEL_4K_CACHE_RESTORE_OK",len(arch),arch[:3])
+          PY
+          echo "XZIEL_EDSR_4K_OK CACHE_RESTORE" > church-artifact/superres-4k.log
+          echo "HQ_TEXTURE_PASS_OK CACHE_RESTORE" > hq-texture-pass.txt
+          echo "hit=true" >> "$GITHUB_OUTPUT"
+
+      - name: Super-resolve St Giles atlases 1K to 4K with EDSR
+        if: steps.restore4k.outputs.hit != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet "numpy<2" opencv-contrib-python-headless==4.10.0.84 pillow==11.3.0
+          mkdir -p .cache/xziel-sr
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/Saafke/EDSR_Tensorflow/master/models/EDSR_x4.pb -o .cache/xziel-sr/EDSR_x4.pb
+
+          python3 - <<'PY' | tee church-artifact/superres-4k.log
+          from pathlib import Path
+          import json
+          import cv2
+          from cv2 import dnn_superres
+
+          root=Path("church-artifact/vril_static/textures/xziel/sanctum")
+          sr=dnn_superres.DnnSuperResImpl_create()
+          sr.readModel(".cache/xziel-sr/EDSR_x4.pb")
+          sr.setModel("edsr",4)
+
+          rows=[]
+          for p in sorted(root.glob("*.png")):
+              img=cv2.imread(str(p),cv2.IMREAD_COLOR)
+              if img is None:
+                  raise SystemExit(f"Could not read {p}")
+              h,w=img.shape[:2]
+              if max(w,h)<256:
+                  rows.append({"file":p.name,"before":[w,h],"after":[w,h],"sr":False})
+                  continue
+              up=sr.upsample(img)
+              uh,uw=up.shape[:2]
+              cv2.imwrite(str(p),up,[cv2.IMWRITE_PNG_COMPRESSION,3])
+              rows.append({"file":p.name,"before":[w,h],"after":[uw,uh],"sr":True})
+
+          arch=[r for r in rows if r["sr"]]
+          if len(arch)<11:
+              raise SystemExit(f"Expected >=11 architectural atlases for EDSR, got {len(arch)}: {rows}")
+          if min(max(r["after"]) for r in arch)<4096:
+              raise SystemExit(f"Super-resolution did not reach 4K: {arch}")
+          print("XZIEL_EDSR_4K_OK")
+          print(json.dumps({
+              "architecturalAtlases":len(arch),
+              "minOutputDimension":min(max(r["after"]) for r in arch),
+              "maxOutputDimension":max(max(r["after"]) for r in arch),
+              "sample":arch[:4]
+          },indent=2))
+          PY
+
+      - name: Enhance photogrammetry textures for Android HQ
+        if: steps.restore4k.outputs.hit != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet pillow==11.3.0
+          python3 - <<'PY' | tee hq-texture-pass.txt
+          from pathlib import Path
+          from PIL import Image, ImageEnhance, ImageFilter
+          import json, statistics
+
+          root=Path("church-artifact/vril_static/textures/xziel/sanctum")
+          rows=[]
+          for p in sorted(root.glob("*.png")):
+              im=Image.open(p).convert("RGB")
+              w,h=im.size
+              # Leave tiny generated dressing colors alone; only enhance real scan atlases.
+              if max(w,h) < 256:
+                  rows.append({"file":p.name,"before":[w,h],"after":[w,h],"enhanced":False})
+                  continue
+
+              # Preserve the scan's real stone/wood tonality. The previous gamma
+              # lift washed the church nearly white; use only a controlled
+              # contrast/color cleanup before the 2K upscale.
+              im=ImageEnhance.Contrast(im).enhance(1.16)
+              im=ImageEnhance.Color(im).enhance(1.03)
+
+              # EDSR already produced 4K. Keep those pixels and only do a
+              # restrained material cleanup; do not resize again.
+              nw,nh=im.size
+              im=im.filter(ImageFilter.UnsharpMask(radius=0.75,percent=125,threshold=2))
+              im.save(p,optimize=False,compress_level=3)
+
+              rows.append({"file":p.name,"before":[w,h],"after":[nw,nh],"enhanced":True})
+
+          enhanced=[r for r in rows if r["enhanced"]]
+          assert enhanced, rows
+          assert max(max(r["after"]) for r in enhanced) >= 4096
+          print("HQ_TEXTURE_PASS_OK",json.dumps({
+              "textures":len(rows),
+              "enhanced":len(enhanced),
+              "maxDimension":max(max(r["after"]) for r in enhanced)
+          },indent=2))
+          PY
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK, NDK and emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER"             "platform-tools"             "platforms;android-35"             "build-tools;35.0.0"             "ndk;27.2.12479018"             "emulator"             "system-images;android-35;google_apis;x86_64"
+
+      - name: Prepare XZIEL with HQ St Giles visual authority
+        shell: bash
+        env:
+          XZIEL_EXTRA_MAP_NAME: sanctum_harness
+          XZIEL_EXTRA_MAP_BSP: ${{ github.workspace }}/church-artifact/nzp_harness/sanctum_harness.bsp
+          XZIEL_EXTRA_MAP_NSZ: ${{ github.workspace }}/church-artifact/nzp_harness/sanctum_harness.nsz
+          XZIEL_EXTRA_ASSET_DIR: ${{ github.workspace }}/church-artifact/vril_static
+        run: |
+          set -euo pipefail
+          bash scripts/prepare_android.sh
+
+          # Base prepare step installs the XZSM bridge. This second pass enables
+          # clamped v2 baked vertex lighting while preserving 2K scan albedo.
+          python3 scripts/patch_vril_sanctum_hq_lighting.py build/deps/vril
+
+          unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/maps/sanctum_harness.bsp'
+          unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/maps/sanctum_harness.nsz'
+          unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/models/xziel/sanctum/sanctum.xzsm'
+          unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/textures/xziel/sanctum/' | head -n 10
+          grep -q 'XZIEL_EDSR_4K_OK' church-artifact/superres-4k.log
+
+      - name: Make HQ Sanctum one-tap
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          activity=Path("build/android-project/app/src/main/java/org/libsdl/app/NZPActivity.java")
+          text=activity.read_text(encoding="utf-8")
+          pattern=re.compile(r'(return\s+new\s+String\[\]\s*\{\s*"-basedir"\s*,\s*dataRoot\.getAbsolutePath\(\)\s*)(\};)',re.MULTILINE)
+          text,count=pattern.subn(r'\1,\n            "+map", "sanctum_harness"\n        \2',text,count=1)
+          if count!=1:
+              raise SystemExit("Could not patch launch args")
+          activity.write_text(text,encoding="utf-8")
+
+          gradle=Path("build/android-project/app/build.gradle")
+          g=gradle.read_text(encoding="utf-8")
+          g,n=re.subn(r'applicationId\s+"[^"]+"','applicationId "com.xziel.sanctumhq"',g,count=1)
+          if n!=1: raise SystemExit("applicationId patch failed")
+          g,n=re.subn(r'versionName\s+"[^"]+"','versionName "0.3-hq-xzsm"',g,count=1)
+          if n!=1: raise SystemExit("versionName patch failed")
+          gradle.write_text(g,encoding="utf-8")
+
+          strings=Path("build/android-project/app/src/main/res/values/strings.xml")
+          s=strings.read_text(encoding="utf-8")
+          s=re.sub(r'<string name="app_name">.*?</string>','<string name="app_name">XZIEL: Sanctum HQ</string>',s)
+          strings.write_text(s,encoding="utf-8")
+          PY
+
+      - name: Build HQ APK
+        working-directory: build/android-project
+        shell: bash
+        run: ./gradlew --no-daemon assembleDebug --stacktrace
+
+      - name: Collect HQ APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sanctum-hq-dist
+          cp build/android-project/app/build/outputs/apk/debug/app-debug.apk              sanctum-hq-dist/XZIEL-Sanctum-HQ-XZSM-debug.apk
+          cp hq-profile.txt sanctum-hq-dist/
+          cp hq-texture-pass.txt sanctum-hq-dist/
+          cp church-artifact/vril_static_mesh_report.json sanctum-hq-dist/
+          ls -lh sanctum-hq-dist/XZIEL-Sanctum-HQ-XZSM-debug.apk
+
+      - name: Android HQ visual gauntlet
+        id: smoke
+        continue-on-error: true
+        shell: bash
+        env:
+          ANDROID_AVD_HOME: ${{ runner.temp }}/xziel-sanctum-hq-avd
+        run: |
+          set -euo pipefail
+          mkdir -p "$ANDROID_AVD_HOME"
+          ADB="${ANDROID_HOME}/platform-tools/adb"
+          EMULATOR="${ANDROID_HOME}/emulator/emulator"
+          AVDMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name avdmanager | sort | tail -n 1)"
+
+          printf 'no\n' | "$AVDMANAGER" create avd --force --name xziel-sanctum-hq-ci             --package "system-images;android-35;google_apis;x86_64" --device "pixel_6"
+
+          [[ ! -e /dev/kvm ]] || sudo chmod 666 /dev/kvm || true
+          nohup "$EMULATOR" @xziel-sanctum-hq-ci             -no-window -no-audio -no-boot-anim -no-snapshot             -gpu swiftshader_indirect -memory 3072             > sanctum-hq-dist/emulator-stdout.txt 2>&1 &
+
+          timeout 120 "$ADB" wait-for-device
+          for i in $(seq 1 60); do
+            [[ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]] && break
+            sleep 2
+          done
+          test "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1"
+
+          "$ADB" install -r sanctum-hq-dist/XZIEL-Sanctum-HQ-XZSM-debug.apk
+          "$ADB" shell settings put secure immersive_mode_confirmations confirmed || true
+          "$ADB" logcat -c
+          "$ADB" shell am force-stop com.xziel.sanctumhq || true
+          "$ADB" shell am start -W -n com.xziel.sanctumhq/org.libsdl.app.NZPActivity             > sanctum-hq-dist/am-start.txt 2>&1 || true
+
+          # XZSM is a 740k-triangle + multi-texture payload. Let the first load
+          # complete before visual judgment instead of failing on the black load frame.
+          sleep 38
+          "$ADB" exec-out screencap -p > sanctum-hq-dist/hq-40s.png
+          sleep 10
+          "$ADB" exec-out screencap -p > sanctum-hq-dist/hq-50s.png
+          sleep 15
+          "$ADB" exec-out screencap -p > sanctum-hq-dist/hq-65s.png
+          "$ADB" logcat -d -v threadtime > sanctum-hq-dist/hq-logcat.txt || true
+
+          if grep -Eq 'XZIEL_XZSM: texture\[[0-9]+\] handle=-1' sanctum-hq-dist/hq-logcat.txt; then
+            echo "HQ architectural texture load failure"
+            grep 'XZIEL_XZSM: texture' sanctum-hq-dist/hq-logcat.txt | head -80
+            exit 1
+          fi
+          grep 'XZIEL_XZSM: loaded batches=' sanctum-hq-dist/hq-logcat.txt
+
+          python3 -m pip install --quiet pillow==11.3.0
+          python3 - <<'PY' | tee sanctum-hq-dist/hq-visual-report.txt
+          from PIL import Image,ImageChops,ImageStat
+          ps=["sanctum-hq-dist/hq-40s.png","sanctum-hq-dist/hq-50s.png","sanctum-hq-dist/hq-65s.png"]
+          ims=[]
+          passed=[]
+          for p in ps:
+              im=Image.open(p).convert("RGB")
+              gray=im.convert("L")
+              st=ImageStat.Stat(gray)
+              lo,hi=gray.getextrema()
+              ok=(im.width>im.height and im.width>=1000 and im.height>=500
+                  and st.stddev[0]>=16 and hi-lo>=60
+                  and st.mean[0]>=30 and st.mean[0]<=145)
+              print(p,im.size,"mean",round(st.mean[0],2),"std",round(st.stddev[0],2),"range",(lo,hi),"PASS",ok)
+              ims.append(im)
+              passed.append(ok)
+          for a,b in zip(ims,ims[1:]):
+              ds=ImageStat.Stat(ImageChops.difference(a,b).convert("L"))
+              print("frame_delta",round(ds.mean[0],3),round(ds.stddev[0],3))
+          if not any(passed):
+              raise SystemExit("All HQ frames are still too dark/flat/blank")
+          PY
+
+          PID="$("$ADB" shell pidof com.xziel.sanctumhq 2>/dev/null | tr -d '\r' || true)"
+          STAGE="$("$ADB" shell run-as com.xziel.sanctumhq cat files/nzp-runtime/.xziel-stage 2>/dev/null | tr -d '\r' || true)"
+          echo "PID=$PID" | tee sanctum-hq-dist/runtime-state.txt
+          echo "STAGE=$STAGE" | tee -a sanctum-hq-dist/runtime-state.txt
+
+          if grep -Eq "Fatal signal|FATAL EXCEPTION|stage=SYS_ERROR|XZIEL_QC.*PR_RunError" sanctum-hq-dist/hq-logcat.txt; then
+            grep -E "XZIEL_QC|stage=SYS_ERROR|Fatal signal|FATAL EXCEPTION" sanctum-hq-dist/hq-logcat.txt | tail -120 || true
+            exit 1
+          fi
+          test -n "$PID"
+          test "$STAGE" = "FIRST_FRAME_OK"
+
+      - name: Upload HQ gauntlet evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-HQ-Gauntlet
+          path: sanctum-hq-dist/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Fail if HQ gauntlet failed
+        if: steps.smoke.outcome == 'failure'
+        shell: bash
+        run: exit 1
