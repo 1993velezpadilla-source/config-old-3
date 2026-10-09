@@ -77,13 +77,10 @@ func apply_to_real_source_meshes(policy: Dictionary, by_actor: Dictionary) -> Di
             or (cap>0 and not is_equal_approx(mesh.visibility_range_end,cap))):
             errors.append("Godot ignored genuine source exterior visual property "+id)
             break
-        var has_lod: bool=false
-        for surface: int in range(mesh.mesh.get_surface_count()):
-            if mesh.mesh.surface_get_lods(surface).size()>0:
-                has_lod=true
-                break
-        if has_lod:
-            actual_lod_variants+=1
+        # ArrayMesh in Godot 4.6 exposes no surface_get_lods() API.
+        # A lod_bias property being set is NOT proof any geometry LOD exists.
+        # Record a separate unverified sentinel instead of a false GREEN.
+        actual_lod_variants = -1
         selected+=1
         mutated[id]=true
         treated_by_category[category]=int(treated_by_category.get(category,0))+1
@@ -107,6 +104,8 @@ func apply_to_real_source_meshes(policy: Dictionary, by_actor: Dictionary) -> Di
         "actualFarExteriorGodotActorsOptimized":selected,
         "actualSourceTypesOptimized":treated_by_category,
         "sourceMeshActorsWithAutoImportedLODVariants":actual_lod_variants,
+        "actualImportedGeometryLODLevelIntrospectionAvailable":false,
+        "trueTriangleReductionNotYetProven":true,
         "originalSmallDecorativeSurfacesWithCameraRange":far_distance_culls,
         "originalFarDecorationActorsShadowOff":shadow_disabled,
         "excludedLargeOrProtectedOriginalWorldAABB":skipped_world_box,
