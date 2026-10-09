@@ -74,7 +74,7 @@ def main():
     parser.add_argument("--mesh-root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--count", type=int, default=128)
-    parser.add_argument("--max-individual-glb-bytes", type=int, default=6_000_000)
+    parser.add_argument("--max-individual-glb-bytes", type=int, default=32_000_000)
     args = parser.parse_args()
     original = args.scene.read_bytes()
     output = choose(json.loads(original), args.mesh_root, args.count,
