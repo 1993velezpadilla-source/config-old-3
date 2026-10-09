@@ -498,6 +498,97 @@ func _capture() -> void:
           " original_interior_aabb_protected=",exterior_report["nearBuildingOriginalActorsProtected"],
           " rendered_A_B_views=",exterior_pixels.size())
 
+    # Last capture gate: after source-authored far-only foliage settings,
+    # add REAL 256/512px source-derived DDS per ACTOR, never in the original
+    # shared material. See #37967088357 standalone actual Godot GREEN.
+    # Contrast frames 11/12 (same original far-forest LOD/shadows) with
+    # 13/14 (ONLY additional far-vista lower-resolution albedo overrides).
+    var vista_any: Variant=JSON.parse_string(
+        FileAccess.get_file_as_string("res://nacht-authored-vista-actor-policy.json"))
+    var vista_script: Script=load("res://nacht_apply_source_vista_actor_local_dds.gd") as Script
+    if not (vista_any is Dictionary) or vista_script==null:
+        push_error("XZOGOT_NACHT_ACTOR_ONLY_VISTA_REAL_SOURCE_DDS_POLICY_MISSING_RED")
+        quit(40)
+        return
+    var source_vista_optimizer: RefCounted=vista_script.new() as RefCounted
+    var native_vista_report: Dictionary=source_vista_optimizer.call(
+        "apply_authored_source_vistas",vista_any,by_actor) as Dictionary
+    if (not (native_vista_report.get("errors",[]) as Array).is_empty()
+        or int(native_vista_report.get("sourceAuthoredVistaActorsWithSourceDerivedLowRes",0))<100
+        or int(native_vista_report.get("originalSourceGLBActorsUnchanged",0))!=10793
+        or bool(native_vista_report.get("sourceOriginalSharedTextureResourceModified",true))):
+        push_error("XZOGOT_NACHT_REAL_GODOT_VISTA_ACTOR_ONLY_DDS_OR_SOURCE_PARITY_RED "+
+            JSON.stringify(native_vista_report))
+        quit(41)
+        return
+    print("XZOGOT_NACHT_GODOT_ACTUAL_FAR_SOURCE_VISTA_DDS_DOWNSCALE_ENABLED",
+        " real_actor_local_lowres=",native_vista_report["sourceAuthoredVistaActorsWithSourceDerivedLowRes"],
+        " source_albedo_surfaces=",native_vista_report["sourceAuthoredNativeSurfaceAlbedoVariants"],
+        " unique_new_image_textures=",native_vista_report["uniqueRealGodotLowerResolutionImageTextures"],
+        " original_full_resolution_near_textures_unchanged=true")
+    var vista_photo_specs: Array[Dictionary]=[
+        {"before":"11-exterior-moon-optimized","after":"13-far-vista-lowres-outdoor",
+         "camera":Vector3(24.66175,37.85322,19.89849),
+         "target":Vector3(-2.494789,3.153206,-7.258049)},
+        {"before":"12-interior-moon-optimized","after":"14-far-vista-lowres-interior",
+         "camera":Vector3(11.61863,1.65,-0.325515),
+         "target":Vector3(4.5,1.6,0.4)}
+    ]
+    var vista_pixel_results: Array[Dictionary]=[]
+    for photo: Dictionary in vista_photo_specs:
+        cam.global_position=photo["camera"]
+        cam.look_at(photo["target"],Vector3.UP)
+        for frame: int in range(14):
+            await process_frame
+        var actual: Image=root.get_texture().get_image()
+        var prior: Image=Image.load_from_file("res://"+str(photo["before"])+".png")
+        if actual==null or prior==null or actual.is_empty() or prior.is_empty() or actual.get_size()!=prior.get_size():
+            push_error("XZOGOT_NACHT_NATIVE_VISTA_DDS_AB_REAL_SOURCE_IMAGES_UNAVAILABLE_RED")
+            quit(42)
+            return
+        var file_err: Error=actual.save_png("res://"+str(photo["after"])+".png")
+        if file_err!=OK:
+            push_error("XZOGOT_NACHT_NATIVE_VISTA_DDS_SOURCE_A_B_PNG_SAVE_RED")
+            quit(43)
+            return
+        var difference_sum: float=0.0
+        var strong_diff_count: int=0
+        var pixel_count: int=0
+        for py: int in range(0,actual.get_height(),8):
+            for px: int in range(0,actual.get_width(),8):
+                var a: Color=prior.get_pixel(px,py)
+                var d: Color=actual.get_pixel(px,py)
+                var mean_delta: float=(absf(a.r-d.r)+absf(a.g-d.g)+absf(a.b-d.b))/3.0
+                difference_sum+=mean_delta
+                pixel_count+=1
+                if mean_delta>0.10:
+                    strong_diff_count+=1
+        var cmp: Dictionary={
+            "priorSourceHighResolutionAndFarLOD":str(photo["before"])+".png",
+            "actualGodotActorLocalLowerResolutionDDS":str(photo["after"])+".png",
+            "meanAbsoluteRGBDelta":difference_sum/float(pixel_count),
+            "fractionPixelDeltaAbove0_10":float(strong_diff_count)/float(pixel_count),
+            "unmodifiedOriginalActorTexturesSharedWithNearScene":true,
+            "whetherAppDrawCallsOrAndroidFPSChangedProven":false
+        }
+        vista_pixel_results.append(cmp)
+        print("XZOGOT_NACHT_REAL_NATIVE_VISTA_DDS_BEFORE_AFTER_PIXEL_AB",JSON.stringify(cmp))
+        # Windows/interior views must NOT visibly degrade. More distant
+        # foliage being indistinguishable at 720p is allowed. Zero pixel
+        # difference does NOT prove positive GPU savings or real LOD.
+        if str(photo["after"]).contains("interior") and (
+            float(cmp["meanAbsoluteRGBDelta"])>0.020 or
+            float(cmp["fractionPixelDeltaAbove0_10"])>0.035):
+            push_error("XZOGOT_NACHT_VISTA_LOWRES_DEGRADED_GAMEPLAY_INTERIOR_WINDOWS_RED "+
+                JSON.stringify(cmp))
+            quit(44)
+            return
+    print("XZOGOT_NACHT_REAL_GODOT_173_FAR_VISTA_TEXTURE_AB_SOURCE_FIDELITY_GREEN",
+        " real_ab_images=",vista_pixel_results.size(),
+        " original_DDS_near_unchanged=true",
+        " original_static_world_actors=",by_actor.size(),
+        " GPU_FPS_not_yet_measured=true")
+
     var audit: Dictionary={
         "authority":"Pavlov UE4.21 archived source - NOT original BO3 T7",
         "renderedGodot":Engine.get_version_info().get("string",""),
@@ -505,6 +596,8 @@ func _capture() -> void:
         "sourceAuthoredMaterialSurfaces":bound,
         "sourceDiffuseTexturedSurfaces":textured,
         "sourceLights":166,
+        "farSourceVistaActorLocalLowResolutionDDS":native_vista_report,
+        "sourceVistaTextureRealGodotBeforeAfterPixelResults":vista_pixel_results,
         "farExteriorActualGodotLODPolicy":exterior_report,
         "farExteriorRealGodotBeforeAfterComparisons":exterior_pixels,
         "farFoliageOptimizationIsNotMobileFPSProof":true,
@@ -521,5 +614,5 @@ func _capture() -> void:
     out.store_string(JSON.stringify(audit,"\t"))
     out.close()
     print("XZOGOT_NACHT_MERIDIAN_10793_REAL_SOURCE_VISUAL_CAPTURE_GREEN count=",results.size())
-    print("XZOGOT_NACHT_FINAL_SOURCE_RENDER_IMAGES_COUNT ",results.size()+exterior_pixels.size())
+    print("XZOGOT_NACHT_FINAL_SOURCE_RENDER_IMAGES_COUNT ",results.size()+exterior_pixels.size()+vista_pixel_results.size())
     quit(0)
