@@ -172,6 +172,30 @@ func _run() -> void:
     var vistas: Array[Dictionary]=[]
     for view: Dictionary in points:
         vistas.append(await _measure(cam,"far_source_vista_dds_"+view["name"],view["camera"],view["look"]))
+    # Experimental 32m spatial instancing of original 340 Vista tree source IDs.
+    # ALL original actors remain in memory/scene; batches substitute visibility only.
+    # This is not an Android FPS measurement or a certified ship optimization.
+    var batch_script: Script=load("res://nacht_apply_vista_spatial_multimesh_research.gd") as Script
+    if batch_script==null:
+        push_error("XZOGOT_NACHT_ORIGINAL_VISTA_MULTIMESH_SCRIPT_MISSING_RED")
+        quit(18)
+        return
+    var batch_control: RefCounted=batch_script.new() as RefCounted
+    var batch_parent: Node3D=Node3D.new()
+    batch_parent.name="ResearchOriginalVistaBatchRoot"
+    root.add_child(batch_parent)
+    var batch_changes: Dictionary=batch_control.call(
+        "apply_original_vista_instance_batching",v_any,p_any,by_actor,batch_parent,32.0) as Dictionary
+    if (not (batch_changes.get("errors",[]) as Array).is_empty()
+        or int(batch_changes.get("originalSourceActorsStillPresent",0))!=10793
+        or int(batch_changes.get("originalActorsTemporarilyHidden",0))<100
+        or int(batch_changes.get("actualOriginalSourceMultimeshNodes",0))<10):
+        push_error("XZOGOT_NACHT_ORIGINAL_VISTA_MULTIMESH_RESEARCH_UNVERIFIED_RED "+JSON.stringify(batch_changes))
+        quit(19)
+        return
+    var batched: Array[Dictionary]=[]
+    for view: Dictionary in points:
+        batched.append(await _measure(cam,"spatial32m_vista_original_multimesh_"+view["name"],view["camera"],view["look"]))
     var warnings: Array[String]=[]
     for sample: Dictionary in before:
         if int(sample["realVisibleDrawCalls"])<=0 or int(sample["realVisibleObjects"])<=0:
@@ -186,6 +210,8 @@ func _run() -> void:
         "realSourceOriginalBaselineRenderer":before,
         "sourceFarExteriorOnlyRealRenderer":exterior,
         "realActorSpecificSourceDerivedDDSExtension":vistas,
+        "realOriginalVistaSourceMultimesh32mRenderer":batched,
+        "researchVistaSpatialMultimeshOriginalActorsPreserved":batch_changes,
         "realExteriorSourceOptimizationReport":changes,
         "actualVistaSourceImageDownsample":vista,
         "validGodotRendererMeasurements":warnings.is_empty(),
@@ -204,7 +230,7 @@ func _run() -> void:
         quit(17)
         return
     print("XZOGOT_NACHT_REAL_GODOT_MESA_SOURCE_NATIVE_FAR_VISUAL_DRAW_CALL_AB_GREEN",
-        " views=2 variants=3 source_actors=",source_meshes.size(),
+        " views=2 variants=4 source_actors=",source_meshes.size(),
         " measured_real_renderer_drawcall_counters=true",
         " true_Android_GPU_FPS_unmeasured=true")
     quit(0)
