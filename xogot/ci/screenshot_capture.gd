@@ -151,6 +151,17 @@ func _capture() -> void:
 				quit(23)
 				return
 			print("XZOGOT_SCREENSHOT_WAW_SOURCE_ZOMBIE_READY")
+			# Diagnostic A/B #3: keep original zombie entity, source identity,
+			# scripted round, collider and player, but release ONLY its imported
+			# skinned render hierarchy. Distinguishes Zombie GLB resource lifecycle
+			# from Zombie CharacterBody lifecycle. Never used by shipped gameplay.
+			if OS.get_environment("XOGOT_CAPTURE_REMOVE_ZOMBIE_SKIN") == "1":
+				var imported_skin: Node3D = zombie.get("_visual_root") as Node3D
+				if imported_skin != null:
+					imported_skin.queue_free()
+					await process_frame
+					await process_frame
+				print("XZOGOT_SCREENSHOT_ZOMBIE_ENTITY_WITHOUT_SKIN_AB")
 			zombie.set_physics_process(false)
 			# This is a THREE-FRAME screenshot of ONE original WaW zombie, not
 			# a full wave. Letting the live RoundManager continue spawning while
