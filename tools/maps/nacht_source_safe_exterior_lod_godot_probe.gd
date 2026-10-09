@@ -159,11 +159,10 @@ func _run() -> void:
         if size.x>55.0 or size.y>55.0 or size.z>55.0:
             excluded_oversized+=1
             continue
+        # Godot 4.6 ArrayMesh has no surface_get_lods() callable API.
+        # Source GLB imported LODs remain unproven; do not report fake ones.
         var true_lods: bool=false
-        for s: int in range(mi.mesh.get_surface_count()):
-            if mi.mesh.surface_get_lods(s).size()>0:
-                true_lods=true
-                break
+        true_mesh_lod_actors = -1
         var bias: float=float(entry.get("lodBiasTarget",1.0))
         if bias<=0.0 or bias>1.0:
             errors.append("unreasonable exterior LOD bias "+iid)
@@ -230,6 +229,8 @@ func _run() -> void:
         "actualGodotExteriorActorsWithVisualOnlyOptimization":treated_count,
         "actualGodotExteriorClassCounts":treated_by_class,
         "actualSourceActorsWithImportedLODVariants":true_mesh_lod_actors,
+        "nativeLODIntrospectionNotAvailableViaArrayMesh":true,
+        "actualGeometryTriangleLODReductionNotYetProven":true,
         "sourceActorsShadowOptimized":source_shadow_disabled,
         "sourceSmallDecorationMeshSurfacesWithFarCameraCull":source_surface_visibility_cut,
         "policyCandidatesExcludedByOriginalWorldMeshBounds":excluded_by_actual_world_bounds,
