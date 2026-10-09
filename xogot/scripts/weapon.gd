@@ -2247,14 +2247,19 @@ func _register_authored_source_sight() -> void:
 		return
 	var sight_kind := ""
 	var sight_world := Vector3.ZERO
-	for bone_name in ["tag_iron_sights", "tag_scope", "tag_no_scope"]:
+	# The Arisaka original tag_scope is a SCOPE ATTACHMENT marker, not an
+	# open iron sight: its camera depth can be BEHIND the eye (+0.03 m).
+	# Centering it had yanked the whole hand+rifle rig into the near plane,
+	# producing giant forearms across ADS. Never treat scope/no_scope
+	# attachment tags as iron-sight references on unscoped firearms.
+	for bone_name in ["tag_iron_sights"]:
 		var candidate: Dictionary = _gun_skeleton_bone_world(bone_name)
 		if bool(candidate.get("found", false)):
 			sight_world = candidate.get("position", Vector3.ZERO)
 			sight_kind = bone_name
 			break
 	if sight_kind.is_empty():
-		set_meta("weapon_ads_source_sight_registration", "missing_original_sight_socket")
+		set_meta("weapon_ads_source_sight_registration", "missing_original_rear_iron_sight_requires_visual_approval")
 		return
 	# Centering a point does not aim a rifle. Source FG42 had a real
 	# tag_iron_sights perfectly centered but the original tag_flash was still
