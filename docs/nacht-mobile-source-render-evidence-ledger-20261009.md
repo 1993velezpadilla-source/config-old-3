@@ -37,6 +37,16 @@ New test samples **four eye-height reference positions × 4 compass headings**, 
 
 These 16-camera runs were started and may still be running; their actual conclusions must be rechecked via GitHub Actions rather than assumed GREEN.
 
+### Fallback if one llvmpipe run takes longer than its allotted GitHub job time
+
+The 16-pose single process can exceed a GitHub job's allocated render time because Mesa software rasterizes the original complex scene. A separate source-identical fail-safe was added:
+
+- [Actual Godot 4.6.1 two-shard script parser — GREEN #37982629251](https://github.com/1993velezpadilla-source/config-old-3/actions/runs/37982629251).
+- [Two parallel genuine source 8-camera shards and strict 16-camera reassembly #37982897050](https://github.com/1993velezpadilla-source/config-old-3/actions/runs/37982897050): one worker checks indoor candidate viewpoints, the other checks outdoor; both use the same 10,793 source actors, DDS source textures, 166 lights and 90-instance-group research policy, and each must create 16 real images. Combining requires exactly 32 camera-matched source screenshots, exactly 16 unique positions/yaws, independent RGB comparisons and real Mesa GPU counter improvements with no unproven Android claim.
+
+Both shard jobs were started; **a submitted or running workflow is NOT a GREEN result**. This fallback is research-only, not new production logic and not a substitute for actual certified 360 reachable/player-window geometry.
+
+
 ## Texture bottleneck candidate — original compressed-source inventory, not measured Android VRAM
 
 [718 original-used DDS inventory — GREEN #37959311556](https://github.com/1993velezpadilla-source/config-old-3/actions/runs/37959311556)
