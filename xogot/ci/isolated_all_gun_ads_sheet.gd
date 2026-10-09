@@ -107,6 +107,44 @@ func _diagnose_eye_relief(weapon: Node, id: String) -> void:
 	weapon.set_process(true)
 	await process_frame
 
+# CI-only original PSA vs native bind REST: identify whether a
+# sprawling arm/triangle is created by the imported animation or exists
+# in the untouched source mesh/skin. Render BOTH, restore original bones.
+func _diagnose_native_hand_rest(weapon: Node, id: String) -> void:
+	var hands: Node3D = weapon.get("_hands_model_root") as Node3D
+	var gun: Node3D = weapon.get("_weapon_model_root") as Node3D
+	var skeleton: Skeleton3D = weapon.get("_source_hands_skeleton") as Skeleton3D
+	if hands == null or skeleton == null or gun == null:
+		print("XZOGOT_HANDS_BIND_REST_PROBE_MISSING ",id)
+		return
+	var anim: AnimationPlayer = weapon.get("_hands_animation_player") as AnimationPlayer
+	weapon.set_process(false)
+	if anim != null:
+		anim.pause()
+	var before: Array[Transform3D] = []
+	for i in range(skeleton.get_bone_count()):
+		before.append(skeleton.get_bone_pose(i))
+	var original_gun_visible := gun.visible
+	gun.visible = false
+	skeleton.reset_bone_poses()
+	await process_frame
+	await process_frame
+	var frame: Image = root.get_texture().get_image()
+	if frame != null and not frame.is_empty():
+		var file := "/tmp/xogot-sight-component-ab/" + id + "-hands-native-bind-rest.png"
+		frame.save_png(file)
+		print("XZOGOT_SOURCE_HANDS_REST_AB id=",id,
+			" original_psa_bones=",before.size(),
+			" original_mesh_unchanged=true rest_obstruction=",
+			_ads_frame_obstruction(frame)," path=",file)
+	for i in range(before.size()):
+		skeleton.set_bone_pose(i,before[i])
+	gun.visible = original_gun_visible
+	if anim != null:
+		anim.play()
+	weapon.set_process(true)
+	await process_frame
+
 func _start() -> void:
 	DirAccess.make_dir_recursive_absolute(OUT)
 	# Reproducible uncluttered studio: imported gun+hands are exactly the same
@@ -255,6 +293,8 @@ func _start() -> void:
 				if id in ["gewehr", "fg42", "arisaka"]:
 					await _diagnose_occluding_parts(weapon, id)
 					await _diagnose_eye_relief(weapon, id)
+					if id in ["fg42", "arisaka"]:
+						await _diagnose_native_hand_rest(weapon,id)
 			var result_angle := float(weapon.get_meta("weapon_ads_visual_bore_error_deg", -1.0))
 			var result_sight := float(weapon.get_meta("weapon_ads_source_sight_error_m", -1.0))
 			if pose == "ads":
