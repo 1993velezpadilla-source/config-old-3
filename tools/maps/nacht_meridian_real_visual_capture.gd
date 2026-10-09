@@ -135,11 +135,46 @@ func _capture() -> void:
          "target":Vector3(5.8,1.6,-6.3)},
         {"name":"04-source-spawn6-interior",
          "camera":Vector3(11.61863,1.65,-0.325515),
-         "target":Vector3(4.5,1.6,0.4)}
+         "target":Vector3(4.5,1.6,0.4)},
+        # DIAGNOSTIC AMBIENT ONLY: these last two images make the source
+        # texture details visible without claiming UE4/Godot light parity.
+        # Original source-light frames are always saved FIRST, untouched.
+        {"name":"05-diagnostic-overview-ambient",
+         "camera":Vector3(24.66175,37.85322,19.89849),
+         "target":Vector3(-2.494789,3.153206,-7.258049),
+         "diagnostic":true},
+        {"name":"06-diagnostic-spawn6-ambient",
+         "camera":Vector3(11.61863,1.65,-0.325515),
+         "target":Vector3(4.5,1.6,0.4),
+         "diagnostic":true}
     ]
     var results: Array[Dictionary] = []
+    var diagnostic_env_set: bool = false
     for view in views:
         var name: String = str(view["name"])
+        if bool(view.get("diagnostic",false)) and not diagnostic_env_set:
+            var sky_candidates: Array[Node] = light_root.find_children(
+                "*","WorldEnvironment",true,false
+            )
+            if sky_candidates.size()!=1:
+                push_error("XZOGOT_NACHT_DIAGNOSTIC_SOURCE_SKYLIGHT_ABSENT_RED")
+                quit(26)
+                return
+            var source_sky: WorldEnvironment = sky_candidates[0] as WorldEnvironment
+            if source_sky == null or source_sky.environment == null:
+                push_error("XZOGOT_NACHT_DIAGNOSTIC_SOURCE_SKYLIGHT_NULL_RED")
+                quit(27)
+                return
+            # These two FRAMES ARE NOT historical source lighting parity.
+            # Exposure is raised in Godot ONLY to inspect the REAL 718 DDS
+            # and lossless 10793-source-actor mesh structure on small screens.
+            source_sky.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+            source_sky.environment.ambient_light_color = Color(0.84,0.89,1.0)
+            source_sky.environment.ambient_light_energy = 1.10
+            source_sky.environment.background_mode = Environment.BG_COLOR
+            source_sky.environment.background_color = Color(0.12,0.13,0.15)
+            diagnostic_env_set = true
+            print("XZOGOT_NACHT_SOURCE_GEOMETRY_DDS_DIAGNOSTIC_AMBIENT_ENABLED: NOT original lighting")
         cam.global_position=view["camera"]
         cam.look_at(view["target"],Vector3.UP)
         for _i in range(8):
@@ -178,6 +213,7 @@ func _capture() -> void:
             "luminanceSpread":hi-lo,
             "sourceTextures":true,
             "nativeLights":166,
+            "diagnosticGodotAmbientOverride":bool(view.get("diagnostic",false)),
             "renderMethod":"Godot 4.6.1 gl_compatibility",
             "claimsOriginalBO3T7":false
         })
