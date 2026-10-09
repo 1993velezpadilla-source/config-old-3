@@ -9,6 +9,12 @@
 3. Existing workflow `.github/workflows/xogot-nacht-chronicles-full-map-authority.yml` already downloads Pavlov workshop 555160/2755515831 and validates **3,871 UE packages**, the UE4.21 UMAP and full package extraction. Existing `.github/workflows/xogot-stage-nacht-full-map.yml` rebuilds that into a native Godot runtime. Confirmed still-present GitHub Actions artifacts: **#37714627696** `Xogot-Nacht-Chronicles-Full-Map-Authority` (~2.9 GB), **#37762871109** `Xogot-Nacht-Chronicles-Godot-Runtime` (~2.1 GB), and **#37762871146** release APK gauntlet (~1.78 GB). Successful CI is a pipeline result; it is **not** evidence of identical BO3 source, complete gameplay, or artistically approved 1:1 layout.
 4. The GitHub branch itself has no original `.ff`, `.xpak`, `.uasset`, `.umap` checked in. Original Pavlov source is in the archived CI artifact/workshop, **not** a local editor UProject. Do not waste time re-downloading or "converting" it before inventorying existing artifacts.
 
+## Original 2017 game package filenames (public Steam depot manifest confirmed)
+
+SteamDB lists original *owned game depot* **581450** (Chronicles DLC for Windows) with **`zone/zm_prototype.ff` ~62.94 MiB**, **`zone/zm_prototype.xpak` ~678.25 MiB**, **`zone/zm_prototype.fd` ~2.88 MiB**, **`zone/zm_prototype_d.xpak` ~3 MiB**, **`zone/zm_prototype_patch.ff` ~178.94 KiB**, and `video/zm_prototype_loadingmovie.mkv`. **This is conclusive published evidence of the correct game asset identity, not evidence that the user's private game DLC has been copied to our repo or accessible from CI.** https://steamdb.info/depot/581450/apps/
+
+Do not mix these original BO3 `zm_prototype` artifacts with the Pavlov `Nacht_de_Untoten.umap`. **No Unreal FModel decoder can open original T7 `.ff`/`.xpak`.** Native T7 extraction still needs compatible tooling and entitlement, plus independent validation against the original game.
+
 ## Lane A — Original BO3 Chronicles Nacht (T7) to Godot
 
 **Priority when source-authentic BO3 is the target, rather than the Pavlov approximation.**
