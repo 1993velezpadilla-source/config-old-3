@@ -1,0 +1,81 @@
+name: Xogot Nacht All 493 Native Models Vertex Cloud A-B (Research)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-meridian-493-vertex-cloud.yml"
+      - "tools/maps/validate_meridian_493_full_vertices.py"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  full-vertex-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: "37762871109"
+      SOURCE_ARTIFACT: Xogot-Nacht-Chronicles-Godot-Runtime
+      FULL_RUN: "37933706132"
+      FULL_ARTIFACT: Nacht-UE421-Full-10793-Actor-Source-Meridian-Affine-Godot
+      BOUNDS_RUN: "37936009542"
+    steps:
+      - uses: actions/checkout@v5
+      - name: Require independent all actors Godot and native world AABB proof GREEN
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh run view "$FULL_RUN" --json conclusion --jq '.conclusion')" = success
+          test "$(gh run view "$BOUNDS_RUN" --json conclusion --jq '.conclusion')" = success
+          echo "XZOGOT_NACHT_10793_NATIVE_BOUNDS_DEPENDENCY_GREEN"
+      - name: Install native spatial parity libraries
+        run: python3 -m pip install --disable-pip-version-check "numpy==2.2.6" "scipy==1.15.3"
+      - name: Reuse EXACT validated full Meridian Godot output and original archived Pavlov native GLBs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-vertex-parity/export "$RUNNER_TEMP/source"
+          gh run download "$FULL_RUN" -n "$FULL_ARTIFACT" \
+            -D build/nacht-vertex-parity/export \
+            2>&1 | tee build/nacht-vertex-parity/output-download.log
+          gh run download "$SOURCE_RUN" -n "$SOURCE_ARTIFACT" \
+            -D "$RUNNER_TEMP/source" \
+            2>&1 | tee build/nacht-vertex-parity/source-download.log
+          SRC=$(find "$RUNNER_TEMP/source" -name nacht-static-scene.json -type f -print -quit)
+          MESHES=$(find "$RUNNER_TEMP/source" -name meshes_glb -type d -print -quit)
+          GLB=$(find build/nacht-vertex-parity/export -name Nacht_Source_Bridge_Probe.glb -type f -print -quit)
+          test -s "$SRC" && test -d "$MESHES" && test -s "$GLB"
+          echo "UE_SCENE=$SRC" >> "$GITHUB_ENV"
+          echo "UE_MESHES=$MESHES" >> "$GITHUB_ENV"
+          echo "MERIDIAN_GLB=$PWD/$GLB" >> "$GITHUB_ENV"
+          echo "XZOGOT_NACHT_ORIGINAL_NATIVE_AND_FULL_MERIDIAN_ARTIFACTS_READY"
+      - name: Compare actual original and emitted glTF vertices AND triangle counts for 493 mesh types
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/validate_meridian_493_full_vertices.py \
+            --scene "$UE_SCENE" \
+            --native-glb-dir "$UE_MESHES" \
+            --meridian-glb "$MERIDIAN_GLB" \
+            --max-distance-mm 0.25 \
+            --output build/nacht-vertex-parity/full-vertex-report.json \
+            2>&1 | tee build/nacht-vertex-parity/full-vertex-parity.log
+          grep -q "XZOGOT_NACHT_493_FULL_VERTEX_CLOUD_GREEN" \
+            build/nacht-vertex-parity/full-vertex-parity.log
+      - name: Preserve all evidence even on RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-493-Native-Real-Full-Vertex-Cloud-And-Triangle-Count-Proof
+          path: |
+            build/nacht-vertex-parity/output-download.log
+            build/nacht-vertex-parity/source-download.log
+            build/nacht-vertex-parity/full-vertex-report.json
+            build/nacht-vertex-parity/full-vertex-parity.log
+          if-no-files-found: warn
+          retention-days: 14
