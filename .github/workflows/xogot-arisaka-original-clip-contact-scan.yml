@@ -1,0 +1,57 @@
+name: Xogot Arisaka All Original Hand PSA Grip Contact Scan
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/source-viewmodel-inherited-hands-unit-scale
+    paths:
+      - "xogot/ci/source_arisaka_original_clip_contact_scan.gd"
+      - ".github/workflows/xogot-arisaka-original-clip-contact-scan.yml"
+permissions:
+  contents: read
+jobs:
+  original-action-contact:
+    runs-on: ubuntu-latest
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install native Godot renderer
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip -o /tmp/godot.zip
+          mkdir -p /tmp/godot /tmp/xogot-arisaka-original-action-contact build/arisaka-action
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+      - name: Import original model and all recovered PSA clips
+        run: |
+          set -euo pipefail
+          timeout 250 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 --headless --editor --path xogot --quit 2>&1 | tee build/arisaka-action/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error" build/arisaka-action/import.log
+      - name: Sample all original clips and capture 4 real Godot images
+        run: |
+          set -euo pipefail
+          timeout 280 xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 --path xogot --audio-driver Dummy --rendering-method gl_compatibility \
+            --resolution 1280x720 --script res://ci/source_arisaka_original_clip_contact_scan.gd 2>&1 | tee build/arisaka-action/render.log
+          grep -q "XZOGOT_ARISAKA_AUTHORED_CLIP_SCAN_GREEN" build/arisaka-action/render.log
+          test "$(find /tmp/xogot-arisaka-original-action-contact -maxdepth 1 -name '*.png' | wc -l)" -eq 4
+          ! grep -E "SCRIPT ERROR|Parse Error|XZOGOT_ARISAKA_ACTION_CONTACT_RED" build/arisaka-action/render.log
+      - name: Persist original action proof frames
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Arisaka-Original-13-Hand-Clips-4PNG
+          path: /tmp/xogot-arisaka-original-action-contact/*.png
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Preserve all real source wrist measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Arisaka-13-Original-PSAs-Wrist-Scan
+          path: build/arisaka-action/*.log
+          if-no-files-found: warn
+          retention-days: 14
