@@ -74,6 +74,14 @@ jobs:
           path: /tmp/xogot-isolated-sight-proof/*.png
           if-no-files-found: warn
           retention-days: 14
+      - name: Upload reversible source hand and firearm A-B evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-FG42-Gewehr-Arisaka-GPU-Source-Component-AB
+          path: /tmp/xogot-sight-component-ab/*.png
+          if-no-files-found: warn
+          retention-days: 14
       - name: Upload logs even on RED
         if: always()
         uses: actions/upload-artifact@v4
