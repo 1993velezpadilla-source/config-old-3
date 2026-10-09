@@ -161,10 +161,17 @@ def main():
     # faux-Meridian scene writer. Pinned commit and version from CI.
     parent = opts.meridian_parent.resolve()
     sys.path.insert(0, str(parent))
-    import addon_utils
-    addon_utils.enable("Meridian", default_set=False)
-    if "Meridian" not in bpy.context.preferences.addons:
-        raise RuntimeError("Meridian 2.0 addon did not register")
+    # In background --factory-startup Blender does not enumerate arbitrary
+    # folders appended to sys.path as installed addons. Explicitly register
+    # pinned Meridian source modules; the class registry is the authority,
+    # not User Preferences' list of persistent enabled addons.
+    import Meridian
+    try:
+        Meridian.register()
+    except Exception as exc:
+        raise RuntimeError("Meridian 2.0 register failed: " + repr(exc))
+    if not hasattr(bpy.types.Scene, "MX_SceneProperties"):
+        raise RuntimeError("Meridian real Scene properties were not registered")
     props = bpy.context.scene.MX_SceneProperties
     props.mx_godot_project_path = str(opts.out.resolve() / "godot")
     props.mx_export_scene_name = "Nacht_Source_Bridge_Probe"
@@ -174,7 +181,9 @@ def main():
     props.mx_export_animations = False
     props.mx_export_custom_properties = True
     # No GUI editor/headless hidden subprocess. CI runs Godot separately.
-    bpy.context.preferences.addons["Meridian"].preferences.godot_path = ""
+    prefs = bpy.context.preferences.addons.get("Meridian")
+    if prefs is not None:
+        prefs.preferences.godot_path = ""
     bpy.ops.wm.save_as_mainfile(filepath=str(opts.out.resolve() / "nacht_bridge.blend"))
     start = bpy.ops.mx.initialize_project()
     if "FINISHED" not in start:
