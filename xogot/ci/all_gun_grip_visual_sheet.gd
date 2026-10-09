@@ -100,7 +100,14 @@ func _capture() -> void:
 		_fail(2, "main scene unavailable")
 		return
 	var scene := packed.instantiate()
+	# A long weapon-only HIP/ADS visual sheet must not spawn an entire zombie
+	# round while rendering 56 comparisons. Turn it off BEFORE scene._ready().
+	# This changes only the CI scene instance, never the shipped gameplay.
+	var rounds: Node = scene.get_node_or_null("RoundManager")
+	if rounds != null:
+		rounds.set("auto_start", false)
 	root.add_child(scene)
+	print("XZOGOT_28_GUN_VISUAL_NO_ZOMBIE_WAVES ", rounds != null)
 	var player := scene.get_node_or_null("Player") as Node3D
 	var weapon: Node = scene.get_node_or_null("Player/Weapon")
 	if player == null or weapon == null:
