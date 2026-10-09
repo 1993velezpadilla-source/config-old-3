@@ -120,20 +120,31 @@ jobs:
               var errors: Array[String] = []
               if meshes.size() != int(expected["mesh_instances"]):
                   errors.append("actors_meshes=" + str(meshes.size()) + " expected=" + str(expected["mesh_instances"]))
+              # Godot legally welds duplicated indexed GLB POSITION vertices.
+              # Compare imported primitive SURFACE FORMATS, not raw accessor
+              # vertex count (28.9M source vs ~10.4M Godot unique vertices).
               var ordered: Array[String] = [
-                  "surfaces", "position_vertices",
-                  "normals_surfaces", "normals_vertices",
-                  "tangents_surfaces", "tangents_vertices",
-                  "uv0_surfaces", "uv0_vertices",
-                  "uv1_surfaces", "uv1_vertices",
-                  "colors_surfaces", "colors_vertices",
-                  "bound_material_surfaces"
+                  "surfaces", "normals_surfaces", "tangents_surfaces",
+                  "uv0_surfaces", "uv1_surfaces", "colors_surfaces"
               ]
               for name in ordered:
                   if int(counts[name]) != int(source_counts.get(name, 0)):
                       errors.append(name + "=" + str(counts[name]) + " expected=" + str(source_counts.get(name, 0)))
+              # The only available source GLB is a GEOMETRY-ONLY source.
+              # Godot auto-creates fallback materials on unbound surfaces;
+              # they are NOT proof of source textures/material fidelity.
+              var missing_source_materials: bool = (
+                  int(expected["available_materials"]) == 0 or
+                  int(expected["available_images"]) == 0 or
+                  int(expected["available_textures"]) == 0
+              )
+              if missing_source_materials:
+                  errors.append("ORIGINAL_AUTHORITATIVE_SOURCE_MATERIALS_IMAGES_TEXTURES_MISSING")
               var evidence: Dictionary = {
                   "source": "archived Pavlov UE4.21, NOT original BO3 T7",
+                  "godot_vertex_reindex_is_expected": true,
+                  "godot_fallback_materials_are_not_source_proof": true,
+                  "authored_source_materials_missing": missing_source_materials,
                   "godot_engine": Engine.get_version_info().get("string", ""),
                   "mesh_instances": meshes.size(),
                   "source_counts": source_counts,
@@ -146,6 +157,8 @@ jobs:
               out.store_string(JSON.stringify(evidence, "\t"))
               out.close()
               world.queue_free()
+              if int(counts["surfaces"]) == int(source_counts.get("surfaces", 0)) and errors.size() == 1 and missing_source_materials:
+                  print("XZOGOT_NACHT_GODOT_NATIVE_GEOMETRY_VERTEX_FORMATS_GREEN", " formats_match_source=true")
               if not errors.is_empty():
                   push_error("XZOGOT_NACHT_GODOT_VISUAL_ATTRIBUTE_PARITY_RED " + str(errors))
                   quit(6)
