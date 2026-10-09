@@ -1,0 +1,49 @@
+name: Nacht Native Android Profiler Code Safety and Percentile Unit
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-android-physical-profile-unit.yml"
+      - "xogot/ci/nacht_native_android_device_profile.gd"
+      - "tools/maps/nacht_android_device_profile_source_unit.gd"
+permissions:
+  contents: read
+jobs:
+  godot-461-profiler-code-not-android-benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Run original 4.6.1 Godot parser, p95/p99 test, and reject desktop as phone
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot" build/nacht-android-profile-unit/project
+          curl --fail -L --retry 3 \
+            -o "$RUNNER_TEMP/godot/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64"
+          printf '[application]\nconfig/name="NachtPhysicalAndroidProfileSourceUnitOnly"\n' \
+            > build/nacht-android-profile-unit/project/project.godot
+          cp xogot/ci/nacht_native_android_device_profile.gd \
+            build/nacht-android-profile-unit/project/
+          cp tools/maps/nacht_android_device_profile_source_unit.gd \
+            build/nacht-android-profile-unit/project/unit.gd
+          timeout 75 "$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64" --headless \
+            --path build/nacht-android-profile-unit/project --script res://unit.gd \
+            2>&1 | tee build/nacht-android-profile-unit/actual-godot-profiler-unit.log
+          grep -q XZOGOT_ANDROID_PHYSICAL_OPTIN_PROFILE_CODE_UNIT_GREEN \
+            build/nacht-android-profile-unit/actual-godot-profiler-unit.log
+          ! grep -E "SCRIPT ERROR|Parse Error|PHYSICAL_PROFILER_SCRIPT_PARSE_RED" \
+            build/nacht-android-profile-unit/actual-godot-profiler-unit.log
+      - name: Preserve proof code works but no real phone benchmark exists
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Godot461-Physical-Android-Profiling-Harness-Code-Not-Benchmark
+          path: build/nacht-android-profile-unit/actual-godot-profiler-unit.log
+          retention-days: 14
+          if-no-files-found: warn
