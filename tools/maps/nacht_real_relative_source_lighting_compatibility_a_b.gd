@@ -156,7 +156,8 @@ func _run() -> void:
         light_basis,by_actor.size(),4.0) as Dictionary
     if (not (relative.get("errors",[]) as Array).is_empty()
         or int(relative.get("sourceLightNodeCountIncludingDirectional",0))!=165
-        or int(relative.get("positiveOriginalPhotometricPointSpotLights",0))<20):
+        or int(relative.get("positiveOriginalPointSpotLights",0))<20
+        or not relative.get("unitlessValuesNeverMixedWithCandelaLumens",false)):
         push_error("XZOGOT_NACHT_SOURCE_LIGHT_RELATIVE_CANDLE_AUDIT_RED "+JSON.stringify(relative))
         quit(42)
         return
