@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 
 
-def choose(scene, source_root, count, max_file_bytes):
+def choose(scene, source_root, count, max_file_bytes, max_total_bytes=180_000_000):
     if scene.get("format") != "xziel_visual_scene_v1" or not scene.get("summary", {}).get("ready"):
         raise ValueError("unverified source scene")
     if "T7" in str(scene.get("sourceGameName", "")):
@@ -36,16 +36,30 @@ def choose(scene, source_root, count, max_file_bytes):
     source_usable.sort(key=lambda x: (x[0], x[1]))
     selected = [x for x in source_usable if x[0] <= max_file_bytes][:count]
     if len(selected) != count:
-        raise ValueError("not enough distinct real GLBs under size cap: %d/%d; "
-                         "change budget explicitly and rerun" % (len(selected), count))
+        oversized = [(idx, size, name) for size, idx, _, name in source_usable
+                     if size > max_file_bytes]
+        oversized.sort(key=lambda x: x[1], reverse=True)
+        missing = sorted(set(meshes) - {idx for _, idx, _, _ in source_usable})
+        raise ValueError(
+            "not enough distinct real GLBs under per-file size cap: "
+            f"{len(selected)}/{count}, cap={max_file_bytes} bytes; "
+            f"largest_oversized={oversized[:10]}; "
+            f"missing_or_invalid_native_GLBS={missing[:10]}; "
+            "change budget explicitly and rerun"
+        )
     chosen = {idx: row for _, idx, row, _ in selected}
     selected_rows = [row for row in scene["instances"] if int(row["meshIndex"]) in chosen
                      and row["instanceId"] == chosen[int(row["meshIndex"])]["instanceId"]]
     if len(selected_rows) != count or len({r["meshIndex"] for r in selected_rows}) != count:
         raise ValueError("failed to preserve one distinct original instance per native GLB")
     bytes_total = sum(x[0] for x in selected)
-    if bytes_total > 180_000_000:
-        raise ValueError("selected source memory budget exceeded: %d" % bytes_total)
+    if bytes_total > max_total_bytes:
+        biggest = sorted(((size, idx, name) for size, idx, _, name in selected),
+                         reverse=True)[:10]
+        raise ValueError(
+            f"selected GLB size budget exceeded: total={bytes_total} "
+            f"cap={max_total_bytes} largest={biggest}"
+        )
     out = dict(scene)
     out["instances"] = selected_rows
     out["sourceFullSceneSummary"] = dict(scene["summary"])
@@ -60,6 +74,8 @@ def choose(scene, source_root, count, max_file_bytes):
         "selected_distinct_mesh_types": len(chosen),
         "source_glb_bytes_total": bytes_total,
         "source_glb_largest": max(x[0] for x in selected),
+        "source_glb_individual_byte_cap": max_file_bytes,
+        "source_glb_total_byte_cap": max_total_bytes,
         "original_instance_ids": [r["instanceId"] for r in selected_rows],
         "original_mesh_indices": [r["meshIndex"] for r in selected_rows],
         "native_source_identity_modified": False,
@@ -75,10 +91,13 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--count", type=int, default=128)
     parser.add_argument("--max-individual-glb-bytes", type=int, default=32_000_000)
+    parser.add_argument("--max-total-glb-bytes", type=int, default=180_000_000)
     args = parser.parse_args()
     original = args.scene.read_bytes()
+    if args.max_individual_glb_bytes <= 0 or args.max_total_glb_bytes <= 0:
+        parser.error("size budgets must be positive")
     output = choose(json.loads(original), args.mesh_root, args.count,
-                    args.max_individual_glb_bytes)
+                    args.max_individual_glb_bytes, args.max_total_glb_bytes)
     output["selectionProof"]["source_sha256"] = hashlib.sha256(original).hexdigest()
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(output, indent=2) + "\n", encoding="utf-8")
@@ -86,7 +105,8 @@ def main():
     print("XZOGOT_NACHT_DISTINCT_UE_NATIVE_SOURCE_SELECTION_GREEN",
           "objects", receipt["selected_actor_count"],
           "distinct_native_meshes", receipt["selected_distinct_mesh_types"],
-          "mesh_bytes", receipt["source_glb_bytes_total"])
+          "mesh_bytes", receipt["source_glb_bytes_total"],
+          "max_single_bytes", receipt["source_glb_largest"])
     return 0
 
 
