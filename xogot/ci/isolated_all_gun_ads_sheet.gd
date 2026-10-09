@@ -167,6 +167,34 @@ func _diagnose_native_hand_rest(weapon: Node, id: String) -> void:
 	weapon.set_process(true)
 	await process_frame
 
+# Non-shipping A/B: compare final automated iron-to-muzzle optical
+# registration with EXACT original recovered DT_Weapons ADS transform.
+# Preserves the imported gun, original hands PSA, GPU materials and timing.
+func _diagnose_original_source_dt_vs_registered(weapon: Node,id: String) -> void:
+	var view: Node3D = weapon.get("_view_root") as Node3D
+	if view == null:
+		return
+	var registered: Transform3D = view.transform
+	var authored_position: Vector3 = weapon.get("_ads_pose_position")
+	var authored_rotation: Quaternion = weapon.get("_ads_pose_rotation")
+	weapon.set_process(false)
+	view.position = authored_position
+	view.quaternion = authored_rotation
+	await process_frame
+	await process_frame
+	var original: Image = root.get_texture().get_image()
+	if original != null and not original.is_empty():
+		var path := "/tmp/xogot-sight-component-ab/" + id + "-original-DT-ADS-before-optical-register.png"
+		original.save_png(path)
+		print("XZOGOT_ADS_AUTHORED_DT_VS_REGISTERED id=",id,
+			" registration_bypassed_for_GPU_AB_only=true original_ads_obstruction=",
+			_ads_frame_obstruction(original)," registered_ads=",
+			weapon.get_meta("weapon_ads_source_sight_registration", "missing"),
+			" output=",path)
+	view.transform = registered
+	weapon.set_process(true)
+	await process_frame
+
 func _start() -> void:
 	DirAccess.make_dir_recursive_absolute(OUT)
 	# Reproducible uncluttered studio: imported gun+hands are exactly the same
@@ -317,6 +345,8 @@ func _start() -> void:
 					await _diagnose_eye_relief(weapon, id)
 					if id in ["fg42", "arisaka"]:
 						await _diagnose_native_hand_rest(weapon,id)
+				if id in ["fg42", "gewehr"]:
+					await _diagnose_original_source_dt_vs_registered(weapon,id)
 			var result_angle := float(weapon.get_meta("weapon_ads_visual_bore_error_deg", -1.0))
 			var result_sight := float(weapon.get_meta("weapon_ads_source_sight_error_m", -1.0))
 			if pose == "ads":
