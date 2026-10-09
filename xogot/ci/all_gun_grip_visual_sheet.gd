@@ -175,7 +175,8 @@ func _capture() -> void:
 			var source_pistol: bool = weapon_id in ["colt", "walther", "nambu", "tt33", "357"]
 			# See independent original HIP+ADS 4-way rotation matrix #37857367033.
 			var confirmed_upright_long: bool = weapon_id in [
-				"stg", "browning", "type99", "bar", "dp28", "thompson", "trench"
+				"stg", "browning", "type99", "bar", "dp28", "thompson", "trench",
+				"ppsh"  # Source A/B #37858081007: roll=180, not 90.
 			]
 			var expected_roll := 180.0 if source_pistol or confirmed_upright_long else 90.0
 			if absf(roll - expected_roll) > 0.01:
