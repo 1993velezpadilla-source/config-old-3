@@ -69,6 +69,51 @@ func _right_wrist_contact(weapon: Node, hand: Skeleton3D, cam: Camera3D) -> Dict
 		"diagnostic_only": "static AABB cannot prove actual palm contact"
 	}
 
+# Causal test, not a proposed runtime workaround: restore EXACTLY ONE
+# original native source hand bone while keeping every other PSA bone live.
+# Which bone can account for the 80.95cm original wrist/socket separation?
+# Restore all 113 bones before capturing the 8 immutable baseline screenshots.
+func _single_bone_source_cause_scan(weapon: Node, hands: Skeleton3D, camera: Camera3D) -> void:
+	var source_poses := _poses(hands)
+	var baseline := _right_wrist_contact(weapon,hands,camera)
+	var baseline_socket: float = float(baseline.get("wrist_to_socket_m",-1.0))
+	var baseline_aabb: float = float(baseline.get("wrist_to_full_gun_AABB_m",-1.0))
+	var candidates: Array[Dictionary] = []
+	for bone_idx in range(hands.get_bone_count()):
+		var native_pose: Transform3D = hands.get_bone_rest(bone_idx)
+		var psa_pose: Transform3D = source_poses[bone_idx]
+		var bone_name := str(hands.get_bone_name(bone_idx))
+		var local_delta: float = psa_pose.origin.distance_to(native_pose.origin)
+		hands.set_bone_pose(bone_idx,native_pose)
+		weapon.call("_sync_source_weapon_attachment")
+		var metric := _right_wrist_contact(weapon,hands,camera)
+		var wrist_m: float = float(metric.get("wrist_to_socket_m",-1.0))
+		var gun_m: float = float(metric.get("wrist_to_full_gun_AABB_m",-1.0))
+		candidates.append({
+			"bone":bone_name,
+			"parent":str(hands.get_bone_name(hands.get_bone_parent(bone_idx))) if hands.get_bone_parent(bone_idx)>=0 else "",
+			"local_source_units_delta":snappedf(local_delta,0.001),
+			"single_native_rest_wrist_to_socket_m":wrist_m,
+			"single_native_rest_wrist_to_gun_AABB_m":gun_m,
+			"wrist_socket_gain_m":snappedf(baseline_socket-wrist_m,0.0001),
+			"wrist_gun_gain_m":snappedf(baseline_aabb-gun_m,0.0001)
+		})
+		hands.set_bone_pose(bone_idx,psa_pose)
+		weapon.call("_sync_source_weapon_attachment")
+	candidates.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
+		return float(a.get("wrist_socket_gain_m",0.0))>float(b.get("wrist_socket_gain_m",0.0)))
+	var best: Array[Dictionary] = []
+	for i in range(mini(12,candidates.size())):
+		best.append(candidates[i])
+	_restore(hands,source_poses)
+	weapon.call("_sync_source_weapon_attachment")
+	print("XZOGOT_ARISAKA_HAND_PSA_NATIVE_SINGLE_BONE_CAUSES",
+		" source_original_gap_m=",baseline_socket,
+		" source_original_aabb_m=",baseline_aabb,
+		" bone_count=",hands.get_bone_count(),
+		" candidates_sorted=",best,
+		" mutations_shipped=false")
+
 func _image(path: String) -> bool:
 	await process_frame
 	await process_frame
@@ -146,6 +191,8 @@ func _run() -> void:
 		weapon.call("_sync_source_weapon_attachment")
 		var gun_idle_poses := _poses(gun)
 		var hand_idle_poses := _poses(hands)
+		if not ads:
+			_single_bone_source_cause_scan(weapon,hands,camera)
 		for scenario: String in ["both-idle","gun-native-rest","hands-native-rest","both-native-rest"]:
 			_restore(gun,gun_idle_poses)
 			_restore(hands,hand_idle_poses)
