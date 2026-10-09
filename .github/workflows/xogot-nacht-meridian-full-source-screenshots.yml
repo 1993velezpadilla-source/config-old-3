@@ -131,7 +131,7 @@ jobs:
           grep -q XZOGOT_NACHT_VISUAL_REAL_SOURCE_LIGHTS_GREEN build/nacht-meridian-visual/capture.log
           grep -q 'XZOGOT_NACHT_MERIDIAN_10793_REAL_SOURCE_VISUAL_CAPTURE_GREEN count=10' \
             build/nacht-meridian-visual/capture.log
-          grep -q 'XZOGOT_NACHT_NIGHT_LOOKDEV_EXPOSURE_BRACKET_GREEN both_camera_views=2' build/nacht-meridian-visual/capture.log
+          grep -q 'XZOGOT_NACHT_NIGHT_LOOKDEV_SHADOW_VISIBILITY_BRACKET_GREEN both_camera_views=2' build/nacht-meridian-visual/capture.log
           for name in 01-source-overview 02-source-spawn10-interior 03-source-spawn4-interior 04-source-spawn6-interior 05-diagnostic-overview-ambient 06-diagnostic-spawn6-ambient 07-night-lookdev-moon-overview 08-night-lookdev-moon-interior 09-night-lookdev-dark-overview 10-night-lookdev-dark-interior; do
             test -s "$GODOT_PROJECT/$name.png"
             cp "$GODOT_PROJECT/$name.png" build/nacht-meridian-visual/
@@ -139,6 +139,20 @@ jobs:
           cp "$GODOT_PROJECT/nacht-source-visual-capture-audit.json" \
              build/nacht-meridian-visual/capture-audit.json
           echo "XZOGOT_NACHT_REAL_4_INLINE_USER_PHOTOS_ARTIFACT_GREEN"
+
+      - name: Preserve actually rendered image evidence EVEN when night visual gate turns RED
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${GODOT_PROJECT:-}" ] && [ -d "$GODOT_PROJECT" ]; then
+            find "$GODOT_PROJECT" -maxdepth 1 -type f -name '*.png' -print |
+              while IFS= read -r source_photo; do
+                cp -f "$source_photo" build/nacht-meridian-visual/ || true
+              done
+            if [ -f "$GODOT_PROJECT/nacht-source-visual-capture-audit.json" ]; then
+              cp -f "$GODOT_PROJECT/nacht-source-visual-capture-audit.json" build/nacht-meridian-visual/capture-audit.json || true
+            fi
+          fi
 
       - name: Always deliver images/logs even if screenshots RED for truthful visual debugging
         if: always()
