@@ -1,0 +1,139 @@
+name: Nacht Real Godot Source Vista Far-Only DDS Resolution A-B Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-far-authored-vista-lowres-godot.yml"
+      - "tools/maps/nacht_actual_authored_vista_dds_lowres_probe.gd"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  actual-source-actor-distant-dds-downscale-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Require all original 10793 actors 574 materials / 718 DDS and 340 authored vista source candidates GREEN
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in 37938836028 37939504798 37944732189 37945872261 37965581696 37964446136; do
+            test "$(gh run view "$i" --json conclusion --jq '.conclusion')" = success
+          done
+          echo "XZOGOT_NACHT_ORIGINAL_VISTA_DDS_SOURCE_AND_NEAR_PROTECTION_GREEN"
+
+      - name: Fetch immutable Pavlov UE4.21 lossless 10793 Godot actors, authored materials, vista actor policy and original DDS
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-vista-lowres/glb build/nacht-vista-lowres/authority \
+            build/nacht-vista-lowres/vista "$RUNNER_TEMP/source"
+          gh run download 37938836028 \
+            -n Nacht-LOSSLESS-Native-493-GLB-10793-Actor-Godot-Research-Proof \
+            -D build/nacht-vista-lowres/glb \
+            2>&1 | tee build/nacht-vista-lowres/godot-source-download.log
+          gh run download 37944732189 \
+            -n Nacht-10793-Original-574-Materials-16595-Source-Surface-Assignments \
+            -D build/nacht-vista-lowres/authority \
+            2>&1 | tee build/nacht-vista-lowres/material-source-download.log
+          gh run download 37965581696 \
+            -n Nacht-Original-UE421-Authored-Vista-Far-Background-Reachability-Guard \
+            -D build/nacht-vista-lowres/vista \
+            2>&1 | tee build/nacht-vista-lowres/vista-source-download.log
+          gh run download 37762871109 \
+            -n Xogot-Nacht-Chronicles-Godot-Runtime \
+            -D "$RUNNER_TEMP/source" \
+            2>&1 | tee build/nacht-vista-lowres/original-dds-download.log
+          PROJECT=$(find build/nacht-vista-lowres/glb -name project.godot -type f -print -quit)
+          MATERIAL=$(find build/nacht-vista-lowres/authority -name nacht-actor-material-authority.json -type f -print -quit)
+          VISTA=$(find build/nacht-vista-lowres/vista -name authored-vista-distance-source.json -type f -print -quit)
+          STAGE=$(dirname "$(find "$RUNNER_TEMP/source" -name material-binding-manifest.json -type f -print -quit)")
+          DDS=$(find "$RUNNER_TEMP/source" -name textures_dds -type d -print -quit)
+          test -s "$PROJECT" && test -s "$MATERIAL" && test -s "$VISTA"
+          test -s "$STAGE/xzml-report.json" && test -d "$DDS"
+          echo "PROJECT=$(dirname "$PROJECT")" >> "$GITHUB_ENV"
+          echo "SOURCE_MATERIAL=$PWD/$MATERIAL" >> "$GITHUB_ENV"
+          echo "ORIGINAL_VISTA=$PWD/$VISTA" >> "$GITHUB_ENV"
+          echo "ARCHIVE_STAGE=$STAGE" >> "$GITHUB_ENV"
+          echo "ORIGINAL_DDS=$DDS" >> "$GITHUB_ENV"
+
+      - name: Stage genuine source 718 DDS with unchanged near resolution and bounded actor-local vista texture test
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$PROJECT/scripts"
+          cp xogot/scripts/xziel_benchmark_loader.gd "$PROJECT/scripts/xziel_benchmark_loader.gd"
+          cp tools/maps/nacht_actual_authored_vista_dds_lowres_probe.gd \
+             "$PROJECT/nacht_actual_authored_vista_dds_lowres_probe.gd"
+          cp "$SOURCE_MATERIAL" "$PROJECT/nacht-actor-material-authority.json"
+          cp "$ORIGINAL_VISTA" "$PROJECT/nacht-distant-authored-vista-policy.json"
+          python3 tools/maps/stage_nacht_all_used_source_dds.py \
+            --stage "$ARCHIVE_STAGE" --dds "$ORIGINAL_DDS" \
+            --project "$PROJECT" \
+            --output build/nacht-vista-lowres/staged-original-dds-report.json \
+            2>&1 | tee build/nacht-vista-lowres/stage-original-source-dds.log
+          grep -q XZOGOT_NACHT_ALL_USED_UE421_SOURCE_DDS_STAGE_GREEN \
+            build/nacht-vista-lowres/stage-original-source-dds.log
+
+      - name: Import exact 10793 original source scene and all 718 native textures through Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot"
+          curl --fail -L --retry 3 -o "$RUNNER_TEMP/godot/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64"
+          chmod +x "$GODOT"
+          echo "GODOT=$GODOT" >> "$GITHUB_ENV"
+          "$GODOT" --headless --editor --path "$PROJECT" --quit \
+             2>&1 | tee build/nacht-vista-lowres/source-godot-import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load" \
+            build/nacht-vista-lowres/source-godot-import.log
+
+      - name: Real Godot actor-only lower-res texture creation, with full-resolution original close-up material proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 360 "$GODOT" --headless --path "$PROJECT" \
+            --script res://nacht_actual_authored_vista_dds_lowres_probe.gd \
+            2>&1 | tee build/nacht-vista-lowres/actual-source-texture-lod-godot.log
+          cp "$PROJECT/nacht-vista-actual-source-dds-lowres-report.json" \
+            build/nacht-vista-lowres/actual-vista-godot-report.json
+          grep -q XZOGOT_NACHT_REAL_GODOT_VISTA_PER_ACTOR_SOURCE_DDS_LOWER_RESOLUTION_GREEN \
+            build/nacht-vista-lowres/actual-source-texture-lod-godot.log
+          python3 - <<'PY'
+          import json
+          r=json.load(open("build/nacht-vista-lowres/actual-vista-godot-report.json"))
+          assert r["originalSourceGLTFActorsPreserved"]==10793
+          assert r["originalSourceMaterialSurfaceCensusPreserved"]==16595
+          assert r["sourceVistaTaggedDistantCandidates"]==340
+          assert r["originalSourceVistaActorsActuallyUsingLowResPerActorDDS"]>=5
+          assert r["originalSourceMaterialSurfaceOverridesWithReducedAlbedo"]>=5
+          assert r["newTrueLowResDDSImagesCreatedWithSourcePixelData"]>=1
+          assert not r["sharedOriginalMaterialAndTextureResourcesModified"]
+          assert not r["originalNativeMeshGeometryTransformsOrCollisionChanged"]
+          assert not r["confirmedNeverVisibleFromPlayableNavigation"]
+          print("XZOGOT_NACHT_SOURCE_FAR_TEXTURE_ACTOR_LOCAL_AND_NEAR_QUALITY_UNTOUCHED_GREEN")
+          PY
+
+      - name: Preserve native source-authored texture quality A-B evidence WITHOUT premature Android memory/FPS claims
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Real-Godot-Vista-340-Actor-Local-DDS-Lowres-Near-Protection
+          path: |
+            build/nacht-vista-lowres/source-godot-import.log
+            build/nacht-vista-lowres/stage-original-source-dds.log
+            build/nacht-vista-lowres/actual-source-texture-lod-godot.log
+            build/nacht-vista-lowres/actual-vista-godot-report.json
+          retention-days: 14
+          if-no-files-found: warn
