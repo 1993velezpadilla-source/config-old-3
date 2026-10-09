@@ -1,0 +1,37 @@
+name: Xogot All 28 Original PSA Trigger-Hand Source Contact Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/source-viewmodel-inherited-hands-unit-scale
+    paths:
+      - "xogot/ci/source_hands_gltf_contact_audit.py"
+      - "xogot/assets/weapons/aether_waw_hands/**"
+      - "xogot/assets/weapons/mapmod_weapon_asset_manifest.json"
+      - ".github/workflows/xogot-source-psa-28-wrist-contact-gate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  original-source-psa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v5
+      - name: Verify unmodified ActorX PSA animation wrist and tag_weapon
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/source-psa
+          python3 xogot/ci/source_hands_gltf_contact_audit.py             2>&1 | tee build/source-psa/wrist-source.log
+          grep -q "XZOGOT_SOURCE_HANDS_GLTF_28_INSPECTED 28"             build/source-psa/wrist-source.log
+      - name: Preserve source authority and every failure on RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-28-Original-PSA-Wrist-Source-Contact-Audit
+          path: build/source-psa/wrist-source.log
+          if-no-files-found: warn
+          retention-days: 14
