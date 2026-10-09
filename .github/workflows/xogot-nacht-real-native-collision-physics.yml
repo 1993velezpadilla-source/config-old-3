@@ -1,0 +1,108 @@
+name: Xogot Nacht Source Exact Native Godot Static Collision Physics Gauntlet (Research)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-real-native-collision-physics.yml"
+      - "tools/maps/nacht_source_real_collision_physics_probe.gd"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  real-native-static-triangle-raycasts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Gate original 10793 source actors, 11788583 native triangles, 574 material surface authorities
+        shell: bash
+        run: |
+          set -euo pipefail
+          for id in 37938836028 37939504798 37944732189 37956832417; do
+            test "$(gh run view "$id" --json conclusion --jq '.conclusion')" = success
+          done
+          echo "XZOGOT_NACHT_NATIVE_SOURCE_WORLD_AND_ACTOR_PHYSICS_DEPENDENCIES_GREEN"
+
+      - name: Reuse exact original lossless real source Godot 4.6 scene and source material actor IDs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-native-physics/project build/nacht-native-physics/material-bridge
+          gh run download 37938836028 \
+            -n Nacht-LOSSLESS-Native-493-GLB-10793-Actor-Godot-Research-Proof \
+            -D build/nacht-native-physics/project \
+            2>&1 | tee build/nacht-native-physics/source-scene-download.log
+          gh run download 37944732189 \
+            -n Nacht-10793-Original-574-Materials-16595-Source-Surface-Assignments \
+            -D build/nacht-native-physics/material-bridge \
+            2>&1 | tee build/nacht-native-physics/source-authority-download.log
+          PROJECT=$(find build/nacht-native-physics/project -name project.godot -type f -print -quit)
+          BRIDGE=$(find build/nacht-native-physics/material-bridge -name nacht-actor-material-authority.json -type f -print -quit)
+          test -s "$PROJECT" && test -s "$BRIDGE"
+          echo "GODOT_PROJECT=$(dirname "$PROJECT")" >> "$GITHUB_ENV"
+          echo "BRIDGE=$PWD/$BRIDGE" >> "$GITHUB_ENV"
+
+      - name: Insert source-native collision smoke test into NON-SHIPPING research scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$BRIDGE" "$GODOT_PROJECT/nacht-actor-material-authority.json"
+          cp tools/maps/nacht_source_real_collision_physics_probe.gd \
+            "$GODOT_PROJECT/nacht_source_real_collision_physics_probe.gd"
+          test -s "$GODOT_PROJECT/assets/meshes/Nacht_Source_Bridge_Probe.glb"
+
+      - name: Import source native meshes and run real Godot 4.6.1 PhysicsServer with NO invented collision hulls
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot"
+          curl --fail -L --retry 3 -o "$RUNNER_TEMP/godot/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64"
+          chmod +x "$GODOT"
+          "$GODOT" --headless --editor --path "$GODOT_PROJECT" --quit \
+            2>&1 | tee build/nacht-native-physics/godot-import.log
+          if grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load" \
+              build/nacht-native-physics/godot-import.log; then exit 1; fi
+          # Physical server in headless mode is real (vs dummy RenderingServer
+          # used in prior MultiMesh graphics test), but audit actual raycasts.
+          timeout 300 "$GODOT" --headless --path "$GODOT_PROJECT" \
+            --script res://nacht_source_real_collision_physics_probe.gd \
+            2>&1 | tee build/nacht-native-physics/physics-raycast.log
+          cp "$GODOT_PROJECT/nacht-source-native-static-physics-smoke.json" \
+            build/nacht-native-physics/physics-raycast-report.json
+          grep -q XZOGOT_NACHT_REAL_GODOT_SOURCE_NATIVE_TRIMESH_STATIC_PHYSICS_GREEN \
+            build/nacht-native-physics/physics-raycast.log
+          python3 - <<'PY'
+          import json
+          path="build/nacht-native-physics/physics-raycast-report.json"
+          d=json.load(open(path))
+          assert d["sourceStaticActorCount"]==10793
+          assert d["sourceStaticMaterialSurfaces"]==16595
+          assert d["researchActualPhysicsServerRayHitsPassed"]>=20
+          assert d["originalTriangleCountOfPassedPhysicsShapes"]==d["GodotConcaveCollisionTriangleCountOfPassedShapes"]
+          assert d["sourceActorsCollisionEnabledInShipping"] is False
+          assert d["entireMapGameplayCollisionParityProven"] is False
+          assert not d["mobilePhysicsCostOrFrameRateProven"]
+          print("XZOGOT_NACHT_PHYSICS_STATIC_SOURCE_NO_SYNTHETIC_COLLISION_GREEN")
+          PY
+
+      - name: Preserve HONEST static physics proof even when RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Godot-Actual-Pavlov-Native-Trimesh-Physics-Source-Raycasts
+          path: |
+            build/nacht-native-physics/godot-import.log
+            build/nacht-native-physics/physics-raycast.log
+            build/nacht-native-physics/physics-raycast-report.json
+          if-no-files-found: warn
+          retention-days: 14
