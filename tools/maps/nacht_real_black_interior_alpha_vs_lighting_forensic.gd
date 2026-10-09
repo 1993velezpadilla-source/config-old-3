@@ -332,3 +332,18 @@ func _image_delta(before: Image,after: Image) -> Dictionary:
         "changedSignificantPixels":changed,
         "changedSignificantPixelPercent":100.0*float(changed)/float(count)
     }
+
+func _capture(camera: Camera3D,label: String,position: Vector3,target: Vector3) -> Image:
+    camera.global_position=position
+    camera.look_at(target,Vector3.UP)
+    for i: int in range(12):
+        await process_frame
+    await create_timer(0.5).timeout
+    for i: int in range(3):
+        await process_frame
+    var shot: Image=root.get_texture().get_image()
+    shot.convert(Image.FORMAT_RGBA8)
+    var err: Error=shot.save_png("res://"+label+".png")
+    if err!=OK:
+        push_error("NACHT_PIXEL_AB_CAPTURE_SAVE_FAILED "+label)
+    return shot
