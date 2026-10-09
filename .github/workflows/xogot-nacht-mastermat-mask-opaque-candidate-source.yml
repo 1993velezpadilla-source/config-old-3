@@ -1,0 +1,58 @@
+name: Nacht Original MasterMat Masked Alpha Candidate Source Guard
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-mastermat-mask-opaque-candidate-source.yml"
+      - "tools/maps/nacht_source_master_unwired_opacity_candidate_policy.py"
+permissions:
+  contents: read
+  actions: read
+jobs:
+  actual-native-source-graph-no-automatic-material-changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Inspect exact UE4.21 original source master graph; preserve 7 excluded mask materials
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-mask-source/cooked
+          test "$(gh run view 37944732189 --json conclusion --jq '.conclusion')" = success
+          gh run download 37944732189 \
+            -n Nacht-10793-Original-574-Materials-16595-Source-Surface-Assignments \
+            -D build/nacht-mask-source/cooked
+          python3 -m py_compile tools/maps/nacht_source_master_unwired_opacity_candidate_policy.py
+          python3 tools/maps/nacht_source_master_unwired_opacity_candidate_policy.py \
+            --source build/nacht-mask-source/cooked/nacht-actor-material-authority.json \
+            --output build/nacht-mask-source/mastermat-opacity-missing-output-candidate-source.json \
+            2>&1 | tee build/nacht-mask-source/native-original-opacity-mask-policy.log
+          grep -q XZOGOT_NACHT_REAL_SOURCE_564_MASTER_MASK_OUTPUT_HYPOTHESIS_GREEN \
+            build/nacht-mask-source/native-original-opacity-mask-policy.log
+          python3 - <<'PY'
+          import json
+          d=json.load(open("build/nacht-mask-source/mastermat-opacity-missing-output-candidate-source.json"))
+          assert d["maskMaterials"]==571
+          assert d["provisionallyUnwiredSourceMasterMaterialCount"]==564
+          assert d["otherMaskedMaterialsMustRemainUnchanged"]==7
+          assert d["sourceProvenanceNotCompleteShaderGraph"]
+          assert d["requiresNative9PNGMaskVsLightPixelEvidence"]
+          assert not d["productionIntegrationApproved"]
+          assert not d["automaticMaskOverrideExecuted"]
+          print("XZOGOT_NACHT_UE421_MASK_OUTPUT_CANDIDATE_NO_PRODUCTION_MUTATION_GREEN")
+          PY
+      - name: Preserve masked architecture candidate material names, not re-encoded source textures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Source-564-MasterMat-Opacity-Research-Candidates-7-Excluded-Materials
+          path: |
+            build/nacht-mask-source/mastermat-opacity-missing-output-candidate-source.json
+            build/nacht-mask-source/native-original-opacity-mask-policy.log
+          retention-days: 14
+          if-no-files-found: warn
