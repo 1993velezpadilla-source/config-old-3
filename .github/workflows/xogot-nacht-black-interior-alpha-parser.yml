@@ -1,0 +1,54 @@
+name: Nacht Native Interior Alpha Mask vs Lighting Godot Parser Guard
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-black-interior-alpha-parser.yml"
+      - "tools/maps/nacht_real_black_interior_alpha_vs_lighting_forensic.gd"
+permissions:
+  contents: read
+jobs:
+  source-material-shader-fix-candidate-godot-461-parse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Parse and instantiate real Godot 4.6.1 source shader-research script without 2GB archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot" build/nacht-alpha-parser/project
+          curl --fail -L --retry 3 -o "$RUNNER_TEMP/godot/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64"
+          printf '[application]\nconfig/name="Nacht Alpha Mask Versus Lighting Research Parser"\n' \
+            > build/nacht-alpha-parser/project/project.godot
+          cp tools/maps/nacht_real_black_interior_alpha_vs_lighting_forensic.gd \
+            build/nacht-alpha-parser/project/alpha_research.gd
+          cat > build/nacht-alpha-parser/project/preflight.gd <<'GDS'
+          extends SceneTree
+          func _initialize() -> void:
+              var s: Script=load("res://alpha_research.gd") as Script
+              if s==null or not s.can_instantiate():
+                  push_error("XZOGOT_NACHT_ALPHA_SHADER_FORENSIC_SOURCE_PARSE_RED")
+                  quit(2)
+                  return
+              print("XZOGOT_NACHT_ALPHA_SHADER_FORENSIC_SOURCE_GODOT461_PARSER_GREEN")
+              quit(0)
+          GDS
+          timeout 75 "$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64" \
+            --headless --path build/nacht-alpha-parser/project \
+            --script res://preflight.gd 2>&1 | tee build/nacht-alpha-parser/parse.log
+          grep -q XZOGOT_NACHT_ALPHA_SHADER_FORENSIC_SOURCE_GODOT461_PARSER_GREEN build/nacht-alpha-parser/parse.log
+          ! grep -E "SCRIPT ERROR|Parse Error" build/nacht-alpha-parser/parse.log
+      - name: Save original source shader candidate parser result even RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Alpha-vs-Light-Source-Material-Real-Godot461-Parser
+          path: build/nacht-alpha-parser/parse.log
+          retention-days: 14
+          if-no-files-found: warn
