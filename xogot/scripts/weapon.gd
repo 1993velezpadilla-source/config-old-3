@@ -1604,6 +1604,19 @@ func equip_weapon(id: String, refill: bool = true) -> bool:
 	if not WeaponCatalog.has_weapon(id):
 		return false
 
+	# Optical proof belongs to the EQUIPPED firearm, never the preceding
+	# one. A valid STG tag must not survive a switch to the source-invalid
+	# Gewehr/PPSh or to a gun without genuine rear-iron marker.
+	for optical_key: String in [
+		"weapon_ads_source_sight_socket", "weapon_ads_source_sight_error_m",
+		"weapon_ads_source_sight_depth_m", "weapon_ads_source_sight_initial_offset_m",
+		"weapon_ads_source_optical_correction_m", "weapon_ads_source_iron_registration",
+		"weapon_ads_source_iron_bore_error_deg", "weapon_ads_source_iron_original_bore_error_deg",
+		"weapon_ads_source_iron_tag_forward_span_m", "weapon_ads_source_sight_registration"
+	]:
+		if has_meta(optical_key):
+			remove_meta(optical_key)
+	set_meta("weapon_ads_source_sight_registration", "not_verified_for_current_equipped_weapon")
 	_source_external_item_id = ""
 	_source_external_runtime_id = ""
 	_source_external_placeholder = false
@@ -2285,12 +2298,15 @@ func _register_authored_source_sight() -> void:
 		var flash_local: Vector3 = _weapon_model_root.to_local(muzzle.get("position", Vector3.ZERO))
 		var ordered_span_m: float = flash_local.x - sight_local.x
 		if ordered_span_m < 0.15:
+			var first_invalid_notice: bool = str(get_meta(
+				"weapon_ads_source_sight_registration", "")) != "invalid_original_rear_flash_ordering"
 			set_meta("weapon_ads_source_sight_registration", "invalid_original_rear_flash_ordering")
 			set_meta("weapon_ads_source_iron_tag_forward_span_m", ordered_span_m)
-			print("XZOGOT_SOURCE_IRON_TAG_ORDER_RED ", _weapon_id,
+			if first_invalid_notice:
+				print("XZOGOT_SOURCE_IRON_TAG_ORDER_RED ", _weapon_id,
 				" source_forward_span_m=", ordered_span_m, " source_tag_flash=", flash_local,
-				" source_tag_iron_sights=", sight_local,
-				" did_not_apply_false_optic_camera_correction=true")
+					" source_tag_iron_sights=", sight_local,
+					" did_not_apply_false_optic_camera_correction=true")
 			return
 		if bool(muzzle.get("found", false)):
 			var muzzle_cam: Vector3 = _camera.to_local(muzzle.get("position", Vector3.ZERO))
