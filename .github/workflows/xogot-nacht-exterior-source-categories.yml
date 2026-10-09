@@ -1,0 +1,61 @@
+name: Xogot Nacht Exterior Source Mesh Labels and Distances Audit (Research)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-exterior-source-categories.yml"
+      - "tools/maps/audit_nacht_exterior_source_mesh_categories.py"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  original-ue421-exterior-structure-labels:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Require exact source 10793 actor world positions and 493 native meshes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh run view 37938836028 --json conclusion --jq '.conclusion')" = success
+          test "$(gh run view 37960232923 --json conclusion --jq '.conclusion')" = success
+          echo "XZOGOT_NACHT_EXTERIOR_SCENE_WORLD_SOURCE_PARITY_GREEN"
+      - name: Download archived original UE4.21 source static stage once
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-exterior-source "$RUNNER_TEMP/source"
+          gh run download 37762871109 -n Xogot-Nacht-Chronicles-Godot-Runtime \
+            -D "$RUNNER_TEMP/source" \
+            2>&1 | tee build/nacht-exterior-source/source-download.log
+          SCENE=$(find "$RUNNER_TEMP/source" -name nacht-static-scene.json -type f -print -quit)
+          test -s "$SCENE"
+          echo "SCENE=$SCENE" >> "$GITHUB_ENV"
+      - name: Show verified source asset categories and positions; never invent outdoor playability bounds
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/audit_nacht_exterior_source_mesh_categories.py \
+            --scene "$SCENE" \
+            --output build/nacht-exterior-source/category-inventory.json \
+            2>&1 | tee build/nacht-exterior-source/category-inventory.log
+          grep -q XZOGOT_NACHT_EXTERIOR_SOURCE_MESH_LABELS_AND_WORLD_AABB_GREEN \
+            build/nacht-exterior-source/category-inventory.log
+      - name: Preserve source asset classes to inform exterior visibility/LOD gate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-10793-Source-Actor-Exterior-Foliage-Building-Categories
+          path: |
+            build/nacht-exterior-source/category-inventory.json
+            build/nacht-exterior-source/category-inventory.log
+          retention-days: 14
+          if-no-files-found: warn
