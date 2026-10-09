@@ -289,6 +289,15 @@ func _capture() -> void:
 	if round_manager != null and is_instance_valid(round_manager):
 		round_manager.set_process(false)
 		round_manager.set_physics_process(false)
+		# The same scene with zero zombies exits Godot cleanly in real CI
+		# A/B #37872666559. Explicitly drain the actual source zombie
+		# BEFORE freeing its parent and the animated render server resources.
+		# All three required gameplay frames were already captured above.
+		if round_manager.has_method("dev_clear_zombies"):
+			round_manager.call("dev_clear_zombies")
+			await process_frame
+			await process_frame
+			print("XZOGOT_SCREENSHOT_SOURCE_ZOMBIE_FREED_BEFORE_RENDER_EXIT")
 		for child: Node in round_manager.get_children():
 			if child is Timer:
 				(child as Timer).stop()
