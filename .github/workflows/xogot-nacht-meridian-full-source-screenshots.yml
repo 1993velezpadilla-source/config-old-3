@@ -8,6 +8,7 @@ on:
     paths:
       - ".github/workflows/xogot-nacht-meridian-full-source-screenshots.yml"
       - "tools/maps/nacht_meridian_real_visual_capture.gd"
+      - "tools/maps/nacht_apply_source_exterior_visual_lod.gd"
 
 permissions:
   contents: read
@@ -26,7 +27,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for i in 37938836028 37939504798 37944732189 37945872261 37947767584; do
+          for i in 37938836028 37939504798 37944732189 37945872261 37947767584 37961985956 37962248278; do
             test "$(gh run view "$i" --json conclusion --jq '.conclusion')" = success || {
               echo "XZOGOT_NACHT_SOURCE_VISUAL_DEPENDENCY_RED run=$i"
               exit 1
@@ -38,13 +39,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p build/nacht-meridian-visual/glb build/nacht-meridian-visual/materials "$RUNNER_TEMP/source"
+          mkdir -p build/nacht-meridian-visual/glb build/nacht-meridian-visual/materials build/nacht-meridian-visual/far-lod "$RUNNER_TEMP/source"
           gh run download 37938836028 -n Nacht-LOSSLESS-Native-493-GLB-10793-Actor-Godot-Research-Proof \
             -D build/nacht-meridian-visual/glb \
             2>&1 | tee build/nacht-meridian-visual/glb-download.log
           gh run download 37944732189 -n Nacht-10793-Original-574-Materials-16595-Source-Surface-Assignments \
             -D build/nacht-meridian-visual/materials \
             2>&1 | tee build/nacht-meridian-visual/materials-download.log
+          gh run download 37961985956 \
+            -n Nacht-Original-10793-Exterior-Foliage-World-Distance-LOD-Policy \
+            -D build/nacht-meridian-visual/far-lod \
+            2>&1 | tee build/nacht-meridian-visual/source-far-lod-download.log
           gh run download 37762871109 -n Xogot-Nacht-Chronicles-Godot-Runtime \
             -D "$RUNNER_TEMP/source" \
             2>&1 | tee build/nacht-meridian-visual/authorities-download.log
@@ -55,9 +60,10 @@ jobs:
           RAW_LIGHT=$(find "$RUNNER_TEMP/source" -name nacht-lights.json -type f -print -quit)
           LIGHT_ENV=$(find "$RUNNER_TEMP/source" -name nacht-environment-report.json -type f -print -quit)
           RUNTIME_ENV=$(find "$RUNNER_TEMP/source" -name nacht-environment-runtime-authority.json -type f -print -quit)
+          FAR_POLICY=$(find build/nacht-meridian-visual/far-lod -name original-exterior-source-actor-visual-policy.json -type f -print -quit)
           test -s "$PROJECT" && test -s "$REPORT"
           test -d "$DDS" && test -s "$STAGE/xzml-report.json"
-          test -s "$RAW_LIGHT" && test -s "$LIGHT_ENV" && test -s "$RUNTIME_ENV"
+          test -s "$RAW_LIGHT" && test -s "$LIGHT_ENV" && test -s "$RUNTIME_ENV" && test -s "$FAR_POLICY"
           echo "GODOT_PROJECT=$(dirname "$PROJECT")" >> "$GITHUB_ENV"
           echo "MATERIAL_REPORT=$PWD/$REPORT" >> "$GITHUB_ENV"
           echo "STAGE=$STAGE" >> "$GITHUB_ENV"
@@ -65,6 +71,7 @@ jobs:
           echo "RAW_LIGHT=$RAW_LIGHT" >> "$GITHUB_ENV"
           echo "LIGHT_ENV=$LIGHT_ENV" >> "$GITHUB_ENV"
           echo "RUNTIME_ENV=$RUNTIME_ENV" >> "$GITHUB_ENV"
+          echo "FAR_EXTERIOR_POLICY=$PWD/$FAR_POLICY" >> "$GITHUB_ENV"
           echo "XZOGOT_NACHT_EXACT_SOURCE_LOSSLESS_GLTF_TEXTURE_LIGHT_DOWNLOAD_GREEN"
 
       - name: Reattach all original 718 used DDS, 574 materials / 16595 original surface bindings, and 166 original UE4 lights
@@ -74,6 +81,8 @@ jobs:
           mkdir -p "$GODOT_PROJECT/scripts" "$GODOT_PROJECT/nacht-authority"
           cp xogot/scripts/xziel_benchmark_loader.gd "$GODOT_PROJECT/scripts/xziel_benchmark_loader.gd"
           cp tools/maps/nacht_meridian_real_visual_capture.gd "$GODOT_PROJECT/nacht_meridian_real_visual_capture.gd"
+          cp tools/maps/nacht_apply_source_exterior_visual_lod.gd "$GODOT_PROJECT/nacht_apply_source_exterior_visual_lod.gd"
+          cp "$FAR_EXTERIOR_POLICY" "$GODOT_PROJECT/nacht-exterior-visual-policy.json"
           cp "$MATERIAL_REPORT" "$GODOT_PROJECT/nacht-actor-material-authority.json"
           cp "$RUNTIME_ENV" "$GODOT_PROJECT/nacht-authority/nacht-environment-runtime-authority.json"
           python3 tools/maps/stage_nacht_all_used_source_dds.py \
@@ -117,7 +126,7 @@ jobs:
           fi
           echo "XZOGOT_NACHT_REAL_SOURCE_DDS_GLTF_IMPORT_GREEN"
 
-      - name: Render original source + bright diagnostics + 2 night look-dev profiles in 10 real 1280x720 Godot frames
+      - name: Render 10 authentic original and night source frames PLUS 2 safe far-exterior foliage optimized comparison frames
         shell: bash
         run: |
           set -euo pipefail
@@ -132,13 +141,15 @@ jobs:
           grep -q 'XZOGOT_NACHT_MERIDIAN_10793_REAL_SOURCE_VISUAL_CAPTURE_GREEN count=10' \
             build/nacht-meridian-visual/capture.log
           grep -q 'XZOGOT_NACHT_NIGHT_LOOKDEV_SHADOW_VISIBILITY_BRACKET_GREEN both_camera_views=2' build/nacht-meridian-visual/capture.log
-          for name in 01-source-overview 02-source-spawn10-interior 03-source-spawn4-interior 04-source-spawn6-interior 05-diagnostic-overview-ambient 06-diagnostic-spawn6-ambient 07-night-lookdev-moon-overview 08-night-lookdev-moon-interior 09-night-lookdev-dark-overview 10-night-lookdev-dark-interior; do
+          grep -q XZOGOT_NACHT_REAL_GODOT_OUTDOOR_FAR_LOD_AB_GREEN build/nacht-meridian-visual/capture.log
+          grep -q 'XZOGOT_NACHT_FINAL_SOURCE_RENDER_IMAGES_COUNT 12' build/nacht-meridian-visual/capture.log
+          for name in 01-source-overview 02-source-spawn10-interior 03-source-spawn4-interior 04-source-spawn6-interior 05-diagnostic-overview-ambient 06-diagnostic-spawn6-ambient 07-night-lookdev-moon-overview 08-night-lookdev-moon-interior 09-night-lookdev-dark-overview 10-night-lookdev-dark-interior 11-exterior-moon-optimized 12-interior-moon-optimized; do
             test -s "$GODOT_PROJECT/$name.png"
             cp "$GODOT_PROJECT/$name.png" build/nacht-meridian-visual/
           done
           cp "$GODOT_PROJECT/nacht-source-visual-capture-audit.json" \
              build/nacht-meridian-visual/capture-audit.json
-          echo "XZOGOT_NACHT_REAL_4_INLINE_USER_PHOTOS_ARTIFACT_GREEN"
+          echo "XZOGOT_NACHT_REAL_12_BEFORE_AFTER_EXTERIOR_SAFE_LOD_PHOTOS_ARTIFACT_GREEN"
 
       - name: Preserve actually rendered image evidence EVEN when night visual gate turns RED
         if: always()
@@ -158,7 +169,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Nacht-Meridian-10-Real-Source-And-Night-Lookdev-1280x720
+          name: Nacht-Meridian-12-Real-Source-Night-Before-After-Far-Foliage-LOD
           path: |
             build/nacht-meridian-visual/01-source-overview.png
             build/nacht-meridian-visual/02-source-spawn10-interior.png
@@ -170,6 +181,8 @@ jobs:
             build/nacht-meridian-visual/08-night-lookdev-moon-interior.png
             build/nacht-meridian-visual/09-night-lookdev-dark-overview.png
             build/nacht-meridian-visual/10-night-lookdev-dark-interior.png
+            build/nacht-meridian-visual/11-exterior-moon-optimized.png
+            build/nacht-meridian-visual/12-interior-moon-optimized.png
             build/nacht-meridian-visual/capture-audit.json
             build/nacht-meridian-visual/capture.log
             build/nacht-meridian-visual/import.log
