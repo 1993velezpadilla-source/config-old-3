@@ -144,6 +144,17 @@ func _capture() -> void:
 				return
 			print("XZOGOT_SCREENSHOT_WAW_SOURCE_ZOMBIE_READY")
 			zombie.set_physics_process(false)
+			# This is a THREE-FRAME screenshot of ONE original WaW zombie, not
+			# a full wave. Letting the live RoundManager continue spawning while
+			# the capture awaits GPU frames previously introduced three extra
+			# dynamically skinned zombies and 6 unreleased render resources.
+			# Freeze ONLY the capture's spawner after source zombie is verified.
+			round_manager.set_process(false)
+			round_manager.set_physics_process(false)
+			for wave_child: Node in round_manager.get_children():
+				if wave_child is Timer:
+					(wave_child as Timer).stop()
+			print("XZOGOT_SCREENSHOT_ONE_SOURCE_ZOMBIE_FREEZE_GREEN")
 
 			# Very soft warm fill only for visibility; keep gameplay contrast/shadows intact.
 			var inspect_light := OmniLight3D.new()
