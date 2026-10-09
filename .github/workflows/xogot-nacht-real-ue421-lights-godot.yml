@@ -107,8 +107,6 @@ jobs:
           cp "$GODOT_PROJECT/native-source-light-audit.json" \
             build/nacht-source-lights/godot-source-light-audit.json
           grep -q XZOGOT_NACHT_166_REAL_UE421_LIGHTS_GODOT_SOURCE_PLACEMENT_GREEN \
-            build/nacht-source-lights/source-light-adapter.log
-            build/nacht-source-lights/source-light-adapter-report.json
             build/nacht-source-lights/godot-real-lights.log
 
       - name: Archive proof, never call this visual pixel / gameplay / Android equivalence
