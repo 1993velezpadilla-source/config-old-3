@@ -20,7 +20,8 @@ func _run() -> void:
             light=DirectionalLight3D.new()
         light.light_energy=1.0 if i!=164 else 0.0
         light.set_meta("source_intensity",float((i%7+1)*150) if i<163 else (0.0 if i==164 else 0.2))
-        light.set_meta("source_intensity_units","Candelas" if i<163 else "Lux")
+        light.set_meta("source_intensity_units",
+            "Unitless" if i<3 else ("Candelas" if i<163 else "Lux"))
         root3d.add_child(light)
         lights.append(light)
     var control: RefCounted=cls.new() as RefCounted
@@ -34,10 +35,17 @@ func _run() -> void:
         "apply_original_source_light_ratios_research",root3d,10793,4.0) as Dictionary
     if (not (result.get("errors",[]) as Array).is_empty()
         or int(result.get("sourceLightNodeCountIncludingDirectional",0))!=165
-        or int(result.get("positiveOriginalPhotometricPointSpotLights",0))!=163
+        or int(result.get("positiveOriginalPhotometricPointSpotLights",0))!=160
+        or int(result.get("positiveOriginalUnitlessPointSpotLights",0))!=3
+        or int(result.get("positiveOriginalPointSpotLights",0))!=163
+        or not result.get("unitlessValuesNeverMixedWithCandelaLumens",false)
         or not result.get("absoluteUEPhotometricEquivalenceNotProven",false)):
         push_error("XZOGOT_NACHT_COMPAT_ORIGINAL_LIGHT_RELATIVE_AUDIT_RED "+JSON.stringify(result))
         quit(4)
+        return
+    if not is_equal_approx(lights[0].light_energy,0.5):
+        push_error("XZOGOT_NACHT_COMPAT_UNIT_LESS_CANDLE_ENERGY_COHORT_NOT_INDEPENDENT_RED")
+        quit(10)
         return
     if is_equal_approx(lights[0].light_energy,lights[6].light_energy):
         push_error("XZOGOT_NACHT_COMPAT_SOURCE_ORIGINAL_CD_RATIO_NOT_APPLIED_RED")
