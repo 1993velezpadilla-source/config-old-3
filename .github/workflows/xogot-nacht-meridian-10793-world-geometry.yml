@@ -1,0 +1,99 @@
+name: Xogot Nacht 10793 Actor Original World Geometry A-B (Research)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-meridian-10793-world-geometry.yml"
+      - "tools/maps/validate_meridian_10793_world_geometry.py"
+      - "tools/maps/validate_meridian_source_geometry.py"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  full-world-geometry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: "37762871109"
+      SOURCE_ARTIFACT: Xogot-Nacht-Chronicles-Godot-Runtime
+      FULL_RUN: "37933706132"
+      FULL_ARTIFACT: Nacht-UE421-Full-10793-Actor-Source-Meridian-Affine-Godot
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Require completed actual 10793 actor Godot gate GREEN
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh run view "$FULL_RUN" --json conclusion --jq '.conclusion')" = success
+          test "$(gh run view 37932825571 --json conclusion --jq '.conclusion')" = success
+          echo "XZOGOT_NACHT_FULL_ACTORS_AND_493_UNIQUE_GEOMETRY_DEPENDENCIES_GREEN"
+
+      - name: Download EXACT earlier independently verified Godot full scene and original archived UE4 GLBs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-world-geometry/converted "$RUNNER_TEMP/nacht-ue4-source"
+          gh run download "$FULL_RUN" -n "$FULL_ARTIFACT" \
+            -D build/nacht-world-geometry/converted \
+            2>&1 | tee build/nacht-world-geometry/converted-download.log
+          gh run download "$SOURCE_RUN" -n "$SOURCE_ARTIFACT" \
+            -D "$RUNNER_TEMP/nacht-ue4-source" \
+            2>&1 | tee build/nacht-world-geometry/source-download.log
+          SRC=$(find "$RUNNER_TEMP/nacht-ue4-source" -type f -name nacht-static-scene.json -print -quit)
+          MESHES=$(find "$RUNNER_TEMP/nacht-ue4-source" -type d -name meshes_glb -print -quit)
+          EXPORTED=$(find build/nacht-world-geometry/converted -type f -name Nacht_Source_Bridge_Probe.glb -print -quit)
+          test -s "$SRC"
+          test -d "$MESHES"
+          test -s "$EXPORTED"
+          echo "UE_SCENE=$SRC" >> "$GITHUB_ENV"
+          echo "UE_MESHES=$MESHES" >> "$GITHUB_ENV"
+          echo "MERIDIAN_GLB=$PWD/$EXPORTED" >> "$GITHUB_ENV"
+          python3 - "$SRC" "$MESHES" "$EXPORTED" <<'PY'
+          import json,sys,pathlib
+          s=json.loads(pathlib.Path(sys.argv[1]).read_text())
+          assert s['format']=='xziel_visual_scene_v1'
+          assert len(s['instances'])==10793
+          assert len(s['meshes'])==493
+          assert len({int(a['meshIndex']) for a in s['instances']})==493
+          meshes={int(m['index']):m for m in s['meshes']}
+          missing=[i for i,m in meshes.items()
+                   if not (pathlib.Path(sys.argv[2])/(pathlib.Path(m['runtimeFile']).stem+'.glb')).is_file()]
+          assert not missing,missing
+          print("XZOGOT_NACHT_FULL_SOURCE_WITH_ALL_NATIVE_GEOMETRY_GREEN",
+                len(s['instances']),len(meshes),
+                'output_glb_bytes',pathlib.Path(sys.argv[3]).stat().st_size)
+          PY
+
+      - name: Prove ALL 10793 real actors against ORIGINAL native GLB world geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/validate_meridian_10793_world_geometry.py \
+            --scene "$UE_SCENE" \
+            --native-glb-dir "$UE_MESHES" \
+            --meridian-glb "$MERIDIAN_GLB" \
+            --tolerance-mm 0.25 \
+            --output build/nacht-world-geometry/full-source-geometry-parity.json \
+            2>&1 | tee build/nacht-world-geometry/full-source-geometry-parity.log
+          grep -q "XZOGOT_NACHT_10793_SOURCE_WORLD_BOUNDS_GREEN" \
+            build/nacht-world-geometry/full-source-geometry-parity.log
+
+      - name: Preserve original-vs-Godot geometry evidence even on RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-10793-Actor-Real-Pavlov-World-Geometry-Parity-Report
+          path: |
+            build/nacht-world-geometry/converted-download.log
+            build/nacht-world-geometry/source-download.log
+            build/nacht-world-geometry/full-source-geometry-parity.json
+            build/nacht-world-geometry/full-source-geometry-parity.log
+          if-no-files-found: warn
+          retention-days: 14
