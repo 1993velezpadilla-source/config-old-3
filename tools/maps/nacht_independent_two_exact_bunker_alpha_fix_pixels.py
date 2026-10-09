@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Independent exact-source native Godot 4.6.1 black wall 2-surface pixel audit.
 
-This checks ONE original source material from TWO exact archived actor IDs.
+This checks TWO original source material assets of the SAME semantic name on TWO exact archived actor IDs; each retains independent original DDS.
 574-material source screen-owner raster proves which material becomes
 visible when everything is opaque but NOT the original authored OpacityMask.
 No claim of full-view/window visual parity or Android hardware performance.
@@ -14,6 +14,10 @@ from PIL import Image,ImageChops,ImageDraw
 BASE="interior_central_yaw180","interior_original_yaw0","interior_original_yaw270"
 TARGET=("Content/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/"
         "t7_concrete_poured_bunker_dirty_01.t7_concrete_poured_bunker_dirty_01")
+TARGET_BY_ACTOR={
+    "ue_instance_010576":TARGET.replace("/MAP_FILES/","/materials/"),
+    "ue_instance_010730":TARGET,
+}
 def one_png(directory,name):
     x=list(directory.rglob(name))
     if len(x)!=1:
@@ -64,7 +68,8 @@ def run(root,owner_root,out):
         "originalSourceLightComponents":166,
         "originalTargetSurfaceBindingsChangedTemporarily":2,
         "otherOriginalMaterialSurfaceBindingsUntouched":16593,
-        "exactSourceBunkerMaterialPath":TARGET,
+        "exactSourceBunkerMaterialPathsByOriginalActor":TARGET_BY_ACTOR,
+        "twoIndependentSourceMaterialResourcesAndDDSTexturesRetained":True,
         "exactOriginalSourceMeshActorsOnly":["ue_instance_010576","ue_instance_010730"],
         "originalShaderResourceRestorationVerified":True,
         "otherSourceAlphaFoliageWindowsDecalMaterialsUnmodified":True,
@@ -106,7 +111,7 @@ def run(root,owner_root,out):
     total=sum(x["blackPixelsRecoveredByExactlyOneOriginalSourceMaterial"] for x in result)
     verdict={
         "originalMaterialID":28,
-        "exactOriginalSourceMaterialPath":TARGET,
+        "exactOriginalSourceMaterialPathsByActor":TARGET_BY_ACTOR,
         "provenIndependentOpaqueDiagnosticBlackPixels":source[0]["blackPixelsVisibleAfterForcingAllSourceGeometryOpaque"],
         "originalSourceActorsUntouched":10793,
         "originalDDSUntouched":718,
