@@ -117,7 +117,7 @@ jobs:
           fi
           echo "XZOGOT_NACHT_REAL_SOURCE_DDS_GLTF_IMPORT_GREEN"
 
-      - name: Render 4 actual Godot 4.6.1 source-lit 1280x720 frames for user photos - no AI illustrations
+      - name: Render 4 original-source-lit and 2 explicitly diagnostic-ambient Godot 1280x720 frames for user photos
         shell: bash
         run: |
           set -euo pipefail
@@ -129,9 +129,9 @@ jobs:
             2>&1 | tee build/nacht-meridian-visual/capture.log
           grep -q XZOGOT_NACHT_VISUAL_REAL_SOURCE_MATERIALS_GREEN build/nacht-meridian-visual/capture.log
           grep -q XZOGOT_NACHT_VISUAL_REAL_SOURCE_LIGHTS_GREEN build/nacht-meridian-visual/capture.log
-          grep -q 'XZOGOT_NACHT_MERIDIAN_10793_REAL_SOURCE_VISUAL_CAPTURE_GREEN count=4' \
+          grep -q 'XZOGOT_NACHT_MERIDIAN_10793_REAL_SOURCE_VISUAL_CAPTURE_GREEN count=6' \
             build/nacht-meridian-visual/capture.log
-          for name in 01-source-overview 02-source-spawn10-interior 03-source-spawn4-interior 04-source-spawn6-interior; do
+          for name in 01-source-overview 02-source-spawn10-interior 03-source-spawn4-interior 04-source-spawn6-interior 05-diagnostic-overview-ambient 06-diagnostic-spawn6-ambient; do
             test -s "$GODOT_PROJECT/$name.png"
             cp "$GODOT_PROJECT/$name.png" build/nacht-meridian-visual/
           done
@@ -143,12 +143,14 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Nacht-Meridian-Real-Godot-Source-Lit-4-Visual-Proof-1280x720
+          name: Nacht-Meridian-Real-Godot-4-Source-Lit-2-Diagnostic-1280x720
           path: |
             build/nacht-meridian-visual/01-source-overview.png
             build/nacht-meridian-visual/02-source-spawn10-interior.png
             build/nacht-meridian-visual/03-source-spawn4-interior.png
             build/nacht-meridian-visual/04-source-spawn6-interior.png
+            build/nacht-meridian-visual/05-diagnostic-overview-ambient.png
+            build/nacht-meridian-visual/06-diagnostic-spawn6-ambient.png
             build/nacht-meridian-visual/capture-audit.json
             build/nacht-meridian-visual/capture.log
             build/nacht-meridian-visual/import.log
