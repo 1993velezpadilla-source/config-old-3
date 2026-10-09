@@ -277,8 +277,11 @@ func _capture() -> void:
 		scene.queue_free()
 		await process_frame
 		await process_frame
-	RenderingServer.sync()
-	await process_frame
+	# Godot 4.6.1 has no static RenderingServer.sync() API. Drain a few
+	# owned SceneTree ticks after queue_free before requesting a clean exit.
+	for frame_idx in range(4):
+		await process_frame
+	await create_timer(0.12).timeout
 	print("XZOGOT_SCREENSHOT_3_FRAME_LIFECYCLE_TEARDOWN_COMPLETE")
 	quit(0)
 	return
