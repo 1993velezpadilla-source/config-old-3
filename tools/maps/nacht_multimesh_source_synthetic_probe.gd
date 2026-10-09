@@ -34,7 +34,7 @@ func _run() -> void:
         var instance: MeshInstance3D=MeshInstance3D.new()
         instance.name="FixtureNativeActor_"+str(i)
         instance.mesh=mesh
-        instance.position=Vector3(100.0+float(i%20)*32.0,0.0,100.0+float(i/20)*32.0)
+        instance.position=Vector3(100.0+float(i%20)*32.0+float(i/20)*0.1,0.0,100.0)
         world.add_child(instance)
         originals.append(instance)
         transforms.append(instance.global_transform)
