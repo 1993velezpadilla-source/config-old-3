@@ -237,8 +237,7 @@ func _run() -> void:
     for digit_group: int in range(2):
         var clones: Dictionary={}
         for idx: int in range(1,575):
-            var digit_code: int=idx if digit_group==0 else (idx/64)
-            digit_code=idx%64 if digit_group==0 else int(idx/64)
+            var digit_code: int=idx%64 if digit_group==0 else int(idx/64)
             var r: float=colors[digit_code%4]
             var g: float=colors[int(digit_code/4)%4]
             var b: float=colors[int(digit_code/16)%4]
