@@ -138,9 +138,16 @@ func _run() -> void:
     # SOURCE BUNKER CONCRETE if all materials made opaque.
     # The two ORIGINAL actors have this material: 010576 and 010730.
     # Test this ONE original source material, not 564 masked materials.
-    const TARGET_PATH: String=(
-        "Content/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/"
-        +"t7_concrete_poured_bunker_dirty_01.t7_concrete_poured_bunker_dirty_01")
+    # Both share the same semantic name, but these are TWO different native
+    # UE4 source material paths with different source DDS bindings:
+    # 010576 is a rebar mesh with FOUR material slots (concrete at slot 2),
+    # 010730 is a bunker wall with ONE material slot.
+    const SOURCE_ROOT: String="Content/CustomMaps/UGC2755515831/CoD_nacht/"
+    const TARGET_NAME: String="t7_concrete_poured_bunker_dirty_01.t7_concrete_poured_bunker_dirty_01"
+    var targeted_paths: Dictionary={
+        "ue_instance_010576":SOURCE_ROOT+"materials/"+TARGET_NAME,
+        "ue_instance_010730":SOURCE_ROOT+"MAP_FILES/"+TARGET_NAME
+    }
     var original_material: Dictionary={}
     var actor_names: Array[String]=[]
     var target_mesh_indices: Dictionary={}
@@ -158,7 +165,7 @@ func _run() -> void:
             quit(49)
             return
         for i: int in range(paths.size()):
-            if str(paths[i])!=TARGET_PATH:
+            if not targeted_paths.has(actor_id) or str(paths[i])!=str(targeted_paths[actor_id]):
                 continue
             var src: StandardMaterial3D=mi.get_surface_override_material(i) as StandardMaterial3D
             if (src==null or src.albedo_texture==null
@@ -177,7 +184,7 @@ func _run() -> void:
     actor_names.sort()
     expected_ids.sort()
     if (all_count!=10793 or by_actor.size()!=10793
-        or relevant_surfaces!=2 or original_material.size()!=1
+        or relevant_surfaces!=2 or original_material.size()!=2
         or actor_names!=expected_ids
         or int(target_mesh_indices.get("ue_instance_010576",-1))!=470
         or int(target_mesh_indices.get("ue_instance_010730",-1))!=17):
@@ -199,21 +206,26 @@ func _run() -> void:
         var name: String=str(camera["name"])
         before[name]=await _capture(cam,name+"_bunker_original_DDS",
             camera["eye"],camera["look"])
-    var only_source: StandardMaterial3D=(
-        original_material.values()[0] as StandardMaterial3D)
-    var clone: StandardMaterial3D=only_source.duplicate(false) as StandardMaterial3D
-    clone.transparency=BaseMaterial3D.TRANSPARENCY_DISABLED
-    if (clone.albedo_texture!=only_source.albedo_texture
-        or clone.normal_texture!=only_source.normal_texture
-        or clone.cull_mode!=only_source.cull_mode
-        or clone.roughness!=only_source.roughness
-        or clone.shading_mode!=only_source.shading_mode):
-        push_error("XZOGOT_NACHT_BLACK_BUNKER_RESEARCH_ALPHA_CHANGED_OTHER_SHADER_RED")
-        quit(52)
-        return
+    # Clone EACH native source material independently. Never substitute
+    # materials/ DDS for MAP_FILES/ DDS or vice versa.
+    var research_clones: Dictionary={}
     for row: Dictionary in stage:
+        var only_source: StandardMaterial3D=row["original"] as StandardMaterial3D
+        var source_key: int=only_source.get_instance_id()
+        if not research_clones.has(source_key):
+            var clone: StandardMaterial3D=only_source.duplicate(false) as StandardMaterial3D
+            clone.transparency=BaseMaterial3D.TRANSPARENCY_DISABLED
+            if (clone.albedo_texture!=only_source.albedo_texture
+                or clone.normal_texture!=only_source.normal_texture
+                or clone.cull_mode!=only_source.cull_mode
+                or clone.roughness!=only_source.roughness
+                or clone.shading_mode!=only_source.shading_mode):
+                push_error("XZOGOT_NACHT_BLACK_BUNKER_RESEARCH_ALPHA_CHANGED_OTHER_SHADER_RED")
+                quit(52)
+                return
+            research_clones[source_key]=clone
         (row["node"] as MeshInstance3D).set_surface_override_material(
-            int(row["surface"]),clone)
+            int(row["surface"]),research_clones[source_key] as Material)
     for camera: Dictionary in camera_samples:
         var name: String=str(camera["name"])
         candidate[name]=await _capture(cam,name+"_ONLY_bunker_2_surfaces_opaque_preview",
@@ -254,7 +266,8 @@ func _run() -> void:
             "originalOpaqueDiagnosticBlackPixelsTwoCameraSamples":61230,
             "notDirectProofThatUEOriginalOpacityMaskIsUnwired":true
         },
-        "exactSourceBunkerMaterialPath":TARGET_PATH,
+        "exactSourceBunkerMaterialPathsByOriginalActor":targeted_paths,
+        "twoIndependentSourceMaterialResourcesAndDDSTexturesRetained":research_clones.size()==2,
         "exactOriginalSourceMeshActorsOnly":actor_names,
         "exactNativeMeshIndices":target_mesh_indices,
         "originalTargetSurfaceBindingsChangedTemporarily":relevant_surfaces,
