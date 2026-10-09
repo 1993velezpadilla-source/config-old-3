@@ -261,12 +261,24 @@ func _capture() -> void:
 			return
 		print("XZOGOT_EXTERIOR_SCREENSHOT_GREEN ", exterior_path, " ", exterior_image.get_width(), "x", exterior_image.get_height())
 
-	# Experimental lifecycle A/B: all source screenshots are already on disk.
-	# The explicit queue_free() of the active zombie/Nacht scene caused
-	# persistent Godot exit=1 after THREE completed PNGs, even with a direct
-	# quit(0). Other full-main-scene tests (sniper scoped E2E) exit 0 by
-	# allowing SceneTree to own normal cleanup at process exit instead.
-	# Keep strict nonzero-exit CI failure; this is NOT a waiver.
-	print("XZOGOT_SCREENSHOT_SCENE_TREE_OWNED_EXIT_AB")
+	# All 3 original Godot images are on disk. Full gameplay capture starts
+	# a RoundManager zombie and creates dynamic skinned materials; unlike the
+	# smaller MP40 real-gameplay test, a bare SceneTree.quit(0) exits with
+	# "6 resources still in use" on the CI renderer. Attempt an ACTUAL clean
+	# teardown, draining the rendering server before exit, rather than masking
+	# or waiving the nonzero Godot status in the workflow.
+	if round_manager != null and is_instance_valid(round_manager):
+		round_manager.set_process(false)
+		round_manager.set_physics_process(false)
+		for child: Node in round_manager.get_children():
+			if child is Timer:
+				(child as Timer).stop()
+	if scene != null and is_instance_valid(scene):
+		scene.queue_free()
+		await process_frame
+		await process_frame
+	RenderingServer.sync()
+	await process_frame
+	print("XZOGOT_SCREENSHOT_3_FRAME_LIFECYCLE_TEARDOWN_COMPLETE")
 	quit(0)
 	return
