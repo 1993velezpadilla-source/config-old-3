@@ -32,6 +32,7 @@ def affine(points, mat):
 def mesh_cloud(doc, binary, index):
     points = []
     triangles = 0
+    degenerate_triangles = 0
     for prim in doc["meshes"][index]["primitives"]:
         if prim.get("mode", 4) != 4:
             raise ValueError("only source triangle primitives accepted")
@@ -52,7 +53,40 @@ def mesh_cloud(doc, binary, index):
         if count % 3:
             raise ValueError("indexed native triangle primitive count not divisible by 3")
         triangles += count // 3
-    return np.concatenate(points, axis=0), triangles
+        if "indices" in prim:
+            import struct
+            idx = doc["accessors"][prim["indices"]]
+            bv = doc["bufferViews"][idx["bufferView"]]
+            component = idx["componentType"]
+            dtypes = {5121: np.dtype("u1"), 5123: np.dtype("<u2"),
+                      5125: np.dtype("<u4")}
+            if component not in dtypes:
+                raise ValueError("unsupported triangle indices componentType")
+            start = bv.get("byteOffset", 0) + idx.get("byteOffset", 0)
+            stride = bv.get("byteStride", dtypes[component].itemsize)
+            if stride == dtypes[component].itemsize:
+                source_idx = np.frombuffer(
+                    binary, dtype=dtypes[component], count=count,
+                    offset=start
+                ).astype(np.int64)
+            else:
+                source_idx = np.array([
+                    int.from_bytes(binary[start + k*stride:
+                                          start + k*stride + dtypes[component].itemsize],
+                                   "little") for k in range(count)
+                ], dtype=np.int64)
+        else:
+            source_idx = np.arange(count, dtype=np.int64)
+        if len(source_idx) != count or np.any(source_idx >= len(coords)):
+            raise ValueError("invalid native triangle vertex indices")
+        triangles_xyz = coords[source_idx.reshape(-1, 3)]
+        edge_ab = triangles_xyz[:, 1] - triangles_xyz[:, 0]
+        edge_ac = triangles_xyz[:, 2] - triangles_xyz[:, 0]
+        doubled_area_sq = np.sum(np.cross(edge_ab, edge_ac)**2, axis=1)
+        # Strict zero-area faces, not merely triangles that happen to be
+        # very small in source meters.
+        degenerate_triangles += int(np.count_nonzero(doubled_area_sq <= 1e-24))
+    return np.concatenate(points, axis=0), triangles, degenerate_triangles
 
 
 def source_for_type(mesh_row, actor, native_dir):
@@ -66,16 +100,18 @@ def source_for_type(mesh_row, actor, native_dir):
             raise ValueError("unproven native GLB node matrix: " + path.name)
     all_points = []
     triangles = 0
+    degenerate = 0
     for i in range(len(doc["meshes"])):
-        pts, tris = mesh_cloud(doc, binary, i)
+        pts, tris, degens = mesh_cloud(doc, binary, i)
         all_points.append(pts)
         triangles += tris
+        degenerate += degens
     raw = list(map(float, actor["matrixRowMajor"]))
     source_matrix = [raw[4*i:4*i+4] for i in range(4)]
     if source_matrix[3] != [0., 0., 0., 1.]:
         raise ValueError("non-affine original source matrix")
     world = mul(BASIS, source_matrix)
-    return affine(np.concatenate(all_points, axis=0), world), triangles
+    return affine(np.concatenate(all_points, axis=0), world), triangles, degenerate
 
 
 def exported_representatives(doc, binary, actor_ids):
@@ -150,19 +186,21 @@ def main():
     for idx in sorted(actors):
         actor = actors[idx]
         iid = str(actor["instanceId"])
-        src, original_triangles = source_for_type(
+        src, original_triangles, original_degenerate = source_for_type(
             mesh_rows[idx], actor, args.native_glb_dir
         )
         chunks = []
         exported_triangles = 0
+        exported_degenerate = 0
         for mesh_idx, matrix in found[iid]:
             if mesh_idx not in export_cache:
                 export_cache[mesh_idx] = mesh_cloud(
                     exported_doc, exported_bytes, mesh_idx
                 )
-            vertices, triangles = export_cache[mesh_idx]
+            vertices, triangles, degenerate = export_cache[mesh_idx]
             chunks.append(affine(vertices, matrix))
             exported_triangles += triangles
+            exported_degenerate += degenerate
         output = np.concatenate(chunks, axis=0)
         delta = compare_clouds(src, output)
         row = {
@@ -171,6 +209,10 @@ def main():
             "exported_vertices": int(len(output)),
             "native_triangles": original_triangles,
             "exported_triangles": exported_triangles,
+            "native_degenerate_triangles": original_degenerate,
+            "exported_degenerate_triangles": exported_degenerate,
+            "native_nondegenerate_triangles": original_triangles - original_degenerate,
+            "exported_nondegenerate_triangles": exported_triangles - exported_degenerate,
             "bidirectional_hausdorff_mm": delta * 1000.,
         }
         results.append(row)
@@ -187,7 +229,11 @@ def main():
         ),
         "source_triangles": sum(x["native_triangles"] for x in results),
         "exported_triangles": sum(x["exported_triangles"] for x in results),
-        "errors_first_15": fail[:15],
+        "source_degenerate_triangles": sum(x["native_degenerate_triangles"] for x in results),
+        "exported_degenerate_triangles": sum(x["exported_degenerate_triangles"] for x in results),
+        "source_nondegenerate_triangles": sum(x["native_nondegenerate_triangles"] for x in results),
+        "exported_nondegenerate_triangles": sum(x["exported_nondegenerate_triangles"] for x in results),
+        "errors_first_25": fail[:25],
         "error_count": len(fail),
         "worst_15_meshes": sorted(results, key=lambda x: x["bidirectional_hausdorff_mm"], reverse=True)[:15],
         "all_vertex_triangle_adjacency_proven": False,
