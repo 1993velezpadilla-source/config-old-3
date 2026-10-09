@@ -196,45 +196,17 @@ jobs:
           set -euo pipefail
           python3 -m pip install --user pillow --disable-pip-version-check
           mkdir -p build/nacht-two-shard/audited
-          python3 - <<'PY'
-          from pathlib import Path
-          import json
-          p=Path("build/nacht-two-shard/merged")
-          chunks=[]
-          for name in ("indoors","outdoors"):
-            f=p/f"nacht-{name}-8view-report.json"
-            assert f.exists(),f"Missing real source shard report: {name}"
-            d=json.loads(f.read_text())
-            assert d["shardName"]==name
-            assert len(d["individualPairReports"])==8
-            assert d["originalActorsRetained"]==10793
-            assert d["originalSourceMaterialBindings"]==16595
-            assert d["sourceLightsReconstructed"]==166
-            assert d["originalActorsTemporarilyHidden"]==282
-            assert d["sourceMultiMeshGroups"]==90
-            assert not d["errors"]
-            chunks.append(d)
-          merged=dict(chunks[0])
-          del merged["shardName"]
-          merged["sampledCandidateEyeHeightPositions"]=4
-          merged["pairedBeforeAfterScreenshots"]=32
-          merged["individualPairReports"]=[r for d in chunks for r in d["individualPairReports"]]
-          merged["viewsWithAtLeast500NonDarkSourcePixels"]=sum(
-              d["viewsWithAtLeast500NonDarkSourcePixels"] for d in chunks)
-          assert len(merged["individualPairReports"])==16
-          assert len({r["cameraName"] for r in merged["individualPairReports"]})==16
-          assert len(list(p.glob("*_spatial32m.png")))==32
-          (p/"nacht-original-vista-360-candidate-visual-sweep.json").write_text(
-              json.dumps(merged,indent=2)+"\n")
-          print("XZOGOT_NACHT_FULL_SOURCE_16_VIEWS_TWO_SHARD_SOURCE_MERGE_GREEN")
-          PY
+          python3 tools/maps/nacht_merge_original_eight_view_shards.py \
+            --source build/nacht-two-shard/flat-verified \
+            --output build/nacht-two-shard/flat-verified \
+            2>&1 | tee build/nacht-two-shard/source-shard-merge.log
           python3 tools/maps/nacht_independent_original_source_16cardinal_pixel_audit.py \
-            --source build/nacht-two-shard/merged \
+            --source build/nacht-two-shard/flat-verified \
             --output build/nacht-two-shard/audited \
             2>&1 | tee build/nacht-two-shard/independent-pixels.log
           python3 tools/maps/nacht_original_source_16view_mesa_drawcall_audit.py --self-test
           python3 tools/maps/nacht_original_source_16view_mesa_drawcall_audit.py \
-            --source build/nacht-two-shard/merged/nacht-original-vista-360-candidate-visual-sweep.json \
+            --source build/nacht-two-shard/flat-verified/nacht-original-vista-360-candidate-visual-sweep.json \
             --output build/nacht-two-shard/audited/independent-native-GPU-results.json \
             2>&1 | tee build/nacht-two-shard/independent-gpu.log
           grep -q XZOGOT_NACHT_ACTUAL_FULL_SOURCE_16_VIEW_32_PNG_INDEPENDENT_RGB_PARITY_GREEN \
@@ -250,6 +222,6 @@ jobs:
             build/nacht-two-shard/audited/
             build/nacht-two-shard/independent-pixels.log
             build/nacht-two-shard/independent-gpu.log
-            build/nacht-two-shard/merged/nacht-original-vista-360-candidate-visual-sweep.json
+            build/nacht-two-shard/flat-verified/nacht-original-vista-360-candidate-visual-sweep.json
           retention-days: 14
           if-no-files-found: warn
