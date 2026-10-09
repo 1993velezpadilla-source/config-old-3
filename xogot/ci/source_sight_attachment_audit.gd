@@ -125,6 +125,12 @@ func _inspect() -> void:
 		if not bool(weapon.call("equip_weapon", id, true)):
 			bad_ads.append(id+":equip")
 			continue
+		# Prevent the previous gun\'s successfully registered optic from
+		# becoming a false GREEN on a new gun with missing/invalid iron tags.
+		if not str(weapon.get_meta("weapon_ads_source_sight_socket", "")).is_empty():
+			bad_ads.append(id + ":inherited_prior_weapon_sight_socket")
+		if not str(weapon.get_meta("weapon_ads_source_iron_registration", "")).is_empty():
+			bad_ads.append(id + ":inherited_prior_weapon_iron_registration")
 		await process_frame
 		await process_frame
 		var gun: Node3D = weapon.get("_weapon_model_root") as Node3D
