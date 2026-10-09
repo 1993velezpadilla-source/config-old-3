@@ -18,6 +18,39 @@ func _fail(message: String) -> void:
 	push_error("XZOGOT_ISOLATED_SIGHTS_RED " + message)
 	quit(6)
 
+# Framebuffer guard derived from captured genuine Godot render pixels.
+# A "saved 56 PNGs" pass MUST NOT greenlight weapons that fill the upper
+# view or right edge with huge near-plane hands/receivers. The thresholds
+# are universal image-space quality gates, not fabricated weapon poses.
+func _ads_frame_obstruction(frame: Image) -> Dictionary:
+	var backdrop: Color = frame.get_pixel(8, 8)
+	var upper_samples := 0
+	var upper_foreground := 0
+	var right_samples := 0
+	var right_foreground := 0
+	var upper_edge: int = int(frame.get_height() * 0.25)
+	var right_edge: int = int(frame.get_width() * 0.75)
+	for y in range(0, frame.get_height(), 10):
+		for x in range(0, frame.get_width(), 10):
+			if y >= upper_edge and x < right_edge:
+				continue
+			var pix: Color = frame.get_pixel(x, y)
+			var delta: float = maxf(absf(pix.r - backdrop.r),
+				maxf(absf(pix.g - backdrop.g), absf(pix.b - backdrop.b)))
+			var foreground: bool = delta > 0.10
+			if y < upper_edge:
+				upper_samples += 1
+				if foreground:
+					upper_foreground += 1
+			if x >= right_edge:
+				right_samples += 1
+				if foreground:
+					right_foreground += 1
+	return {
+		"upper_fraction": float(upper_foreground) / maxf(float(upper_samples), 1.0),
+		"right_fraction": float(right_foreground) / maxf(float(right_samples), 1.0)
+	}
+
 func _start() -> void:
 	DirAccess.make_dir_recursive_absolute(OUT)
 	# Reproducible uncluttered studio: imported gun+hands are exactly the same
@@ -154,6 +187,15 @@ func _start() -> void:
 										errs.append(id+":scope_lens_material_still_opaque")
 				if not glass_seen:
 					errs.append(id+":real_scope_glass_surface_not_found")
+			if pose == "ads":
+				var occlusion: Dictionary = _ads_frame_obstruction(image)
+				var upper_fraction: float = float(occlusion.get("upper_fraction", 0.0))
+				var right_fraction: float = float(occlusion.get("right_fraction", 0.0))
+				print("XZOGOT_ISOLATED_ADS_GPU_OCCLUSION id=",id,
+					" upper_view_obstruction_fraction=",upper_fraction,
+					" right_edge_obstruction_fraction=",right_fraction)
+				if upper_fraction > 0.20 or right_fraction > 0.50:
+					errs.append(id+":real_gpu_viewmodel_overobstructs_camera="+str(occlusion))
 			var result_angle := float(weapon.get_meta("weapon_ads_visual_bore_error_deg", -1.0))
 			var result_sight := float(weapon.get_meta("weapon_ads_source_sight_error_m", -1.0))
 			if pose == "ads":
