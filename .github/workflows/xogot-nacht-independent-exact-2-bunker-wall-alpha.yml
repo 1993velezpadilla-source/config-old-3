@@ -1,0 +1,67 @@
+name: Nacht Independent Exact Two Original Bunker Concrete Walls Pixel Fix Review
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-independent-exact-2-bunker-wall-alpha.yml"
+      - "tools/maps/nacht_independent_two_exact_bunker_alpha_fix_pixels.py"
+permissions:
+  contents: read
+  actions: read
+jobs:
+  exact-original-source-2-mesh-material-recover-black-pixels:
+    runs-on: ubuntu-latest
+    timeout-minutes: 58
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXACT_BUNKER_SOURCE_RUN: "37997871522"
+    steps:
+      - uses: actions/checkout@v5
+      - name: Fail closed until 7 real Godot original archive source screenshots are ready
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/maps/nacht_independent_two_exact_bunker_alpha_fix_pixels.py
+          test "$(gh run view 37996808191 --json conclusion --jq '.conclusion')" = success
+          test "$(gh run view 37997123328 --json conclusion --jq '.conclusion')" = success
+          state=""
+          for i in $(seq 1 90); do
+            state="$(gh run view "$EXACT_BUNKER_SOURCE_RUN" --json status --jq '.status')"
+            if test "$state" = completed; then break; fi
+            echo "Waiting real original Godot 2-surface concrete bunker material alpha A/B $i/90"
+            sleep 30
+          done
+          test "$state" = completed || { echo "RED: original source bunker full scene A/B timed out"; exit 1; }
+          test "$(gh run view "$EXACT_BUNKER_SOURCE_RUN" --json conclusion --jq '.conclusion')" = success
+          mkdir -p build/nacht-exact-source-bunker/real-original build/nacht-exact-source-bunker/source-owners
+          gh run download "$EXACT_BUNKER_SOURCE_RUN" \
+            -n Nacht-Original-Bunker-Concrete-Material28-Exactly-2-Source-Actors-3-View-7-PNG \
+            -D build/nacht-exact-source-bunker/real-original
+          gh run download 37997123328 \
+            -n Nacht-574-Original-Actor-Material-Black-Interior-Per-Pixel-Screen-Owner-Godot-Evidence \
+            -D build/nacht-exact-source-bunker/source-owners
+      - name: Compare actual 7 original Godot source screenshot pixels no fake walls, reject no-op candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --user pillow --disable-pip-version-check
+          python3 tools/maps/nacht_independent_two_exact_bunker_alpha_fix_pixels.py \
+            --source build/nacht-exact-source-bunker/real-original \
+            --owners build/nacht-exact-source-bunker/source-owners \
+            --output build/nacht-exact-source-bunker/independent \
+            2>&1 | tee build/nacht-exact-source-bunker/two-source-bunker-real-black-pixels.log
+          grep -q XZOGOT_NACHT_SOURCE_BUNKER_CONCRETE_TWO_SURFACES_BLACK_PIXEL_RECOVERY_GREEN \
+            build/nacht-exact-source-bunker/two-source-bunker-real-black-pixels.log
+          test "$(find build/nacht-exact-source-bunker/independent -name '*-original-vs-exact-2-bunker-wall-source-DDS.png' | wc -l)" -eq 3
+      - name: Preserve exact 3 original-source before-after 2 actor material gallery and numeric black recovery even if RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Exactly-Two-Native-Bunker-Concrete-Source-Surfaces-3-Original-Cameras-Independent-Black-Pixel-QA
+          path: |
+            build/nacht-exact-source-bunker/independent/
+            build/nacht-exact-source-bunker/two-source-bunker-real-black-pixels.log
+          retention-days: 14
+          if-no-files-found: warn
