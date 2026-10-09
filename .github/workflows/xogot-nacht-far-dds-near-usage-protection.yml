@@ -1,0 +1,78 @@
+name: Xogot Nacht Far Exterior DDS Shared Near-Scene Safety Audit (Research)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-far-dds-near-usage-protection.yml"
+      - "tools/maps/audit_nacht_far_dds_near_shared_protection.py"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  do-not-downscale-any-shared-source-near-textures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Require all 10793 source actors, all 574 real material names, far 55m boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          for id in 37944732189 37961985956; do
+            test "$(gh run view "$id" --json conclusion --jq '.conclusion')" = success
+          done
+          echo "XZOGOT_NACHT_FAR_DDS_SCENE_SOURCE_BINDING_DEPENDENCIES_GREEN"
+      - name: Download ONLY two small previously validated metadata artifacts (no 2.1GB image rewrite)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-far-dds/metas build/nacht-far-dds/LOD
+          gh run download 37944732189 \
+            -n Nacht-10793-Original-574-Materials-16595-Source-Surface-Assignments \
+            -D build/nacht-far-dds/metas
+          gh run download 37961985956 \
+            -n Nacht-Original-10793-Exterior-Foliage-World-Distance-LOD-Policy \
+            -D build/nacht-far-dds/LOD
+          test -s build/nacht-far-dds/metas/nacht-actor-material-authority.json
+          test -s build/nacht-far-dds/LOD/original-exterior-source-actor-visual-policy.json
+      - name: Gate no shared source DDS rescaling across far and near meshes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/audit_nacht_far_dds_near_shared_protection.py \
+            --source-materials build/nacht-far-dds/metas/nacht-actor-material-authority.json \
+            --exterior-policy build/nacht-far-dds/LOD/original-exterior-source-actor-visual-policy.json \
+            --output build/nacht-far-dds/safe-original-far-texture-dependencies.json \
+            2>&1 | tee build/nacht-far-dds/source-dds-sharing.log
+          grep -q XZOGOT_NACHT_FAR_EXTERIOR_SOURCE_TEXTURE_SHARING_AUDIT_GREEN \
+            build/nacht-far-dds/source-dds-sharing.log
+          python3 - <<'PY'
+          import json
+          x=json.load(open("build/nacht-far-dds/safe-original-far-texture-dependencies.json"))
+          assert x["original_actor_count"]==10793
+          assert x["original_indexed_material_surface_bindings"]==16595
+          assert x["original_effective_materials"]==574
+          assert x["far_exterior_source_actor_candidates"]==440
+          assert x["source_materials_shared_between_far_and_near_actors"]>0
+          assert x["source_texture_binary_rewritten"] is False
+          assert x["shared_original_close_texture_resolution_changed"] is False
+          assert x["actual_mobile_GPU_memory_or_FPS_measured"] is False
+          print("XZOGOT_NACHT_PROTECTED_SOURCE_DDS_NEAR_CAMERA_FIDELITY_GREEN")
+          PY
+      - name: Preserve actual original scene material sharing audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Original-Far-Woodland-DDS-Sharing-Near-Building-Protection
+          path: |
+            build/nacht-far-dds/safe-original-far-texture-dependencies.json
+            build/nacht-far-dds/source-dds-sharing.log
+          if-no-files-found: warn
+          retention-days: 14
