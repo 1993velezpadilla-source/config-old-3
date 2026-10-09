@@ -1,0 +1,61 @@
+name: Nacht Candidate 360 Yaw Sweep Godot Parser Guard
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-vista-360-candidate-parser.yml"
+      - "tools/maps/nacht_real_vista_360_candidate_view_sweep.gd"
+permissions:
+  contents: read
+jobs:
+  godot-native-parser-research-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Load actual Godot 4.6.1 sweep plus original helper scripts; NO heavy source staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot" build/nacht-360-parser/project
+          curl --fail -L --retry 3 \
+            -o "$RUNNER_TEMP/godot/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64"
+          printf '[application]\nconfig/name="Nacht Source 360 Viewer Parser Guard"\n' > build/nacht-360-parser/project/project.godot
+          for f in nacht_real_vista_360_candidate_view_sweep.gd nacht_apply_source_exterior_visual_lod.gd nacht_apply_source_vista_actor_local_dds.gd nacht_apply_vista_spatial_multimesh_research.gd; do
+            cp "tools/maps/$f" build/nacht-360-parser/project/
+          done
+          cat > build/nacht-360-parser/project/preflight.gd <<'GDS'
+          extends SceneTree
+          func _initialize() -> void:
+              var files: Array[String]=[
+                  "res://nacht_real_vista_360_candidate_view_sweep.gd",
+                  "res://nacht_apply_source_exterior_visual_lod.gd",
+                  "res://nacht_apply_source_vista_actor_local_dds.gd",
+                  "res://nacht_apply_vista_spatial_multimesh_research.gd"]
+              for f: String in files:
+                  var sc: Script=load(f) as Script
+                  if sc==null or not sc.can_instantiate():
+                      push_error("XZOGOT_NACHT_VISTA_360_SOURCE_SCRIPT_RED "+f)
+                      quit(2)
+                      return
+              print("XZOGOT_NACHT_VISTA_360_SOURCE_GODOT461_PARSER_GREEN")
+              quit(0)
+          GDS
+          timeout 75 "$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64" --headless \
+            --path build/nacht-360-parser/project --script res://preflight.gd \
+            2>&1 | tee build/nacht-360-parser/godot-4.6.1-parser.log
+          grep -q XZOGOT_NACHT_VISTA_360_SOURCE_GODOT461_PARSER_GREEN build/nacht-360-parser/godot-4.6.1-parser.log
+          ! grep -E "SCRIPT ERROR|Parse Error" build/nacht-360-parser/godot-4.6.1-parser.log
+      - name: Preserve parser-only RED/GREEN
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-360-Candidate-Yaw-Sweep-Real-Godot-Parser-Guard
+          path: build/nacht-360-parser/godot-4.6.1-parser.log
+          retention-days: 14
+          if-no-files-found: warn
