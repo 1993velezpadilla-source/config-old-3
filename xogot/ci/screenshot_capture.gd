@@ -123,8 +123,16 @@ func _capture() -> void:
 		)
 
 	var round_manager: Node = scene.get_node_or_null("RoundManager")
+	# CI-only reversible A/B: identify whether full-scene process exit=1
+	# comes from the single live source zombie or the render/weapon stack.
+	var skip_zombie_for_diagnostic := OS.get_environment("XOGOT_CAPTURE_SKIP_ZOMBIE") == "1"
 	if round_manager != null:
 		round_manager.set("auto_start", false)
+		if skip_zombie_for_diagnostic:
+			round_manager.set_process(false)
+			round_manager.set_physics_process(false)
+			print("XZOGOT_SCREENSHOT_NO_ZOMBIE_CLEANUP_AB")
+	if round_manager != null and not skip_zombie_for_diagnostic:
 		round_manager.call("start_next_round")
 		var zombie: Node3D = round_manager.call("spawn_one") as Node3D
 		if zombie != null:
