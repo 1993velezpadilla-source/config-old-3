@@ -24,7 +24,7 @@ func apply_source_architecture_opaque_research(
     for candidate_any: Variant in policy.get("candidates",[]):
         var candidate: Dictionary=candidate_any as Dictionary
         var path: String=str(candidate.get("materialPath",""))
-        if permitted.has(path) or not path.contains("/CoD_nacht/materials/"):
+        if permitted.has(path) or not (path.contains("/CoD_nacht/materials/") or path.contains("/CoD_nacht/MAP_FILES/")):
             return {"errors":["invalid or duplicate original architecture material path"]}
         permitted[path]=true
     if permitted.size()!=26:
