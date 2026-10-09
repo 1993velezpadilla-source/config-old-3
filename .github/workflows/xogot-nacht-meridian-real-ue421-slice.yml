@@ -7,6 +7,8 @@ on:
       - research/nacht-bo3-meridian-source-bridge-20261009
     paths:
       - ".github/workflows/xogot-nacht-meridian-real-ue421-slice.yml"
+      - "tools/maps/nacht_meridian_source_bridge.py"
+      - "tools/maps/validate_meridian_nacht_gltf.py"
 
 permissions:
   contents: read
