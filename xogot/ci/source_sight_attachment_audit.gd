@@ -174,7 +174,11 @@ func _inspect() -> void:
 		var marker_error_m := -1.0
 		var marker_camera_depth_m := 0.0
 		if gun_skeleton != null and id != "mp40":
-			for tag in ["tag_iron_sights", "tag_scope", "tag_no_scope"]:
+			# Scope sockets are attachment points, NOT rear iron sights.
+			# Arisaka tag_scope is behind the camera; its forced centering
+			# produced giant obstructive hands and an artificial false GREEN.
+			var accepted_sight_tags: Array[String] = ["tag_scope", "tag_no_scope"] if id in ["mosin", "ptrs"] else ["tag_iron_sights"]
+			for tag in accepted_sight_tags:
 				var idx := gun_skeleton.find_bone(tag)
 				if idx >= 0:
 					var marker_camera: Vector3 = cam.to_local(
