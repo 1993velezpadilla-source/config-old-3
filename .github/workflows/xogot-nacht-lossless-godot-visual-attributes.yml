@@ -1,0 +1,176 @@
+name: Xogot Nacht 10793 Runtime UV and Material Surface Audit (Research)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-lossless-godot-visual-attributes.yml"
+      - "tools/maps/count_nacht_gltf_visual_attributes.py"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  godot-source-visual-attributes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Require original native mesh index and Godot runtime triangle gates GREEN
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh run view 37938836028 --json conclusion --jq '.conclusion')" = success
+          test "$(gh run view 37939504798 --json conclusion --jq '.conclusion')" = success
+          echo "XZOGOT_NACHT_ORIGINAL_TRIANGLE_AND_GODOT_GATES_GREEN"
+      - name: Fetch exact already approved lossless original native GLB and Godot project
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-visual/artifact
+          gh run download 37938836028 -n Nacht-LOSSLESS-Native-493-GLB-10793-Actor-Godot-Research-Proof -D build/nacht-visual/artifact
+          PROJECT=$(find build/nacht-visual/artifact -name project.godot -type f -print -quit)
+          GLB=$(find build/nacht-visual/artifact -name Nacht_Source_Bridge_Probe.glb -type f -print -quit)
+          test -s "$PROJECT" && test -s "$GLB"
+          echo "PROJECT=$(dirname "$PROJECT")" >> "$GITHUB_ENV"
+          echo "GLB=$PWD/$GLB" >> "$GITHUB_ENV"
+      - name: Independently count source glTF UV normals tangents vertex colors and material declarations
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/count_nacht_gltf_visual_attributes.py \
+            --glb "$GLB" --output "$PROJECT/source-visual-attributes.json" \
+            2>&1 | tee build/nacht-visual/source-attributes.log
+          grep -q XZOGOT_NACHT_GLTF_NATIVE_VISUAL_ATTRIBUTE_BASELINE_GREEN build/nacht-visual/source-attributes.log
+          cp "$PROJECT/source-visual-attributes.json" build/nacht-visual/source-attributes.json
+      - name: Godot 4.6.1 ACTUAL MeshInstance3D UV normal tangent and material binding parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot"
+          curl --fail -L --retry 3 -o "$RUNNER_TEMP/godot/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64"
+          chmod +x "$GODOT"
+          "$GODOT" --headless --path "$PROJECT" --import 2>&1 | tee build/nacht-visual/godot-import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load" build/nacht-visual/godot-import.log
+          cat > "$PROJECT"/probe_visual_attributes.gd <<'GDS'
+          extends SceneTree
+
+          func _initialize() -> void:
+              call_deferred("_run")
+
+          func _run() -> void:
+              var text_data: String = FileAccess.get_file_as_string("res://source-visual-attributes.json")
+              var expected: Dictionary = JSON.parse_string(text_data)
+              var source_counts: Dictionary = expected["counts"]
+              var scene: PackedScene = load("res://scenes/main.tscn") as PackedScene
+              if scene == null:
+                  push_error("XZOGOT_NACHT_VISUAL_SCENE_LOAD_RED")
+                  quit(3)
+                  return
+              var world: Node = scene.instantiate()
+              get_root().add_child(world)
+              var meshes: Array[Node] = world.find_children("*", "MeshInstance3D", true, false)
+              var counts: Dictionary = {
+                  "surfaces": 0,
+                  "position_vertices": 0,
+                  "normals_surfaces": 0, "normals_vertices": 0,
+                  "tangents_surfaces": 0, "tangents_vertices": 0,
+                  "uv0_surfaces": 0, "uv0_vertices": 0,
+                  "uv1_surfaces": 0, "uv1_vertices": 0,
+                  "colors_surfaces": 0, "colors_vertices": 0,
+                  "bound_material_surfaces": 0,
+                  "unbound_material_surfaces": 0
+              }
+              var attr_flags: Dictionary = {
+                  "normals": Mesh.ARRAY_FORMAT_NORMAL,
+                  "tangents": Mesh.ARRAY_FORMAT_TANGENT,
+                  "uv0": Mesh.ARRAY_FORMAT_TEX_UV,
+                  "uv1": Mesh.ARRAY_FORMAT_TEX_UV2,
+                  "colors": Mesh.ARRAY_FORMAT_COLOR
+              }
+              for node in meshes:
+                  var mi: MeshInstance3D = node as MeshInstance3D
+                  var mesh: Mesh = mi.mesh
+                  if mesh == null:
+                      push_error("XZOGOT_NACHT_VISUAL_MESH_NULL_RED")
+                      quit(4)
+                      return
+                  for s in range(mesh.get_surface_count()):
+                      var n: int = mesh.surface_get_array_len(s)
+                      var fmt: int = mesh.surface_get_format(s)
+                      counts["surfaces"] += 1
+                      counts["position_vertices"] += n
+                      for label: String in attr_flags:
+                          if (fmt & int(attr_flags[label])) != 0:
+                              counts[label + "_surfaces"] += 1
+                              counts[label + "_vertices"] += n
+                      var material: Material = mesh.surface_get_material(s)
+                      if mi.material_override != null or material != null:
+                          counts["bound_material_surfaces"] += 1
+                      else:
+                          counts["unbound_material_surfaces"] += 1
+              var errors: Array[String] = []
+              if meshes.size() != int(expected["mesh_instances"]):
+                  errors.append("actors_meshes=" + str(meshes.size()) + " expected=" + str(expected["mesh_instances"]))
+              var ordered: Array[String] = [
+                  "surfaces", "position_vertices",
+                  "normals_surfaces", "normals_vertices",
+                  "tangents_surfaces", "tangents_vertices",
+                  "uv0_surfaces", "uv0_vertices",
+                  "uv1_surfaces", "uv1_vertices",
+                  "colors_surfaces", "colors_vertices",
+                  "bound_material_surfaces"
+              ]
+              for name in ordered:
+                  if int(counts[name]) != int(source_counts.get(name, 0)):
+                      errors.append(name + "=" + str(counts[name]) + " expected=" + str(source_counts.get(name, 0)))
+              var evidence: Dictionary = {
+                  "source": "archived Pavlov UE4.21, NOT original BO3 T7",
+                  "godot_engine": Engine.get_version_info().get("string", ""),
+                  "mesh_instances": meshes.size(),
+                  "source_counts": source_counts,
+                  "actual_godot_counts": counts,
+                  "errors": errors,
+                  "claims_rendered_material_identical": false,
+                  "claims_per_pixel_textures_identical": false
+              }
+              var out: FileAccess = FileAccess.open("res://godot-visual-attributes.json", FileAccess.WRITE)
+              out.store_string(JSON.stringify(evidence, "\t"))
+              out.close()
+              world.queue_free()
+              if not errors.is_empty():
+                  push_error("XZOGOT_NACHT_GODOT_VISUAL_ATTRIBUTE_PARITY_RED " + str(errors))
+                  quit(6)
+                  return
+              print("XZOGOT_NACHT_GODOT_NATIVE_VISUAL_ATTRIBUTE_PARITY_GREEN",
+                  " actors=", meshes.size(), " surfaces=", counts["surfaces"],
+                  " uv0=", counts["uv0_surfaces"],
+                  " normals=", counts["normals_surfaces"],
+                  " material_surfaces=", counts["bound_material_surfaces"])
+              quit(0)
+          GDS
+          "$GODOT" --headless --path "$PROJECT" --script res://probe_visual_attributes.gd \
+            2>&1 | tee build/nacht-visual/godot-visual-attributes.log
+          cp "$PROJECT/godot-visual-attributes.json" build/nacht-visual/godot-visual-attributes.json
+          grep -q XZOGOT_NACHT_GODOT_NATIVE_VISUAL_ATTRIBUTE_PARITY_GREEN build/nacht-visual/godot-visual-attributes.log
+      - name: Preserve trustworthy GREEN/RED evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-10793-Real-Godot-Native-UV-Normal-Materials-Parity
+          path: |
+            build/nacht-visual/source-attributes.log
+            build/nacht-visual/source-attributes.json
+            build/nacht-visual/godot-import.log
+            build/nacht-visual/godot-visual-attributes.log
+            build/nacht-visual/godot-visual-attributes.json
+          if-no-files-found: warn
+          retention-days: 14
