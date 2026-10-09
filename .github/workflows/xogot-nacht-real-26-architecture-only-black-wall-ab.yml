@@ -8,6 +8,7 @@ on:
     paths:
       - ".github/workflows/xogot-nacht-real-26-architecture-only-black-wall-ab.yml"
       - "tools/maps/nacht_real_26_architecture_only_black_wall_a_b.gd"
+      - "tools/maps/nacht_apply_conservative_opaque_architecture_research.gd"
       - "tools/maps/nacht_apply_vista_spatial_multimesh_research.gd"
 
 permissions:
