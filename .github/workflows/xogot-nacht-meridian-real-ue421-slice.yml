@@ -42,9 +42,9 @@ jobs:
           data=json.loads(pathlib.Path(sys.argv[1]).read_text())
           assert data['format']=='xziel_visual_scene_v1',data.get('format')
           assert data['summary']['ready'] is True
-          assert len(data['instances'])>=12,len(data['instances'])
+          assert len(data['instances'])>=128,len(data['instances'])
           missing=[]
-          for row in data['instances'][:12]:
+          for row in data['instances'][:128]:
               m=data['meshes'][row['meshIndex']]
               fn=pathlib.Path(m['runtimeFile']).stem+'.glb'
               p=pathlib.Path(sys.argv[2])/fn
@@ -53,7 +53,7 @@ jobs:
           print('XZOGOT_NACHT_REAL_PAVLOV_SOURCE_READY',
                 'instances=',len(data['instances']),
                 'meshes=',len(data['meshes']),
-                'first12_NativeGLBs_present=true')
+                'first128_NativeGLBs_present=true')
           print('XZOGOT_NACHT_NOT_2017_BO3_T7_SOURCE')
           PY
       - name: Install pin-blender and independently pinned Meridian
@@ -74,7 +74,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          "$BLENDER" --background --factory-startup             --python tools/maps/nacht_meridian_source_bridge.py --             --scene "$UE_SCENE" --mesh-root "$UE_MESHES"             --meridian-parent "$MERIDIAN_PARENT"             --out "$PWD/build/nacht-meridian-real"             --max-instances 12             2>&1 | tee build/nacht-meridian-real/blender-real-source.log
+          "$BLENDER" --background --factory-startup             --python tools/maps/nacht_meridian_source_bridge.py --             --scene "$UE_SCENE" --mesh-root "$UE_MESHES"             --meridian-parent "$MERIDIAN_PARENT"             --out "$PWD/build/nacht-meridian-real"             --max-instances 128             2>&1 | tee build/nacht-meridian-real/blender-real-source.log
           grep -q "XZOGOT_NACHT_MERIDIAN_REAL_ADDON_COMPILE_GREEN test_fixture= False"             build/nacht-meridian-real/blender-real-source.log
           python3 tools/maps/validate_meridian_nacht_gltf.py             --glb build/nacht-meridian-real/godot/assets/meshes/Nacht_Source_Bridge_Probe.glb             --report build/nacht-meridian-real/source-equivalence.json             --output build/nacht-meridian-real/transform-parity.json             2>&1 | tee build/nacht-meridian-real/transform-parity.log
           grep -q "XZOGOT_NACHT_MERIDIAN_SOURCE_XFORM_GREEN"             build/nacht-meridian-real/transform-parity.log
@@ -91,17 +91,58 @@ jobs:
             --output build/nacht-meridian-real/source-vertex-bounds-parity.json \
             2>&1 | tee build/nacht-meridian-real/source-vertex-bounds-parity.log
           grep -q "XZOGOT_NACHT_REAL_SOURCE_GEOMETRY_PARITY_GREEN" build/nacht-meridian-real/source-vertex-bounds-parity.log
+      - name: Import independent 128 real actors in Godot 4.6.1 (not only GLB JSON)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot"
+          curl --fail -L --retry 3 -o "$RUNNER_TEMP/godot/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64"
+          chmod +x "$GODOT"
+          "$GODOT" --headless --path build/nacht-meridian-real/godot --import \
+            2>&1 | tee build/nacht-meridian-real/godot-real-import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load" build/nacht-meridian-real/godot-real-import.log
+          cat > build/nacht-meridian-real/godot/real_source_gate.gd <<'GDS'
+          extends SceneTree
+          func _initialize() -> void:
+              call_deferred("_run")
+          func _run() -> void:
+              var pack: PackedScene = load("res://scenes/main.tscn") as PackedScene
+              if pack == null:
+                  push_error("XZOGOT_MERIDIAN_REAL_NACHT_SCENE_LOAD_RED")
+                  quit(4)
+                  return
+              var world: Node = pack.instantiate()
+              get_root().add_child(world)
+              var meshes := world.find_children("*", "MeshInstance3D", true, false).size()
+              if meshes < 128:
+                  push_error("XZOGOT_MERIDIAN_REAL_NACHT_MESH_LOSS count=" + str(meshes))
+                  quit(5)
+                  return
+              print("XZOGOT_NACHT_REAL_MERIDIAN_GODOT_4_6_GREEN actors=128 meshes=",meshes)
+              world.queue_free()
+              quit(0)
+          GDS
+          "$GODOT" --headless --path build/nacht-meridian-real/godot \
+            --script res://real_source_gate.gd \
+            2>&1 | tee build/nacht-meridian-real/godot-real-runtime.log
+          grep -q "XZOGOT_NACHT_REAL_MERIDIAN_GODOT_4_6_GREEN" \
+            build/nacht-meridian-real/godot-real-runtime.log
       - name: Preserve all real source comparison evidence even on RED
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Nacht-UE421-Archived-Source-Meridian-First12-Independent-AB
+          name: Nacht-UE421-Archived-Source-Meridian-First128-Independent-AB
           path: |
             build/nacht-meridian-real/source-download.log
             build/nacht-meridian-real/blender-real-source.log
             build/nacht-meridian-real/source-equivalence.json
             build/nacht-meridian-real/transform-parity.*
             build/nacht-meridian-real/source-vertex-bounds-parity.*
+            build/nacht-meridian-real/godot-real-import.log
+            build/nacht-meridian-real/godot-real-runtime.log
             build/nacht-meridian-real/godot/project.godot
             build/nacht-meridian-real/godot/scenes/*.tscn
             build/nacht-meridian-real/godot/assets/meshes/*.glb
