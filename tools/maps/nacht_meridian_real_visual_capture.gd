@@ -146,10 +146,29 @@ func _capture() -> void:
         {"name":"06-diagnostic-spawn6-ambient",
          "camera":Vector3(11.61863,1.65,-0.325515),
          "target":Vector3(4.5,1.6,0.4),
-         "diagnostic":true}
+         "diagnostic":true},
+        # NIGHT LOOK DEV ONLY: source original lights/mesh/materials unchanged,
+        # two separate color-balanced non-source atmospheric fill strengths.
+        {"name":"07-night-lookdev-moon-overview",
+         "camera":Vector3(24.66175,37.85322,19.89849),
+         "target":Vector3(-2.494789,3.153206,-7.258049),
+         "nightProfile":"moon"},
+        {"name":"08-night-lookdev-moon-interior",
+         "camera":Vector3(11.61863,1.65,-0.325515),
+         "target":Vector3(4.5,1.6,0.4),
+         "nightProfile":"moon"},
+        {"name":"09-night-lookdev-dark-overview",
+         "camera":Vector3(24.66175,37.85322,19.89849),
+         "target":Vector3(-2.494789,3.153206,-7.258049),
+         "nightProfile":"dark"},
+        {"name":"10-night-lookdev-dark-interior",
+         "camera":Vector3(11.61863,1.65,-0.325515),
+         "target":Vector3(4.5,1.6,0.4),
+         "nightProfile":"dark"}
     ]
     var results: Array[Dictionary] = []
     var diagnostic_env_set: bool = false
+    var source_sky_environment: Environment = null
     for view in views:
         var name: String = str(view["name"])
         if bool(view.get("diagnostic",false)) and not diagnostic_env_set:
@@ -173,6 +192,7 @@ func _capture() -> void:
             # and ambient_light_energy. Also, current Camera3D environments have
             # priority over WorldEnvironment; force the override explicitly.
             # Reference: Godot 4.6 Environment docs.
+            source_sky_environment = source_sky.environment
             var diagnostic_environment: Environment = source_sky.environment.duplicate(true) as Environment
             diagnostic_environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
             diagnostic_environment.ambient_light_sky_contribution = 0.0
@@ -190,6 +210,36 @@ func _capture() -> void:
                   " diagnostic_sky_contribution=",cam.environment.ambient_light_sky_contribution,
                   " diagnostic_color=",cam.environment.ambient_light_color,
                   " diagnostic_energy=",cam.environment.ambient_light_energy)
+        var night_profile: String = str(view.get("nightProfile",""))
+        if not night_profile.is_empty():
+            if source_sky_environment == null:
+                push_error("XZOGOT_NACHT_NIGHT_SOURCE_SKY_NOT_FOUND_RED")
+                quit(30)
+                return
+            var look_env: Environment = source_sky_environment.duplicate(true) as Environment
+            look_env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+            look_env.ambient_light_sky_contribution = 0.0
+            look_env.background_mode = Environment.BG_COLOR
+            # Blue-gray moon ambience, with near-black background.
+            # These are carefully LABELED visual look-dev values, not
+            # unverified source-authored UE4 postprocess/lightmaps.
+            if night_profile == "moon":
+                look_env.ambient_light_color = Color(0.46,0.54,0.69)
+                look_env.ambient_light_energy = 0.72
+                look_env.background_color = Color(0.013,0.021,0.040)
+            elif night_profile == "dark":
+                look_env.ambient_light_color = Color(0.40,0.47,0.60)
+                look_env.ambient_light_energy = 0.47
+                look_env.background_color = Color(0.008,0.013,0.025)
+            else:
+                push_error("XZOGOT_NACHT_UNKNOWN_NIGHT_LOOKDEV_PROFILE_RED "+night_profile)
+                quit(31)
+                return
+            cam.environment = look_env
+            print("XZOGOT_NACHT_NIGHT_LOOKDEV_PROFILE_SET",night_profile,
+                  " sky_contribution=",look_env.ambient_light_sky_contribution,
+                  " color=",look_env.ambient_light_color,
+                  " ambient_energy=",look_env.ambient_light_energy)
         cam.global_position=view["camera"]
         cam.look_at(view["target"],Vector3.UP)
         for _i in range(8):
@@ -229,6 +279,7 @@ func _capture() -> void:
             "sourceTextures":true,
             "nativeLights":166,
             "diagnosticGodotAmbientOverride":bool(view.get("diagnostic",false)),
+            "nightLookDevProfile":str(view.get("nightProfile","")),
             "renderMethod":"Godot 4.6.1 gl_compatibility",
             "claimsOriginalBO3T7":false
         })
@@ -284,6 +335,54 @@ func _capture() -> void:
             quit(29)
             return
 
+    # Complete A/B: daylight-style diagnostic must be brighter than
+    # BOTH night tests, and BOTH night tests must reveal more than source
+    # zero-indirect-light fallback. Prevent another false-positive GREEN.
+    var night_comparisons: Array[Dictionary] = []
+    var tests: Array[Array] = [
+        ["01-source-overview","07-night-lookdev-moon-overview",
+         "09-night-lookdev-dark-overview","05-diagnostic-overview-ambient"],
+        ["04-source-spawn6-interior","08-night-lookdev-moon-interior",
+         "10-night-lookdev-dark-interior","06-diagnostic-spawn6-ambient"]
+    ]
+    for pair in tests:
+        var mean_values: Array[float] = []
+        var black_ratios: Array[float] = []
+        for item in pair:
+            var frame: Image = Image.load_from_file("res://"+str(item)+".png")
+            if frame==null or frame.is_empty():
+                push_error("XZOGOT_NACHT_MISSING_NIGHT_OR_SOURCE_AB_IMAGE_RED "+str(item))
+                quit(32)
+                return
+            var total: float = 0.0
+            var blacks: int = 0
+            var n: int = 0
+            for y in range(0,frame.get_height(),8):
+                for x in range(0,frame.get_width(),8):
+                    var rgb: Color=frame.get_pixel(x,y)
+                    var lum: float=0.2126*rgb.r+0.7152*rgb.g+0.0722*rgb.b
+                    total+=lum
+                    if lum<0.035:
+                        blacks+=1
+                    n+=1
+            mean_values.append(total/float(n))
+            black_ratios.append(float(blacks)/float(n))
+        var summary: Dictionary = {
+            "source":str(pair[0]),"moon":str(pair[1]),
+            "dark":str(pair[2]),"daylightDiagnostic":str(pair[3]),
+            "meanLuminance":mean_values,
+            "blackFraction":black_ratios,
+            "NOTOriginalUE4Lighting":true
+        }
+        night_comparisons.append(summary)
+        print("XZOGOT_NACHT_NIGHT_LOOKDEV_SOURCE_DARK_MOON_DAYLIGHT_PIXEL_AB ",JSON.stringify(summary))
+        if not (mean_values[0]+0.007 < mean_values[2] and
+                mean_values[2]+0.005 < mean_values[1] and
+                mean_values[1]+0.015 < mean_values[3]):
+            push_error("XZOGOT_NACHT_NIGHT_LOOKDEV_EXPOSURE_ORDER_RED "+JSON.stringify(summary))
+            quit(33)
+            return
+    print("XZOGOT_NACHT_NIGHT_LOOKDEV_EXPOSURE_BRACKET_GREEN both_camera_views=2")
     var audit: Dictionary={
         "authority":"Pavlov UE4.21 archived source - NOT original BO3 T7",
         "renderedGodot":Engine.get_version_info().get("string",""),
@@ -292,6 +391,8 @@ func _capture() -> void:
         "sourceDiffuseTexturedSurfaces":textured,
         "sourceLights":166,
         "diagnosticAmbientPixelComparisons":diag_comparison,
+        "nightLookdevPixelComparisons":night_comparisons,
+        "nightLookdevIsSourceFaithful":false,
         "diagnosticAmbientCameraEnvironmentForced":true,
         "sourceLitFirstFourUnchanged":true,
         "views":results,
