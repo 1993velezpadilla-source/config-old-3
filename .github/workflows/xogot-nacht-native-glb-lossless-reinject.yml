@@ -100,11 +100,11 @@ jobs:
           unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
           GODOT="$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64"
           chmod +x "$GODOT"
-          cp -a "$MERIDIAN_PROJECT"/. build/nacht-lossless/new-godot/
+          # Preserve the source-native output BEFORE copying the old Meridian
+          # project skeleton (which contains the previously lossy GLB).
           cp build/nacht-lossless/new-godot/assets/meshes/Nacht_Source_Bridge_Probe.glb \
             "$RUNNER_TEMP/lossless_source_backup.glb"
-          # An existing old geometry mesh file from Meridian's project copy
-          # must never overwrite the new source-native GLB.
+          cp -a "$MERIDIAN_PROJECT"/. build/nacht-lossless/new-godot/
           cp "$RUNNER_TEMP/lossless_source_backup.glb" \
             build/nacht-lossless/new-godot/assets/meshes/Nacht_Source_Bridge_Probe.glb
           "$GODOT" --headless --path build/nacht-lossless/new-godot --import \
