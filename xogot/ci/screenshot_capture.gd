@@ -283,5 +283,17 @@ func _capture() -> void:
 		await process_frame
 	await create_timer(0.12).timeout
 	print("XZOGOT_SCREENSHOT_3_FRAME_LIFECYCLE_TEARDOWN_COMPLETE")
-	quit(0)
+	# Release this capture coroutine's strong local references to the original
+	# PackedScene, 3 large Image resources, zombie, mesh and WorldEnvironment
+	# BEFORE Godot processes SceneTree.quit; immediate quit retained 6 live
+	# resources even after the scene itself was queue_freed.
+	call_deferred("_exit_after_capture_stack_unwinds")
 	return
+
+func _exit_after_capture_stack_unwinds() -> void:
+	# This separate callback runs after _capture() returned and its temporary
+	# source image/scene references left scope. Keep strict exit-code gate.
+	await process_frame
+	await create_timer(0.1).timeout
+	print("XZOGOT_SCREENSHOT_CAPTURE_SCOPE_RELEASED_CLEAN_EXIT")
+	quit(0)
