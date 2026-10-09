@@ -1,0 +1,100 @@
+name: Xogot Nacht 166 Real Source Lights Godot A-B (Research)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-real-ue421-lights-godot.yml"
+      - "tools/maps/nacht_real_source_lights_godot_probe.gd"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  original-ue421-light-transform-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Require all archived world geometry source and ALL authored materials previous GREEN
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh run view 37938836028 --json conclusion --jq '.conclusion')" = success
+          test "$(gh run view 37945872261 --json conclusion --jq '.conclusion')" = success
+          echo "XZOGOT_NACHT_ALL_REAL_MESHES_AND_MATERIALS_GODOT_DEPENDENCY_GREEN"
+
+      - name: Reuse immutable source geometry GLB Godot project and source-authoritative UE4.21 light report
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-source-lights/artifact "$RUNNER_TEMP/real-source"
+          gh run download 37938836028 -n Nacht-LOSSLESS-Native-493-GLB-10793-Actor-Godot-Research-Proof \
+            -D build/nacht-source-lights/artifact \
+            2>&1 | tee build/nacht-source-lights/geometry-download.log
+          gh run download 37762871109 -n Xogot-Nacht-Chronicles-Godot-Runtime \
+            -D "$RUNNER_TEMP/real-source" \
+            2>&1 | tee build/nacht-source-lights/source-download.log
+          PROJECT=$(find build/nacht-source-lights/artifact -name project.godot -type f -print -quit)
+          XZEN=$(find "$RUNNER_TEMP/real-source" -name xzen-report.json -type f -print -quit)
+          test -s "$PROJECT" && test -s "$XZEN"
+          echo "GODOT_PROJECT=$(dirname "$PROJECT")" >> "$GITHUB_ENV"
+          echo "ORIGINAL_LIGHT_REPORT=$XZEN" >> "$GITHUB_ENV"
+
+      - name: Prepare exact original light metadata without synthetic lighting or extra GLB material guesses
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GODOT_PROJECT/nacht-authority" "$GODOT_PROJECT/scripts"
+          cp "$ORIGINAL_LIGHT_REPORT" "$GODOT_PROJECT/nacht-authority/xzen-report.json"
+          cp xogot/scripts/xziel_benchmark_loader.gd "$GODOT_PROJECT/scripts/xziel_benchmark_loader.gd"
+          cp tools/maps/nacht_real_source_lights_godot_probe.gd \
+            "$GODOT_PROJECT/nacht_real_source_lights_godot_probe.gd"
+          python3 - "$ORIGINAL_LIGHT_REPORT" <<'PY'
+          import json,sys,collections
+          p=json.load(open(sys.argv[1]))
+          rows=p.get("lights",[])
+          types=collections.Counter(str(x.get("componentType")) for x in rows)
+          print("XZOGOT_NACHT_REAL_SOURCE_LIGHT_TYPES",len(rows),dict(types))
+          assert len(rows)==166,len(rows)
+          assert set(types).issubset({"point","spot","directional","sky"}),types
+          PY
+
+      - name: Actually mount 166 source-authored lights into REAL Godot 4.6.1 Meridian 10793 mesh scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot"
+          curl --fail -L --retry 3 -o "$RUNNER_TEMP/godot/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64"
+          chmod +x "$GODOT"
+          "$GODOT" --headless --path "$GODOT_PROJECT" --import \
+            2>&1 | tee build/nacht-source-lights/godot-import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load" \
+            build/nacht-source-lights/godot-import.log
+          "$GODOT" --headless --path "$GODOT_PROJECT" \
+            --script res://nacht_real_source_lights_godot_probe.gd \
+            2>&1 | tee build/nacht-source-lights/godot-real-lights.log
+          cp "$GODOT_PROJECT/native-source-light-audit.json" \
+            build/nacht-source-lights/godot-source-light-audit.json
+          grep -q XZOGOT_NACHT_166_REAL_UE421_LIGHTS_GODOT_SOURCE_PLACEMENT_GREEN \
+            build/nacht-source-lights/godot-real-lights.log
+
+      - name: Archive proof, never call this visual pixel / gameplay / Android equivalence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Godot-166-Archived-UE421-Source-Light-Placement-Proof
+          path: |
+            build/nacht-source-lights/godot-real-lights.log
+            build/nacht-source-lights/godot-import.log
+            build/nacht-source-lights/godot-source-light-audit.json
+          retention-days: 14
+          if-no-files-found: warn
