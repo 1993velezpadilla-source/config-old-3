@@ -1,0 +1,76 @@
+name: Xogot Nacht REAL 718 DDS Mobile Texture Budget Audit (Research)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-718-source-dds-mobile-budget.yml"
+      - "tools/maps/audit_nacht_718_dds_mobile_budget.py"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  source-compressed-original-texture-footprint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Require all original Pavlov-source Godot material and textured MultiMesh gates GREEN
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh run view 37945872261 --json conclusion --jq '.conclusion')" = success
+          test "$(gh run view 37958740745 --json conclusion --jq '.conclusion')" = success
+          echo "XZOGOT_NACHT_NATIVE_718_DDS_AND_GODOT_MULTIMESH_AUTHORITIES_GREEN"
+
+      - name: Recover original archived 718 in-use DDS and source authored XZML catalog
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-mobile-dds "$RUNNER_TEMP/source"
+          gh run download 37762871109 -n Xogot-Nacht-Chronicles-Godot-Runtime \
+            -D "$RUNNER_TEMP/source" \
+            2>&1 | tee build/nacht-mobile-dds/original-archive-download.log
+          XZML=$(find "$RUNNER_TEMP/source" -type f -name xzml-report.json -print -quit)
+          DDS=$(find "$RUNNER_TEMP/source" -type d -name textures_dds -print -quit)
+          test -s "$XZML" && test -d "$DDS"
+          echo "SOURCE_XZML=$XZML" >> "$GITHUB_ENV"
+          echo "SOURCE_DDS=$DDS" >> "$GITHUB_ENV"
+
+      - name: Inspect original DDS FOURCC/DXGI compression formats, source image sizes and actual compressed on-disk bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/audit_nacht_718_dds_mobile_budget.py \
+            --xzml "$SOURCE_XZML" --dds "$SOURCE_DDS" \
+            --output build/nacht-mobile-dds/718-used-dds-source-mobile-footprint.json \
+            2>&1 | tee build/nacht-mobile-dds/718-native-source-texture-footprint.log
+          grep -q XZOGOT_NACHT_718_SOURCE_DDS_NATIVE_MOBILE_ASSET_INVENTORY_GREEN \
+            build/nacht-mobile-dds/718-native-source-texture-footprint.log
+          python3 - <<'PY'
+          import json
+          d=json.load(open("build/nacht-mobile-dds/718-used-dds-source-mobile-footprint.json"))
+          assert d["source_used_DDS_assets"]==718
+          assert d["exact_source_used_compressed_DDS_bytes"]>0
+          assert d["source_image_count_with_integrity_errors"]==0
+          assert not d["mobile_APK_binary_size_measured"]
+          assert not d["android_astc_etc2_transcode_not_performed"] is False
+          print("XZOGOT_NACHT_SOURCE_DDS_MOBILE_FOOTPRINT_PROVEN_NO_FAKE_ANDROID_BENCHMARK_GREEN")
+          PY
+
+      - name: Archive original source format-size evidence for future optimized APK design
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-718-Genuine-Source-DDS-Mobile-Package-Budget-Audit
+          path: |
+            build/nacht-mobile-dds/718-used-dds-source-mobile-footprint.json
+            build/nacht-mobile-dds/718-native-source-texture-footprint.log
+          retention-days: 14
+          if-no-files-found: warn
