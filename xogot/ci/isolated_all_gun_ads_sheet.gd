@@ -51,6 +51,40 @@ func _ads_frame_obstruction(frame: Image) -> Dictionary:
 		"right_fraction": float(right_foreground) / maxf(float(right_samples), 1.0)
 	}
 
+# Reversible rendering A/B: distinguish obstruction from the imported hand
+# mesh versus the real source firearm. CI-only; never alter source assets.
+func _diagnose_occluding_parts(weapon: Node, id: String) -> void:
+	var firearm: Node3D = weapon.get("_weapon_model_root") as Node3D
+	var hands: Node3D = weapon.get("_hands_model_root") as Node3D
+	if firearm == null or hands == null:
+		return
+	var diagnostic_dir := "/tmp/xogot-sight-component-ab"
+	DirAccess.make_dir_recursive_absolute(diagnostic_dir)
+	firearm.visible = false
+	await process_frame
+	await process_frame
+	var hands_frame := root.get_texture().get_image()
+	if hands_frame != null and not hands_frame.is_empty():
+		hands_frame.save_png(diagnostic_dir + "/" + id + "-hands-only.png")
+		print("XZOGOT_ADS_AB_HANDS_ONLY ",id," ",_ads_frame_obstruction(hands_frame))
+	firearm.visible = true
+	var hidden: Array[MeshInstance3D] = []
+	for child: Node in hands.find_children("*", "MeshInstance3D", true, false):
+		if child is MeshInstance3D and not firearm.is_ancestor_of(child):
+			var node := child as MeshInstance3D
+			if node.visible:
+				hidden.append(node)
+				node.visible = false
+	await process_frame
+	await process_frame
+	var firearm_frame := root.get_texture().get_image()
+	if firearm_frame != null and not firearm_frame.is_empty():
+		firearm_frame.save_png(diagnostic_dir + "/" + id + "-firearm-only.png")
+		print("XZOGOT_ADS_AB_FIREARM_ONLY ",id," ",_ads_frame_obstruction(firearm_frame))
+	for node: MeshInstance3D in hidden:
+		node.visible = true
+	await process_frame
+
 func _start() -> void:
 	DirAccess.make_dir_recursive_absolute(OUT)
 	# Reproducible uncluttered studio: imported gun+hands are exactly the same
@@ -196,6 +230,8 @@ func _start() -> void:
 					" right_edge_obstruction_fraction=",right_fraction)
 				if upper_fraction > 0.20 or right_fraction > 0.50:
 					errs.append(id+":real_gpu_viewmodel_overobstructs_camera="+str(occlusion))
+				if id in ["gewehr", "fg42", "arisaka"]:
+					await _diagnose_occluding_parts(weapon, id)
 			var result_angle := float(weapon.get_meta("weapon_ads_visual_bore_error_deg", -1.0))
 			var result_sight := float(weapon.get_meta("weapon_ads_source_sight_error_m", -1.0))
 			if pose == "ads":
