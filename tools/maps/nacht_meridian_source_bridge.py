@@ -222,6 +222,15 @@ def main():
              p / "assets/meshes/Nacht_Source_Bridge_Probe.glb"]
     if any(not q.is_file() or q.stat().st_size == 0 for q in files):
         raise RuntimeError("Meridian missing generated Godot files: " + str(files))
+    # glTF TRS cannot preserve source-authored UE matrices with shear.
+    # Restore the ORIGINAL source actor 4x4 matrices in native glTF nodes.
+    import subprocess
+    subprocess.run([
+        "python3",
+        str(Path(__file__).with_name("restore_nacht_source_affine.py")),
+        "--scene", str(opts.scene.resolve()),
+        "--glb", str(files[-1]),
+    ], check=True)
     report = {
         "authority": "synthetic_test_fixture_ONLY" if opts.fixture else "UE4.21 source JSON GLB geometry",
         "source_sha256": source_sha,
