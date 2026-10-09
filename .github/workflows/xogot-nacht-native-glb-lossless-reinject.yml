@@ -1,0 +1,156 @@
+name: Xogot Nacht FULL Lossless Native GLB Reinject to Godot Research Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-native-glb-lossless-reinject.yml"
+      - "tools/maps/reinject_nacht_native_glb_geometry.py"
+      - "tools/maps/validate_meridian_493_full_vertices.py"
+      - "tools/maps/validate_meridian_10793_world_geometry.py"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  real-native-passthrough:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Require existing loss and geometry gates as immutable inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh run view 37933706132 --json conclusion --jq '.conclusion')" = success
+          test "$(gh run view 37936009542 --json conclusion --jq '.conclusion')" = success
+          test "$(gh run view 37937591329 --json conclusion --jq '.conclusion')" = success
+          echo "XZOGOT_NACHT_SOURCE_EVIDENCE_DEPENDENCIES_GREEN"
+      - name: Install independent full vertex-cloud verifier
+        shell: bash
+        run: python3 -m pip install --disable-pip-version-check "numpy==2.2.6" "scipy==1.15.3"
+      - name: Fetch exact original native source GLBs and previously approved Meridian scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/native-glbs" build/nacht-lossless/reused build/nacht-lossless/new-godot/assets/meshes
+          gh run download 37933706132 -n Nacht-UE421-Full-10793-Actor-Source-Meridian-Affine-Godot \
+            -D build/nacht-lossless/reused \
+            2>&1 | tee build/nacht-lossless/reused-download.log
+          gh run download 37762871109 -n Xogot-Nacht-Chronicles-Godot-Runtime \
+            -D "$RUNNER_TEMP/native-glbs" \
+            2>&1 | tee build/nacht-lossless/source-download.log
+          SRC=$(find "$RUNNER_TEMP/native-glbs" -name nacht-static-scene.json -type f -print -quit)
+          MESHES=$(find "$RUNNER_TEMP/native-glbs" -name meshes_glb -type d -print -quit)
+          OLD=$(find build/nacht-lossless/reused -name Nacht_Source_Bridge_Probe.glb -type f -print -quit)
+          GODOT_SRC=$(find build/nacht-lossless/reused -name project.godot -type f -print -quit)
+          test -s "$SRC" && test -d "$MESHES" && test -s "$OLD" && test -s "$GODOT_SRC"
+          echo "UE_SCENE=$SRC" >> "$GITHUB_ENV"
+          echo "UE_MESHES=$MESHES" >> "$GITHUB_ENV"
+          echo "MERIDIAN_GLB=$PWD/$OLD" >> "$GITHUB_ENV"
+          echo "MERIDIAN_PROJECT=$(dirname "$GODOT_SRC")" >> "$GITHUB_ENV"
+      - name: Reinject unmodified actual GLB native mesh/index/UV/material primitives under original affine actors
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/reinject_nacht_native_glb_geometry.py \
+            --scene "$UE_SCENE" --native-glb-dir "$UE_MESHES" \
+            --meridian-glb "$MERIDIAN_GLB" \
+            --output build/nacht-lossless/new-godot/assets/meshes/Nacht_Source_Bridge_Probe.glb \
+            --report build/nacht-lossless/native-reinject-report.json \
+            2>&1 | tee build/nacht-lossless/native-reinject.log
+          grep -q "XZOGOT_NACHT_LOSSLESS_RAW_GLTF_REINJECTION_COMPILED" \
+            build/nacht-lossless/native-reinject.log
+      - name: Independent complete 493 native vertex-cloud AND exact nondegenerate triangle count proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/validate_meridian_493_full_vertices.py \
+            --scene "$UE_SCENE" --native-glb-dir "$UE_MESHES" \
+            --meridian-glb build/nacht-lossless/new-godot/assets/meshes/Nacht_Source_Bridge_Probe.glb \
+            --max-distance-mm 0.25 \
+            --output build/nacht-lossless/all-native-vertex-cloud-and-triangles.json \
+            2>&1 | tee build/nacht-lossless/all-native-vertex-cloud-and-triangles.log
+          grep -q "XZOGOT_NACHT_493_FULL_VERTEX_CLOUD_GREEN" \
+            build/nacht-lossless/all-native-vertex-cloud-and-triangles.log
+      - name: Independently reprove ALL 10793 real source world-space mesh bounds
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/validate_meridian_10793_world_geometry.py \
+            --scene "$UE_SCENE" --native-glb-dir "$UE_MESHES" \
+            --meridian-glb build/nacht-lossless/new-godot/assets/meshes/Nacht_Source_Bridge_Probe.glb \
+            --tolerance-mm 0.25 \
+            --output build/nacht-lossless/all-10793-world-mesh-bounds.json \
+            2>&1 | tee build/nacht-lossless/all-10793-world-mesh-bounds.log
+          grep -q "XZOGOT_NACHT_10793_SOURCE_WORLD_BOUNDS_GREEN" \
+            build/nacht-lossless/all-10793-world-mesh-bounds.log
+      - name: Godot 4.6.1 headless import EXACT lossless source meshes in untouched Meridian scene layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot"
+          curl --fail -L --retry 3 -o "$RUNNER_TEMP/godot/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64"
+          chmod +x "$GODOT"
+          cp -a "$MERIDIAN_PROJECT"/. build/nacht-lossless/new-godot/
+          cp build/nacht-lossless/new-godot/assets/meshes/Nacht_Source_Bridge_Probe.glb \
+            "$RUNNER_TEMP/lossless_source_backup.glb"
+          # An existing old geometry mesh file from Meridian's project copy
+          # must never overwrite the new source-native GLB.
+          cp "$RUNNER_TEMP/lossless_source_backup.glb" \
+            build/nacht-lossless/new-godot/assets/meshes/Nacht_Source_Bridge_Probe.glb
+          "$GODOT" --headless --path build/nacht-lossless/new-godot --import \
+            2>&1 | tee build/nacht-lossless/godot-import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load" build/nacht-lossless/godot-import.log
+          cp build/nacht-lossless/reused/godot/real_source_gate.gd \
+            build/nacht-lossless/new-godot/real_source_gate.gd || true
+          cat > build/nacht-lossless/new-godot/lossless_gate.gd <<'GDS'
+          extends SceneTree
+          func _initialize() -> void:
+              call_deferred("_run")
+          func _run() -> void:
+              var p: PackedScene = load("res://scenes/main.tscn") as PackedScene
+              if p == null:
+                  push_error("XZOGOT_LOSSLESS_NATIVE_GODOT_SCENE_RED")
+                  quit(3)
+                  return
+              var world: Node = p.instantiate()
+              get_root().add_child(world)
+              var meshes: int = world.find_children("*", "MeshInstance3D", true, false).size()
+              if meshes < 10793:
+                  push_error("XZOGOT_LOSSLESS_NATIVE_GODOT_MESH_LOSS actual=" + str(meshes))
+                  quit(4)
+                  return
+              print("XZOGOT_NACHT_LOSSLESS_REAL_SOURCE_GODOT_GREEN meshes=", meshes)
+              world.queue_free()
+              quit(0)
+          GDS
+          "$GODOT" --headless --path build/nacht-lossless/new-godot \
+            --script res://lossless_gate.gd \
+            2>&1 | tee build/nacht-lossless/godot-runtime.log
+          grep -q "XZOGOT_NACHT_LOSSLESS_REAL_SOURCE_GODOT_GREEN" \
+            build/nacht-lossless/godot-runtime.log
+      - name: Preserve full research artifacts, even on RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-LOSSLESS-Native-493-GLB-10793-Actor-Godot-Research-Proof
+          path: |
+            build/nacht-lossless/native-reinject*
+            build/nacht-lossless/all-native-vertex-cloud-and-triangles.*
+            build/nacht-lossless/all-10793-world-mesh-bounds.*
+            build/nacht-lossless/godot-import.log
+            build/nacht-lossless/godot-runtime.log
+            build/nacht-lossless/new-godot/assets/meshes/Nacht_Source_Bridge_Probe.glb
+            build/nacht-lossless/new-godot/scenes/*.tscn
+            build/nacht-lossless/new-godot/project.godot
+          if-no-files-found: warn
+          retention-days: 14
