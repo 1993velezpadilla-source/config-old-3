@@ -168,13 +168,28 @@ func _capture() -> void:
             # These two FRAMES ARE NOT historical source lighting parity.
             # Exposure is raised in Godot ONLY to inspect the REAL 718 DDS
             # and lossless 10793-source-actor mesh structure on small screens.
-            source_sky.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-            source_sky.environment.ambient_light_color = Color(0.84,0.89,1.0)
-            source_sky.environment.ambient_light_energy = 1.10
-            source_sky.environment.background_mode = Environment.BG_COLOR
-            source_sky.environment.background_color = Color(0.12,0.13,0.15)
+            # Root cause of identical diagnostic images: Godot default
+            # ambient_light_sky_contribution == 1.0 disables ambient_light_color
+            # and ambient_light_energy. Also, current Camera3D environments have
+            # priority over WorldEnvironment; force the override explicitly.
+            # Reference: Godot 4.6 Environment docs.
+            var diagnostic_environment: Environment = source_sky.environment.duplicate(true) as Environment
+            diagnostic_environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+            diagnostic_environment.ambient_light_sky_contribution = 0.0
+            diagnostic_environment.ambient_light_color = Color(0.70,0.78,0.88)
+            diagnostic_environment.ambient_light_energy = 1.75
+            diagnostic_environment.background_mode = Environment.BG_COLOR
+            diagnostic_environment.background_color = Color(0.06,0.075,0.09)
+            # This is an intentionally NOT-SOURCE-authored fill-light/camera
+            # diagnostic to reveal source-native texture details. We NEVER
+            # change the source-lit first four images or ship it as source truth.
+            cam.environment = diagnostic_environment
             diagnostic_env_set = true
-            print("XZOGOT_NACHT_SOURCE_GEOMETRY_DDS_DIAGNOSTIC_AMBIENT_ENABLED: NOT original lighting")
+            print("XZOGOT_NACHT_MERIDIAN_DIAGNOSTIC_CAMERA_AMBIENT_FIX",
+                  " source_sky_contribution=",source_sky.environment.ambient_light_sky_contribution,
+                  " diagnostic_sky_contribution=",cam.environment.ambient_light_sky_contribution,
+                  " diagnostic_color=",cam.environment.ambient_light_color,
+                  " diagnostic_energy=",cam.environment.ambient_light_energy)
         cam.global_position=view["camera"]
         cam.look_at(view["target"],Vector3.UP)
         for _i in range(8):
@@ -217,6 +232,58 @@ func _capture() -> void:
             "renderMethod":"Godot 4.6.1 gl_compatibility",
             "claimsOriginalBO3T7":false
         })
+    # Never claim a diagnostic succeeded if Godot output was bitwise
+    # identical to the source-lit frame; this exact false-positive happened
+    # in #37951843624.
+    var diag_comparison: Array[Dictionary] = []
+    var ab_pairs: Array[Array] = [
+        ["01-source-overview","05-diagnostic-overview-ambient"],
+        ["04-source-spawn6-interior","06-diagnostic-spawn6-ambient"]
+    ]
+    for pair in ab_pairs:
+        var native_image: Image = Image.load_from_file("res://"+str(pair[0])+".png")
+        var debug_image: Image = Image.load_from_file("res://"+str(pair[1])+".png")
+        if native_image == null or debug_image == null or native_image.is_empty() or debug_image.is_empty():
+            push_error("XZOGOT_NACHT_LIGHTING_DIAGNOSTIC_SOURCE_IMAGES_MISSING_RED")
+            quit(28)
+            return
+        var total_samples: int = 0
+        var delta_sum: float = 0.0
+        var native_sum: float = 0.0
+        var debug_sum: float = 0.0
+        var altered: int = 0
+        for y in range(0,native_image.get_height(),8):
+            for x in range(0,native_image.get_width(),8):
+                var before_color: Color = native_image.get_pixel(x,y)
+                var after_color: Color = debug_image.get_pixel(x,y)
+                var a: float = before_color.r*0.2126+before_color.g*0.7152+before_color.b*0.0722
+                var b: float = after_color.r*0.2126+after_color.g*0.7152+after_color.b*0.0722
+                var delta: float = absf(b-a)
+                delta_sum += delta
+                native_sum += a
+                debug_sum += b
+                total_samples += 1
+                if delta > 0.01:
+                    altered += 1
+        var changed_fraction: float = float(altered)/maxf(1.0,float(total_samples))
+        var mean_abs_difference: float = delta_sum/maxf(1.0,float(total_samples))
+        var brightness_gain: float = (debug_sum-native_sum)/maxf(1.0,float(total_samples))
+        var comparison: Dictionary = {
+            "sourceLitPhoto":str(pair[0])+".png",
+            "ambientDiagnosticPhoto":str(pair[1])+".png",
+            "changedFraction":changed_fraction,
+            "meanAbsoluteLuminanceDelta":mean_abs_difference,
+            "meanBrightnessGain":brightness_gain,
+            "strictlyOriginalUE4Lighting":false
+        }
+        diag_comparison.append(comparison)
+        print("XZOGOT_NACHT_REAL_SOURCE_VS_CAMERA_AMBIENT_PIXEL_AB",JSON.stringify(comparison))
+        if changed_fraction<0.07 or mean_abs_difference<0.02 or brightness_gain<0.01:
+            push_error("XZOGOT_NACHT_AMBIENT_DIAGNOSTIC_NO_VISIBLE_IMPROVEMENT_RED "+
+                       JSON.stringify(comparison))
+            quit(29)
+            return
+
     var audit: Dictionary={
         "authority":"Pavlov UE4.21 archived source - NOT original BO3 T7",
         "renderedGodot":Engine.get_version_info().get("string",""),
@@ -224,6 +291,9 @@ func _capture() -> void:
         "sourceAuthoredMaterialSurfaces":bound,
         "sourceDiffuseTexturedSurfaces":textured,
         "sourceLights":166,
+        "diagnosticAmbientPixelComparisons":diag_comparison,
+        "diagnosticAmbientCameraEnvironmentForced":true,
+        "sourceLitFirstFourUnchanged":true,
         "views":results,
         "fidelityNotProven":"original UE4 postprocess, fog, IBL, per-pixel lighting",
         "realGamePerformanceNotProven":true
