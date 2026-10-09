@@ -99,9 +99,19 @@ def source_wrist_distances(doc, binary):
 
 def main():
     manifest = json.loads(MANIFEST.read_text())
-    ids = list(manifest['weapons'])
-    if len(ids) != 28:
-        raise ValueError('expected 28 genuine source gun identities: ' + str(len(ids)))
+    # The manifest also contains three developer/legacy entries. Audit the
+    # exact same 28 shipping WaW firearm IDs as Godot's FIREARMS constant.
+    ids = [
+        'colt','walther','nambu','tt33','357','mp40','thompson',
+        'ppsh','type100','stg','m1','m1a1','gewehr','svt40',
+        'arisaka','kar98k','springfield','mosin','ptrs','trench',
+        'doublebarrel','sawnoff','bar','fg42','mg42','browning',
+        'dp28','type99'
+    ]
+    if len(ids) != 28 or len(set(ids)) != 28:
+        raise ValueError('canonical 28 original source gun IDs invalid')
+    if any(gun not in manifest['weapons'] for gun in ids):
+        raise ValueError('canonical source weapon absent from manifest')
     failures = []
     for gun in sorted(ids):
         hands = manifest['weapons'][gun].get('runtime', {}).get('hands', '')
