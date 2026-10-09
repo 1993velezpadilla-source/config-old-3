@@ -1,0 +1,69 @@
+name: Nacht Background Never-Visible Only Permanent Delete Guard
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-360-reachable-view-removal-guard.yml"
+      - "tools/maps/gate_nacht_only_certified_never_visible_removals.py"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  never-delete-uncertified-camera-reachable-actors:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Verify authored far-only Vista 340 and original source scene proven
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh run view 37965581696 --json conclusion --jq '.conclusion')" = success
+          test "$(gh run view 37966178042 --json conclusion --jq '.conclusion')" = success
+      - name: Read source metadata for 340 Vista instances (not a rendering/collision proxy)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-no-delete
+          gh run download 37965581696 \
+            -n Nacht-Original-UE421-Authored-Vista-Far-Background-Reachability-Guard \
+            -D build/nacht-no-delete
+          test -s build/nacht-no-delete/authored-vista-distance-source.json
+      - name: Generate DO-NOT-DELETE classification until 360 through windows and all reachable nav proves zero pixels
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/gate_nacht_only_certified_never_visible_removals.py \
+            --vista build/nacht-no-delete/authored-vista-distance-source.json \
+            --output build/nacht-no-delete/permanent-deletion-safety-report.json \
+            2>&1 | tee build/nacht-no-delete/360-view-guard.log
+          grep -q XZOGOT_NACHT_340_AUTHORED_FAR_VISTAS_SAFE_PERMANENT_DELETE_GUARD_GREEN \
+            build/nacht-no-delete/360-view-guard.log
+          python3 - <<'PY'
+          import json
+          data=json.load(open("build/nacht-no-delete/permanent-deletion-safety-report.json"))
+          assert data["originalWorldActors"]==10793 and len(data["actors"])==340
+          assert data["certified100PercentNeverVisible"]==0
+          assert not data["actorIdsApprovedForPermanentDelete"]
+          assert data["sourceActorsGeometryPhysicallyDeleted"]==0
+          assert not data["360DegreeReachableCameraVolumeCertified"]
+          assert not data["realShippingWalkableNavigationAndDoorStateCompletenessCertified"]
+          print("XZOGOT_NACHT_NO_VISIBILITY_PROOF_NO_GEOMETRY_DELETIONS_GREEN")
+          PY
+      - name: Publish safety classification including unknowns
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Certified-Unseen-Only-Delete-Guard-340-Vista-Source
+          path: |
+            build/nacht-no-delete/permanent-deletion-safety-report.json
+            build/nacht-no-delete/360-view-guard.log
+          retention-days: 14
+          if-no-files-found: warn
