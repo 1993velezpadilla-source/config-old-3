@@ -1,0 +1,75 @@
+name: Nacht Replay Genuine 2-Shard 32-PNG Original Source GPU RGB Merge
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-replay-two-real-shard-32png.yml"
+      - "tools/maps/nacht_merge_original_eight_view_shards.py"
+permissions:
+  contents: read
+  actions: read
+jobs:
+  reproduce-genuine-original-source-pixel-and-gpu-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Assert BOTH authentic 8-camera original-source render shards already GREEN
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh run view 37982897050 --json status --jq '.status')" = completed
+          for j in 113997579228 113997579356; do
+            test "$(gh api repos/1993velezpadilla-source/config-old-3/actions/jobs/"$j" --jq '.conclusion')" = success
+          done
+          test "$(gh run view 37979580156 --json conclusion --jq '.conclusion')" = success
+          test "$(gh run view 37979720999 --json conclusion --jq '.conclusion')" = success
+          test "$(gh run view 37980306425 --json conclusion --jq '.conclusion')" = success
+          python3 -m py_compile tools/maps/nacht_merge_original_eight_view_shards.py
+          python3 -m py_compile tools/maps/nacht_independent_original_source_16cardinal_pixel_audit.py
+          python3 tools/maps/nacht_original_source_16view_mesa_drawcall_audit.py --self-test
+      - name: Read original Godot Mesa native render PNG artifacts, no 2GB scene restage
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 37982897050
+          pattern: Nacht-Original-Source-8View-16PNG-Shard-*
+          merge-multiple: true
+          path: build/nacht-two-shard-replay/raw
+          github-token: ${{ github.token }}
+      - name: Require two genuine subfolders, merge exact original full-source PNG bytes and classify independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --user pillow --disable-pip-version-check
+          python3 tools/maps/nacht_merge_original_eight_view_shards.py \
+            --source build/nacht-two-shard-replay/raw \
+            --output build/nacht-two-shard-replay/flat-original \
+            2>&1 | tee build/nacht-two-shard-replay/merge.log
+          python3 tools/maps/nacht_independent_original_source_16cardinal_pixel_audit.py \
+            --source build/nacht-two-shard-replay/flat-original \
+            --output build/nacht-two-shard-replay/independent \
+            2>&1 | tee build/nacht-two-shard-replay/pixels.log
+          python3 tools/maps/nacht_original_source_16view_mesa_drawcall_audit.py \
+            --source build/nacht-two-shard-replay/flat-original/nacht-original-vista-360-candidate-visual-sweep.json \
+            --output build/nacht-two-shard-replay/independent/original-source-16view-GPU-audit.json \
+            2>&1 | tee build/nacht-two-shard-replay/gpu.log
+          grep -q XZOGOT_NACHT_TWO_REAL_8VIEW_SHARDS_SOURCE_32_PNG_MERGE_GREEN build/nacht-two-shard-replay/merge.log
+          grep -q XZOGOT_NACHT_ACTUAL_FULL_SOURCE_16_VIEW_32_PNG_INDEPENDENT_RGB_PARITY_GREEN build/nacht-two-shard-replay/pixels.log
+          grep -q MEASURED_MESA_16_CANDIDATE_VIEW_COUNTS_IMPROVED_NOT_ANDROID_FPS build/nacht-two-shard-replay/gpu.log
+      - name: Preserve original 32 pixel comparison provenance, four galleries and Mesa GPU deltas, even if RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Final-Native-16-Camera-32-PNG-TwoShard-Replay-Pixel-GPU-Certification
+          path: |
+            build/nacht-two-shard-replay/independent/
+            build/nacht-two-shard-replay/merge.log
+            build/nacht-two-shard-replay/pixels.log
+            build/nacht-two-shard-replay/gpu.log
+            build/nacht-two-shard-replay/flat-original/nacht-original-vista-360-candidate-visual-sweep.json
+          retention-days: 14
+          if-no-files-found: warn
