@@ -1,0 +1,55 @@
+name: Nacht Source 564 Master Mask Provisional Original Shader Preview Godot Parser
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-source-mastermask-3view-parser.yml"
+      - "tools/maps/nacht_real_original_master_unwired_mask_provisional_3view.gd"
+permissions:
+  contents: read
+jobs:
+  source-564-mask-research-actual-godot-461-parser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Fast fail before 2GB archival scene extraction; actual Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot" build/nacht-mastermask-parser/project
+          curl --fail -L --retry 3 -o "$RUNNER_TEMP/godot/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64"
+          printf '[application]\nconfig/name="NachtSourceMasterMaskResearchOnly"\n' \
+            > build/nacht-mastermask-parser/project/project.godot
+          cp tools/maps/nacht_real_original_master_unwired_mask_provisional_3view.gd \
+            build/nacht-mastermask-parser/project/preview.gd
+          cat > build/nacht-mastermask-parser/project/parser.gd <<'GDS'
+          extends SceneTree
+          func _initialize() -> void:
+              var s: Script=load("res://preview.gd") as Script
+              if s==null or not s.can_instantiate():
+                  push_error("XZOGOT_NACHT_SOURCE_MASTER_OPACITY_PARSER_RED")
+                  quit(2)
+                  return
+              print("XZOGOT_NACHT_SOURCE_MASTER_OPACITY_564_REAL_GODOT461_PARSER_GREEN")
+              quit(0)
+          GDS
+          timeout 75 "$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64" \
+            --headless --path build/nacht-mastermask-parser/project --script res://parser.gd \
+            2>&1 | tee build/nacht-mastermask-parser/parser.log
+          grep -q XZOGOT_NACHT_SOURCE_MASTER_OPACITY_564_REAL_GODOT461_PARSER_GREEN \
+            build/nacht-mastermask-parser/parser.log
+          ! grep -E "SCRIPT ERROR|Parse Error" build/nacht-mastermask-parser/parser.log
+      - name: Preserve parser RED or GREEN; not original image fidelity
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Provisional-564-MasterMat-Mask-7-Excluded-Godot-Parser
+          path: build/nacht-mastermask-parser/parser.log
+          retention-days: 14
+          if-no-files-found: warn
