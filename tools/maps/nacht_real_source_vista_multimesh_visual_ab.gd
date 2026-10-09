@@ -176,7 +176,7 @@ func _run() -> void:
     })
     var original_images: Dictionary={}
     for view: Dictionary in points:
-        original_images[str(view["name"])]=await _capture(camera,
+        original_images[str(view["name"])]=await _capture(cam,
             str(view["name"])+"_before_spatial32m",
             view["camera"],view["look"])
     var batch_script: Script=load("res://nacht_apply_vista_spatial_multimesh_research.gd") as Script
@@ -198,7 +198,7 @@ func _run() -> void:
     var all_errors: Array[String]=[]
     for view: Dictionary in points:
         var name: String=str(view["name"])
-        var after: Image=await _capture(camera,name+"_after_spatial32m",
+        var after: Image=await _capture(cam,name+"_after_spatial32m",
                                         view["camera"],view["look"])
         var original: Image=original_images[name] as Image
         var diff: Dictionary=_compare(original,after)
