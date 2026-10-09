@@ -71,7 +71,7 @@ func _run() -> void:
         var mi: MeshInstance3D = mapping[actor_id] as MeshInstance3D
         var mesh: Mesh = mi.mesh
         var indexed_triangles: int = 0
-        var trial_points: Array[Vector3] = []
+        var original_triangle_ray_candidates: Array[Array] = []
         if mesh == null:
             errors.append(actor_id + " original source mesh is null")
             break
@@ -90,8 +90,12 @@ func _run() -> void:
             var arrays: Array = mesh.surface_get_arrays(surface)
             var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
             var ids: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
-            # Prefer real broad triangles for stable deterministic raycasts.
-            for ix: int in range(0, ids.size(), 3):
+            # Sample multiple distinct ORIGINAL indexed triangles, not an
+            # invented collision proxy. First face may be an inner/occluded
+            # surface and will not always be the first raycast hit.
+            var step_faces: int = maxi(1, int((ids.size()/3)/10))
+            for face: int in range(0,int(ids.size()/3),step_faces):
+                var ix: int = face*3
                 var a: Vector3 = mi.global_transform * verts[ids[ix]]
                 var b: Vector3 = mi.global_transform * verts[ids[ix+1]]
                 var c: Vector3 = mi.global_transform * verts[ids[ix+2]]
@@ -100,18 +104,20 @@ func _run() -> void:
                     continue
                 var center: Vector3 = (a+b+c)/3.0
                 var normal: Vector3 = raw_normal.normalized()
-                trial_points = [center+normal*0.5, center-normal*0.5]
+                original_triangle_ray_candidates.append([
+                    center+normal*0.5,center-normal*0.5])
+                if original_triangle_ray_candidates.size()>=12:
+                    break
+            if original_triangle_ray_candidates.size()>=12:
                 break
-            if not trial_points.is_empty():
-                break
-        if trial_points.is_empty():
+        if original_triangle_ray_candidates.is_empty():
             rejected_degenerate += 1
             continue
         native_meshes[model] = true
         trials.append({
             "sourceActorId":actor_id, "nativeModelIndex":model,
             "meshNode":mi, "originalIndexedTriangles":indexed_triangles,
-            "start":trial_points[0], "end":trial_points[1]
+            "originalAuthoredFaceRays":original_triangle_ray_candidates
         })
     if trials.size()<20 or not errors.is_empty():
         push_error("XZOGOT_NACHT_PHYSICS_TOO_FEW_VERIFIABLE_SOURCE_MESHES_RED "+
@@ -151,30 +157,49 @@ func _run() -> void:
         # Verify physics server, NOT an AABB check in our own Python code.
         await physics_frame
         await physics_frame
-        var ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
-            test["start"],test["end"],1)
-        ray.collide_with_bodies = true
-        ray.hit_back_faces = true
-        var hit: Dictionary = body.get_world_3d().direct_space_state.intersect_ray(ray)
-        if hit.is_empty() or hit.get("collider") != body:
-            # Try the opposite side for legitimate winding-specific meshes.
-            ray = PhysicsRayQueryParameters3D.create(test["end"],test["start"],1)
-            ray.collide_with_bodies = true
-            ray.hit_back_faces = true
-            hit = body.get_world_3d().direct_space_state.intersect_ray(ray)
-        if hit.is_empty() or hit.get("collider") != body:
-            errors.append(str(test["sourceActorId"])+" original surface ray did not hit real PhysicsServer static body")
+        var hit: Dictionary = {}
+        var used_trial: int = -1
+        var hit_ray_origin: Vector3 = Vector3.ZERO
+        var authored_rays: Array = test["originalAuthoredFaceRays"]
+        for ray_index: int in range(authored_rays.size()):
+            var endpoints: Array = authored_rays[ray_index] as Array
+            for flip: bool in [false,true]:
+                var ray_start: Vector3 = endpoints[1] if flip else endpoints[0]
+                var ray_end: Vector3 = endpoints[0] if flip else endpoints[1]
+                var ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
+                    ray_start,ray_end,1)
+                ray.collide_with_bodies = true
+                ray.hit_back_faces = true
+                hit = body.get_world_3d().direct_space_state.intersect_ray(ray)
+                if not hit.is_empty() and hit.get("collider") == body:
+                    used_trial = ray_index
+                    hit_ray_origin = ray_start
+                    break
+            if used_trial >= 0:
+                break
+        if used_trial < 0:
+            errors.append(str(test["sourceActorId"])+
+                          " NONE of "+str(authored_rays.size())+
+                          " independent original-source triangle raycasts hit the expected Godot PhysicsServer static body")
+            print("XZOGOT_NACHT_PHYSICS_ORIGINAL_SOURCE_ACTOR_RAY_MISS_RED",
+                  " source_actor=",test["sourceActorId"],
+                  " native_mesh=",test["nativeModelIndex"],
+                  " triangles=",source_count,
+                  " first_src_ray=",authored_rays[0],
+                  " actual_body_world=",body.global_transform,
+                  " collider_disabled=",collider.disabled)
         else:
             passed += 1
             indexed_source_triangles += source_count
             collision_shape_triangles += physics_count
-            var hit_distance: float = (hit["position"] as Vector3).distance_to(test["start"])
+            var hit_distance: float = (hit["position"] as Vector3).distance_to(hit_ray_origin)
             max_hit_distance_m = maxf(max_hit_distance_m,hit_distance)
             sample_results.append({
                 "actorID":str(test["sourceActorId"]),
                 "sourceNativeModelType":int(test["nativeModelIndex"]),
                 "originalTriangleCount":source_count,
                 "GodotStaticBodyConcaveTriangleCount":physics_count,
+                "originalTriangleRaysChecked":used_trial+1,
                 "physicsServerRayHitSourceNativeTriangle":true
             })
         body.queue_free()
