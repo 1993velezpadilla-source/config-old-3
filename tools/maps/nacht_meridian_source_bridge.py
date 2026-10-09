@@ -84,7 +84,32 @@ def import_exact_native_mesh(path):
                       for k, v in enumerate(sum((list(r) for r in o.matrix_world), [])))]
     if unexpected:
         raise ValueError("source GLB imported with nonidentity chunk transform: " + str(unexpected))
+    # XZMS-generated GLBs explicitly say xziel_basis_preserved=true. Their
+    # POSITION data is XZIEL Z-UP, whereas glTF normatively describes Y-UP.
+    # Blender's importer rotates Y-UP -> Blender Z-UP, silently rotating the
+    # nonstandard but source-faithful vertex payload. Undo Blender's known
+    # glTF axis conversion ONCE for these positively identified bridge GLBs.
+    # Not a per-prop tweak. Exact raw source world-vertex AABB acceptance
+    # independently verifies this contract at every actor (separate gate).
+    import struct
+    raw = path.read_bytes()
+    if raw[:4] != b"glTF":
+        raise ValueError("source GLB magic missing " + str(path))
+    json_len, json_typ = struct.unpack_from("<II", raw, 12)
+    if json_typ != 0x4E4F534A:
+        raise ValueError("source GLB JSON missing " + str(path))
+    source_doc = json.loads(raw[20:20 + json_len])
+    if source_doc.get("extras", {}).get("xziel_basis_preserved") is not True:
+        raise ValueError("unknown native glTF axis convention; refuse silent correction")
+    restore_xziel_z_up = mathutils.Matrix.Rotation(-math.pi / 2, 4, "X")
     result = [o.data for o in meshes]
+    for mesh in result:
+        mesh.transform(restore_xziel_z_up)
+        mesh.update()
+    print("XZOGOT_NATIVE_XZIEL_GLB_AXIS_CONTRACT",
+          path.name, "source_Z_UP_preserved=true",
+          "Blender_glTF_YUP_to_ZUP_undone_once=true",
+          "mesh_chunks=", len(result))
     for o in created:
         bpy.data.objects.remove(o, do_unlink=True)
     return result
