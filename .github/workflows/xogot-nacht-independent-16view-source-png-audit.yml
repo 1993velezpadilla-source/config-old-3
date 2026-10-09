@@ -1,0 +1,70 @@
+name: Nacht Independent Original 16-View 32-PNG Pixel Audit
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-independent-16view-source-png-audit.yml"
+      - "tools/maps/nacht_independent_original_source_16cardinal_pixel_audit.py"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  independently-verify-16-cardinal-original-nacht-camera-views:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: "37979580156"
+    steps:
+      - uses: actions/checkout@v5
+      - name: Validate independent PNG auditor without rerendering source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/maps/nacht_independent_original_source_16cardinal_pixel_audit.py
+          python3 -m pip install --user pillow --disable-pip-version-check
+      - name: Download original 32 Godot Mesa PNGs from real 10793-actor source rendering
+        shell: bash
+        run: |
+          set -euo pipefail
+          complete=""
+          for i in $(seq 1 100); do
+            complete="$(gh run view "$SOURCE_RUN" --json status --jq '.status')"
+            if test "$complete" = completed; then break; fi
+            echo "Genuine source 16-camera Mesa rendering #$SOURCE_RUN still underway: $i/100"
+            sleep 30
+          done
+          test "$complete" = completed || { echo "RED: native original scene failed to finish"; exit 1; }
+          mkdir -p build/nacht-real-16view/original-source
+          gh run download "$SOURCE_RUN" \
+            -n Nacht-10793-Source-16-Candidate-EyeHeight-Yaw-Directions-32-Original-Godot-PNGs \
+            -D build/nacht-real-16view/original-source
+          test -s build/nacht-real-16view/original-source/nacht-original-vista-360-candidate-visual-sweep.json \
+            || { echo "RED: actual original source PNG pair audit JSON unavailable"; exit 1; }
+      - name: Independent RGB verification 16 before-after real source pairs; reject unproven 360 reachability
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/nacht_independent_original_source_16cardinal_pixel_audit.py \
+            --source build/nacht-real-16view/original-source \
+            --output build/nacht-real-16view/independent \
+            2>&1 | tee build/nacht-real-16view/independent-16view-pixel-validation.log
+          grep -q XZOGOT_NACHT_ACTUAL_FULL_SOURCE_16_VIEW_32_PNG_INDEPENDENT_RGB_PARITY_GREEN \
+            build/nacht-real-16view/independent-16view-pixel-validation.log
+          test "$(gh run view "$SOURCE_RUN" --json conclusion --jq '.conclusion')" = success
+      - name: Preserve RED/green numeric verdict plus four real-source zoomable contact sheets
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-16-Camera-Full-Source-32-Original-PNG-Pixel-Parity-Independent-4-ContactSheets
+          path: |
+            build/nacht-real-16view/independent/
+            build/nacht-real-16view/independent-16view-pixel-validation.log
+            build/nacht-real-16view/original-source/nacht-original-vista-360-candidate-visual-sweep.json
+            build/nacht-real-16view/original-source/original-vista-360-yaw-visual-sweep.log
+          retention-days: 14
+          if-no-files-found: warn
