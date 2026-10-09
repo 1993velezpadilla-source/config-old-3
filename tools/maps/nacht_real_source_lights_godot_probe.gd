@@ -45,7 +45,7 @@ func _audit() -> void:
     binder.set("build_skeletal_actors",false)
     binder.set("source_root","res://nacht-authority")
     binder.set("light_report_file","xzen-report.json")
-    binder.set("source_environment_truth_file","res://nacht-authority/source-environment-truth.json")
+    binder.set("source_environment_truth_file","res://nacht-authority/nacht-environment-runtime-authority.json")
     get_root().add_child(binder)
     var root: Node3D = Node3D.new()
     root.name = "NativeUE421SourceLighting"
