@@ -836,7 +836,10 @@ func _bind_weapon_to_source_hands() -> bool:
 		# sight planes at 180 degrees, while generic 90 gives sideways
 		# and/or obstructed sight views. Other long guns remain pending
 		# independent source mesh/sight QA; do not guess a global angle.
-		# PPSh native A/B run #37858081007 proves +90 opens a near-plane\n\t\t# hand/stock obstruction, while 180 restores source sight and grip\n\t\t# toward camera. No PSA/mesh/source DT timing edits.\n\t\tvar confirmed_upright_long_ids: Array[String] = [
+		# PPSh native A/B run #37858081007 shows 90-degree near-plane
+		# hand/stock obstruction; 180-degree source sight/grip faces camera.
+		# Preserve the exact original PSA, mesh and DT_Weapons timings.
+		var confirmed_upright_long_ids: Array[String] = [
 			"stg", "browning", "type99", "bar", "dp28", "thompson", "trench", "ppsh"
 		]
 		gun_roll_deg = 180.0 if _weapon_id in pistol_ids or _weapon_id in confirmed_upright_long_ids else 90.0
