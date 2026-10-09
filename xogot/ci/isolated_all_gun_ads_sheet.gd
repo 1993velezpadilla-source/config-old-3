@@ -126,6 +126,28 @@ func _diagnose_native_hand_rest(weapon: Node, id: String) -> void:
 		before.append(skeleton.get_bone_pose(i))
 	var original_gun_visible := gun.visible
 	gun.visible = false
+	# Side-by-side original PSA masking isolates which SOURCE limb chain
+	# created the stretched first-person triangle (without moving the gun).
+	for side: String in ["_le", "_ri"]:
+		var changed_bones := 0
+		for index in range(skeleton.get_bone_count()):
+			var bone_name: String = str(skeleton.get_bone_name(index)).to_lower()
+			if bone_name.ends_with(side):
+				skeleton.set_bone_pose(index,Transform3D.IDENTITY)
+				changed_bones += 1
+		await process_frame
+		await process_frame
+		var limb_frame: Image = root.get_texture().get_image()
+		if limb_frame != null and not limb_frame.is_empty():
+			var limb_path := "/tmp/xogot-sight-component-ab/" + id + "-hands-" + side.trim_prefix("_") + "-bones-rest.png"
+			limb_frame.save_png(limb_path)
+			print("XZOGOT_SOURCE_HAND_LIMB_SIDE_AB id=",id," side=",side,
+				" reset_bones=",changed_bones,
+				" remaining_obstruction=",_ads_frame_obstruction(limb_frame),
+				" frame=",limb_path)
+		for index in range(before.size()):
+			skeleton.set_bone_pose(index,before[index])
+		await process_frame
 	skeleton.reset_bone_poses()
 	await process_frame
 	await process_frame
