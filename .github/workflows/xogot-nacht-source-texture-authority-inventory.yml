@@ -1,0 +1,103 @@
+name: Xogot Nacht Original Texture Authority Inventory (Research)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-source-texture-authority-inventory.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  inspect-authoritative-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Download exact original archived Pavlov UE4.21 SOURCE artifact (not BO3 T7)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/original-pavlov" build/nacht-texture-inventory
+          gh run download 37762871109 -n Xogot-Nacht-Chronicles-Godot-Runtime \
+            -D "$RUNNER_TEMP/original-pavlov" \
+            2>&1 | tee build/nacht-texture-inventory/source-download.log
+          SRC=$(find "$RUNNER_TEMP/original-pavlov" -name nacht-static-scene.json -type f -print -quit)
+          test -s "$SRC"
+          echo "SOURCE_ROOT=$RUNNER_TEMP/original-pavlov" >> "$GITHUB_ENV"
+          echo "SCENE_JSON=$SRC" >> "$GITHUB_ENV"
+      - name: Inventory actual on-disk image/material authority and native mesh material references
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' 2>&1 | tee build/nacht-texture-inventory/source-inventory.log
+          import collections, json, os, pathlib
+          root=pathlib.Path(os.environ["SOURCE_ROOT"])
+          scene=json.loads(pathlib.Path(os.environ["SCENE_JSON"]).read_text())
+          assert scene["format"]=="xziel_visual_scene_v1"
+          assert len(scene["instances"])==10793
+          assert len(scene["meshes"])==493
+          asset_extensions={
+              ".png",".jpg",".jpeg",".dds",".ktx",".ktx2",".tga",
+              ".bmp",".webp",".exr",".hdr",".tif",".tiff",".basis",
+              ".uasset",".uexp",".ubulk",".umap",".pak",".utoc",".ucas",
+              ".material",".mtl",".mat",".tres",".res",".vmt",".vtf"}
+          inventory=collections.defaultdict(lambda:{"count":0,"bytes":0,"samples":[]})
+          for directory, dirs, files in os.walk(root):
+              for name in files:
+                  path=pathlib.Path(directory)/name
+                  suffix=path.suffix.lower()
+                  if suffix not in asset_extensions:
+                      continue
+                  item=inventory[suffix]
+                  item["count"]+=1
+                  item["bytes"]+=path.stat().st_size
+                  if len(item["samples"])<12:
+                      item["samples"].append(str(path.relative_to(root)))
+          referenced=[]
+          keys=set()
+          for row in scene["meshes"]:
+              keys.update(row.keys())
+              source_fields={
+                  k:v for k,v in row.items()
+                  if any(t in k.lower() for t in ("material","texture","diffuse","normal","rough","albedo"))
+              }
+              if source_fields:
+                  referenced.append({"index":row["index"],"fields":source_fields})
+          result={
+              "authority":"archived Pavlov UE4.21 source, NOT original BO3 T7",
+              "source_actors":len(scene["instances"]),
+              "unique_models":len(scene["meshes"]),
+              "source_mesh_row_keys":sorted(keys),
+              "native_mesh_entries_with_material_or_texture_metadata":len(referenced),
+              "sample_native_material_or_texture_metadata":referenced[:15],
+              "asset_extensions":dict(sorted(inventory.items())),
+              "gltf_native_geometry_has_materials_images_textures":False,
+              "can_claim_complete_original_material_equivalence":False,
+          }
+          out=pathlib.Path("build/nacht-texture-inventory/source-inventory.json")
+          out.write_text(json.dumps(result,indent=2,default=str)+"\n")
+          print("XZOGOT_NACHT_ORIGINAL_SOURCE_TEXTURE_AUTHORITY_INVENTORY_GREEN",
+                "native_model_material_metadata",len(referenced),
+                "image_texture_material_file_counts",{
+                    k:v["count"] for k,v in inventory.items()})
+          if not referenced and not any(v["count"] for v in inventory.values()):
+              print("XZOGOT_NACHT_ORIGINAL_SOURCE_TEXTURE_DATA_ABSENT_FROM_ARCHIVE_RED")
+          PY
+      - name: Preserve actual evidence without pretending source visuals are approved
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Original-Pavlov-Texture-Authority-Inventory
+          path: |
+            build/nacht-texture-inventory/source-download.log
+            build/nacht-texture-inventory/source-inventory.json
+            build/nacht-texture-inventory/source-inventory.log
+          retention-days: 14
+          if-no-files-found: warn
