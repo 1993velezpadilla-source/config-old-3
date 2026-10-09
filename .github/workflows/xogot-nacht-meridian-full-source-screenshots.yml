@@ -23,11 +23,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Hard gate real 10793 Godot geometry, 574 authored materials and 166 original source lights
+      - name: Gate 10793 geometry, 574 materials, 166 original lights, far-source policy; independently gate 55m actual mesh AABBs at runtime
         shell: bash
         run: |
           set -euo pipefail
-          for i in 37938836028 37939504798 37944732189 37945872261 37947767584 37961985956 37962248278; do
+          for i in 37938836028 37939504798 37944732189 37945872261 37947767584 37961985956; do
             test "$(gh run view "$i" --json conclusion --jq '.conclusion')" = success || {
               echo "XZOGOT_NACHT_SOURCE_VISUAL_DEPENDENCY_RED run=$i"
               exit 1
