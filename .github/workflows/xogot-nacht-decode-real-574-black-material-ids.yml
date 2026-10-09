@@ -1,0 +1,77 @@
+name: Nacht Decode 574 Real Source Interior Black Material Screen Pixels
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-decode-real-574-black-material-ids.yml"
+      - "tools/maps/nacht_decode_actual_black_wall_source_material_ids.py"
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-574-material-opaque-ID-pixel-ownership-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 58
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ORIGINAL_MATERIAL_OWNER_GODOT_RUN: "37996808191"
+    steps:
+      - uses: actions/checkout@v5
+      - name: Real source visual ID forensic must finish SUCCESS before decoding ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/maps/nacht_decode_actual_black_wall_source_material_ids.py
+          state=""
+          for i in $(seq 1 90); do
+            state="$(gh run view "$ORIGINAL_MATERIAL_OWNER_GODOT_RUN" --json status --jq '.status')"
+            if test "$state" = completed; then break; fi
+            echo "Waiting for actual 10793-native-actor and 574-source-material original Godot raster $i/90"
+            sleep 30
+          done
+          test "$state" = completed || { echo "RED: original full native Godot material ID extraction timed out"; exit 1; }
+          test "$(gh run view "$ORIGINAL_MATERIAL_OWNER_GODOT_RUN" --json conclusion --jq '.conclusion')" = success
+          mkdir -p build/nacht-exact-black-owner/original-source
+          gh run download "$ORIGINAL_MATERIAL_OWNER_GODOT_RUN" \
+            -n Nacht-Original-574-Surface-Material-ID-2-Interior-Camera-9-Godot-PNG \
+            -D build/nacht-exact-black-owner/original-source
+      - name: Decode high confidence real original material-id pixels, no synthetic guessed wall material names
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --user pillow numpy --disable-pip-version-check
+          python3 tools/maps/nacht_decode_actual_black_wall_source_material_ids.py \
+            --input build/nacht-exact-black-owner/original-source \
+            --output build/nacht-exact-black-owner/independent \
+            2>&1 | tee build/nacht-exact-black-owner/source-black-owner-decoding.log
+          grep -q XZOGOT_NACHT_574_TRUE_ORIGINAL_SOURCE_MATERIAL_ID_BLACK_WALL_SCREEN_ATTRIBUTION_GREEN \
+            build/nacht-exact-black-owner/source-black-owner-decoding.log
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("build/nacht-exact-black-owner/independent")
+          d=json.loads((p/"nacht-real-original-574-source-material-screen-pixel-attribution.json").read_text())
+          assert d["actorCount"]==10793
+          assert d["originalSourceSurfaceBindings"]==16595
+          assert d["originalEffectiveMaterialPaths"]==574
+          assert d["originalDDSTextures"]==718
+          assert d["realEyeHeightCameraCount"]==2
+          assert d["materialOwnerIsNotProofOfUEOpacityMaskFault"]
+          assert d["sourceShaderGraphStillPartial"]
+          assert not d["originalSourceActorOrMaterialChangedPermanently"]
+          assert not d["productionFixCertified"]
+          assert len(list(p.glob("*-two-passes.png")))==2
+          print("XZOGOT_NACHT_BLACK_MATERIAL_REAL_SOURCE_OWNER_DIAGNOSTIC_NOT_PRETEND_SHIPPING_GREEN")
+          PY
+      - name: Preserve exact original material ID owner screenshot audit and 2 zoomable side by side galleries even if RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-574-Original-Actor-Material-Black-Interior-Per-Pixel-Screen-Owner-Godot-Evidence
+          path: |
+            build/nacht-exact-black-owner/independent/
+            build/nacht-exact-black-owner/source-black-owner-decoding.log
+          retention-days: 14
+          if-no-files-found: warn
