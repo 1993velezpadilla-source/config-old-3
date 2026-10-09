@@ -1,0 +1,115 @@
+name: Xogot Nacht TRUE Godot 4.6 Exterior Distance-only LOD Source Safety (Research)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-real-source-exterior-lod.yml"
+      - "tools/maps/nacht_source_safe_exterior_lod_godot_probe.gd"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  far-trees-foliage-actual-Godot-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Require source actor/texture/native physics GREEN and source-authored far-only candidate plan GREEN
+        shell: bash
+        run: |
+          set -euo pipefail
+          for id in 37938836028 37939504798 37944732189 37960232923 37961985956; do
+            test "$(gh run view "$id" --json conclusion --jq '.conclusion')" = success
+          done
+          echo "XZOGOT_NACHT_SOURCE_BOUNDS_ACTORS_MATERIALS_EXTERIOR_LOD_GATES_GREEN"
+
+      - name: Reuse real Godot 4.6 lossless 10793 model instance scene and exact original material class policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-real-exterior/glb build/nacht-real-exterior/authority build/nacht-real-exterior/policy
+          gh run download 37938836028 \
+            -n Nacht-LOSSLESS-Native-493-GLB-10793-Actor-Godot-Research-Proof \
+            -D build/nacht-real-exterior/glb \
+            2>&1 | tee build/nacht-real-exterior/scene-download.log
+          gh run download 37944732189 \
+            -n Nacht-10793-Original-574-Materials-16595-Source-Surface-Assignments \
+            -D build/nacht-real-exterior/authority \
+            2>&1 | tee build/nacht-real-exterior/material-authority-download.log
+          gh run download 37961985956 \
+            -n Nacht-Original-10793-Exterior-Foliage-World-Distance-LOD-Policy \
+            -D build/nacht-real-exterior/policy \
+            2>&1 | tee build/nacht-real-exterior/source-policy-download.log
+          PROJECT=$(find build/nacht-real-exterior/glb -name project.godot -type f -print -quit)
+          MATERIAL=$(find build/nacht-real-exterior/authority -name nacht-actor-material-authority.json -type f -print -quit)
+          POLICY=$(find build/nacht-real-exterior/policy -name original-exterior-source-actor-visual-policy.json -type f -print -quit)
+          test -s "$PROJECT" && test -s "$MATERIAL" && test -s "$POLICY"
+          echo "GODOT_PROJECT=$(dirname "$PROJECT")" >> "$GITHUB_ENV"
+          echo "REAL_MATERIAL=$PWD/$MATERIAL" >> "$GITHUB_ENV"
+          echo "EXTERIOR_POLICY=$PWD/$POLICY" >> "$GITHUB_ENV"
+      - name: Stage research-only far-Lod safety probe without changing shipped scene and source collision
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$REAL_MATERIAL" "$GODOT_PROJECT/nacht-actor-material-authority.json"
+          cp "$EXTERIOR_POLICY" "$GODOT_PROJECT/nacht-exterior-visual-policy.json"
+          cp tools/maps/nacht_source_safe_exterior_lod_godot_probe.gd \
+            "$GODOT_PROJECT/nacht_source_safe_exterior_lod_godot_probe.gd"
+          test -s "$GODOT_PROJECT/assets/meshes/Nacht_Source_Bridge_Probe.glb"
+
+      - name: Real Godot 4.6.1 actor full transformed mesh bounds guard and exterior-only LOD and distance cull
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot"
+          curl --fail -L --retry 4 -o "$RUNNER_TEMP/godot/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64"
+          chmod +x "$GODOT"
+          "$GODOT" --headless --editor --path "$GODOT_PROJECT" --quit \
+            2>&1 | tee build/nacht-real-exterior/source-geometry-import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load" \
+            build/nacht-real-exterior/source-geometry-import.log
+          "$GODOT" --headless --path "$GODOT_PROJECT" \
+            --script res://nacht_source_safe_exterior_lod_godot_probe.gd \
+            2>&1 | tee build/nacht-real-exterior/godot-source-exterior-lod.log
+          cp "$GODOT_PROJECT/nacht-exterior-real-godot-lod-audit.json" \
+            build/nacht-real-exterior/source-exterior-godot-report.json
+          grep -q XZOGOT_NACHT_REAL_GODOT_10793_EXTERIOR_VISUAL_LOD_SAFE_GREEN \
+            build/nacht-real-exterior/godot-source-exterior-lod.log
+          python3 - <<'PY'
+          import json
+          r=json.load(open("build/nacht-real-exterior/source-exterior-godot-report.json"))
+          assert r["originalSourceActorCount"]==10793
+          assert r["originalSourceMaterialSurfaces"]==16595
+          assert r["originalSourceEffectiveMaterials"]==574
+          assert r["untouchedOriginalMeshResourceActors"]==10793
+          assert r["untouchedOriginalSourceWorldTransforms"]==10793
+          assert r["protectedNearBuildingSourceActorsUnchanged"]>100
+          assert r["actualGodotExteriorActorsWithVisualOnlyOptimization"]>=30
+          assert r["originalTrianglesRemoved"]==0
+          assert r["allBigTreesSilhouettesPreserved"] is True
+          assert r["collisionAndNavigationUnchanged"] is True
+          assert r["realGPUFrameTimesAndAndroidFPSNotYetMeasured"] is True
+          print("XZOGOT_NACHT_EXTERIOR_NEAR_PLAYABLE_BUILDING_GUARDED_AT_REAL_GLTF_MESH_AABB_GREEN")
+          PY
+
+      - name: Publish independently proven actual native Godot LOD counts and guarded building results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Real-Godot-Exterior-400-Source-Trees-Play-Area-Safe-LOD-Proof
+          path: |
+            build/nacht-real-exterior/source-geometry-import.log
+            build/nacht-real-exterior/godot-source-exterior-lod.log
+            build/nacht-real-exterior/source-exterior-godot-report.json
+          retention-days: 14
+          if-no-files-found: warn
