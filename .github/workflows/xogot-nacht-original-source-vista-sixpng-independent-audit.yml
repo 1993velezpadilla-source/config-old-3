@@ -1,0 +1,70 @@
+name: Nacht Independent Native Vista Original-Source Six-PNG Pixel Audit
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-original-source-vista-sixpng-independent-audit.yml"
+      - "tools/maps/nacht_original_source_vista_pixel_independent_audit.py"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  actual-source-screen-pixel-evidence-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ORIGINAL_SOURCE_CAMERA_RUN: "37977887054"
+    steps:
+      - uses: actions/checkout@v5
+      - name: Validate independently measured PIL/Godot RGB consumer script
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/maps/nacht_original_source_vista_pixel_independent_audit.py
+          python3 -m pip install --user pillow --disable-pip-version-check
+      - name: Await original real-Nacht three-camera source render; download actual six PNGs even if RED
+        shell: bash
+        run: |
+          set -euo pipefail
+          complete=""
+          for i in $(seq 1 70); do
+            complete="$(gh run view "$ORIGINAL_SOURCE_CAMERA_RUN" --json status --jq '.status')"
+            if test "$complete" = completed; then break; fi
+            echo "Waiting for actual Godot original Nacht pixel captures from #$ORIGINAL_SOURCE_CAMERA_RUN ($i/70)"
+            sleep 30
+          done
+          test "$complete" = completed || { echo "RED: actual original-source screenshot run did not finish"; exit 1; }
+          mkdir -p build/nacht-original-sixpng/original
+          gh run download "$ORIGINAL_SOURCE_CAMERA_RUN" \
+            -n Nacht-Real-10793-Native-Vista-MultiMesh-3Camera-Before-After-Screenshots \
+            -D build/nacht-original-sixpng/original
+          test -f build/nacht-original-sixpng/original/real-original-source-vista-spatial-visual-ab.json \
+            || { echo "RED: no actual Godot 3-camera screenshot audit JSON; retaining raw RED logs"; exit 1; }
+      - name: Independent SIX actual native scene frames, source tree pixels, material preservation and diff panels
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/nacht_original_source_vista_pixel_independent_audit.py \
+            --source build/nacht-original-sixpng/original \
+            --output build/nacht-original-sixpng/audited \
+            2>&1 | tee build/nacht-original-sixpng/independent-image-comparison.log
+          grep -q XZOGOT_NACHT_NATIVE_SOURCE_VISTA_MM_SIX_PNG_INDEPENDENT_RGB_PARITY_GREEN \
+            build/nacht-original-sixpng/independent-image-comparison.log
+          test "$(gh run view "$ORIGINAL_SOURCE_CAMERA_RUN" --json conclusion --jq '.conclusion')" = success
+      - name: Preserve RED/green actual six source-native PNGs, three side-by-side zoomable comparisons
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Independent-Six-Original-Godot-Vista-RGB-Frames-3-Diff-Panels
+          path: |
+            build/nacht-original-sixpng/audited/
+            build/nacht-original-sixpng/independent-image-comparison.log
+            build/nacht-original-sixpng/original/real-original-source-vista-spatial-visual-ab.json
+            build/nacht-original-sixpng/original/real-source-3cam-pixel-comparison.log
+          retention-days: 14
+          if-no-files-found: warn
