@@ -64,3 +64,17 @@ Both shard jobs were started; **a submitted or running workflow is NOT a GREEN r
 4. Production integration reviewed separately, not silently merged from this research branch.
 
 **Status: research only; production merge NOT approved.**
+
+
+## 16-view source camera sweep — verified GREEN, Oct 9 2026
+
+Source renderer [#37979580156](https://github.com/1993velezpadilla-source/config-old-3/actions/runs/37979580156), independently decoded and measured 32 *real Godot PNGs* [#37979720999](https://github.com/1993velezpadilla-source/config-old-3/actions/runs/37979720999), and native Mesa counters [#37980306425](https://github.com/1993velezpadilla-source/config-old-3/actions/runs/37980306425): **ALL GREEN**. Exactly 16 paired views, 4 candidate eye-height camera anchors × four cardinal headings, all 16 viewpoints with visibly populated source scene content.
+
+- 16 camera-frame draw calls summed: **78,374 source without batching → 76,463 source with 32m Vista MultiMesh**, **1,911 fewer draw calls across those 16 frame samples**. **Do NOT interpret the sum as a single-frame savings, FPS gain or Android performance**.
+- 16 camera-frame Godot `RENDER_TOTAL_PRIMITIVES_IN_FRAME` counts summed: **34,088,244 → 33,427,348** (**660,896 fewer** across 16 different frame samples, not unique triangle deletion).
+- All 16 paired cameras measured **strictly positive draw-call and primitive-index savings**; independent counter audit recorded **zero regressions** at any tested candidate orientation.
+- Independent original RGB screenshot audit: **16/16 views pass**; maximal significant pixel changes in a view: **248 / 518,400** at central interior yaw 270°. Maximum independently measured whole-image mean RGB difference among all viewpoints approximately **0.003954%**. The other viewpoints have far smaller deltas.
+- **Originals retained**: 10,793 native actor nodes, 340 original Vista tree identities, 282 temporarily represented as 90 MultiMesh groups, 58 left individual, **zero permanent deletions**.
+- Fail-closed merge of two 8-camera shard PNG artifacts: first combined job [#37982897050](https://github.com/1993velezpadilla-source/config-old-3/actions/runs/37982897050) **RED only in merger** because uploaded original PNGs/reports remain nested under `shard-indoors/` and `shard-outdoors/`; **both genuine Godot renderer jobs were GREEN**. The flat-path assumption was fixed with a conservative identity-checked source shard normalizer and [independent replay #37989006848](https://github.com/1993velezpadilla-source/config-old-3/actions/runs/37989006848): **GREEN** without re-downloading/re-rendering original 2GB source. It re-certified all 32 PNGs and Mesa GPU evidence.
+
+**Important limits:** 4 candidate origins and 4 cardinal views each are **NOT exhaustive 360 reachable navigation/window certification**. Real mobile device GPU FPS, texture residency and thermal behavior still unmeasured. The source archive is a **Pavlov UE4.21 reconstruction**, not original official BO3 T7. Ship gate remains **CLOSED**.
