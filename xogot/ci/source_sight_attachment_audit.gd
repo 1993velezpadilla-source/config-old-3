@@ -177,7 +177,9 @@ func _inspect() -> void:
 			# Scope sockets are attachment points, NOT rear iron sights.
 			# Arisaka tag_scope is behind the camera; its forced centering
 			# produced giant obstructive hands and an artificial false GREEN.
-			var accepted_sight_tags: Array[String] = ["tag_scope", "tag_no_scope"] if id in ["mosin", "ptrs"] else ["tag_iron_sights"]
+			var accepted_sight_tags: Array[String] = ["tag_iron_sights"]
+			if id in ["mosin", "ptrs"]:
+				accepted_sight_tags = ["tag_scope", "tag_no_scope"]
 			for tag in accepted_sight_tags:
 				var idx := gun_skeleton.find_bone(tag)
 				if idx >= 0:
