@@ -1,0 +1,66 @@
+name: Nacht Four-Variant Real Renderer MultiMesh GPU Evidence Gate
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-vista-multimesh-real-renderer-audit.yml"
+      - "tools/maps/nacht_real_vista_multimesh_renderer_audit.py"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  compare-real-original-godot-vista-multimesh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: "37974910263"
+    steps:
+      - uses: actions/checkout@v5
+      - name: Verify fail-closed original A-B counter auditor and fourth-variant parser
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/maps/nacht_real_vista_multimesh_renderer_audit.py
+          python3 -m py_compile tools/maps/nacht_renderer_ab_audit.py
+          python3 tools/maps/nacht_renderer_ab_audit.py --self-test
+      - name: Read authentic measured four-variant native Godot render artifact, never fabricate
+        shell: bash
+        run: |
+          set -euo pipefail
+          status=""
+          for attempt in $(seq 1 70); do
+            status="$(gh run view "$SOURCE_RUN" --json status --jq '.status')"
+            if test "$status" = completed; then break; fi
+            echo "Waiting for true native Mesa 4-variant #$SOURCE_RUN attempt $attempt/70"
+            sleep 30
+          done
+          test "$status" = completed || { echo "RED: source measurement not finished"; exit 1; }
+          test "$(gh run view "$SOURCE_RUN" --json conclusion --jq '.conclusion')" = success \
+            || { echo "RED: source render gauntlet did not pass"; exit 1; }
+          mkdir -p build/nacht-four-variant-renderer/actual
+          gh run download "$SOURCE_RUN" \
+            -n Nacht-Actual-Godot-Mesa-Source-Far-LOD-DDS-Drawcall-VisiblePrimitive-AB \
+            -D build/nacht-four-variant-renderer/actual
+          test -s build/nacht-four-variant-renderer/actual/real-Godot-visible-drawcall-AB.json
+      - name: Strict real 32m source spatial batching A-B comparison and downgrade on overdraw
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/nacht_real_vista_multimesh_renderer_audit.py \
+            --input build/nacht-four-variant-renderer/actual/real-Godot-visible-drawcall-AB.json \
+            --output build/nacht-four-variant-renderer/real-source-multimesh-32m-GPU-audit.json
+          cat build/nacht-four-variant-renderer/real-source-multimesh-32m-GPU-audit.json
+      - name: Upload original measurement and red/green source instancing verdict
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Real-Source-Vista-32m-MultiMesh-Mesa-Render-Regression-Evidence
+          path: |
+            build/nacht-four-variant-renderer/actual/real-Godot-visible-drawcall-AB.json
+            build/nacht-four-variant-renderer/real-source-multimesh-32m-GPU-audit.json
+          if-no-files-found: warn
+          retention-days: 14
