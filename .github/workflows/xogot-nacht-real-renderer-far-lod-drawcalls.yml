@@ -8,6 +8,7 @@ on:
     paths:
       - ".github/workflows/xogot-nacht-real-renderer-far-lod-drawcalls.yml"
       - "tools/maps/nacht_real_renderer_far_lod_drawcall_ab.gd"
+      - "tools/maps/nacht_apply_vista_spatial_multimesh_research.gd"
 
 permissions:
   contents: read
@@ -78,6 +79,7 @@ jobs:
           cp xogot/scripts/xziel_benchmark_loader.gd "$GODOT_PROJECT/scripts/xziel_benchmark_loader.gd"
           cp tools/maps/nacht_apply_source_exterior_visual_lod.gd "$GODOT_PROJECT/nacht_apply_source_exterior_visual_lod.gd"
           cp tools/maps/nacht_apply_source_vista_actor_local_dds.gd "$GODOT_PROJECT/nacht_apply_source_vista_actor_local_dds.gd"
+          cp tools/maps/nacht_apply_vista_spatial_multimesh_research.gd "$GODOT_PROJECT/nacht_apply_vista_spatial_multimesh_research.gd"
           cp tools/maps/nacht_real_renderer_far_lod_drawcall_ab.gd "$GODOT_PROJECT/nacht_real_renderer_far_lod_drawcall_ab.gd"
           cp "$SOURCE_MATERIAL" "$GODOT_PROJECT/nacht-actor-material-authority.json"
           cp "$SOURCE_POLICY" "$GODOT_PROJECT/nacht-exterior-visual-policy.json"
@@ -115,11 +117,11 @@ jobs:
           timeout 600 "$GODOT" --headless --editor --path "$GODOT_PROJECT" --quit \
             2>&1 | tee build/nacht-renderer-ab/import.log
           if grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load" build/nacht-renderer-ab/import.log; then exit 1; fi
-      - name: REAL drawcall/visible primitive counters measured at 2 identical source cameras across 3 variants
+      - name: REAL drawcall/visible primitive counters 2 original cameras across FOUR source variants including native Vista spatial MultiMesh
         shell: bash
         run: |
           set -euo pipefail
-          timeout 900 xvfb-run -a -s "-screen 0 1280x720x24" \
+          timeout 1800 xvfb-run -a -s "-screen 0 1280x720x24" \
             "$GODOT" --path "$GODOT_PROJECT" --rendering-method gl_compatibility \
             --resolution 1280x720 \
             --script res://nacht_real_renderer_far_lod_drawcall_ab.gd \
@@ -137,6 +139,10 @@ jobs:
           assert len(d["realSourceOriginalBaselineRenderer"])==2
           assert len(d["sourceFarExteriorOnlyRealRenderer"])==2
           assert len(d["realActorSpecificSourceDerivedDDSExtension"])==2
+          assert len(d["realOriginalVistaSourceMultimesh32mRenderer"])==2
+          assert d["researchVistaSpatialMultimeshOriginalActorsPreserved"]["originalSourceActorsStillPresent"]==10793
+          assert d["researchVistaSpatialMultimeshOriginalActorsPreserved"]["originalActorsTemporarilyHidden"]>=100
+          assert d["researchVistaSpatialMultimeshOriginalActorsPreserved"]["approvedForShipping"] is False
           assert d["validGodotRendererMeasurements"] is True
           assert d["androidGPUActualFPSOrMemoryMeasured"] is False
           print("XZOGOT_NACHT_ACTUAL_GL_DRIVER_RENDER_VISIBLE_OBJECT_PRIMITIVE_CALLS_MEASURED_GREEN")
