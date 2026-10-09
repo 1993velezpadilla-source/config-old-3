@@ -1,0 +1,56 @@
+name: Nacht UE4 Masked Shader Output Source Opacity Link Research
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-original-ue-masked-opacity-audit.yml"
+      - "tools/maps/nacht_original_ue_masked_opacity_semantics_audit.py"
+permissions:
+  contents: read
+  actions: read
+jobs:
+  actual-source-original-masked-opacity-semantics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check exact 10793 actor material-graph source evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-opacity/source
+          test "$(gh run view 37944732189 --json conclusion --jq '.conclusion')" = success
+          gh run download 37944732189 \
+            -n Nacht-10793-Original-574-Materials-16595-Source-Surface-Assignments \
+            -D build/nacht-opacity/source
+          python3 -m py_compile tools/maps/nacht_original_ue_masked_opacity_semantics_audit.py
+          python3 tools/maps/nacht_original_ue_masked_opacity_semantics_audit.py \
+            --bridge build/nacht-opacity/source/nacht-actor-material-authority.json \
+            --output build/nacht-opacity/source-masked-original-ue-opacity-graph-audit.json \
+            2>&1 | tee build/nacht-opacity/source-masked-original-opacity.log
+          grep -q XZOGOT_NACHT_MASKED_OPACITY_GRAPH_PARTIAL_SOURCE_AUTHORITY_AUDIT_GREEN \
+            build/nacht-opacity/source-masked-original-opacity.log
+          python3 - <<'PY'
+          import json
+          x=json.load(open("build/nacht-opacity/source-masked-original-ue-opacity-graph-audit.json"))
+          assert x["maskedSourceMaterials"]==571
+          assert x["sourceShaderGraphMayBeIncomplete"]
+          assert x["doNotAutomaticallyForceAllSourceMaskedSurfacesOpaque"]
+          assert x["actual9ImageForensicsIsRequiredBeforeFix"]
+          assert not x["readyToMerge"]
+          print("XZOGOT_NACHT_ORIGINAL_SOURCE_MASKED_IS_NOT_SHIPPING_ALPHA_CERTIFICATE_GREEN")
+          PY
+      - name: Preserve all 571 exact masked source material candidates and uncertainty
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-571-Source-UE4-Masked-Opacity-Link-vs-Godot-Scissor-Audit
+          path: |
+            build/nacht-opacity/source-masked-original-ue-opacity-graph-audit.json
+            build/nacht-opacity/source-masked-original-opacity.log
+          retention-days: 14
+          if-no-files-found: warn
