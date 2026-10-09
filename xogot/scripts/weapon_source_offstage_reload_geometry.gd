@@ -8,13 +8,24 @@ extends RefCounted
 # suppress ONLY 100%-reload-part triangles in HIP/ADS and restore on reload.
 # MOSIN: j_clip, tag_stripper, tag_round1, tag_round2 (619 source vertices).
 # PTRS: j_clip (485 source vertices).
-# ARISAKA: actual GLB has two separate 100%-reload-only primitives
-# (553+90=643 vertices, 448+96 triangles): z=-0.970..-0.916m, strictly
-# bound to j_round/j_round1/j_clip/j_stripper; the rifle itself has z>-0.03m.
-# Proven by decoding source glTF vertex POSITION, JOINTS_0 and WEIGHTS_0.
+# ARISAKA: original GLB has 643 100%-reload-only vertices, 544 triangles,
+# z=-0.970..-0.916m, j_round/j_round1/j_clip/j_stripper.
+# KAR98K: original GLB has 251+90=341 100%-reload-only vertices,
+# 228+96=324 triangles, z=-0.949..-0.939m; j_round,
+# j_stripper_rounds/j_stripper_clip. Body vertices start at z=-0.026m.
+# SPRINGFIELD: original GLB has 553+90=643 reload-only vertices,
+# 448+96=544 triangles, z=-0.712..-0.153m; j_round/j_round1/j_round2/
+# j_stripper. Non-reload surfaces have z>=-0.029m.
+# Proven by reading original glTF POSITION, JOINTS_0 and WEIGHTS_0: all
+# auxiliary vertices have 100% single-bone source influence, and there
+# are no shared faces with the original rifle bodies. Preserve reload!
 static func _reload_only_bone(weapon_id: String, bone: String) -> bool:
 	if weapon_id == "arisaka":
 		return bone in ["j_stripper", "j_round1", "j_round", "j_clip"]
+	if weapon_id == "kar98k":
+		return bone in ["j_stripper_rounds", "j_stripper_clip", "j_round"]
+	if weapon_id == "springfield":
+		return bone in ["j_round", "j_round1", "j_round2", "j_stripper"]
 	if weapon_id == "mosin":
 		return bone in ["j_clip", "tag_stripper", "tag_round1", "tag_round2"]
 	if weapon_id == "ptrs":
@@ -33,7 +44,7 @@ static func _skinned_mesh(node: Node) -> MeshInstance3D:
 	return null
 
 static func prepare(root: Node3D, weapon_id: String) -> Dictionary:
-	if root == null or weapon_id not in ["mosin", "ptrs", "arisaka"]:
+	if root == null or weapon_id not in ["mosin", "ptrs", "arisaka", "kar98k", "springfield"]:
 		return {}
 	var item: MeshInstance3D = _skinned_mesh(root)
 	if item == null:
@@ -45,6 +56,11 @@ static func prepare(root: Node3D, weapon_id: String) -> Dictionary:
 	var removed_vertices := 0
 	var removed_triangles := 0
 	var retained_triangles := 0
+	var stage_limit_m := -1.0
+	if weapon_id == "springfield":
+		stage_limit_m = -0.12
+	elif weapon_id in ["arisaka", "kar98k"]:
+		stage_limit_m = -0.75
 	for surface_idx in range(original.get_surface_count()):
 		var arr: Array = original.surface_get_arrays(surface_idx)
 		var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
@@ -69,7 +85,6 @@ static func prepare(root: Node3D, weapon_id: String) -> Dictionary:
 						strongest_bone = str(skin.get_bind_name(binding))
 			# Source-authoritative distance, not an invented animated pose.
 			# Never remove body, scope, handle or actual barrel vertices.
-			var stage_limit_m := -0.75 if weapon_id == "arisaka" else -1.0
 			if strongest >= 0.95 and verts[vid].z < stage_limit_m and _reload_only_bone(weapon_id, strongest_bone):
 				auxiliary[vid] = 1
 				removed_vertices += 1
