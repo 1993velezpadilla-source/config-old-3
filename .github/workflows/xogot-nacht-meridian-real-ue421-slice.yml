@@ -10,6 +10,7 @@ on:
       - "tools/maps/nacht_meridian_source_bridge.py"
       - "tools/maps/validate_meridian_nacht_gltf.py"
       - "tools/maps/validate_meridian_source_geometry.py"
+      - "tools/maps/select_nacht_distinct_source_actors.py"
 
 permissions:
   contents: read
@@ -56,7 +57,7 @@ jobs:
                 'first493_NativeGLBs_present=true')
           print('XZOGOT_NACHT_NOT_2017_BO3_T7_SOURCE')
           PY
-      - name: Select 493 DISTICT verified real native geometries across entire Nacht source
+      - name: Select 493 DISTINCT verified real native geometries across entire Nacht source
         shell: bash
         run: |
           set -euo pipefail
@@ -64,6 +65,8 @@ jobs:
           python3 tools/maps/select_nacht_distinct_source_actors.py \
             --scene "$UE_SCENE_FULL" --mesh-root "$UE_MESHES" \
             --count 493 \
+            --max-individual-glb-bytes 256000000 \
+            --max-total-glb-bytes 1000000000 \
             --output build/nacht-meridian-real/selected-distinct-source-scene.json \
             2>&1 | tee build/nacht-meridian-real/diversity-select.log
           grep -q "XZOGOT_NACHT_DISTINCT_UE_NATIVE_SOURCE_SELECTION_GREEN" \
@@ -76,6 +79,9 @@ jobs:
           assert proof["selected_distinct_mesh_types"] == 493,proof
           assert proof["original_native_mesh_types"] == 493,proof
           assert proof["original_actor_count"] == 10793,proof
+          assert proof["source_glb_individual_byte_cap"] == 256000000, proof
+          assert proof["source_glb_total_byte_cap"] == 1000000000, proof
+          assert len(set(proof["original_mesh_indices"])) == 493, proof
           print("XZOGOT_NACHT_NO_DUPLICATE_MESH_TYPE_IN_493_GREEN")
           PY
       - name: Install pin-blender and independently pinned Meridian
