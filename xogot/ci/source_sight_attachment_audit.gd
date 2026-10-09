@@ -117,6 +117,9 @@ func _inspect() -> void:
 		quit(4)
 		return
 	var bad_ads: Array[String] = []
+	# Source files without real rear sight tags cannot be judged optically
+	# aligned by a weapon-root yaw or a successful image export.
+	var visually_unverified: Array[String] = []
 	for id: String in FIREARMS:
 		player.set_meta("ads_toggled", false)
 		if not bool(weapon.call("equip_weapon", id, true)):
@@ -253,6 +256,8 @@ func _inspect() -> void:
 		if source_iron_bore_error < 0.0 and barrel_angle_deg >= 0.0 and barrel_angle_deg > 3.0:
 			bad_ads.append(id + ":barrel_off_camera_forward_deg=" + str(barrel_angle_deg))
 		if marker_error_m < 0.0:
+			if not uses_scope_overlay:
+				visually_unverified.append(id + ":missing_original_rear_iron_tag")
 			print("XZOGOT_SIGHT_AUDIT_NO_IMPORTED_REAR_SIGHT id=", id,
 				" source_registration=visual_approval_required")
 		print("XZOGOT_SIGHT_AUDIT_ADS_RESULT id=",id,
@@ -295,6 +300,7 @@ func _inspect() -> void:
 			" mesh_local=",gun_geom.get("aabb",AABB()),
 			" tags=",candidate_bones)
 	print("XZOGOT_SIGHT_AUDIT_ADS_VISUAL_BLOCKERS ",bad_ads)
+	print("XZOGOT_SIGHT_AUDIT_MANUAL_OPTICAL_PROOF_PENDING ",visually_unverified)
 	print("XZOGOT_SIGHT_AUDIT_28_INSPECTED ",FIREARMS.size())
 	if not bad_ads.is_empty():
 		print("XZOGOT_SIGHT_AUDIT_VISUAL_ACCEPTANCE_RED count=",bad_ads.size())
@@ -302,6 +308,12 @@ func _inspect() -> void:
 	await process_frame
 	if not bad_ads.is_empty():
 		quit(7)
+		return
+	if not visually_unverified.is_empty():
+		# Explicit RED: geometry/orientation-only checks are not photographic
+		# approval of original WaW rear/front sight alignment and hand grips.
+		print("XZOGOT_SIGHT_AUDIT_OPTICAL_ACCEPTANCE_RED missing_source_sights=",visually_unverified.size())
+		quit(8)
 		return
 	print("XZOGOT_SIGHT_AUDIT_CENTERING_PROBE_GREEN 28")
 	quit(0)
