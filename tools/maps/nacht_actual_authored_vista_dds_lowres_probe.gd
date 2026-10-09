@@ -238,7 +238,7 @@ func _probe() -> void:
             var entry: Array = entry_any as Array
             var src_mat: StandardMaterial3D = entry[3] as StandardMaterial3D
             var src_tex: Texture2D = entry[1] as Texture2D
-            if src_mat.albedo_texture != src_tex or src_tex.get_size()!=entry[2]:
+            if src_mat.albedo_texture != src_tex or src_tex.get_size()!=Vector2(entry[2]):
                 errors.append(id+" original near-shared DDS content or dimensions mutated")
                 break
         if not errors.is_empty():break
