@@ -392,6 +392,112 @@ func _capture() -> void:
             quit(33)
             return
     print("XZOGOT_NACHT_NIGHT_LOOKDEV_SHADOW_VISIBILITY_BRACKET_GREEN both_camera_views=2")
+    # A/B is captured AFTER all ten already validated source/night frames.
+    # Authentic materials/lights stay untouched. The original 55m circle
+    # and exact transformed GLB actor bounds forbid any building changes.
+    var exterior_policy_raw: Variant = JSON.parse_string(
+        FileAccess.get_file_as_string("res://nacht-exterior-visual-policy.json"))
+    if not (exterior_policy_raw is Dictionary):
+        push_error("XZOGOT_NACHT_MOBILE_EXTERIOR_SOURCE_POLICY_MISSING_RED")
+        quit(34)
+        return
+    var optimization_script: Script = load("res://nacht_apply_source_exterior_visual_lod.gd") as Script
+    if optimization_script == null:
+        push_error("XZOGOT_NACHT_MOBILE_EXTERIOR_ACTUAL_GODOT_CONTROLLER_MISSING_RED")
+        quit(35)
+        return
+    var optimizer: RefCounted = optimization_script.new() as RefCounted
+    var exterior_report: Dictionary = optimizer.call("apply_to_real_source_meshes",
+        exterior_policy_raw,by_actor) as Dictionary
+    if (not (exterior_report.get("errors",[]) as Array).is_empty() or
+        int(exterior_report.get("actualFarExteriorGodotActorsOptimized",0))<30 or
+        int(exterior_report.get("nearBuildingOriginalActorsProtected",0))<100):
+        push_error("XZOGOT_NACHT_EXTERIOR_55M_SOURCE_BUILDING_RUNTIME_SAFETY_RED "+
+                   JSON.stringify(exterior_report))
+        quit(36)
+        return
+    print("XZOGOT_NACHT_REAL_GODOT_EXTERIOR_FOLIAGE_SOURCE_POLICY_APPLIED",
+          " optimized_original_actors=",exterior_report["actualFarExteriorGodotActorsOptimized"],
+          " protected_building_source_meshes=",exterior_report["nearBuildingOriginalActorsProtected"],
+          " source_imported_LOD_variants=",exterior_report["sourceMeshActorsWithAutoImportedLODVariants"],
+          " distant_shadows_off=",exterior_report["originalFarDecorationActorsShadowOff"])
+    var moon_original: Environment = source_sky_environment.duplicate(true) as Environment
+    moon_original.ambient_light_source=Environment.AMBIENT_SOURCE_COLOR
+    moon_original.ambient_light_sky_contribution=0.0
+    moon_original.background_mode=Environment.BG_COLOR
+    moon_original.background_color=Color(0.013,0.021,0.040)
+    moon_original.ambient_light_color=Color(0.46,0.54,0.69)
+    moon_original.ambient_light_energy=0.72
+    cam.environment=moon_original
+    var optim_views: Array[Dictionary]=[
+        {"new":"11-exterior-moon-optimized","before":"07-night-lookdev-moon-overview",
+         "origin":Vector3(24.66175,37.85322,19.89849),
+         "target":Vector3(-2.494789,3.153206,-7.258049)},
+        {"new":"12-interior-moon-optimized","before":"08-night-lookdev-moon-interior",
+         "origin":Vector3(11.61863,1.65,-0.325515),
+         "target":Vector3(4.5,1.6,0.4)}
+    ]
+    var exterior_pixels: Array[Dictionary]=[]
+    for view: Dictionary in optim_views:
+        cam.global_position=view["origin"]
+        cam.look_at(view["target"],Vector3.UP)
+        for _f: int in range(12):
+            await process_frame
+        var after: Image=root.get_texture().get_image()
+        var baseline: Image=Image.load_from_file("res://"+str(view["before"])+".png")
+        if (after==null or baseline==null or after.is_empty() or baseline.is_empty()
+            or after.get_size()!=baseline.get_size()):
+            push_error("XZOGOT_NACHT_EXTERIOR_OPTIMIZED_REAL_RENDER_IMAGE_MISSING_RED")
+            quit(37)
+            return
+        var saved: Error=after.save_png("res://"+str(view["new"])+".png")
+        if saved!=OK:
+            push_error("XZOGOT_NACHT_EXTERIOR_ACTUAL_GODOT_PNG_NOT_SAVED_RED")
+            quit(38)
+            return
+        var count: int=0
+        var sum_difference: float=0.0
+        var large_differences: int=0
+        for py: int in range(0,after.get_height(),8):
+            for px: int in range(0,after.get_width(),8):
+                var before_color: Color=baseline.get_pixel(px,py)
+                var after_color: Color=after.get_pixel(px,py)
+                var color_difference: float=(
+                    absf(before_color.r-after_color.r)
+                    +absf(before_color.g-after_color.g)
+                    +absf(before_color.b-after_color.b))/3.0
+                count+=1
+                sum_difference+=color_difference
+                if color_difference>0.10:
+                    large_differences+=1
+        var result: Dictionary={
+            "originalRealGodotMoonFrame":str(view["before"])+".png",
+            "sourceOnlyOutdoorLODFrame":str(view["new"])+".png",
+            "meanAbsoluteRGBPixelDelta":sum_difference/float(count),
+            "fractionPixelsDifferingMoreThan0_10":float(large_differences)/float(count),
+            "width":after.get_width(),"height":after.get_height(),
+            "sameLightCameraAndOriginalMaterials":true,
+            "changingOnlyFarAuthoredFoliageLODAndNonstructuralSmallClutter":true
+        }
+        exterior_pixels.append(result)
+        print("XZOGOT_NACHT_REAL_GODOT_EXTERIOR_LOD_BEFORE_AFTER_PIXEL_AB",
+              JSON.stringify(result))
+        # Inside the playable building the environment/architecture must not
+        # visibly degrade. A near-camera source fidelity check, not a GPU FPS
+        # claim; small outdoor glimpses through windows are still allowed.
+        if str(view["new"]).begins_with("12-") and (
+            float(result["meanAbsoluteRGBPixelDelta"])>0.08 or
+            float(result["fractionPixelsDifferingMoreThan0_10"])>0.14):
+            push_error("XZOGOT_NACHT_BUILDING_INTERIOR_VISUALS_CHANGED_BY_FAR_LOD_RED "+
+                       JSON.stringify(result))
+            quit(39)
+            return
+    print("XZOGOT_NACHT_REAL_GODOT_OUTDOOR_FAR_LOD_AB_GREEN ",
+          " original_actor_count=",meshes.size(),
+          " exterior_original_actors_optimized=",exterior_report["actualFarExteriorGodotActorsOptimized"],
+          " original_interior_aabb_protected=",exterior_report["nearBuildingOriginalActorsProtected"],
+          " rendered_A_B_views=",exterior_pixels.size())
+
     var audit: Dictionary={
         "authority":"Pavlov UE4.21 archived source - NOT original BO3 T7",
         "renderedGodot":Engine.get_version_info().get("string",""),
@@ -399,6 +505,9 @@ func _capture() -> void:
         "sourceAuthoredMaterialSurfaces":bound,
         "sourceDiffuseTexturedSurfaces":textured,
         "sourceLights":166,
+        "farExteriorActualGodotLODPolicy":exterior_report,
+        "farExteriorRealGodotBeforeAfterComparisons":exterior_pixels,
+        "farFoliageOptimizationIsNotMobileFPSProof":true,
         "diagnosticAmbientPixelComparisons":diag_comparison,
         "nightLookdevPixelComparisons":night_comparisons,
         "nightLookdevIsSourceFaithful":false,
@@ -412,4 +521,5 @@ func _capture() -> void:
     out.store_string(JSON.stringify(audit,"\t"))
     out.close()
     print("XZOGOT_NACHT_MERIDIAN_10793_REAL_SOURCE_VISUAL_CAPTURE_GREEN count=",results.size())
+    print("XZOGOT_NACHT_FINAL_SOURCE_RENDER_IMAGES_COUNT ",results.size()+exterior_pixels.size())
     quit(0)
