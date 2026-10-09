@@ -8,6 +8,7 @@ on:
     paths:
       - ".github/workflows/xogot-nacht-real-ue421-lights-godot.yml"
       - "tools/maps/nacht_real_source_lights_godot_probe.gd"
+      - "tools/maps/compile_nacht_source_lights_for_meridian.py"
 
 permissions:
   contents: read
@@ -41,17 +42,26 @@ jobs:
             -D "$RUNNER_TEMP/real-source" \
             2>&1 | tee build/nacht-source-lights/source-download.log
           PROJECT=$(find build/nacht-source-lights/artifact -name project.godot -type f -print -quit)
-          XZEN=$(find "$RUNNER_TEMP/real-source" -name xzen-report.json -type f -print -quit)
-          test -s "$PROJECT" && test -s "$XZEN"
+          ORIGINAL=$(find "$RUNNER_TEMP/real-source" -name nacht-lights.json -type f -print -quit)
+          ENVIRONMENT=$(find "$RUNNER_TEMP/real-source" -name nacht-environment-report.json -type f -print -quit)
+          test -s "$PROJECT" && test -s "$ORIGINAL" && test -s "$ENVIRONMENT"
           echo "GODOT_PROJECT=$(dirname "$PROJECT")" >> "$GITHUB_ENV"
-          echo "ORIGINAL_LIGHT_REPORT=$XZEN" >> "$GITHUB_ENV"
+          echo "ORIGINAL_LIGHT_REPORT=$ORIGINAL" >> "$GITHUB_ENV"
+          echo "SOURCE_ENV_LIGHT_REPORT=$ENVIRONMENT" >> "$GITHUB_ENV"
 
       - name: Prepare exact original light metadata without synthetic lighting or extra GLB material guesses
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p "$GODOT_PROJECT/nacht-authority" "$GODOT_PROJECT/scripts"
-          cp "$ORIGINAL_LIGHT_REPORT" "$GODOT_PROJECT/nacht-authority/xzen-report.json"
+          python3 tools/maps/compile_nacht_source_lights_for_meridian.py \
+            --environment "$SOURCE_ENV_LIGHT_REPORT" \
+            --source-lights "$ORIGINAL_LIGHT_REPORT" \
+            --output "$GODOT_PROJECT/nacht-authority/xzen-report.json" \
+            --report build/nacht-source-lights/source-light-adapter-report.json \
+            2>&1 | tee build/nacht-source-lights/source-light-adapter.log
+          grep -q XZOGOT_NACHT_166_SOURCE_UE_LIGHTS_EXACT_AUTHORITY_ADAPTER_GREEN \
+            build/nacht-source-lights/source-light-adapter.log
           cp xogot/scripts/xziel_benchmark_loader.gd "$GODOT_PROJECT/scripts/xziel_benchmark_loader.gd"
           cp tools/maps/nacht_real_source_lights_godot_probe.gd \
             "$GODOT_PROJECT/nacht_real_source_lights_godot_probe.gd"
@@ -85,6 +95,8 @@ jobs:
           cp "$GODOT_PROJECT/native-source-light-audit.json" \
             build/nacht-source-lights/godot-source-light-audit.json
           grep -q XZOGOT_NACHT_166_REAL_UE421_LIGHTS_GODOT_SOURCE_PLACEMENT_GREEN \
+            build/nacht-source-lights/source-light-adapter.log
+            build/nacht-source-lights/source-light-adapter-report.json
             build/nacht-source-lights/godot-real-lights.log
 
       - name: Archive proof, never call this visual pixel / gameplay / Android equivalence
