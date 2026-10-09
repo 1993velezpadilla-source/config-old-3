@@ -43,6 +43,56 @@ func _source_wrist_distances(weapon: Node, gun_aabb: AABB) -> Dictionary:
 		distances[bone_name] = snappedf(point.distance_to(nearest), 0.0001)
 	return distances
 
+# Reversible three-frame GPU A/B/A proof: a screenshot with a wrong
+# orientation, an invisible model or a displaced import should NEVER be
+# marked green merely because its static GLB AABB is near the wrist.
+# The original MP40 full-game proof uses this actual framebuffer ablation
+# successfully. Reuse it for every HIP gun and every iron-sight ADS gun.
+func _visible_pixel_delta(a: Image, b: Image) -> Dictionary:
+	if a == null or b == null or a.is_empty() or b.is_empty():
+		return {"changed":0, "samples":0}
+	if a.get_size() != b.get_size():
+		return {"changed":0, "samples":0}
+	var changed := 0
+	var samples := 0
+	for y in range(int(a.get_height()*0.16), int(a.get_height()*0.96), 6):
+		for x in range(int(a.get_width()*0.14), int(a.get_width()*0.86), 6):
+			var first: Color = a.get_pixel(x,y)
+			var second: Color = b.get_pixel(x,y)
+			var delta := (absf(first.r-second.r)
+				+ absf(first.g-second.g)
+				+ absf(first.b-second.b))/3.0
+			if delta > 0.12:
+				changed += 1
+			samples += 1
+	return {"changed":changed, "samples":samples}
+
+func _source_gun_visible_in_frame(gun: Node3D, id: String, pose: String) -> bool:
+	if gun == null or not gun.is_visible_in_tree():
+		return false
+	await process_frame
+	await process_frame
+	var a: Image = root.get_texture().get_image()
+	gun.visible = false
+	await process_frame
+	await process_frame
+	var b: Image = root.get_texture().get_image()
+	gun.visible = true
+	await process_frame
+	await process_frame
+	var c: Image = root.get_texture().get_image()
+	var toggle: Dictionary = _visible_pixel_delta(a,b)
+	var drift: Dictionary = _visible_pixel_delta(a,c)
+	var count: int = int(toggle.get("changed",0))
+	var noise: int = int(drift.get("changed",0))
+	var samples: int = int(toggle.get("samples",0))
+	print("XZOGOT_28_REAL_GPU_GUN_PRESENCE id=",id," pose=",pose,
+		" original_gun_toggle_pixels=",count,
+		" natural_scene_drift_pixels=",noise,
+		" sample_count=",samples,
+		" restored_original_glb=",gun.is_visible_in_tree())
+	return samples > 1500 and count > maxi(60,int(float(noise)*1.5)) and gun.is_visible_in_tree()
+
 func _capture() -> void:
 	DirAccess.make_dir_recursive_absolute(FRAME_DIRECTORY)
 	var packed := load("res://main.tscn") as PackedScene
@@ -106,6 +156,17 @@ func _capture() -> void:
 			if trigger_wrist_gap > 0.15:
 				failures.append(weapon_id + ":" + pose
 					+ ":trigger_wrist_far_from_actual_gun_m=" + str(trigger_wrist_gap))
+			var original_gun: Node3D = weapon.get("_weapon_model_root") as Node3D
+			if pose == "ads" and weapon_id in ["mosin","ptrs"]:
+				# WaW sniper uses an optical HUD overlay and deliberately masks
+				# the opaque original scope tube ONLY at full ADS. Verify the
+				# actual scoped mask; other guns must render their real mesh.
+				var mask: ColorRect = scene.get_node_or_null("HUD/MobileHUD/SourceSniperScopeMask") as ColorRect
+				if (mask == null or not mask.visible
+					or not bool(weapon.get_meta("weapon_scope_viewmodel_masked",false))):
+					failures.append(weapon_id+":ads:source_sniper_optic_missing")
+			elif not await _source_gun_visible_in_frame(original_gun,weapon_id,pose):
+				failures.append(weapon_id+":"+pose+":original_source_mesh_not_visible_in_real_frame")
 			var largest: float = maxf(size.x, maxf(size.y, size.z))
 			var roll: float = float(weapon.get_meta("weapon_source_gun_roll_correction_deg", -1.0))
 			var centered_source_ads: bool = weapon_id == "mp40" and pose == "ads"
