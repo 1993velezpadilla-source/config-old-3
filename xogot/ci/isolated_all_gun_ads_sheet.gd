@@ -85,6 +85,28 @@ func _diagnose_occluding_parts(weapon: Node, id: String) -> void:
 		node.visible = true
 	await process_frame
 
+# CI-only eye-relief A/B: tests if the *entire untouched original rig*
+# is sitting inside the camera near plane. This is NOT a shipping offset.
+func _diagnose_eye_relief(weapon: Node, id: String) -> void:
+	var view: Node3D = weapon.get("_view_root") as Node3D
+	if view == null:
+		return
+	var baseline: Vector3 = view.position
+	weapon.set_process(false)
+	for relief_cm: int in [12, 24, 36]:
+		view.position = baseline + Vector3(0, 0, -float(relief_cm) / 100.0)
+		await process_frame
+		await process_frame
+		var img: Image = root.get_texture().get_image()
+		if img != null and not img.is_empty():
+			var filename := "/tmp/xogot-sight-component-ab/" + id + "-eye-relief-" + str(relief_cm) + "cm.png"
+			img.save_png(filename)
+			print("XZOGOT_ADS_EYE_RELIEF_AB id=",id," relief_cm=",relief_cm,
+				" obstruction=",_ads_frame_obstruction(img))
+	view.position = baseline
+	weapon.set_process(true)
+	await process_frame
+
 func _start() -> void:
 	DirAccess.make_dir_recursive_absolute(OUT)
 	# Reproducible uncluttered studio: imported gun+hands are exactly the same
@@ -232,6 +254,7 @@ func _start() -> void:
 					errs.append(id+":real_gpu_viewmodel_overobstructs_camera="+str(occlusion))
 				if id in ["gewehr", "fg42", "arisaka"]:
 					await _diagnose_occluding_parts(weapon, id)
+					await _diagnose_eye_relief(weapon, id)
 			var result_angle := float(weapon.get_meta("weapon_ads_visual_bore_error_deg", -1.0))
 			var result_sight := float(weapon.get_meta("weapon_ads_source_sight_error_m", -1.0))
 			if pose == "ads":
