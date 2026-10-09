@@ -134,13 +134,7 @@ func _run() -> void:
     cam.environment=moon
     # Source-confirmed CANDIDATE set only, never changes active game.
     # Requires exact archived 574 material definitions and 10793 native IDs.
-    var original_bridge: Variant=JSON.parse_string(
-        FileAccess.get_file_as_string("res://nacht-actor-material-authority.json"))
-    if not (original_bridge is Dictionary):
-        push_error("XZOGOT_NACHT_SOURCE_UNWIRED_MASK_MANIFEST_RED")
-        quit(23)
-        return
-    var bridge: Dictionary=original_bridge as Dictionary
+    # Reuse exact original authoritative dictionary validated at function start.
     if (int(bridge.get("sourceActorCount",-1))!=10793
         or int(bridge.get("distinctSourceEffectiveMaterials",-1))!=574
         or int(bridge.get("originalSourceSurfaceBindings",-1))!=16595):
