@@ -222,7 +222,29 @@ func _inspect() -> void:
 				bad_ads.append(id + ":source_sight_clipped_by_near_plane=" + str(marker_camera_depth_m))
 			if marker_error_m >= 0.0 and str(weapon.get_meta("weapon_ads_source_sight_registration", "")) != "runtime_optical_registration":
 				bad_ads.append(id + ":source_sight_runtime_registration_not_applied")
-		if barrel_angle_deg >= 0.0 and barrel_angle_deg > 3.0:
+		# A rear-sight pixel at (0,0) was a false GREEN when the original
+		# source barrel still faced diagonally away from the camera. For guns
+		# possessing BOTH authentic skeleton iron and flash tags, verify the
+		# actual vector between those authored points as well as centering.
+		var source_iron_bore_error := -1.0
+		if gun_skeleton != null and not uses_scope_overlay:
+			var rear_idx := gun_skeleton.find_bone("tag_iron_sights")
+			var flash_idx := gun_skeleton.find_bone("tag_flash")
+			if rear_idx >= 0 and flash_idx >= 0:
+				var rear_world := (gun_skeleton.global_transform * gun_skeleton.get_bone_global_pose(rear_idx)).origin
+				var front_world := (gun_skeleton.global_transform * gun_skeleton.get_bone_global_pose(flash_idx)).origin
+				var real_bore: Vector3 = cam.to_local(front_world) - cam.to_local(rear_world)
+				if real_bore.length() >= 0.15:
+					source_iron_bore_error = rad_to_deg(acos(clampf(real_bore.normalized().dot(Vector3.FORWARD),-1.0,1.0)))
+					if source_iron_bore_error > 1.0:
+						bad_ads.append(id + ":original_iron_to_muzzle_off_camera_deg=" + str(source_iron_bore_error))
+					if str(weapon.get_meta("weapon_ads_source_iron_registration","")) != "source_tag_iron_sights_to_tag_flash":
+						bad_ads.append(id + ":original_source_iron_bore_registration_missing")
+					print("XZOGOT_SOURCE_IRON_MUZZLE_AXIS_AUDIT id=",id,
+						" physical_source_bore_error_deg=",source_iron_bore_error,
+						" initial_angle_deg=",weapon.get_meta("weapon_ads_source_iron_original_bore_error_deg",-1),
+						" center_error_m=",marker_error_m)
+		if source_iron_bore_error < 0.0 and barrel_angle_deg >= 0.0 and barrel_angle_deg > 3.0:
 			bad_ads.append(id + ":barrel_off_camera_forward_deg=" + str(barrel_angle_deg))
 		if marker_error_m < 0.0:
 			print("XZOGOT_SIGHT_AUDIT_NO_IMPORTED_REAR_SIGHT id=", id,
