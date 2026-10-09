@@ -1,0 +1,23 @@
+name: Tripo Browser Extractor
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "standalone/tripo-browser-extractor/**"
+      - ".github/workflows/tripo-browser-extractor.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: JavaScript syntax check
+        run: node --check standalone/tripo-browser-extractor/tripo_scene_exporter.js
