@@ -56,6 +56,28 @@ jobs:
                 'first128_NativeGLBs_present=true')
           print('XZOGOT_NACHT_NOT_2017_BO3_T7_SOURCE')
           PY
+      - name: Select 128 DISTICT verified real native geometries across entire Nacht source
+        shell: bash
+        run: |
+          set -euo pipefail
+          export UE_SCENE_FULL="$UE_SCENE"
+          python3 tools/maps/select_nacht_distinct_source_actors.py \
+            --scene "$UE_SCENE_FULL" --mesh-root "$UE_MESHES" \
+            --count 128 \
+            --output build/nacht-meridian-real/selected-distinct-source-scene.json \
+            2>&1 | tee build/nacht-meridian-real/diversity-select.log
+          grep -q "XZOGOT_NACHT_DISTINCT_UE_NATIVE_SOURCE_SELECTION_GREEN" \
+            build/nacht-meridian-real/diversity-select.log
+          echo "UE_SCENE=$PWD/build/nacht-meridian-real/selected-distinct-source-scene.json" >> "$GITHUB_ENV"
+          python3 - <<'PY'
+          import json
+          data=json.load(open("build/nacht-meridian-real/selected-distinct-source-scene.json"))
+          proof=data["selectionProof"]
+          assert proof["selected_distinct_mesh_types"] == 128,proof
+          assert proof["original_native_mesh_types"] == 493,proof
+          assert proof["original_actor_count"] == 10793,proof
+          print("XZOGOT_NACHT_NO_DUPLICATE_MESH_TYPE_IN_128_GREEN")
+          PY
       - name: Install pin-blender and independently pinned Meridian
         shell: bash
         run: |
@@ -91,7 +113,7 @@ jobs:
             --output build/nacht-meridian-real/source-vertex-bounds-parity.json \
             2>&1 | tee build/nacht-meridian-real/source-vertex-bounds-parity.log
           grep -q "XZOGOT_NACHT_REAL_SOURCE_GEOMETRY_PARITY_GREEN" build/nacht-meridian-real/source-vertex-bounds-parity.log
-      - name: Import independent 128 real actors in Godot 4.6.1 (not only GLB JSON)
+      - name: Import 128 DISTINCT real native meshes in Godot 4.6.1 (not only GLB JSON)
         shell: bash
         run: |
           set -euo pipefail
@@ -134,10 +156,12 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Nacht-UE421-Archived-Source-Meridian-First128-Independent-AB
+          name: Nacht-UE421-Source-Meridian-128-DISTINCT-Native-Meshes-AB
           path: |
             build/nacht-meridian-real/source-download.log
             build/nacht-meridian-real/blender-real-source.log
+            build/nacht-meridian-real/selected-distinct-source-scene.json
+            build/nacht-meridian-real/diversity-select.log
             build/nacht-meridian-real/source-equivalence.json
             build/nacht-meridian-real/transform-parity.*
             build/nacht-meridian-real/source-vertex-bounds-parity.*
