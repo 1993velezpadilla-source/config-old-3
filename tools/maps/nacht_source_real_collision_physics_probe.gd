@@ -144,15 +144,34 @@ func _run() -> void:
             errors.append(str(test["sourceActorId"])+
                           " source-vs-shape triangles="+str(source_count)+"/"+str(physics_count))
             continue
-        shape.backface_collision = true
+        # Original archived UE4.21 actor ue_instance_000001 carries source
+        # basis X/Y≈100 Z≈101, which is genuine UE centimetre conversion
+        # not a fake object! Godot concave PhysicsServer does NOT guarantee
+        # correctness with nonuniform or huge CollisionShape3D node scale.
+        # Bake the ORIGINAL exact actor basis into all source triangle
+        # vertices and keep the physics body at translation-only identity
+        # basis. World triangle positions are mathematically unchanged.
+        # This is not an invented proxy mesh or triangle decimation.
+        var source_faces: PackedVector3Array = shape.get_faces()
+        var native_transform: Transform3D = mi.global_transform
+        var baked_faces: PackedVector3Array = PackedVector3Array()
+        baked_faces.resize(source_faces.size())
+        for face_vertex: int in range(source_faces.size()):
+            baked_faces[face_vertex] = native_transform.basis * source_faces[face_vertex]
+        var baked_shape: ConcavePolygonShape3D = ConcavePolygonShape3D.new()
+        baked_shape.set_faces(baked_faces)
+        baked_shape.backface_collision = true
+        if baked_shape.get_faces().size() != source_faces.size():
+            errors.append(str(test["sourceActorId"])+" baking source basis dropped authored triangle vertices")
+            continue
         var body: StaticBody3D = StaticBody3D.new()
         body.name = "ResearchOnlyAuthoritativeSourceStatic_"+str(test["nativeModelIndex"])
         body.collision_layer = 1
         body.collision_mask = 0
         root.add_child(body)
-        body.global_transform = mi.global_transform
+        body.global_transform = Transform3D(Basis.IDENTITY,native_transform.origin)
         var collider: CollisionShape3D = CollisionShape3D.new()
-        collider.shape = shape
+        collider.shape = baked_shape
         body.add_child(collider)
         # Verify physics server, NOT an AABB check in our own Python code.
         await physics_frame
@@ -223,6 +242,8 @@ func _run() -> void:
         "entireMapGameplayCollisionParityProven":false,
         "originalDynamicBarricadeOrDoorClassificationProven":false,
         "mobilePhysicsCostOrFrameRateProven":false,
+        "originalUE4BasisScaleBakedIntoExactNativeCollisionTriangles":true,
+        "noGeneratedCollisionPrimitivesOrTriangleDecimation":true,
         "originalBO3T7Proven":false,
         "researchErrors":errors.slice(0,15)
     }
