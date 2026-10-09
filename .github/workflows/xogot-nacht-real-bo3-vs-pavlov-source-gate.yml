@@ -1,0 +1,66 @@
+name: Xogot Nacht BO3 T7 vs Pavlov UE4 Origin Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - "tools/maps/audit_nacht_source_origin.py"
+      - "docs/2026-10-08-NACHT-BO3-T7-TO-GODOT-TOOLS.md"
+      - ".github/workflows/xogot-nacht-real-bo3-vs-pavlov-source-gate.yml"
+      - ".github/workflows/xogot-nacht-chronicles-full-map-authority.yml"
+      - ".github/workflows/xogot-stage-nacht-full-map.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  provenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Identify EXACT existing Nacht source engine and tool path
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/audit_nacht_source_origin.py             --output build/nacht-origin/provenance.json 2>&1 | tee build-origin-stdout.txt
+          grep -q "XZOGOT_NACHT_PAVLOV_UE421_PROVEN 3871 workshop 2755515831" build-origin-stdout.txt
+          grep -q "XZOGOT_NACHT_BO3_T7_ORIGINAL_PRESENT False" build-origin-stdout.txt
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path("build/nacht-origin/provenance.json").read_text())
+          assert p["imported_nacht_reference"]["proof_of_original_BO3_world"] is False
+          assert p["official_reference"]["native_map"] == "zm_prototype"
+          assert p["official_reference"]["engine"] == "Treyarch T7"
+          assert p["imported_nacht_reference"]["umap"].endswith("Nacht_de_Untoten.umap")
+          assert len(p["official_reference"]["tools"]) == 5
+          assert len(p["imported_nacht_reference"]["tools"]) == 5
+          print("XZOGOT_NACHT_ENGINE_TOOL_MATRIX_GREEN")
+          PY
+      - name: Check proof is NEVER fabricated from partial BO3 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/bo3-fake-source
+          echo "OBJ only" > /tmp/bo3-fake-source/zm_prototype.obj
+          if python3 tools/maps/audit_nacht_source_origin.py             --bo3-export-dir /tmp/bo3-fake-source             --output build/nacht-origin/invalid-provenance.json             2>&1 | tee build/nacht-origin/negative.log; then
+            echo "XZOGOT_NACHT_ORIGIN_GATE_FALSE_POSITIVE_RED"
+            exit 1
+          fi
+          grep -q "BO3_ORIGINAL_SOURCE_NOT_PROVEN" build/nacht-origin/negative.log
+          test ! -e build/nacht-origin/invalid-provenance.json
+          echo "XZOGOT_NACHT_NO_FAKE_BO3_SOURCE_GREEN"
+      - name: Preserve engine separation and porting tools proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nacht-True-BO3-vs-Pavlov-UE421-Source-Audit
+          path: |
+            build/nacht-origin/*.json
+            build/nacht-origin/*.log
+            build-origin-stdout.txt
+          if-no-files-found: warn
+          retention-days: 14
