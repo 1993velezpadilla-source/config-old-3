@@ -1,0 +1,57 @@
+name: Xogot Original Hands GLB Native Source Forensics
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/source-viewmodel-inherited-hands-unit-scale
+    paths:
+      - ".github/workflows/xogot-waw-source-hands-glb-forensics.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v5
+      - name: Verify untouched source meshes and animation glTF metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import struct,json,pathlib,hashlib
+          root=pathlib.Path('xogot/assets/weapons/aether_waw_hands/t4_marine')
+          for gun in ['fg42','arisaka','gewehr','mp40']:
+              path=root/gun/'viewhands.glb'
+              b=path.read_bytes()
+              if len(b)<100_000 or b[:4]!=b'glTF':
+                  raise SystemExit('XZOGOT_ORIGINAL_HANDS_SOURCE_MISSING '+gun)
+              length=struct.unpack_from('<I',b,12)[0]
+              doc=json.loads(b[20:20+length])
+              skin=doc['skins'][0]
+              if len(skin['joints'])!=113:
+                  raise SystemExit('XZOGOT_ORIGINAL_HANDS_BONE_COUNT_RED '+gun)
+              print('XZOGOT_NATIVE_GLTF_HANDS_SOURCE',gun,
+                    'bytes',len(b),'sha256',hashlib.sha256(b).hexdigest(),
+                    'nodes',len(doc.get('nodes',[])),
+                    'meshes',len(doc.get('meshes',[])),
+                    'joints',len(skin['joints']),
+                    'clips',len(doc.get('animations',[])))
+              print('XZOGOT_SOURCE_HANDS_BONE_NAMES',gun,
+                    [doc['nodes'][i].get('name','') for i in skin['joints']])
+          print('XZOGOT_4_REAL_HANDS_GLTF_FORENSICS_GREEN')
+          PY
+      - name: Preserve four original untouched GLBs for inspectable rig analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-FG42-Arisaka-Gewehr-MP40-Original-Source-Hand-GLBs
+          path: |
+            xogot/assets/weapons/aether_waw_hands/t4_marine/fg42/viewhands.glb
+            xogot/assets/weapons/aether_waw_hands/t4_marine/arisaka/viewhands.glb
+            xogot/assets/weapons/aether_waw_hands/t4_marine/gewehr/viewhands.glb
+            xogot/assets/weapons/aether_waw_hands/t4_marine/mp40/viewhands.glb
+          if-no-files-found: error
+          retention-days: 7
