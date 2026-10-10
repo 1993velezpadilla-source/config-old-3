@@ -58,10 +58,15 @@ def mat(name):
     return m
 
 def cube(label,pos,dims,material,kind="prop",bevel=0.0):
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=pos)
+    # Materialize the Y-up Godot manifest in native Blender Z-up axes.
+    # Blender coordinate (x,-z,y) exports to glTF Y-up (x,y,z).
+    # Mesh dimensions swap Y<->Z; no 90deg node rotation remains in GLB.
+    blender_pos=(pos[0],-pos[2],pos[1])
+    blender_dims=(dims[0],dims[2],dims[1])
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=blender_pos)
     obj=bpy.context.object
     obj.name=label
-    obj.dimensions=dims
+    obj.dimensions=blender_dims
     bpy.ops.object.transform_apply(location=False,rotation=False,scale=True)
     obj.data.materials.append(mat(material))
     if bevel>0.0:
@@ -103,7 +108,7 @@ def make_light(name,loc,color,strength,kind="AREA",size=5):
     if kind=="AREA":data.shape="DISK"; data.size=size
     node=bpy.data.objects.new(name,data)
     bpy.context.collection.objects.link(node)
-    node.location=loc
+    node.location=(loc[0],-loc[2],loc[1])
     COUNTS["light_source"]+=1
     return node
 
@@ -240,13 +245,11 @@ def build(layout):
         cube("PineTrunk_"+str(i),(px,height*.29,py),
              (.50,height*.58,.50),"rust","prop",.18)
         bpy.ops.mesh.primitive_cone_add(vertices=7,radius1=random.uniform(1.35,2.0),
-            radius2=0,depth=height*.8,location=(px,height*.72,py))
+            radius2=0,depth=height*.8,location=(px,-py,height*.72))
         tree=bpy.context.object
         tree.name="PineSilhouette_"+str(i)
         tree.data.materials.append(mat("dark_metal"))
-        # Cones are Blender Z-up primitives. Reorient locally to logical
-        # Y-up so global level conversion preserves vertical pine crowns.
-        tree.rotation_euler.x=-math.pi/2
+        # Native Blender Z-up cone will export directly to Godot Y-up.
         COUNTS["prop"]+=1
     make_camera()
     world=bpy.context.scene.world or bpy.data.worlds.new("BlackPinesNight")
@@ -255,33 +258,10 @@ def build(layout):
     bg=world.node_tree.nodes.get("Background")
     bg.inputs["Color"].default_value=(.015,.024,.043,1)
     bg.inputs["Strength"].default_value=.28
-    # Blender Z-up becomes Godot Y-up via GLB export conversion. The authored
-    # logical data is Godot XYZ (Y-up). Blender must reinterpret at export.
-    # Re-map object transforms so layout remains in Godot source coordinates:
-    # Godot (x,y,z) = Blender (x,-z,y). Rotate static mesh & scene -90° X
-    # BEFORE GLB export, then glTF importer axis adaptation restores Godot
-    # basis. This operation is intentionally explicit and tested by GLB census.
+    # All cube() / light() / cone() coords are now authored directly using
+    # the correct Blender Z-up axes. glTF conversion is handled by Blender.
     return {**COUNTS,"objects":len(bpy.data.objects)}
 
-def reorient_blender_coordinate_system():
-    # All geometry was authored in logical Godot coordinates (Y-up).
-    # Blender is Z-up. Convert positions (X,Y,Z)_godot to (X,-Z,Y)_blender.
-    # Rotating +90deg about Blender X gives (X,-Z,Y).
-    from mathutils import Matrix
-    rot=Matrix.Rotation(math.pi/2,4,"X")
-    for obj in bpy.context.scene.objects:
-        if obj.type=="MESH":
-            obj.matrix_world=rot @ obj.matrix_world
-        elif obj.type=="LIGHT":
-            # Positions follow logical Y-up cells. However Blender area
-            # lamps point along native -Z, which must stay downward into
-            # the now-Z-up rooms; rotating their basis points at a wall.
-            obj.location=rot @ obj.location
-            obj.rotation_euler=(0,0,0)
-        elif obj.type=="CAMERA":
-            # make_camera() is already authored in native Blender Z-up.
-            # Rotating it caused the first visual test to look *side-on*.
-            pass
 
 def main():
     args=sys.argv
@@ -295,9 +275,8 @@ def main():
     layout=json.loads(conf.layout.read_text())
     validate(layout)
     report=build(layout)
-    # Blender axis is Z-up, Godot axis Y-up. Rotate all logical content
-    # +90deg X prior to glTF's own Blender->glTF transform conversion.
-    reorient_blender_coordinate_system()
+    # Blender mesh objects already use native Z-up coordinate placement.
+    # Exporter maps them to glTF Y-up with identity node rotations.
     conf.out.parent.mkdir(parents=True,exist_ok=True)
     conf.preview.parent.mkdir(parents=True,exist_ok=True)
     conf.report.parent.mkdir(parents=True,exist_ok=True)
