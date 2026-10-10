@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "packId": "hospital-wards-and-clinic-operations",
+  "license": "CC0-1.0",
+  "sourcePack": "https://3dassets.dev/packs/hospital-wards-and-clinic-operations",
+  "assetSet": [
+    {
+      "id": "wheelchair",
+      "source": "https://cdn.3dassets.dev/assets/23600/v1/model.glb",
+      "page": "https://3dassets.dev/assets/hospital-wards-and-clinic-operations-wheelchair-3e5ab0b7",
+      "triangles": 896,
+      "room": "patients",
+      "position": [
+        -10.2,
+        0,
+        7
+      ],
+      "rotation": 20
+    },
+    {
+      "id": "iv_stand",
+      "source": "https://cdn.3dassets.dev/assets/23594/v1/model.glb",
+      "page": "https://3dassets.dev/assets/hospital-wards-and-clinic-operations-iv-stand-b8bbdf52",
+      "triangles": 432,
+      "room": "patients",
+      "position": [
+        -11.5,
+        0,
+        5.65
+      ],
+      "rotation": 0
+    },
+    {
+      "id": "privacy_screen",
+      "source": "https://cdn.3dassets.dev/assets/23599/v1/model.glb",
+      "page": "https://3dassets.dev/assets/hospital-wards-and-clinic-operations-privacy-screen-6adde32a",
+      "triangles": 348,
+      "room": "isolation",
+      "position": [
+        -2.8,
+        0,
+        -12.2
+      ],
+      "rotation": 18
+    },
+    {
+      "id": "surgical_lamp",
+      "source": "https://cdn.3dassets.dev/assets/23611/v1/model.glb",
+      "page": "https://3dassets.dev/assets/hospital-wards-and-clinic-operations-surgical-lamp-8bc7fd9e",
+      "triangles": 860,
+      "room": "surgery",
+      "position": [
+        13.8,
+        2.56,
+        -9.5
+      ],
+      "rotation": 0
+    }
+  ]
+}

@@ -8,6 +8,19 @@ signal last_zombie_started(round_number: int, zombie: Node)
 @export var first_round_delay: float = 5.0
 @export var round_break: float = 8.0
 @export var max_alive_zombies: int = 24
+# Only independent maps may opt out of legacy sheep-special-wave scheduling;
+# default remains unchanged for Church, Nacht, and all prior regression tests.
+@export var special_rounds_enabled: bool = true
+# Map-local override only; existing maps continue using the original zombie logic.
+@export var zombie_script_path: String = "res://scripts/zombie_dummy.gd"
+# Black Pines opts into ENDLESS survival. This is a map-local switch so
+# Church/Nacht retains its existing classic population/health progression.
+# A round number is NOT capped at 20/100/255. The engine uses signed int64.
+# Only simultaneous actors and per-wave population/health are bounded for
+# mobile performance, so a very high round cannot freeze or overflow Godot.
+@export var endless_rounds_enabled: bool = false
+@export_range(24, 512, 1) var endless_wave_population_cap: int = 144
+@export_range(950, 1000000, 50) var endless_zombie_health_cap: int = 250000
 
 # Classic Treyarch-style round flow. The total round population grows beyond
 # 24; the cap only limits how many can exist simultaneously.
@@ -74,7 +87,7 @@ func _process(delta: float) -> void:
 func start_next_round() -> void:
 	_started = true
 	current_round += 1
-	var planned_sheep_round: bool = is_sheep_round_number(current_round)
+	var planned_sheep_round: bool = special_rounds_enabled and is_sheep_round_number(current_round)
 	if planned_sheep_round and _sheep_assets_ready():
 		_special_round_kind = "sheep"
 		_round_total = sheep_for_round(current_round)
@@ -115,6 +128,15 @@ func zombies_for_round(round_number: int, player_count: int = -1) -> int:
 	var round_id: int = maxi(1, round_number)
 	var players: int = maxi(1, player_count if player_count > 0 else _active_player_count())
 	var player_term: float = 3.0 if players == 1 else float(players - 1) * 6.0
+	if endless_rounds_enabled and round_id >= 10:
+		# Never convert quadratic late-wave float populations to unbounded
+		# int64. Keep late survival challenging, but playable on a phone.
+		# This caps zombie COUNT PER WAVE, not the number of ROUNDS.
+		var pop_cap: int = maxi(24, endless_wave_population_cap) + (mini(4, players) - 1) * 16
+		if round_id >= 100:
+			return pop_cap
+		var estimate: float = 24.0 + player_term * float(round_id) * float(round_id) * 0.03
+		return mini(pop_cap, int(floor(estimate)))
 
 	if round_id < 10:
 		var base: float = 24.0 + player_term * maxf(1.0, float(round_id) / 5.0)
@@ -210,6 +232,12 @@ func _apply_enemy_variant_stats(zombie: Node, variant: String, round_number: int
 		_:
 			zombie.set("health", base_health)
 			zombie.set("move_speed", base_speed)
+	# Elite/special variants can multiply base HP. Apply the mobile-safe
+	# endless ceiling AFTER variant bonuses so no millionth-round elite can
+	# overflow, become unkillable, or bypass the Black Pines HP contract.
+	if endless_rounds_enabled:
+		zombie.set("health", minf(float(zombie.get("health")),
+			float(maxi(950, endless_zombie_health_cap))))
 	zombie.set_meta("classic_round_health", float(zombie.get("health")))
 	zombie.set_meta("classic_round_speed", float(zombie.get("move_speed")))
 
@@ -220,6 +248,14 @@ func zombie_health_for_round(round_number: int) -> int:
 	var round_id: int = maxi(1, round_number)
 	if round_id <= 9:
 		return round_id * 100 + 50
+	if endless_rounds_enabled:
+		# pow(1.1, round-9) overflows on high rounds. Clamp BEFORE pow
+		# at rounds far above the hit-point ceiling. Do not turn 1e6 rounds
+		# into an infinite-health or negative-health zombie.
+		var hp_cap: int = maxi(950, endless_zombie_health_cap)
+		if round_id >= 90:
+			return hp_cap
+		return mini(hp_cap, int(floor(950.0 * pow(1.1, float(round_id - 9)))))
 	return int(floor(950.0 * pow(1.1, float(round_id - 9))))
 
 func spawn_interval_for_round(round_number: int) -> float:
@@ -430,7 +466,7 @@ func spawn_one() -> Node:
 		push_warning("XZOGOT_SPAWN_DIRECTOR_NO_LEGAL_ENTRY")
 		return null
 
-	var script_resource: Script = load("res://scripts/zombie_dummy.gd") as Script
+	var script_resource: Script = load(zombie_script_path) as Script
 	var zombie := CharacterBody3D.new()
 	_spawn_serial += 1
 	var variant: String = _enemy_variant_for_spawn(current_round, _spawn_serial)
@@ -442,6 +478,17 @@ func spawn_one() -> Node:
 	var entry: Node = candidate["node"] as Node
 	if str(candidate["kind"]) == "window":
 		zombie.call("configure", player, entry)
+	elif entry.has_meta("routed_window_name"):
+		# Black Pines' four offscreen outdoor anchors must enter through a
+		# REAL window. Never let a direct spawn walk against an intact wall.
+		var window_name: String=str(entry.get_meta("routed_window_name"))
+		var routed_window: Node=get_parent().get_node_or_null("Architecture/"+window_name)
+		if routed_window == null:
+			push_error("BLACK_PINES_SPAWN_ROUTE_RED "+window_name)
+			zombie.free()
+			return null
+		zombie.call("configure", player, routed_window)
+		zombie.set_meta("spawn_entry_kind", "offscreen_to_window")
 	else:
 		zombie.call("configure_direct", player, entry)
 
@@ -471,7 +518,7 @@ func spawn_from_barricade(barricade: Node) -> Node:
 		return null
 	if _alive >= get_simultaneous_cap():
 		return null
-	var script_resource: Script = load("res://scripts/zombie_dummy.gd") as Script
+	var script_resource: Script = load(zombie_script_path) as Script
 	var zombie := CharacterBody3D.new()
 	_spawn_serial += 1
 	var variant: String = _enemy_variant_for_spawn(current_round, _spawn_serial)
@@ -622,6 +669,14 @@ func apply_network_round_state(
 
 func get_round() -> int:
 	return current_round
+
+func is_endless_survival() -> bool:
+	return endless_rounds_enabled
+
+func get_configured_round_limit() -> int:
+	# 0 is explicitly unlimited rounds; late-wave population/health budgets
+	# do NOT impose a terminal round on the survival mode.
+	return 0 if endless_rounds_enabled else -1
 
 func get_alive() -> int:
 	return _alive

@@ -1,0 +1,90 @@
+; ORIGINAL Black Pines Sanatorium playable gameplay laboratory.
+; Uses existing touch HUD, weapon, round director, powerup, network systems.
+; NO modifications to the church scene.
+[gd_scene load_steps=15 format=3]
+
+[ext_resource path="res://scripts/black_pines_map.gd" type="Script" id="1"]
+[ext_resource path="res://scripts/player.gd" type="Script" id="2"]
+[ext_resource path="res://scripts/weapon.gd" type="Script" id="3"]
+[ext_resource path="res://scripts/round_manager.gd" type="Script" id="4"]
+[ext_resource path="res://scripts/powerup_manager.gd" type="Script" id="5"]
+[ext_resource path="res://scripts/network_manager.gd" type="Script" id="6"]
+[ext_resource path="res://scripts/mobile_hud.gd" type="Script" id="7"]
+[ext_resource path="res://scripts/mobile_settings.gd" type="Script" id="8"]
+[ext_resource path="res://scripts/network_lan_discovery.gd" type="Script" id="9"]
+[ext_resource path="res://scripts/network_upnp.gd" type="Script" id="10"]
+[ext_resource path="res://scripts/network_public_directory.gd" type="Script" id="11"]
+[ext_resource path="res://scripts/voice_chat.gd" type="Script" id="12"]
+[ext_resource path="res://scripts/black_pines_path_network.gd" type="Script" id="13"]
+
+[sub_resource type="CapsuleShape3D" id="Capsule_Player"]
+radius = 0.36
+height = 1.76
+
+[node name="BlackPinesSanatorium" type="Node3D"]
+script = ExtResource("1")
+
+[node name="Player" type="CharacterBody3D" parent="."]
+position = Vector3(0, 0.38, 3.5)
+script = ExtResource("2")
+use_nav_spawn = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Player"]
+position = Vector3(0, 0.88, 0)
+shape = SubResource("Capsule_Player")
+
+[node name="Head" type="Node3D" parent="Player"]
+position = Vector3(0, 1.6, 0)
+
+[node name="Camera3D" type="Camera3D" parent="Player/Head"]
+current = true
+fov = 66.0
+near = 0.05
+
+[node name="Weapon" type="Node" parent="Player"]
+script = ExtResource("3")
+
+[node name="BlackPinesPathNetwork" type="Node3D" parent="."]
+script = ExtResource("13")
+
+[node name="RoundManager" type="Node" parent="."]
+script = ExtResource("4")
+auto_start = false
+
+[node name="PowerUpManager" type="Node" parent="."]
+script = ExtResource("5")
+
+[node name="NetworkManager" type="Node" parent="."]
+script = ExtResource("6")
+
+[node name="VoiceChat" type="Node" parent="."]
+script = ExtResource("12")
+
+[node name="NetworkDiscovery" type="Node" parent="."]
+script = ExtResource("9")
+
+[node name="NetworkUPNP" type="Node" parent="."]
+script = ExtResource("10")
+
+[node name="PublicMatchDirectory" type="Node" parent="."]
+script = ExtResource("11")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="MobileHUD" type="Control" parent="HUD"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("7")
+
+[node name="MobileSettings" type="Control" parent="HUD"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("8")

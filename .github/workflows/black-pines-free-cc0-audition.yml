@@ -1,0 +1,109 @@
+name: Black Pines Free CC0 Hospital Asset Audition
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/black-pines-sanatorium-playable-v1
+    paths:
+      - ".github/workflows/black-pines-free-cc0-audition.yml"
+permissions:
+  contents: read
+jobs:
+  licensed-godot-asset-intake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Godot 4.6.1 and real image preview dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libegl1 libx11-6 libxcursor1 libxrandr2 libxi6 python3-pil
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/black-pines-godot.zip
+          unzip -q /tmp/black-pines-godot.zip -d /tmp
+          chmod +x /tmp/Godot_v4.6.1-stable_linux.x86_64
+      - name: Retrieve and legally audit 16 actual no-cost hospital GLBs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/black-pines/cc0-audition/models
+          python3 xogot/ci/black_pines_cc0_asset_intake.py \
+            --out xogot/assets/black_pines/free_cc0_staging \
+            2>&1 | tee build/black-pines/cc0-audition/download.log
+          grep -q BLACK_PINES_CC0_16_REAL_DOWNLOADS_GREEN \
+            build/black-pines/cc0-audition/download.log
+          cp xogot/assets/black_pines/free_cc0_staging/*.glb \
+            build/black-pines/cc0-audition/models/
+          cp xogot/assets/black_pines/free_cc0_staging/cc0-intake-evidence.json \
+            build/black-pines/cc0-audition/
+          test "$(find build/black-pines/cc0-audition/models -maxdepth 1 -name '*.glb' | wc -l)" -eq 16
+      - name: Convert quantized source GLBs to genuinely Godot-compatible float32 GLBs
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Godot 4.6.1 importer explicitly REJECTS required
+          # KHR_mesh_quantization. Do not strip the JSON extension only:
+          # decode all original 16-bit positions/normals into float32.
+          python3 xogot/tools/cc0_dequantize_godot.py \
+            --source xogot/assets/black_pines/free_cc0_staging \
+            --dest xogot/assets/black_pines/free_cc0_staging \
+            2>&1 | tee build/black-pines/cc0-audition/dequantize.log
+          grep -q BLACK_PINES_CC0_ALL_16_GODOT_COMPATIBLE_GREEN \
+            build/black-pines/cc0-audition/dequantize.log
+          mkdir -p build/black-pines/cc0-audition/godot-converted
+          cp xogot/assets/black_pines/free_cc0_staging/*.glb \
+            build/black-pines/cc0-audition/godot-converted/
+      - name: Import actual CC0 GLBs through Godot editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 240 /tmp/Godot_v4.6.1-stable_linux.x86_64 --headless --editor \
+            --path xogot --quit 2>&1 | tee build/black-pines/cc0-audition/import.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|ERROR:.*free_cc0_staging' \
+            build/black-pines/cc0-audition/import.log
+      - name: Real Godot preview for all 16 individual licensed models
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 230 xvfb-run -a -s '-screen 0 1360x900x24' \
+            /tmp/Godot_v4.6.1-stable_linux.x86_64 --path xogot \
+            --rendering-method gl_compatibility --resolution 1360x900 \
+            --script res://ci/black_pines_cc0_preview.gd \
+            2>&1 | tee build/black-pines/cc0-audition/render.log
+          grep -q BLACK_PINES_CC0_16_REAL_GODOT_PREVIEWS_GREEN \
+            build/black-pines/cc0-audition/render.log
+          cp xogot/cc0-staging-*.png build/black-pines/cc0-audition/
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image,ImageDraw
+          d=Path('build/black-pines/cc0-audition')
+          paths=sorted(d.glob('cc0-staging-*.png'))
+          assert len(paths)==16
+          tile_w,tile_h=360,245
+          img=Image.new('RGB',(4*tile_w,4*(tile_h+32)),(23,27,32))
+          ink=ImageDraw.Draw(img)
+          for i,p in enumerate(paths):
+              with Image.open(p) as source:
+                  still=source.convert('RGB')
+                  assert still.width>=900 and still.height>=600
+                  still.thumbnail((tile_w,tile_h),Image.Resampling.LANCZOS)
+              x=(i%4)*tile_w
+              y=(i//4)*(tile_h+32)
+              img.paste(still,(x+(tile_w-still.width)//2,y))
+              ink.text((x+8,y+tile_h+7),p.stem.replace('cc0-staging-',''),fill=(240,240,239))
+          dest=d/'BLACK-PINES-16-FREE-REAL-GODOT-ASSETS.png'
+          img.save(dest,optimize=True)
+          assert dest.stat().st_size>=35000
+          print('BLACK_PINES_FREE_CC0_CONTACT_SHEET_GREEN',dest)
+          PY
+      - name: Archive source GLBs, license hashes, and 16 real Godot previews
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Black-Pines-Free-CC0-16-Real-Assets-And-Godot-Photos
+          path: build/black-pines/cc0-audition/
+          retention-days: 14
+          if-no-files-found: warn

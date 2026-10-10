@@ -817,6 +817,19 @@ func _move_toward_navigated(target: Vector3, stop_distance: float) -> bool:
 	if _path_network == null or not _path_network.has_method("request_path"):
 		return _move_toward_flat(target, stop_distance)
 
+	# Independent maps may enforce locked-door topology with can_reach().
+	# Existing Church/Nacht networks expose no such method: unchanged behavior.
+	# Do not chase through a wall just because a graph returned no route.
+	if _path_network.has_method("can_reach") and not bool(
+		_path_network.call("can_reach", global_position, target)
+	):
+		_path_points.clear()
+		_path_index = 0
+		velocity.x = 0.0
+		velocity.z = 0.0
+		move_and_slide()
+		return false
+
 	if (
 		_path_refresh_timer <= 0.0
 		or _path_points.is_empty()

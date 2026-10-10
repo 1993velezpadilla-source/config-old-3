@@ -1,0 +1,534 @@
+name: Black Pines Sanatorium Original Playable And Blender Art Gate
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/black-pines-sanatorium-playable-v1
+    paths:
+      - "xogot/data/black_pines_layout.json"
+      - "xogot/data/black_pines_cc0_manifest.json"
+      - "xogot/black_pines.tscn"
+      - "xogot/scripts/black_pines_*.gd"
+      - "xogot/scripts/round_manager.gd"
+      - "xogot/ci/black_pines_*.gd"
+      - "xogot/ci/black_pines_*.py"
+      - "xogot/tools/black_pines_author.py"
+      - "xogot/tools/black_pines_forge_*.py"
+      - "xogot/tools/black_pines_cc0_*.py"
+      - ".github/workflows/black-pines-original-playable-blender-gate.yml"
+permissions:
+  contents: read
+# Preserve free GitHub Actions minutes: future rapid Forge fidelity commits
+# supersede stale map-render gauntlets on the SAME branch only.
+concurrency:
+  group: black-pines-forge-cc0-v2-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  godot-gameplay-compile-and-scene:
+    runs-on: ubuntu-latest
+    timeout-minutes: 32
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install free Godot 4.6.1 and Mesa OpenGL
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libegl1 libx11-6 libxcursor1 libxrandr2 libxi6
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/black-pines-godot.zip
+          unzip -q /tmp/black-pines-godot.zip -d /tmp
+          chmod +x /tmp/Godot_v4.6.1-stable_linux.x86_64
+          /tmp/Godot_v4.6.1-stable_linux.x86_64 --version
+      - name: Original map JSON invariants; protect existing church scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/black-pines/godot
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("xogot/data/black_pines_layout.json").read_text())
+          assert len(d["cells"])==9 and len(d["portals"])==12 and len(d["windows"])==12
+          assert len(d["perks"])==6 and len(d["mysterySpots"])==4
+          assert len(d["heroCollisionProxies"])==9
+          assert d["endlessSurvival"] and d["minimumAutomatedRoundSoak"]==20
+          assert not d["technicalGates"]["originalChurchFilesMayChange"]
+          assert not d["technicalGates"]["gobblegumEnabled"]
+          print("BLACK_PINES_AUTHORED_NINE_ZONES_TWELVE_DOORS_TWELVE_WINDOWS_GREEN")
+          PY
+          # GitHub checkout@v5 is shallow; checking HEAD^ or git show HEAD
+          # silently treats the shallow boundary as a root commit. Pin exact
+          # Godot source blobs to the verified unchanged feature base instead.
+          test "$(git hash-object xogot/main.tscn)" = "3960a7a8cfa56133da57b0bbb9740b3b76695e7a"
+          test "$(git hash-object xogot/nacht_full_map.tscn)" = "e4a3db47aa959d1fdf14ab58845e71b4b4bf0285"
+          test "$(git hash-object xogot/scripts/you_wont_win.gd)" = "4d7c6a266ce97d4d325c7241a2836a5c3d28bf85"
+          test "$(git hash-object xogot/scripts/nacht_full_map.gd)" = "67f5e1d4fa6855dc895c82ed53287ec8227ccf26"
+          printf 'BLACK_PINES_MAIN_CHURCH_AND_NACHT_SOURCE_BLOBS_UNTOUCHED_GREEN\n' | tee build/black-pines/godot/original-map-immutable.log
+      - name: Godot import project and parse ALL original Black Pines scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 520 /tmp/Godot_v4.6.1-stable_linux.x86_64 --headless --editor --path xogot --quit \
+            2>&1 | tee build/black-pines/godot/import.log
+          ! grep -E 'SCRIPT ERROR|Parse Error' build/black-pines/godot/import.log
+      - name: Run black Pines playable interactions (real authored scene, WaW internal test assets)
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 200 /tmp/Godot_v4.6.1-stable_linux.x86_64 --headless --path xogot \
+            --script res://ci/black_pines_phase1_gameplay_probe.gd \
+            2>&1 | tee build/black-pines/godot/gameplay.log
+          grep -q BLACK_PINES_PHASE1_GAMEPLAY_GREEN build/black-pines/godot/gameplay.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_PHASE1_RED' build/black-pines/godot/gameplay.log
+      - name: Probe REAL physics for all 12 paid doors and all 12 barricades
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150 /tmp/Godot_v4.6.1-stable_linux.x86_64 --headless --path xogot \
+            --script res://ci/black_pines_spatial_physics_probe.gd \
+            2>&1 | tee build/black-pines/godot/spatial-physics.log
+          grep -q BLACK_PINES_SPATIAL_PHYSICS_GREEN build/black-pines/godot/spatial-physics.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_SPATIAL_RED' \
+            build/black-pines/godot/spatial-physics.log
+      - name: Gate nine original medical props physically solid without blocking gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150 /tmp/Godot_v4.6.1-stable_linux.x86_64 --headless --path xogot \
+            --script res://ci/black_pines_hero_collision_probe.gd \
+            2>&1 | tee build/black-pines/godot/hero-collisions.log
+          grep -q BLACK_PINES_NINE_REAL_HERO_COLLIDERS_GREEN \
+            build/black-pines/godot/hero-collisions.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_HERO_COLLIDER_RED' \
+            build/black-pines/godot/hero-collisions.log
+      - name: Gate native door skins, variation and no ghost after purchase
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 140 /tmp/Godot_v4.6.1-stable_linux.x86_64 --headless --path xogot \
+            --script res://ci/black_pines_door_fidelity_probe.gd \
+            2>&1 | tee build/black-pines/godot/door-fidelity.log
+          grep -q BLACK_PINES_12_DOOR_FIDELITY_GREEN \
+            build/black-pines/godot/door-fidelity.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_DOOR_FIDELITY_RED' \
+            build/black-pines/godot/door-fidelity.log
+      - name: Gate 9-zone locked-door routing and real window-crossing zombies
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 175 /tmp/Godot_v4.6.1-stable_linux.x86_64 --headless --path xogot \
+            --script res://ci/black_pines_routing_probe.gd \
+            2>&1 | tee build/black-pines/godot/routing-and-zombie-crossings.log
+          grep -q BLACK_PINES_ROUTING_81_PAIRS_GREEN \
+            build/black-pines/godot/routing-and-zombie-crossings.log
+          grep -q BLACK_PINES_ALL_12_ZOMBIE_TRAVERSAL_GREEN \
+            build/black-pines/godot/routing-and-zombie-crossings.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_ROUTING_RED' \
+            build/black-pines/godot/routing-and-zombie-crossings.log
+      - name: Verify endless survival beyond round 20 through high-round one-million samples
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180 /tmp/Godot_v4.6.1-stable_linux.x86_64 --headless --path xogot \
+            --script res://ci/black_pines_endless_rounds_probe.gd \
+            2>&1 | tee build/black-pines/godot/endless-rounds.log
+          grep -q BLACK_PINES_ENDLESS_REAL_ROUND21_GREEN \
+            build/black-pines/godot/endless-rounds.log
+          grep -q BLACK_PINES_ENDLESS_SURVIVAL_GREEN \
+            build/black-pines/godot/endless-rounds.log
+          test "$(grep -c BLACK_PINES_ENDLESS_HIGH_ROUND_SAMPLE_GREEN \
+            build/black-pines/godot/endless-rounds.log)" -eq 7
+          ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_ENDLESS_RED' \
+            build/black-pines/godot/endless-rounds.log
+      - name: Soak all 20 rounds with actual zombie actors and 24-alive hard cap
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 430 /tmp/Godot_v4.6.1-stable_linux.x86_64 --headless --path xogot \
+            --script res://ci/black_pines_20_round_spawn_soak.gd \
+            2>&1 | tee build/black-pines/godot/20-round-director-soak.log
+          grep -q BLACK_PINES_20_ROUND_DIRECTOR_SOAK_GREEN \
+            build/black-pines/godot/20-round-director-soak.log
+          test "$(grep -c 'BLACK_PINES_20_ROUND_SOAK_WAVE_GREEN' \
+            build/black-pines/godot/20-round-director-soak.log)" -eq 20
+          ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_20_ROUND_SOAK_RED' \
+            build/black-pines/godot/20-round-director-soak.log
+      - name: Capture REAL Godot source-map overview image
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120 xvfb-run -a -s '-screen 0 1360x900x24' \
+            /tmp/Godot_v4.6.1-stable_linux.x86_64 --path xogot \
+            --rendering-method gl_compatibility --resolution 1360x900 \
+            --script res://ci/black_pines_visual_probe.gd \
+            2>&1 | tee build/black-pines/godot/visual.log
+          grep -q BLACK_PINES_REAL_GODOT_1360x900_OVERVIEW_GREEN build/black-pines/godot/visual.log
+          cp xogot/black-pines-real-firstframe-overview.png build/black-pines/godot/black-pines-real-firstframe-overview.png
+          grep -q BLACK_PINES_REAL_GODOT_FIRSTPERSON_HUD_SCREENSHOT_GREEN build/black-pines/godot/visual.log
+          cp xogot/black-pines-real-firstperson-mobile-hud.png build/black-pines/godot/black-pines-real-firstperson-mobile-hud.png
+          grep -q BLACK_PINES_NINE_ROOM_FIDELITY_CAPTURE_GREEN build/black-pines/godot/visual.log
+          cp xogot/black-pines-fidelity-*.png build/black-pines/godot/
+          test "$(find build/black-pines/godot -maxdepth 1 -name 'black-pines-fidelity-*.png' | wc -l)" -eq 9
+          file build/black-pines/godot/black-pines-real-firstframe-overview.png
+          file build/black-pines/godot/black-pines-real-firstperson-mobile-hud.png
+      - name: Preserve actual gameplay and screenshot proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Black-Pines-Phase1-Real-Godot-Gameplay-Screenshot-Proof
+          path: build/black-pines/godot/
+          retention-days: 14
+          if-no-files-found: warn
+
+  blender-original-level-author:
+    runs-on: ubuntu-latest
+    timeout-minutes: 38
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install original Blender editor free (zero generative API usage)
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender xvfb python3-numpy libgl1-mesa-dri libegl1
+          python3 -c 'import numpy; print("Blender glTF source numpy version", numpy.__version__)'
+          blender --version | head -2
+      - name: Fetch verified free CC0 medical props
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/black-pines/blender
+          python3 xogot/tools/black_pines_cc0_fetch.py \
+            --manifest xogot/data/black_pines_cc0_manifest.json \
+            --out xogot/assets/black_pines/cc0_source \
+            --report build/black-pines/blender/cc0-source-provenance.json \
+            2>&1 | tee build/black-pines/blender/cc0-download.log
+          grep -q BLACK_PINES_CC0_FOUR_REAL_GLBS_GREEN build/black-pines/blender/cc0-download.log
+          test "$(find xogot/assets/black_pines/cc0_source -name '*.glb' | wc -l)" -eq 4
+      - name: Build 9-zone original sanatorium mesh from same Godot source layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/black-pines/blender xogot/assets/black_pines
+          timeout 1100 xvfb-run -a -s '-screen 0 1280x800x24' \
+            env PYTHONPATH=/usr/lib/python3/dist-packages blender -b --python xogot/tools/black_pines_author.py -- \
+              --layout xogot/data/black_pines_layout.json \
+              --out xogot/assets/black_pines/black_pines_architecture.glb \
+              --preview build/black-pines/blender/black-pines-blender-artpass.png \
+              --report build/black-pines/blender/source-original-art-report.json \
+            2>&1 | tee build/black-pines/blender/blender.log
+          grep -q BLACK_PINES_BLENDER_ORIGINAL_ARCHITECTURE_GREEN build/black-pines/blender/blender.log
+          cp xogot/assets/black_pines/black_pines_architecture.glb \
+            build/black-pines/blender/black-pines-original-architecture.glb
+          cp xogot/assets/black_pines/black_pines_architecture.blend \
+            build/black-pines/blender/black-pines-original-editable-source.blend
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          j=json.loads(Path("build/black-pines/blender/source-original-art-report.json").read_text())
+          assert j["floor"]==9
+          assert not j["allOriginalAuthoring"]
+          assert j["originalArchitectureAndCollisionAuthoring"]
+          assert j["importedThirdPartyAssetsCount"]==4
+          assert j["importedThirdPartyAssetLicense"]=="CC0-1.0"
+          cc0=j["forge"]["hospitalCC0ImportedProps"]
+          assert cc0["assetCount"]==4
+          assert 1000<=cc0["totalTriangles"]<=6000
+          assert cc0["thirdPartyAssetsDisclosed"]
+          assert not cc0["collisionMeshesModified"]
+          print("BLACK_PINES_FOUR_CC0_HOSPITAL_MESHES_CI_GREEN",cc0["assets"])
+          assert j["sameManifestAsGodot"]
+          assert not j["commercialRippedAssets"]
+          assert not j["publicReadiness"]
+          f=j["fidelity"]
+          assert f["pass"],f["issues"]
+          assert f["roomLandmarkCount"]==9
+          assert f["doorFrameCount"]==12
+          surface=j["forge"]["surfacePass"]
+          assert surface["batchedRoomFloorCount"]==9
+          assert surface["facadeBranding"] is True
+          assert surface["mobileBatchedFloorTiles"] is True
+          assert all(v>=70 for v in surface["perRoomTileFaces"].values())
+          assert j["forge"]["ambulanceRepositionMeters"]==0.75
+          assert j["forge"]["ambulanceMovedMeshes"]>=30
+          assert surface["ambulanceSignatureParts"]>=20
+          assert surface["ambulanceSideLabels"]==2
+          assert not surface["ambulanceProtectedEmblems"]
+          pbr=j["forge"]["pbrSourceWear"]
+          assert pbr["textureCount"]==7
+          assert pbr["allEmbedded"]
+          assert pbr["maxTextureSize"]<=512
+          assert not pbr["paidAPI"] and not pbr["copyrightedExternalTextures"]
+          hero=j["forge"]["originalHospitalKit"]
+          assert len(hero["roomHeroes"])==9
+          assert all(n>=4 for n in hero["roomHeroComponents"].values())
+          assert hero["originalGeometry"] and hero["cosmeticOnlyUntilCollisionGate"]
+          print("BLACK_PINES_NINE_ORIGINAL_HOSPITAL_HEROES_GREEN",
+                hero["roomHeroes"])
+          mobile=j["mobileExport"]
+          assert mobile["originalMeshObjects"]==j["fidelity"]["meshObjects"]
+          assert mobile["mobileExportMeshObjects"]<=165
+          assert mobile["reductionFraction"]>=0.55
+          assert mobile["nineHeroMeshesPreserved"] and mobile["nineFloorMeshesPreserved"]
+          assert mobile["cc0ModelNodesPreserved"]
+          assert mobile["ambulanceZoneAwareBatching"], "shape-profile objects must batch in the yard cell"
+          assert mobile["sourceBlendEditableUntouched"]
+          print("BLACK_PINES_MOBILE_DRAW_BATCH_CI_GREEN",mobile)
+          assert f["meshObjects"]<=f["meshObjectBudget"]
+          assert f["triangles"]<=f["triangleBudget"]
+          assert f["triangles"]>=5000
+          assert not f["humanReferenceVisualMatchProven"]
+          print("BLACK_PINES_FORGE_FIDELITY_REPORT_GREEN",
+                "roomLandmarks=",f["roomLandmarkCount"],
+                "meshes=",f["meshObjects"],"tris=",f["triangles"])
+          assert Path(j["glb"]).stat().st_size>=10000
+          assert Path(j["editableBlenderSource"]).stat().st_size>=10000
+          assert Path("build/black-pines/blender/black-pines-blender-artpass.png").stat().st_size>=10000
+          print("BLACK_PINES_BLENDER_ZERO_API_FIRST_ASSET_SOURCE_GREEN",j["objects"])
+          PY
+      - name: Package installable zero-budget Blender Forge GUI add-on
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/black-pines/blender/addon-staging/black_pines_forge
+          cp xogot/tools/black_pines_forge_gui.py \
+            build/black-pines/blender/addon-staging/black_pines_forge/__init__.py
+          cp xogot/tools/black_pines_author.py \
+             xogot/tools/black_pines_forge_detail.py \
+             xogot/tools/black_pines_forge_surface.py \
+             xogot/tools/black_pines_forge_materials.py \
+             xogot/tools/black_pines_forge_hospital_kit.py \
+             xogot/tools/black_pines_forge_mobile_export.py \
+             xogot/tools/black_pines_cc0_import.py \
+             build/black-pines/blender/addon-staging/black_pines_forge/
+          cp xogot/data/black_pines_cc0_manifest.json \
+             build/black-pines/blender/addon-staging/black_pines_forge/black_pines_cc0_manifest.json
+          mkdir -p build/black-pines/blender/addon-staging/black_pines_forge/cc0_models
+          cp xogot/assets/black_pines/cc0_source/*.glb \
+             build/black-pines/blender/addon-staging/black_pines_forge/cc0_models/
+          (cd build/black-pines/blender/addon-staging && \
+            zip -qr ../Black-Pines-Forge-GUI-install-in-Blender.zip black_pines_forge)
+          unzip -l build/black-pines/blender/Black-Pines-Forge-GUI-install-in-Blender.zip \
+            | grep -q 'black_pines_forge/__init__.py'
+          test -s build/black-pines/blender/Black-Pines-Forge-GUI-install-in-Blender.zip
+          echo BLACK_PINES_INSTALLABLE_FORGE_GUI_ZIP_GREEN
+      - name: Test actual Blender Forge GUI buttons and export
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 460 xvfb-run -a -s '-screen 0 1280x800x24' \
+            env PYTHONPATH=/usr/lib/python3/dist-packages blender -b \
+            --python xogot/tools/black_pines_forge_gui_smoke.py \
+            2>&1 | tee build/black-pines/blender/forge-gui-smoke.log
+          grep -q BLACK_PINES_FORGE_GUI_REAL_OPERATOR_GREEN \
+            build/black-pines/blender/forge-gui-smoke.log
+          grep -q BLACK_PINES_MOBILE_DRAW_BATCH_GREEN \
+            build/black-pines/blender/forge-gui-smoke.log
+          ! grep -E 'Traceback|BLACK_PINES_FORGE_RED|BLACK_PINES_FIDELITY_RED|BLACK_PINES_GLTF_RED' \
+            build/black-pines/blender/forge-gui-smoke.log
+      - name: Preserve true Blender rendered reference and authored GLB, never claim gameplay accepted
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Black-Pines-Original-Blender-Artpass-GLB-Preview
+          path: build/black-pines/blender/
+          retention-days: 14
+          if-no-files-found: warn
+
+  blender-godot-integrated-playable:
+    # The original two GREEN jobs are independent. This THIRD job proves that
+    # Blender's GLB is actually imported and rendered by the gameplay scene.
+    needs: [blender-original-level-author, godot-gameplay-compile-and-scene]
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v5
+      - name: Download true Blender-authored architecture
+        uses: actions/download-artifact@v4
+        with:
+          name: Black-Pines-Original-Blender-Artpass-GLB-Preview
+          path: build/black-pines/blender-in
+      - name: Mount authored GLB without changing the original collision map
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p xogot/assets/black_pines build/black-pines/integrated
+          cp build/black-pines/blender-in/black-pines-original-architecture.glb \
+            xogot/assets/black_pines/black_pines_architecture.glb
+          python3 - <<'PY'
+          import struct
+          from pathlib import Path
+          p=Path('xogot/assets/black_pines/black_pines_architecture.glb')
+          header=p.read_bytes()[:12]
+          magic,version,length=struct.unpack('<4sII',header)
+          assert magic==b'glTF' and version==2 and length==p.stat().st_size
+          assert length>10000
+          print('BLACK_PINES_GLTF2_BINARY_INTEGRITY_GREEN bytes=',length)
+          PY
+      - name: Install free Godot 4.6.1 for imported Blender runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libegl1 libx11-6 libxcursor1 libxrandr2 libxi6 python3-pil
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/black-pines-godot.zip
+          unzip -q /tmp/black-pines-godot.zip -d /tmp
+          chmod +x /tmp/Godot_v4.6.1-stable_linux.x86_64
+          /tmp/Godot_v4.6.1-stable_linux.x86_64 --version
+      - name: Import GLB into Godot editor without source-map changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 600 /tmp/Godot_v4.6.1-stable_linux.x86_64 --headless \
+            --editor --path xogot --quit 2>&1 | tee build/black-pines/integrated/import.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|ERROR:.*black_pines_architecture' \
+            build/black-pines/integrated/import.log
+      - name: Capture REAL Blender mesh mounted into live Godot gameplay
+        shell: bash
+        run: |
+          set -euo pipefail
+          BLACK_PINES_REQUIRE_BLENDER_MOUNT=1 timeout 180 xvfb-run -a \
+            -s '-screen 0 1360x900x24' \
+            /tmp/Godot_v4.6.1-stable_linux.x86_64 --path xogot \
+            --rendering-method gl_compatibility --resolution 1360x900 \
+            --script res://ci/black_pines_visual_probe.gd \
+            2>&1 | tee build/black-pines/integrated/visual.log
+          grep -q BLACK_PINES_BLENDER_MOUNT_GREEN build/black-pines/integrated/visual.log
+          grep -q BLACK_PINES_NINE_HEROES_MOUNTED_GREEN build/black-pines/integrated/visual.log
+          grep -q BLACK_PINES_FOUR_REAL_CC0_MESHES_MOUNTED_GREEN build/black-pines/integrated/visual.log
+          grep -q BLACK_PINES_AMBULANCE_LIVERY_MOUNT_GREEN build/black-pines/integrated/visual.log
+          grep -q BLACK_PINES_AMBULANCE_REAL_TWO_ANGLES_GREEN build/black-pines/integrated/visual.log
+          grep -q BLACK_PINES_NINE_HERO_COLLIDERS_MOUNTED_GREEN build/black-pines/integrated/visual.log
+          grep -q BLACK_PINES_DOUBLE_FURNITURE_ELIMINATED_GREEN build/black-pines/integrated/visual.log
+          grep -q BLACK_PINES_REAL_GODOT_FIRSTPERSON_HUD_SCREENSHOT_GREEN \
+            build/black-pines/integrated/visual.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_BLENDER_MOUNT_RED' \
+            build/black-pines/integrated/visual.log
+          cp xogot/black-pines-real-firstframe-overview.png \
+            build/black-pines/integrated/black-pines-BLENDER-IN-GODOT-overview.png
+          cp xogot/black-pines-real-firstperson-mobile-hud.png \
+            build/black-pines/integrated/black-pines-BLENDER-IN-GODOT-firstperson-HUD.png
+          grep -q BLACK_PINES_NINE_ROOM_FIDELITY_CAPTURE_GREEN \
+            build/black-pines/integrated/visual.log
+          cp xogot/black-pines-fidelity-*.png build/black-pines/integrated/
+          cp xogot/black-pines-ambulance-real-Godot-front.png build/black-pines/integrated/
+          test -s build/black-pines/integrated/black-pines-ambulance-real-Godot-front.png
+          test "$(find build/black-pines/integrated -maxdepth 1 -name 'black-pines-fidelity-*.png' | wc -l)" -eq 9
+          file build/black-pines/integrated/*.png
+      - name: Fidelity screenshot audit of ALL nine REAL Godot rooms
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 xogot/ci/black_pines_fidelity_image_audit.py \
+            build/black-pines/integrated \
+            2>&1 | tee build/black-pines/integrated/fidelity-image-audit.log
+          grep -q BLACK_PINES_NINE_ROOM_REAL_IMAGE_FIDELITY_GREEN \
+            build/black-pines/integrated/fidelity-image-audit.log
+          grep -q BLACK_PINES_FIDELITY_9_ROOM_CONTACT_SHEET_GREEN \
+            build/black-pines/integrated/fidelity-image-audit.log
+          test -s build/black-pines/integrated/black-pines-FIDELITY-9-REAL-GODOT-ROOMS.png
+      - name: Fetch only VERIFIED CC0 hospital GLBs for isolated art review
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/black-pines/cc0-audition
+          python3 xogot/ci/black_pines_cc0_asset_intake.py \
+            --out xogot/assets/black_pines/free_cc0_staging \
+            2>&1 | tee build/black-pines/cc0-audition/provenance-and-download.log
+          grep -q BLACK_PINES_CC0_16_REAL_DOWNLOADS_GREEN \
+            build/black-pines/cc0-audition/provenance-and-download.log
+          cp xogot/assets/black_pines/free_cc0_staging/cc0-intake-evidence.json \
+            build/black-pines/cc0-audition/
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("build/black-pines/cc0-audition/cc0-intake-evidence.json").read_text())
+          assert r["assetCount"]==16 and r["stage"]=="REVIEW_ONLY_NOT_SHIPPED"
+          assert all(x["license"]=="CC0 1.0 Universal" for x in r["assets"])
+          assert all(x["notIncludedInProductionAPK"] for x in r["assets"])
+          assert r["totalTriangles"]<=14000
+          print("BLACK_PINES_CC0_PACK_RIGHTS_AND_TRIANGLE_BUDGET_GREEN",r["totalTriangles"])
+          PY
+      - name: Dequantize signed 16-bit GLB positions and normals for Godot 4.6
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Raw CC0 geometry requires KHR_mesh_quantization, which stock
+          # Godot 4.6.1 DOES NOT support. Preserve source SHA256 report,
+          # rewrite float32 geometry instead of merely deleting extension.
+          python3 xogot/tools/cc0_dequantize_godot.py \
+            --source xogot/assets/black_pines/free_cc0_staging \
+            --dest xogot/assets/black_pines/free_cc0_staging \
+            2>&1 | tee build/black-pines/cc0-audition/dequantize.log
+          grep -q BLACK_PINES_CC0_ALL_16_GODOT_COMPATIBLE_GREEN \
+            build/black-pines/cc0-audition/dequantize.log
+      - name: Import all audited GLBs into Godot staging project (never mount into live Black Pines)
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 140 /tmp/Godot_v4.6.1-stable_linux.x86_64 --headless --editor \
+            --path xogot --quit 2>&1 | tee build/black-pines/cc0-audition/godot-import.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|ERROR:.*free_cc0_staging' \
+            build/black-pines/cc0-audition/godot-import.log
+      - name: Capture 16 real Godot preview PNGs of audited free hospital props
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 210 xvfb-run -a -s '-screen 0 1360x900x24' \
+            /tmp/Godot_v4.6.1-stable_linux.x86_64 --path xogot \
+            --rendering-method gl_compatibility --resolution 1360x900 \
+            --script res://ci/black_pines_cc0_preview.gd \
+            2>&1 | tee build/black-pines/cc0-audition/godot-real-samples.log
+          grep -q BLACK_PINES_CC0_16_REAL_GODOT_PREVIEWS_GREEN \
+            build/black-pines/cc0-audition/godot-real-samples.log
+          test "$(grep -c 'BLACK_PINES_CC0_REAL_GODOT_ASSET_GREEN' \
+            build/black-pines/cc0-audition/godot-real-samples.log)" -eq 16
+          cp xogot/cc0-staging-*.png build/black-pines/cc0-audition/
+          test "$(find build/black-pines/cc0-audition -maxdepth 1 \
+            -name 'cc0-staging-*.png' | wc -l)" -eq 16
+          ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_FREE_CC0_PREVIEW_RED' \
+            build/black-pines/cc0-audition/godot-real-samples.log
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image,ImageDraw
+          source=Path('build/black-pines/cc0-audition')
+          images=sorted(source.glob('cc0-staging-*.png'))
+          assert len(images)==16
+          w,h=360,240
+          out=Image.new('RGB',(w*4,(h+36)*4),(21,24,30))
+          dr=ImageDraw.Draw(out)
+          for i,path in enumerate(images):
+              with Image.open(path) as im:
+                  frame=im.convert('RGB')
+                  assert frame.size[0]>=900 and frame.size[1]>=600
+                  frame.thumbnail((w,h),Image.Resampling.LANCZOS)
+              x=(i%4)*w; y=(i//4)*(h+36)
+              out.paste(frame,(x+(w-frame.width)//2,y))
+              dr.text((x+12,y+h+8),path.stem.replace('cc0-staging-','').upper(),
+                      fill=(230,234,239))
+          dest=source/'BLACK-PINES-16-REAL-CC0-GODOT-PROP-PREVIEWS.png'
+          out.save(dest,optimize=True)
+          assert dest.stat().st_size>30000
+          print('BLACK_PINES_CC0_16_REAL_CONTACT_SHEET_GREEN',dest)
+          PY
+      - name: Archive free CC0 model candidate renders — staging only, NOT shipping
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Black-Pines-Free-CC0-16-Assets-Godot-Art-Audition
+          path: build/black-pines/cc0-audition/
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Archive actual Blender to Godot evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Black-Pines-Blender-Mounted-In-Godot-Evidence
+          path: build/black-pines/integrated/
+          retention-days: 14
+          if-no-files-found: warn
