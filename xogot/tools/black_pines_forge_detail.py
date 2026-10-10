@@ -327,6 +327,10 @@ def fidelity_pass(api, layout):
         bounds=[obj.matrix_world @ Vector(p) for p in obj.bound_box]
         if max(v.x for v in bounds)>6.66:
             issues.append("ambulance penetrates garage divider: "+obj.name)
+    for name in ("ApostNorth","ApostSouth","TopHeader",
+                 "WiperLeft","WiperRight"):
+        if bpy.data.objects.get("Forge_AmbulanceWindshield"+name) is None:
+            issues.append("original windshield framework missing "+name)
     for shell in ("RustyAmbulanceRear","RustyAmbulanceCab"):
         candidate=bpy.data.objects.get(shell)
         if candidate is None or candidate.type!="MESH" or len(candidate.data.polygons)<25:

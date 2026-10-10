@@ -151,6 +151,19 @@ def build_surfaces(api, layout, cube, tube, sign):
     window_mesh.materials.append(api.mat("dark_glass"))
     api.COUNTS["prop"]+=1
     ambulance_parts.append(pane.name)
+    # Three-dimensional ORIGINAL A-pillars, glass surround and twin wipers.
+    # Never fake structural windscreen borders with a rectangular billboard.
+    frame_segments=[
+        ("ApostNorth",(6.31,1.745,17.26),(6.837,1.086,17.22),.026),
+        ("ApostSouth",(6.31,1.745,18.34),(6.837,1.086,18.38),.026),
+        ("TopHeader",(6.31,1.745,17.26),(6.31,1.745,18.34),.026),
+        ("WiperLeft",(6.79,1.15,17.31),(6.64,1.25,17.70),.012),
+        ("WiperRight",(6.79,1.15,18.30),(6.64,1.25,17.91),.012),
+    ]
+    for name,begin,end,diam in frame_segments:
+        obj=tube(api,"AmbulanceWindshield"+name,begin,end,
+                 diam,"dark_metal",8)
+        ambulance_parts.append(obj.name)
     vehicle_box("FrontGrille",(7.005,.66,17.8),(.072,.39,.85),"dark_metal",.018)
     for side,side_z,outside in (
             ("NORTH",16.936,-1),("SOUTH",18.664,1)):

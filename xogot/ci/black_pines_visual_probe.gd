@@ -184,8 +184,11 @@ func _capture() -> void:
     # Actual second view: camera stays in Ambulance Court, allowing visual
     # verification of profiled cab + sloped windscreen from frontal angle.
     # Separate filename from the nine-room image audit contract.
-    camera.global_position=Vector3(6.62,1.87,19.82)
-    camera.look_at(Vector3(5.15,1.46,17.80))
+    # Previous front angle was obstructed by the yard's lamp post. This
+    # review-only camera stays within the court on its south wall side,
+    # aimed at the front cab WITHOUT altering the player's live FPS camera.
+    camera.global_position=Vector3(6.60,1.94,14.45)
+    camera.look_at(Vector3(4.88,1.37,17.80))
     for i in range(12):
         await process_frame
     var front: Image=root.get_texture().get_image()
