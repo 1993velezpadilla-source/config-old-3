@@ -330,6 +330,9 @@ jobs:
             2>&1 | tee build/black-pines/integrated/fidelity-image-audit.log
           grep -q BLACK_PINES_NINE_ROOM_REAL_IMAGE_FIDELITY_GREEN \
             build/black-pines/integrated/fidelity-image-audit.log
+          grep -q BLACK_PINES_FIDELITY_9_ROOM_CONTACT_SHEET_GREEN \
+            build/black-pines/integrated/fidelity-image-audit.log
+          test -s build/black-pines/integrated/black-pines-FIDELITY-9-REAL-GODOT-ROOMS.png
       - name: Archive actual Blender to Godot evidence
         if: always()
         uses: actions/upload-artifact@v4
