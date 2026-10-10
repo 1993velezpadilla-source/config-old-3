@@ -178,7 +178,21 @@ jobs:
             AFTER_NEW_GAME_HASH="$(sha256sum "$OUT/screens/after_new_game_30s.png" | awk '{print $1}')"
             echo "AFTER_NEW_GAME_HASH=$AFTER_NEW_GAME_HASH" >> "$OUT/status.txt"
             if [ "$AFTER_NEW_GAME_HASH" = "$AFTER_HASH" ]; then
-              echo "XCHURCH_NEW_GAME_STILL_IN_SINGLE_PLAYER_MENU_RED" | tee -a "$OUT/status.txt"
+              # Tapping the NEW GAME caption was delivered by native touch,
+              # but the screenshot was unchanged. Try the original illustrated
+              # card's BODY instead; this changes no game engine code/assets.
+              echo "XCHURCH_NEW_GAME_LABEL_TAP_UNCHANGED_RETRY_CARD_BODY" | tee -a "$OUT/status.txt"
+              "$ADB" shell am start -W -n com.activision.boz/.Main \
+                --ez xzielDirectTap true --ei xzielX 690 --ei xzielY 530 \
+                > "$OUT/new-game-card-tap.txt" 2>&1
+              sleep 15
+              "$ADB" exec-out screencap -p > "$OUT/screens/after_new_game_card_15s.png"
+              RETRY_HASH="$(sha256sum "$OUT/screens/after_new_game_card_15s.png" | awk '{print $1}')"
+              if [ "$RETRY_HASH" = "$AFTER_HASH" ]; then
+                echo "XCHURCH_NEW_GAME_CARD_BODY_STILL_NO_TRANSITION_RED" | tee -a "$OUT/status.txt"
+              else
+                echo "XCHURCH_NEW_GAME_CARD_SCREEN_CHANGED_VISUAL_REVIEW_REQUIRED" | tee -a "$OUT/status.txt"
+              fi
             else
               echo "XCHURCH_NEW_GAME_SCREEN_CHANGED_VISUAL_REVIEW_REQUIRED" | tee -a "$OUT/status.txt"
             fi
