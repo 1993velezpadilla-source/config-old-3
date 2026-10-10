@@ -56,8 +56,13 @@ func _run() -> void:
         if not _require(body!=null and body.collision_layer!=0,
                 "missing physical hero "+name):
             return
-        var shape_node: CollisionShape3D=body.get_node_or_null(
-            "CollisionShape3D") as CollisionShape3D
+        # Programmatically created CollisionShape3D children have
+        # engine-assigned names; locate by type, not by editor node path.
+        var shape_node: CollisionShape3D=null
+        for child: Node in body.get_children():
+            if child is CollisionShape3D:
+                shape_node=child as CollisionShape3D
+                break
         if not _require(shape_node!=null and shape_node.shape is BoxShape3D,
                 "hero has no mobile BoxShape3D "+id):
             return
