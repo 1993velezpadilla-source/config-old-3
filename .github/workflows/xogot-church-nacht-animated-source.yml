@@ -5,9 +5,11 @@ on:
   push:
     branches:
       - feature/church-expansion-v1
+      - fix/church-reuse-nacht-source-weapon-20261010
     paths:
       - "tools/maps/chronicles_bridge/**"
       - "xogot/scripts/church_source_machine_mount.gd"
+      - "xogot/scripts/weapon.gd"
       - "xogot/scripts/you_wont_win.gd"
       - "xogot/ci/church_source_machine_probe.gd"
       - "xogot/ci/church_three_real_rounds_probe.gd"
@@ -129,7 +131,7 @@ jobs:
             --path xogot --rendering-method gl_compatibility --resolution 1600x900 \
             --script res://ci/church_template_visual_capture.gd \
             2>&1 | tee church-photos.log
-          grep -q 'XZOGOT_REAL_CHURCH_FIVE_SOURCE_PHOTOS_GREEN' church-photos.log
+          grep -q 'XZOGOT_CHURCH_FIVE_FRAMES_CAPTURED_VISUAL_APPROVAL_PENDING' church-photos.log
           test "$(find build/church-visual-evidence -maxdepth 1 -name '*.jpg' | wc -l)" -eq 5
           ! grep -E 'CHURCH_VISUAL_CAPTURE:|SCRIPT ERROR|Parse Error' church-photos.log
       - name: Print compact authenticated real image data for inline QA

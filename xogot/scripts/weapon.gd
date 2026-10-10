@@ -43,6 +43,9 @@ var _asset_animation_player: AnimationPlayer
 var _weapon_model_root: Node3D
 var _hands_animation_player: AnimationPlayer
 var _hands_model_root: Node3D
+var _source_hands_skeleton: Skeleton3D
+var _source_weapon_attachment: Node3D
+var _source_weapon_bone_idx: int = -1
 var _melee_animation_player: AnimationPlayer
 var _melee_model_root: Node3D
 var _melee_overlay_timer: float = 0.0
@@ -136,6 +139,11 @@ func _clear_view_model() -> void:
 	_weapon_model_root = null
 	_hands_animation_player = null
 	_hands_model_root = null
+	_source_hands_skeleton = null
+	_source_weapon_attachment = null
+	_source_weapon_bone_idx = -1
+	set_meta("weapon_source_weapon_attachment_ready", false)
+	set_meta("weapon_source_attachment_meter_units_restored", false)
 	_real_hands_bound = false
 	_source_ads_ready = false
 	_melee_animation_player = null
@@ -354,6 +362,35 @@ func _find_named_node3d(node: Node, aliases: Array[String]) -> Node3D:
 			return found
 	return null
 
+# Reuse the original Nacht/Project Aether animated tag_weapon hierarchy.
+# FX/muzzle sockets remain separate from the hand-to-gun grip socket.
+func _sync_source_weapon_attachment() -> void:
+	if _source_hands_skeleton == null or _source_weapon_attachment == null or _source_weapon_bone_idx < 0:
+		return
+	if not is_instance_valid(_source_hands_skeleton) or not is_instance_valid(_source_weapon_attachment):
+		return
+	_source_weapon_attachment.transform = _source_hands_skeleton.get_bone_global_pose(_source_weapon_bone_idx)
+	if _weapon_model_root == null or not is_instance_valid(_weapon_model_root):
+		return
+	if _weapon_model_root.get_parent() != _source_weapon_attachment:
+		return
+	# Existing PR #126 proved the imported hands keep centimeter-scale ancestry,
+	# while the Aether weapon meshes themselves are already authored in meters.
+	# Reparenting without inverse scale shrinks the visible MP40 about 100x.
+	var inherited: Vector3 = _source_weapon_attachment.global_transform.basis.get_scale()
+	if minf(inherited.x, minf(inherited.y, inherited.z)) <= 0.000001:
+		set_meta("weapon_source_attachment_meter_units_restored", false)
+		return
+	_weapon_model_root.scale = Vector3(1.0 / inherited.x, 1.0 / inherited.y, 1.0 / inherited.z)
+	var world_scale: Vector3 = _weapon_model_root.global_transform.basis.get_scale()
+	var restored: bool = world_scale.distance_to(Vector3.ONE) <= 0.015
+	set_meta("weapon_source_attachment_inherited_scale", inherited)
+	set_meta("weapon_source_attachment_world_scale", world_scale)
+	set_meta("weapon_source_attachment_meter_units_restored", restored)
+
+func _on_source_hands_skeleton_updated() -> void:
+	_sync_source_weapon_attachment()
+
 func _find_skeleton_bone_attachment(node: Node, aliases: Array[String], attachment_name: String) -> Node3D:
 	if node is Skeleton3D:
 		var skeleton := node as Skeleton3D
@@ -361,16 +398,32 @@ func _find_skeleton_bone_attachment(node: Node, aliases: Array[String], attachme
 			var bone_name: String = str(skeleton.get_bone_name(bone_idx))
 			var lower_name: String = bone_name.to_lower()
 			for alias: String in aliases:
-				if lower_name == alias.to_lower() or lower_name.contains(alias.to_lower()):
-					var attachment := BoneAttachment3D.new()
-					attachment.name = attachment_name
-					attachment.bone_name = skeleton.get_bone_name(bone_idx)
-					skeleton.add_child(attachment)
-					return attachment
+				# Do not bind the rifle to tag_weapon_end, tag_weapon1, or a fake
+				# convenience helper: original source PSA uses exact tag_weapon.
+				var found: bool = lower_name == alias.to_lower() if attachment_name == "SourceTagWeapon" else (lower_name == alias.to_lower() or lower_name.contains(alias.to_lower()))
+				if not found:
+					continue
+				if attachment_name == "SourceTagWeapon":
+					var grip := Node3D.new()
+					grip.name = attachment_name
+					skeleton.add_child(grip)
+					_source_hands_skeleton = skeleton
+					_source_weapon_attachment = grip
+					_source_weapon_bone_idx = bone_idx
+					set_meta("weapon_source_attachment_bone_name", bone_name)
+					if not skeleton.skeleton_updated.is_connected(_on_source_hands_skeleton_updated):
+						skeleton.skeleton_updated.connect(_on_source_hands_skeleton_updated)
+					_sync_source_weapon_attachment()
+					return grip
+				var fx_socket := BoneAttachment3D.new()
+				fx_socket.name = attachment_name
+				fx_socket.bone_name = skeleton.get_bone_name(bone_idx)
+				skeleton.add_child(fx_socket)
+				return fx_socket
 	for child: Node in node.get_children():
-		var found := _find_skeleton_bone_attachment(child, aliases, attachment_name)
-		if found != null:
-			return found
+		var found_socket := _find_skeleton_bone_attachment(child, aliases, attachment_name)
+		if found_socket != null:
+			return found_socket
 	return null
 
 func _fallback_barrel_anchor(model: Node3D) -> Node3D:
@@ -585,9 +638,19 @@ func _bind_real_hands_source_grip() -> void:
 		return
 	_weapon_model_root.reparent(socket, false)
 	_weapon_model_root.transform = Transform3D.IDENTITY
-	_weapon_model_root.quaternion = Quaternion(Vector3.RIGHT, deg_to_rad(90.0))
+	# Apply only the source-verified roll choices from the existing Nacht
+	# 48/64-frame A/B audits on PR #126. Do not invent a new family offset.
+	var source_pistols: Array[String] = ["colt", "walther", "nambu", "tt33", "357"]
+	var source_upright_longs: Array[String] = ["stg", "browning", "type99", "bar", "dp28", "thompson", "trench", "ppsh"]
+	var gun_roll_deg: float = 180.0 if _weapon_id in source_pistols or _weapon_id in source_upright_longs else 90.0
+	_weapon_model_root.quaternion = Quaternion(Vector3.RIGHT, deg_to_rad(gun_roll_deg))
 	_weapon_model_root.scale = Vector3.ONE
+	_sync_source_weapon_attachment()
+	if not bool(get_meta("weapon_source_attachment_meter_units_restored", false)):
+		push_warning("XZOGOT_CHURCH_SOURCE_METER_SCALE_RED " + _weapon_id)
+		return
 	_real_hands_bound = true
+	set_meta("weapon_source_gun_roll_correction_deg", gun_roll_deg)
 	_source_hip = SourceHipPose.hip_position(_weapon_id) if SourceHipPose.has_source_hip_pose(_weapon_id) else Vector3.ZERO
 	_source_ads_ready = SourcePresentation.has_source_presentation(_weapon_id)
 	if _source_ads_ready:
