@@ -163,6 +163,11 @@ jobs:
           assert f["pass"],f["issues"]
           assert f["roomLandmarkCount"]==9
           assert f["doorFrameCount"]==12
+          surface=j["forge"]["surfacePass"]
+          assert surface["batchedRoomFloorCount"]==9
+          assert surface["facadeBranding"] is True
+          assert surface["mobileBatchedFloorTiles"] is True
+          assert all(v>=70 for v in surface["perRoomTileFaces"].values())
           assert f["meshObjects"]<=f["meshObjectBudget"]
           assert f["triangles"]<=f["triangleBudget"]
           assert f["triangles"]>=5000
