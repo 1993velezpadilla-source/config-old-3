@@ -79,6 +79,16 @@ func _capture() -> void:
             return
         print("BLACK_PINES_AMBULANCE_LIVERY_MOUNT_GREEN",
             " legible_side_labels=2 original=true")
+        var cc0_models: Dictionary={}
+        for rendered: Node in authored.find_children("*","MeshInstance3D",true,false):
+            if str(rendered.name).begins_with("Forge_CC0_"):
+                cc0_models[str(rendered.name)]=true
+        if cc0_models.size()!=4:
+            push_error("BLACK_PINES_CC0_GODOT_IMPORT_RED expected=4 actual="+str(cc0_models.size()))
+            quit(55)
+            return
+        print("BLACK_PINES_FOUR_REAL_CC0_MESHES_MOUNTED_GREEN",
+            " count=4 third_party_license=CC0")
         print("BLACK_PINES_NINE_HEROES_MOUNTED_GREEN original_meshes=9")
         print("BLACK_PINES_DOUBLE_FURNITURE_ELIMINATED_GREEN",
             " native_scenery_meshes=0 blender_only=true")
