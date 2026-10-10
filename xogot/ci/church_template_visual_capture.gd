@@ -101,6 +101,25 @@ func _run() -> void:
 	if not bool(weapon.get_meta("weapon_source_weapon_attachment_ready", false)):
 		_fail(8, "Real skinned source hands grip not ready")
 		return
+	# Reuse Nacht/Project Aether acceptance evidence. Older church code
+	# counted a tag_weapon node as GREEN even when the gun inherited another
+	# centimeter import scale or followed tag_weapon_end instead of tag_weapon.
+	var gun: Node3D = weapon.get("_weapon_model_root") as Node3D
+	var source_socket: Node3D = weapon.get("_source_weapon_attachment") as Node3D
+	if gun == null or source_socket == null or gun.get_parent() != source_socket:
+		_fail(10, "MP40 not attached to exact source hand rig socket")
+		return
+	if str(weapon.get_meta("weapon_source_attachment_bone_name", "")) != "tag_weapon":
+		_fail(11, "MP40 is using helper/end bone rather than source tag_weapon")
+		return
+	var gun_world_scale: Vector3 = gun.global_transform.basis.get_scale()
+	if not bool(weapon.get_meta("weapon_source_attachment_meter_units_restored", false)) or gun_world_scale.distance_to(Vector3.ONE) > 0.015:
+		_fail(12, "Nacht centimeter-to-meter weapon inheritance still RED: " + str(gun_world_scale))
+		return
+	if str(weapon.get_meta("weapon_ads_calibration_mode", "")) != "source_datatable":
+		_fail(13, "MP40 missing original Project Aether ADS table position")
+		return
+	print("XZOGOT_CHURCH_REUSED_NACHT_MP40_SOURCE_RIG_GATE_GREEN world_scale=", gun_world_scale)
 	var img: Image = root.get_texture().get_image()
 	if img != null and not img.is_empty():
 		img.resize(1280, 720, Image.INTERPOLATE_LANCZOS)
@@ -111,5 +130,5 @@ func _run() -> void:
 	if not ok:
 		_fail(9, "One of five real rendered frames failed to save")
 		return
-	print("XZOGOT_REAL_CHURCH_FIVE_SOURCE_PHOTOS_GREEN")
+	print("XZOGOT_CHURCH_FIVE_FRAMES_CAPTURED_VISUAL_APPROVAL_PENDING")
 	quit(0)
