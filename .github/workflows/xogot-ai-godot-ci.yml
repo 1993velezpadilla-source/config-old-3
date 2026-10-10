@@ -120,6 +120,19 @@ jobs:
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/weapon-probe.log
           echo "XOGOT_AI_VM_GREEN"
 
+      - name: Verify previous AAA source PSAs attach to animated gun and MP40 ADS
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 85 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/church_source_grip_ads_probe.gd \
+            2>&1 | tee build/xogot-ai/church-hands-ads-probe.log
+          grep -q "XZOGOT_CHURCH_COLT_SOURCE_HANDS_GRIP_GREEN" build/xogot-ai/church-hands-ads-probe.log
+          grep -q "XZOGOT_CHURCH_MP40_SOURCE_HANDS_GRIP_GREEN" build/xogot-ai/church-hands-ads-probe.log
+          grep -q "XZOGOT_CHURCH_MP40_DTWEAPONS_ADS_TRANSFORM_GREEN" build/xogot-ai/church-hands-ads-probe.log
+          grep -q "XZOGOT_CHURCH_MP40_AUTHORED_ADS_HIP_LOOP_GREEN" build/xogot-ai/church-hands-ads-probe.log
+          ! grep -E "SCRIPT ERROR|Parse Error|CHURCH_HANDS_ADS_PROBE:" build/xogot-ai/church-hands-ads-probe.log
+
       - name: Verify interaction economy in Godot
         shell: bash
         run: |
