@@ -150,6 +150,8 @@ jobs:
           grep -q BLACK_PINES_BLENDER_ORIGINAL_ARCHITECTURE_GREEN build/black-pines/blender/blender.log
           cp xogot/assets/black_pines/black_pines_architecture.glb \
             build/black-pines/blender/black-pines-original-architecture.glb
+          cp xogot/assets/black_pines/black_pines_architecture.blend \
+            build/black-pines/blender/black-pines-original-editable-source.blend
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -176,6 +178,7 @@ jobs:
                 "roomLandmarks=",f["roomLandmarkCount"],
                 "meshes=",f["meshObjects"],"tris=",f["triangles"])
           assert Path(j["glb"]).stat().st_size>=10000
+          assert Path(j["editableBlenderSource"]).stat().st_size>=10000
           assert Path("build/black-pines/blender/black-pines-blender-artpass.png").stat().st_size>=10000
           print("BLACK_PINES_BLENDER_ZERO_API_FIRST_ASSET_SOURCE_GREEN",j["objects"])
           PY
