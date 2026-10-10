@@ -7,6 +7,7 @@ Meshes keep their Blender UVs, material slots, and world-space transforms.
 """
 from collections import defaultdict
 import bpy
+from mathutils import Vector
 
 MAX_MOBILE_DRAW_NODES=165
 MIN_REDUCTION_FRACTION=.55
@@ -15,9 +16,15 @@ PRESERVE_PREFIXES=("Forge_Hero_", "Forge_TiledFloor_", "Forge_Sign_")
 
 def _zone(obj, layout):
     # Original Godot layout uses X,Z; Blender native X,-Z,Z.
-    p=obj.matrix_world.translation
-    world_x=float(p.x)
-    world_z=-float(p.y)
+    # A few authored profile meshes store vertices in world-space while
+    # their object transform remains at (0,0,0). Object-origin zoning would
+    # incorrectly join a vehicle in Ambulance Court into the Triage batch.
+    # Use the center of the actual transformed geometry bounds instead.
+    corners=[obj.matrix_world @ Vector(c) for c in obj.bound_box]
+    if not corners:
+        raise RuntimeError("BLACK_PINES_MOBILE_BATCH_RED missing bounds "+obj.name)
+    world_x=sum(p.x for p in corners)/len(corners)
+    world_z=-sum(p.y for p in corners)/len(corners)
     xs=list(map(float,layout["cellBoundaries"]["x"]))
     zs=list(map(float,layout["cellBoundaries"]["z"]))
     for j in range(3):
@@ -53,6 +60,16 @@ def build_export_batches(layout):
     if bpy.data.collections.get(TEMP_COLLECTION)!=None:
         raise RuntimeError("BLACK_PINES_MOBILE_BATCH_RED prior temporary export leaked")
     source=[obj for obj in bpy.context.scene.objects if obj.type=="MESH"]
+    # For the new parametric ambulance shell, wrong spatial batching makes
+    # scene culling extend across unrelated rooms. Pin ALL three landmark
+    # components to the actual court cell (column 1 / row 2).
+    ambulance_parts=(
+        "RustyAmbulanceRear","RustyAmbulanceCab",
+        "Forge_AmbulanceVisual_CabWindshield")
+    for name in ambulance_parts:
+        vehicle=bpy.data.objects.get(name)
+        if vehicle is None or _zone(vehicle,layout)!="12":
+            raise RuntimeError("BLACK_PINES_MOBILE_BATCH_RED ambulance wrong zone "+name)
     groups=defaultdict(list)
     keep=[]
     for obj in source:
@@ -108,6 +125,7 @@ def build_export_batches(layout):
                 if obj.name.startswith("Forge_Hero_"))==9,
             "nineFloorMeshesPreserved":sum(1 for obj in selected
                 if obj.name.startswith("Forge_TiledFloor_"))==9,
+            "ambulanceZoneAwareBatching":True,
             "sourceBlendEditableUntouched":True,
             "mobileFrameratePhysicallyMeasured":False
         }
