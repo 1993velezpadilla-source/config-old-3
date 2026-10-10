@@ -5,7 +5,7 @@ Unique focal shapes per ward, mobile-limited geometry; noncolliding visuals
 only pending separate collision/nav acceptance. All component positions use
 the shared manifest Godot X,Y,Z layout (Blender bridge owns axis conversion).
 """
-from mathutils import Vector
+import bpy
 
 HERO_COMPONENTS = {}
 # Nine original focal props. CI audits THESE live Blender meshes and Godot GLB.
