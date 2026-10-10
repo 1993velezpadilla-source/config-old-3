@@ -10,15 +10,15 @@ import bpy
 HERO_COMPONENTS = {}
 # Nine original focal props. CI audits THESE live Blender meshes and Godot GLB.
 ROOM_HERO_IDS = {
-    "generator": "ForgeHero_GeneratorControlDesk",
-    "isolation": "ForgeHero_IsolationNegativePressureUnit",
-    "surgery": "ForgeHero_SurgeryAnesthesiaCart",
-    "patients": "ForgeHero_PatientWardSupplyCabinet",
-    "triage": "ForgeHero_TriageEmergencyCrashCart",
-    "cafeteria": "ForgeHero_CafeteriaColdStorage",
-    "security": "ForgeHero_SecuritySwitchboard",
-    "yard": "ForgeHero_AmbulanceEmergencyLight",
-    "garage": "ForgeHero_GarageHydraulicCompressor",
+    "generator": "Forge_Hero_GeneratorControlDesk",
+    "isolation": "Forge_Hero_IsolationNegativePressureUnit",
+    "surgery": "Forge_Hero_SurgeryAnesthesiaCart",
+    "patients": "Forge_Hero_PatientWardSupplyCabinet",
+    "triage": "Forge_Hero_TriageEmergencyCrashCart",
+    "cafeteria": "Forge_Hero_CafeteriaColdStorage",
+    "security": "Forge_Hero_SecuritySwitchboard",
+    "yard": "Forge_Hero_AmbulanceEmergencyLight",
+    "garage": "Forge_Hero_GarageHydraulicCompressor",
 }
 
 
