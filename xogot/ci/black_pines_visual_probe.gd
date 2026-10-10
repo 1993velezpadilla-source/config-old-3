@@ -41,6 +41,19 @@ func _capture() -> void:
                 +str(duplicate_props))
             quit(46)
             return
+        # Ensure all nine ORIGINAL hero assets survived Blender -> GLB ->
+        # Godot, rather than merely existing in a source-side Blender report.
+        var heroes: Dictionary={}
+        for rendered: Node in authored.find_children(
+                "*","MeshInstance3D",true,false):
+            if str(rendered.name).begins_with("Forge_Hero_"):
+                heroes[str(rendered.name)]=true
+        if heroes.size()!=9:
+            push_error("BLACK_PINES_BLENDER_MOUNT_RED room_hero_mesh_count="
+                +str(heroes.size())+" expected=9")
+            quit(48)
+            return
+        print("BLACK_PINES_NINE_HEROES_MOUNTED_GREEN original_meshes=9")
         print("BLACK_PINES_DOUBLE_FURNITURE_ELIMINATED_GREEN",
             " native_scenery_meshes=0 blender_only=true")
         print("BLACK_PINES_BLENDER_MOUNT_GREEN meshes=",mesh_count,
