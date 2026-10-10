@@ -119,8 +119,8 @@ jobs:
             sleep 15
             "$ADB" exec-out screencap -p > "$OUT/screens/main_menu_25s.png"
 
-            "$ADB" shell am start -W -n com.activision.boz/.Main               --ez xzielDirectTap true --ei xzielX 520 --ei xzielY 300               > "$OUT/single-player-tap.txt" 2>&1
-            echo "SINGLE_PLAYER_TAP_SENT=520,300" | tee -a "$OUT/status.txt"
+            "$ADB" shell am start -W -n com.activision.boz/.Main               --ez xzielDirectTap true --ei xzielX 570 --ei xzielY 165               > "$OUT/single-player-tap.txt" 2>&1
+            echo "SINGLE_PLAYER_TAP_SENT=570,165" | tee -a "$OUT/status.txt"
 
             sleep 5
             "$ADB" exec-out screencap -p > "$OUT/screens/after_single_05s.png"
@@ -128,6 +128,21 @@ jobs:
             "$ADB" exec-out screencap -p > "$OUT/screens/after_single_15s.png"
             sleep 15
             "$ADB" exec-out screencap -p > "$OUT/screens/after_single_30s.png"
+
+            # The previous test incorrectly pressed 520,300 ON THE BIG
+            # CENTRAL LOGO, not the "SINGLE PLAYER" text.  The authentic
+            # Android 2280x1080 menu screenshot puts that button in the
+            # upper-left around 570,165.  Reject another idle main menu,
+            # don't call native touch delivery proof of gameplay.
+            MENU_HASH="$(sha256sum "$OUT/screens/main_menu_25s.png" | awk '{print $1}')"
+            AFTER_HASH="$(sha256sum "$OUT/screens/after_single_30s.png" | awk '{print $1}')"
+            echo "MENU_HASH=$MENU_HASH" >> "$OUT/status.txt"
+            echo "AFTER_SINGLE_HASH=$AFTER_HASH" >> "$OUT/status.txt"
+            if [ "$MENU_HASH" = "$AFTER_HASH" ]; then
+              echo "XCHURCH_SINGLE_PLAYER_STILL_ON_MAIN_MENU_RED" | tee -a "$OUT/status.txt"
+            else
+              echo "XCHURCH_SINGLE_PLAYER_SCREEN_TRANSITION_OBSERVED_NEEDS_VISUAL_QA" | tee -a "$OUT/status.txt"
+            fi
           fi
 
           "$ADB" logcat -d -v threadtime > "$OUT/logcat.txt"
