@@ -1,7 +1,7 @@
 ; ORIGINAL Black Pines Sanatorium playable gameplay laboratory.
 ; Uses existing touch HUD, weapon, round director, powerup, network systems.
 ; NO modifications to the church scene.
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource path="res://scripts/black_pines_map.gd" type="Script" id="1"]
 [ext_resource path="res://scripts/player.gd" type="Script" id="2"]
@@ -15,6 +15,7 @@
 [ext_resource path="res://scripts/network_upnp.gd" type="Script" id="10"]
 [ext_resource path="res://scripts/network_public_directory.gd" type="Script" id="11"]
 [ext_resource path="res://scripts/voice_chat.gd" type="Script" id="12"]
+[ext_resource path="res://scripts/black_pines_path_network.gd" type="Script" id="13"]
 
 [sub_resource type="CapsuleShape3D" id="Capsule_Player"]
 radius = 0.36
@@ -42,6 +43,9 @@ near = 0.05
 
 [node name="Weapon" type="Node" parent="Player"]
 script = ExtResource("3")
+
+[node name="BlackPinesPathNetwork" type="Node3D" parent="."]
+script = ExtResource("13")
 
 [node name="RoundManager" type="Node" parent="."]
 script = ExtResource("4")
