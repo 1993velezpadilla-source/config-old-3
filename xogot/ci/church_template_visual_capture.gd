@@ -154,5 +154,5 @@ func _run() -> void:
 	if not ok:
 		_fail(11,"Some real QA render outputs failed")
 		return
-	print("XZOGOT_REAL_CHURCH_SIX_SOURCE_INSPECTION_PHOTOS_GREEN")
+	print("XZOGOT_REAL_CHURCH_SIX_SOURCE_INSPECTION_PHOTOS_CAPTURED_ART_REVIEW_PENDING")
 	quit(0)
