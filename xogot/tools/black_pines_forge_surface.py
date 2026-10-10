@@ -58,6 +58,13 @@ def build_surfaces(api, layout, cube, tube, sign):
         mesh=bpy.data.meshes.new("Forge_Tilemesh_"+name)
         mesh.from_pydata(verts,[],faces)
         mesh.update()
+        # glTF requires UV0 for original procedural PBR tile textures.
+        # One 0..1 UV tile per quad; no per-tile texture/material copies.
+        uv=mesh.uv_layers.new(name="UVMap")
+        quad_uv=((0.,0.),(1.,0.),(1.,1.),(0.,1.))
+        for polygon in mesh.polygons:
+            for corner,loop_index in enumerate(polygon.loop_indices):
+                uv.data[loop_index].uv=quad_uv[corner]
         obj=bpy.data.objects.new("Forge_TiledFloor_"+name,mesh)
         bpy.context.collection.objects.link(obj)
         for m in mats:
