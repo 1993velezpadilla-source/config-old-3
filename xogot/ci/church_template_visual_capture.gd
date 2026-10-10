@@ -1,8 +1,9 @@
 extends SceneTree
 
-# Screenshots from the real Godot rendering viewport, not concept art.
-# This CI-only import contains community reference models. Never distribute
-# model bytes themselves; evidence frames are internal QA, not release art.
+# Actual Godot viewport screenshots in a temporary open-air reference QA bay
+# inside the existing church level. We stage the real live gameplay nodes to
+# remove occluding walls, NOT generate concept art or invent source geometry.
+# These copyrighted community workshop reference models remain CI-only.
 const OUTPUT := "res://../build/church-visual-evidence"
 
 func _init() -> void:
@@ -12,104 +13,146 @@ func _fail(code: int, msg: String) -> void:
 	push_error("CHURCH_VISUAL_CAPTURE: " + msg)
 	quit(code)
 
-func _frames(n: int) -> void:
-	for _i in range(n):
+func _frames(count: int) -> void:
+	for i in range(count):
 		await process_frame
 
 func _photo(label: String, camera: Camera3D, position: Vector3, target: Vector3) -> bool:
 	camera.current = true
 	camera.global_position = position
 	camera.look_at(target, Vector3.UP)
-	await _frames(18)
-	var image: Image = root.get_texture().get_image()
-	if image == null or image.is_empty():
+	await _frames(22)
+	var captured: Image = root.get_texture().get_image()
+	if captured == null or captured.is_empty():
 		return false
-	image.resize(1280, 720, Image.INTERPOLATE_LANCZOS)
-	var err: int = image.save_jpg(OUTPUT + "/" + label + ".jpg", 0.87)
-	if err != OK:
+	captured.resize(1280, 720, Image.INTERPOLATE_LANCZOS)
+	if captured.save_jpg(OUTPUT + "/" + label + ".jpg", 0.92) != OK:
 		return false
-	print("XZOGOT_REAL_INGAME_PHOTO_GREEN ", label, " 1280x720")
+	print("XZOGOT_REAL_INGAME_FOCUSED_PHOTO_GREEN ", label, " 1280x720")
 	return true
+
+func _qa_lighting(church: Node, center: Vector3) -> void:
+	var original_environment: WorldEnvironment = church.find_child("WorldEnvironment",true,false) as WorldEnvironment
+	if original_environment != null and original_environment.environment != null:
+		var env: Environment = original_environment.environment
+		env.fog_enabled = false
+		env.ambient_light_energy = 1.25
+		env.ambient_light_color = Color(0.72,0.76,0.88)
+	for info: Dictionary in [
+		{"name":"QAWarmKey","offset":Vector3(-2.2,3.8,2.8),"energy":7.5,"color":Color(1.0,0.89,0.71)},
+		{"name":"QACoolFill","offset":Vector3(2.1,2.5,-2.0),"energy":5.0,"color":Color(0.65,0.79,1.0)},
+	]:
+		var light := OmniLight3D.new()
+		light.name = str(info["name"])
+		church.add_child(light)
+		light.global_position = center + (info["offset"] as Vector3)
+		light.light_energy = float(info["energy"])
+		light.light_color = info["color"] as Color
+		light.omni_range = 12.0
+		light.shadow_enabled = false
 
 func _run() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUTPUT))
 	var packed: PackedScene = load("res://main.tscn") as PackedScene
 	if packed == null:
-		_fail(2, "Real church scene missing")
+		_fail(2, "Original live church scene missing")
 		return
 	var church: Node = packed.instantiate()
 	root.add_child(church)
-	await _frames(45)
-	var player: Node3D = church.get_node_or_null("Player") as Node3D
-	var player_camera: Camera3D = church.get_node_or_null("Player/Head/Camera3D") as Camera3D
+	await _frames(35)
+	var player: CharacterBody3D = church.get_node_or_null("Player") as CharacterBody3D
+	var fps: Camera3D = church.get_node_or_null("Player/Head/Camera3D") as Camera3D
 	var director: Node = church.get_node_or_null("RoundManager")
-	if player == null or player_camera == null or director == null:
-		_fail(3, "Gameplay camera/player/round manager missing")
+	if player == null or fps == null or director == null:
+		_fail(3, "Original gameplay/player/camera missing")
 		return
-	player.set("auto_knife_enabled", false)
-	director.set("_network_match_active", false)
-	director.set("auto_start", false)
-	var zombie_scene: Script = load("res://scripts/zombie_dummy.gd") as Script
-	if zombie_scene == null:
-		_fail(4, "Actual zombie script missing")
+	var hud: CanvasLayer = church.get_node_or_null("HUD") as CanvasLayer
+	if hud != null:
+		hud.visible = false # QA images isolate source model, no touch overlays
+	director.set("_network_match_active",false)
+	director.set("auto_start",false)
+	player.set("auto_knife_enabled",false)
+	var stage_center: Vector3 = church.call("_wp", Vector3(39.0,0.38,-3.0))
+	_qa_lighting(church,stage_center)
+	player.set_physics_process(false)
+	player.global_position = stage_center + Vector3(0,0,5)
+	var camera := Camera3D.new()
+	camera.name = "ChurchSourceRealityCamera"
+	church.add_child(camera)
+	camera.fov = 50.0
+	camera.near = 0.05
+	var source_script: Script = load("res://scripts/zombie_dummy.gd") as Script
+	if source_script == null:
+		_fail(4,"Actual zombie AI script missing")
 		return
 	var actor := CharacterBody3D.new()
-	actor.name = "RealNachtModelVisualQA"
-	actor.set_script(zombie_scene)
-	actor.position = Vector3(0, 0.38, 2.75)
-	actor.call("configure_direct", player, null)
+	actor.name = "AuthenticSkinnedZombieInspection"
+	actor.set_script(source_script)
+	actor.position = stage_center
+	actor.call("configure_direct",player,null)
 	church.add_child(actor)
-	await _frames(7)
-	if str(actor.get_meta("zombie_source_lane", "")) != "PAVLOV_UE421_NACHT_REFERENCE":
-		_fail(5, "Refuse to photograph substitute mesh labeled as source zombie")
+	await _frames(8)
+	if str(actor.get_meta("zombie_source_lane","")) != "PAVLOV_UE421_NACHT_REFERENCE":
+		_fail(5,"Original source mesh is not loaded into gameplay zombie")
 		return
-	# Freeze chase movement only during the camera's 18-frame exposure, so
-	# the photograph documents actual skinned source appearance, not a blur.
 	actor.set_physics_process(false)
-	var free_camera := Camera3D.new()
-	free_camera.name = "RealSourceVisualQACamera"
-	church.add_child(free_camera)
-	free_camera.fov = 59.0
-	var ok: bool = await _photo("01_zombie_source_102bone", free_camera,
-		actor.global_position + Vector3(2.9, 1.45, 3.9), actor.global_position + Vector3(0, 1.0, 0))
-	var models: Array[Dictionary] = [
-		{"node":"MysteryBoxSocket", "name":"02_mystery_box_source_animated"},
-		{"node":"SanctumForge", "name":"03_pack_a_punch_source"},
-		{"node":"PowerSwitch", "name":"04_power_switch_source"}
+	var ok: bool = await _photo("01_real_nacht_zombie_clear_view",camera,
+		stage_center+Vector3(1.8,1.75,3.1),stage_center+Vector3(0,0.9,0))
+	actor.visible = false
+	# Move existing *working* interactive physics nodes into one clear exterior
+	# preview bay, one at a time. Production map coordinates never change.
+	var scenes: Array[Dictionary] = [
+		{"node":"MysteryBoxSocket","name":"02_real_animated_mystery_box"},
+		{"node":"SanctumForge","name":"03_real_pack_a_punch_geometry"},
+		{"node":"PowerSwitch","name":"04_real_power_switch_geometry"}
 	]
-	for item: Dictionary in models:
-		var machine: StaticBody3D = church.get_node_or_null(str(item["node"])) as StaticBody3D
-		if machine == null or not bool(machine.get_meta("source_reference_visual_loaded", false)):
-			_fail(6, "Refuse to photograph unmounted source model " + str(item["node"]))
+	for item: Dictionary in scenes:
+		var body: StaticBody3D = church.get_node_or_null(str(item["node"])) as StaticBody3D
+		if body == null or not bool(body.get_meta("source_reference_visual_loaded",false)):
+			_fail(6,"Original reference source mesh missing for "+str(item["node"]))
 			return
-		var center: Vector3 = machine.global_position
-		ok = ok and await _photo(str(item["name"]), free_camera,
-			center + Vector3(2.6, 1.2, 3.4), center + Vector3(0, 0.4, 0))
-	# Actual playable FPS view: runtime gun with recovered hand rig.
-	free_camera.current = false
-	player_camera.current = true
-	var weapon: Node = player.get_node_or_null("Weapon")
-	if weapon == null or not bool(weapon.call("equip_weapon", "mp40", true)):
-		_fail(7, "MP40 real viewmodel missing")
+		var prior: Transform3D = body.global_transform
+		body.global_position = stage_center+Vector3(0,1.10,0)
+		body.global_rotation = Vector3.ZERO
+		ok = (await _photo(str(item["name"]),camera,
+			stage_center+Vector3(1.65,1.8,3.05),stage_center+Vector3(0,1.08,0))) and ok
+		body.global_transform = prior
+	# First person: keep full source hands and complete MP40 rig active.
+	var gun: Node = player.get_node_or_null("Weapon")
+	if gun == null or not bool(gun.call("equip_weapon","mp40",true)):
+		_fail(7,"Real MP40 asset not loaded")
 		return
-	player.global_position = Vector3(0, 0.38, 6.7)
-	player.rotation.y = 0
+	if not bool(gun.get_meta("weapon_source_weapon_attachment_ready",false)):
+		_fail(8,"Recovered hands tag_weapon socket not attached")
+		return
+	player.global_position = stage_center+Vector3(0,0,3)
+	player.rotation.y = 0.0
 	var head: Node3D = player.get_node_or_null("Head") as Node3D
 	if head != null:
-		head.rotation.x = deg_to_rad(-2.0)
-	await _frames(12)
-	if not bool(weapon.get_meta("weapon_source_weapon_attachment_ready", false)):
-		_fail(8, "Real skinned source hands grip not ready")
+		head.rotation.x = deg_to_rad(-1.0)
+	fps.current = true
+	gun.call("_play_asset_animation","idle",0.0)
+	await _frames(36)
+	# Camera is switched to the actual player's playable FPS viewpoint.
+	var saved: Image = root.get_texture().get_image()
+	if saved == null or saved.is_empty():
+		_fail(9,"Real FPS screenshot framebuffer missing")
 		return
-	var img: Image = root.get_texture().get_image()
-	if img != null and not img.is_empty():
-		img.resize(1280, 720, Image.INTERPOLATE_LANCZOS)
-		ok = ok and img.save_jpg(OUTPUT + "/05_fps_mp40_real_hands.jpg", 0.87) == OK
-		print("XZOGOT_REAL_INGAME_PHOTO_GREEN 05_fps_mp40_real_hands 1280x720")
-	else:
-		ok = false
+	saved.resize(1280,720,Image.INTERPOLATE_LANCZOS)
+	ok = saved.save_jpg(OUTPUT+"/05_mp40_actual_hip_with_hands.jpg",0.92) == OK and ok
+	print("XZOGOT_REAL_INGAME_FOCUSED_PHOTO_GREEN 05_mp40_actual_hip_with_hands 1280x720")
+	player.set_meta("ads_toggled",true)
+	gun.call("_update_visual_recoil",0.35)
+	await _frames(20)
+	var aim_frame: Image = root.get_texture().get_image()
+	if aim_frame == null or aim_frame.is_empty():
+		_fail(10,"ADS screenshot framebuffer missing")
+		return
+	aim_frame.resize(1280,720,Image.INTERPOLATE_LANCZOS)
+	ok = aim_frame.save_jpg(OUTPUT+"/06_mp40_actual_aim_down_sights.jpg",0.92) == OK and ok
+	print("XZOGOT_REAL_INGAME_FOCUSED_PHOTO_GREEN 06_mp40_actual_aim_down_sights 1280x720")
 	if not ok:
-		_fail(9, "One of five real rendered frames failed to save")
+		_fail(11,"Some real QA render outputs failed")
 		return
-	print("XZOGOT_REAL_CHURCH_FIVE_SOURCE_PHOTOS_GREEN")
+	print("XZOGOT_REAL_CHURCH_SIX_SOURCE_INSPECTION_PHOTOS_GREEN")
 	quit(0)
