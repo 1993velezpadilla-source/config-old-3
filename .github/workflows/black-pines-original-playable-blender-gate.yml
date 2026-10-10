@@ -10,6 +10,7 @@ on:
       - "xogot/scripts/black_pines_*.gd"
       - "xogot/scripts/round_manager.gd"
       - "xogot/ci/black_pines_*.gd"
+      - "xogot/ci/black_pines_*.py"
       - "xogot/tools/black_pines_author.py"
       - "xogot/tools/black_pines_forge_*.py"
       - ".github/workflows/black-pines-original-playable-blender-gate.yml"
@@ -272,7 +273,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libegl1 libx11-6 libxcursor1 libxrandr2 libxi6
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libegl1 libx11-6 libxcursor1 libxrandr2 libxi6 python3-pil
           curl -fL --retry 5 --retry-all-errors --retry-delay 3 \
             https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
             -o /tmp/black-pines-godot.zip
@@ -312,6 +313,15 @@ jobs:
           cp xogot/black-pines-fidelity-*.png build/black-pines/integrated/
           test "$(find build/black-pines/integrated -maxdepth 1 -name 'black-pines-fidelity-*.png' | wc -l)" -eq 9
           file build/black-pines/integrated/*.png
+      - name: Fidelity screenshot audit of ALL nine REAL Godot rooms
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 xogot/ci/black_pines_fidelity_image_audit.py \
+            build/black-pines/integrated \
+            2>&1 | tee build/black-pines/integrated/fidelity-image-audit.log
+          grep -q BLACK_PINES_NINE_ROOM_REAL_IMAGE_FIDELITY_GREEN \
+            build/black-pines/integrated/fidelity-image-audit.log
       - name: Archive actual Blender to Godot evidence
         if: always()
         uses: actions/upload-artifact@v4
