@@ -42,12 +42,17 @@ def tube(api, label, start, end, radius, material, segments=9):
     return obj
 
 
-def _label(api, label, pos, title, size=.28, material="light"):
+def _label(api, label, pos, title, size=.28, material="light",
+           face_negative_z=False):
+    # Interior room signs on north/far walls face INTO their room (negative
+    # Godot Z). The old X+90 rotation faced them outward: letters appeared
+    # mirrored when seen from the gameplay side. Exterior signage retains +Z.
     # An original dark plaque keeps signs readable against weathered plaster.
     # It is visual-only and does not interfere with zombie collision openings.
     width=min(8.70,max(1.05,len(title)*size*.59+.46))
     plaque=api.cube("Forge_Plaque_"+label,
-                    (pos[0],pos[1]+size*.13,pos[2]-.075),
+                    (pos[0],pos[1]+size*.13,
+                     pos[2]+(.075 if face_negative_z else -.075)),
                     (width,size*1.42,.075),"dark_metal","trim",.023)
     ADDED_NAMES.append(plaque.name)
     # Text converted to an ORIGINAL mesh so glTF selected-MESH export includes
@@ -60,7 +65,7 @@ def _label(api, label, pos, title, size=.28, material="light"):
     obj.data.extrude = .003
     obj.data.align_x = 'CENTER'
     # Native Blender font plane XY -> vertical XZ; viewed along its front.
-    obj.rotation_euler = (math.pi/2, 0, 0)
+    obj.rotation_euler = (math.pi/2, 0, math.pi if face_negative_z else 0)
     bpy.ops.object.convert(target="MESH")
     obj.data.materials.append(api.mat(material))
     api.COUNTS["trim"] += 1
@@ -180,7 +185,7 @@ def build_forge_detail(api, layout):
             (-12.8,.05,z+.62),(-12.8,1.85,z+.62),.027,"dark_metal").name)
     _set_landmark("patients",patient_names+[
         _label(api,"PATIENTS",(-12.5,2.68,7.7),
-               "PATIENT WING  /  WARD B",.26).name])
+               "PATIENT WING  /  WARD B",.26,face_negative_z=True).name])
 
     # Triage: wall roster, oxygen line, medicine dispenser.
     _set_landmark("triage", [
@@ -193,7 +198,7 @@ def build_forge_detail(api, layout):
         tube(api,"Triage_OxygenLine",(-4.7,3.02,8.6),
              (4.6,3.02,8.6),.065,"brass").name,
         _label(api,"TRIAGE",(0.,2.72,7.8),
-               "BLACK PINES  /  ADMISSIONS",.26).name,
+               "BLACK PINES  /  ADMISSIONS",.26,face_negative_z=True).name,
     ])
 
     # Dining hall: institutional stainless counter and exposed service trays.
@@ -205,7 +210,7 @@ def build_forge_detail(api, layout):
         add_box(api,"Dining_Tiling",(15.9,1.75,7.7),
                 (.12,1.25,2.15),"medical",.012).name,
         _label(api,"DINING",(12.25,2.72,7.8),
-               "MESS HALL  /  02",.27).name,
+               "MESS HALL  /  02",.27,face_negative_z=True).name,
     ])
 
     # Security office: wired CCTV housing, equipment cage, lockers.
@@ -219,7 +224,7 @@ def build_forge_detail(api, layout):
         add_box(api,"Security_Camera",(-15.1,3.2,10.2),
                 (.54,.23,.24),"dark_metal",.03).name,
         _label(api,"SECURITY",(-12.4,2.65,19.8),
-               "SECURITY  /  RESTRICTED",.24).name,
+               "SECURITY  /  RESTRICTED",.24,face_negative_z=True).name,
     ])
 
     # Ambulance court: original lamps and industrial crowd control; leave
@@ -234,7 +239,7 @@ def build_forge_detail(api, layout):
         add_box(api,"Yard_LampEast",(5.8,4.65,19.4),
                 (.62,.16,.38),"light",.05).name,
         _label(api,"COURT",(0.0,2.72,20.0),
-               "EMERGENCY  /  KEEP CLEAR",.29).name,
+               "EMERGENCY  /  KEEP CLEAR",.29,face_negative_z=True).name,
     ])
 
     # Garage: roll-up mechanical guides, mechanical workbench, tire stacks.
@@ -248,7 +253,7 @@ def build_forge_detail(api, layout):
         tube(api,"Garage_AirPipe",(9.2,3.15,19.55),
              (16.8,3.15,19.55),.092,"brass").name,
         _label(api,"GARAGE",(12.5,2.72,19.8),
-               "MAINTENANCE  /  GARAGE",.25).name,
+               "MAINTENANCE  /  GARAGE",.25,face_negative_z=True).name,
     ])
 
     surface = forge_surface.build_surfaces(api,layout,add_box,tube,_label)
@@ -281,6 +286,18 @@ def fidelity_pass(api, layout):
         issues.append("missing original main entrance branded facade")
     if bpy.data.objects.get("Forge_Sign_FACADE") is None:
         issues.append("missing branded Black Pines sign")
+    # Converted text mesh orientation is preserved in Blender mesh vertices,
+    # while object.rotation_euler carries the sign's authored facing direction.
+    # North-wall signs previously faced away from the player and appeared
+    # mirror-written in real Godot screenshots. Check facing on every pass.
+    for name in ("PATIENTS","TRIAGE","DINING","SECURITY","COURT","GARAGE"):
+        sign = bpy.data.objects.get("Forge_Sign_"+name)
+        if sign is None:
+            issues.append("missing north-wall sign "+name)
+        else:
+            front = sign.rotation_euler.to_matrix() @ Vector((0,0,1))
+            if front.y < .50:  # Blender +Y = Godot -Z, facing into the room
+                issues.append("mirrored room sign: "+name)
     for i in range(12):
         n = "Forge_Door_%02d_Transom"%i
         if bpy.data.objects.get(n) is None:
