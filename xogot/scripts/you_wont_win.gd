@@ -6,6 +6,7 @@ const BENCH_ASSET_PATH := "res://assets/environment/church/bench.glb"
 const CANDLE_MANAGER_SCRIPT := preload("res://scripts/candle_manager.gd")
 const POWER_LIGHT_RIG_SCRIPT := preload("res://scripts/power_light_rig.gd")
 const PERK_CATALOG := preload("res://scripts/perk_catalog.gd")
+const SOURCE_MACHINE_MOUNT := preload("res://scripts/church_source_machine_mount.gd")
 const WEAPON_CATALOG := preload("res://scripts/weapon_catalog.gd")
 const CHURCH_AUDIO_SCRIPT := preload("res://scripts/church_audio.gd")
 const FINAL_CHURCH_ARCH_PATH := "res://assets/environment/church/church_final_architecture.glb"
@@ -1734,7 +1735,6 @@ func _build_balcony_stair_ramp() -> void:
 # on EXISTING live gameplay nodes. Geometry only; the verified backend,
 # colliders, weapons, multiplayer authority and FX remain untouched.
 func _mount_recovered_machine_references() -> void:
-	var adapter: Script = preload("res://scripts/church_source_machine_mount.gd")
 	var specs: Array[Dictionary] = [
 		{"node":"MysteryBoxSocket", "parts":["mystery_main"], "size":Vector3(1.65, 0.9, 0.8)},
 		{"node":"SanctumForge", "parts":["pap_shell", "pap_inside"], "size":Vector3(1.75, 1.3, 1.0)},
@@ -1745,7 +1745,7 @@ func _mount_recovered_machine_references() -> void:
 		var part_list: Array[String] = []
 		for part: Variant in spec["parts"]:
 			part_list.append(str(part))
-		if bool(adapter.call("attach", self, str(spec["node"]), part_list, (spec["size"] as Vector3) * WORLD_SCALE)):
+		if bool(SOURCE_MACHINE_MOUNT.attach(self, str(spec["node"]), part_list, (spec["size"] as Vector3) * WORLD_SCALE)):
 			completed += 1
 	print("XZOGOT_CHURCH_REFERENCE_MACHINE_VISUALS ", completed, "/", specs.size(), " rights_audit=not_cleared")
 
