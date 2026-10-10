@@ -229,7 +229,16 @@ jobs:
           from pathlib import Path
           j=json.loads(Path("build/black-pines/blender/source-original-art-report.json").read_text())
           assert j["floor"]==9
-          assert j["allOriginalAuthoring"]
+          assert not j["allOriginalAuthoring"]
+          assert j["originalArchitectureAndCollisionAuthoring"]
+          assert j["importedThirdPartyAssetsCount"]==4
+          assert j["importedThirdPartyAssetLicense"]=="CC0-1.0"
+          cc0=j["forge"]["hospitalCC0ImportedProps"]
+          assert cc0["assetCount"]==4
+          assert 1000<=cc0["totalTriangles"]<=6000
+          assert cc0["thirdPartyAssetsDisclosed"]
+          assert not cc0["collisionMeshesModified"]
+          print("BLACK_PINES_FOUR_CC0_HOSPITAL_MESHES_CI_GREEN",cc0["assets"])
           assert j["sameManifestAsGodot"]
           assert not j["commercialRippedAssets"]
           assert not j["publicReadiness"]
@@ -263,6 +272,7 @@ jobs:
           assert mobile["mobileExportMeshObjects"]<=165
           assert mobile["reductionFraction"]>=0.55
           assert mobile["nineHeroMeshesPreserved"] and mobile["nineFloorMeshesPreserved"]
+          assert mobile["cc0ModelNodesPreserved"]
           assert mobile["ambulanceZoneAwareBatching"], "shape-profile objects must batch in the yard cell"
           assert mobile["sourceBlendEditableUntouched"]
           print("BLACK_PINES_MOBILE_DRAW_BATCH_CI_GREEN",mobile)
