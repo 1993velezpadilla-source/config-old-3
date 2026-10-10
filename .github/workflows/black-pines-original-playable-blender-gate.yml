@@ -182,6 +182,23 @@ jobs:
           assert Path("build/black-pines/blender/black-pines-blender-artpass.png").stat().st_size>=10000
           print("BLACK_PINES_BLENDER_ZERO_API_FIRST_ASSET_SOURCE_GREEN",j["objects"])
           PY
+      - name: Package installable zero-budget Blender Forge GUI add-on
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/black-pines/blender/addon-staging/black_pines_forge
+          cp xogot/tools/black_pines_forge_gui.py \
+            build/black-pines/blender/addon-staging/black_pines_forge/__init__.py
+          cp xogot/tools/black_pines_author.py \
+             xogot/tools/black_pines_forge_detail.py \
+             xogot/tools/black_pines_forge_surface.py \
+             build/black-pines/blender/addon-staging/black_pines_forge/
+          (cd build/black-pines/blender/addon-staging && \
+            zip -qr ../Black-Pines-Forge-GUI-install-in-Blender.zip black_pines_forge)
+          unzip -l build/black-pines/blender/Black-Pines-Forge-GUI-install-in-Blender.zip \
+            | grep -q 'black_pines_forge/__init__.py'
+          test -s build/black-pines/blender/Black-Pines-Forge-GUI-install-in-Blender.zip
+          echo BLACK_PINES_INSTALLABLE_FORGE_GUI_ZIP_GREEN
       - name: Test actual Blender Forge GUI buttons and export
         shell: bash
         run: |
