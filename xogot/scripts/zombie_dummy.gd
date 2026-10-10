@@ -339,8 +339,17 @@ func _build_body() -> void:
 	var using_rigid_rig: bool = false
 	var special_model_id: String = ""
 	var using_original_chronicles_rig: bool = false
+	var using_workshop_rig: bool = false
 	var original_yaw: float = 90.0
-	if enemy_variant == "normal" and CHRONICLES_REGISTRY.original_zombie_ready():
+	if enemy_variant == "normal" and CHRONICLES_REGISTRY.workshop_zombie_ready():
+		selected_path = CHRONICLES_REGISTRY.workshop_zombie_path()
+		special_model_id = "pavlov_ue421_nacht_102bone"
+		using_rigged = true
+		using_original_chronicles_rig = true
+		using_workshop_rig = true
+		var workshop_spec: Dictionary = CHRONICLES_REGISTRY.contract().get("workshopZombie", {}) as Dictionary
+		original_yaw = float(workshop_spec.get("yawDegrees", 90.0))
+	elif enemy_variant == "normal" and CHRONICLES_REGISTRY.original_zombie_ready():
 		selected_path = CHRONICLES_REGISTRY.original_zombie_path()
 		special_model_id = "chronicles_original_zombie"
 		using_rigged = true
@@ -410,8 +419,10 @@ func _build_body() -> void:
 							)
 						)
 					set_meta("zombie_model", model_id)
-					set_meta("chronicles_original_loaded", using_original_chronicles_rig)
-					set_meta("zombie_source_lane", "BO3_CHRONICLES_VERIFIED" if using_original_chronicles_rig else "PROJECT_NUN_DEVELOPMENT")
+					set_meta("chronicles_original_loaded", using_original_chronicles_rig and not using_workshop_rig)
+					set_meta("chronicles_workshop_loaded", using_workshop_rig)
+					set_meta("reference_real_rig_loaded", using_original_chronicles_rig)
+					set_meta("zombie_source_lane", "PAVLOV_UE421_NACHT_REFERENCE" if using_workshop_rig else ("BO3_CHRONICLES_VERIFIED" if using_original_chronicles_rig else "PROJECT_NUN_DEVELOPMENT"))
 					set_meta("zombie_visual_forward_fix_deg", imported.rotation_degrees.y)
 					set_meta("zombie_rig_ready", _animation_player != null)
 					set_meta("zombie_rigged_asset", using_rigged)
@@ -454,7 +465,9 @@ func _fit_chronicles_uniform_bounds(wrapper: Node3D, imported: Node3D) -> bool:
 	var uniform_scale: float = target_visual_height / raw_size.y
 	var final_size: Vector3 = raw_size * uniform_scale
 	# Exact human-sized collision envelope; no animation-distorting axis squash.
-	if final_size.x > collider_radius * 2.0 + 0.12 or final_size.z > collider_radius * 2.0 + 0.12:
+	# Arms may protrude beyond the physics capsule. Do not squash a 102-bone
+	# skeleton across axes to fake a tighter body silhouette.
+	if final_size.x > 1.95 or final_size.z > 1.65:
 		push_error("XZOGOT_CHRONICLES_ORIGINAL_COLLIDER_ENVELOPE_RED size=" + str(final_size))
 		return false
 	wrapper.scale = Vector3.ONE * uniform_scale
@@ -967,15 +980,15 @@ func _play_motion_state(state: String) -> void:
 		keys = GETUP_KEYS
 
 	var anim_name: String = ""
-	if bool(get_meta("chronicles_original_loaded", false)):
-		var roles: Dictionary = CHRONICLES_REGISTRY.original_zombie_roles()
+	if bool(get_meta("reference_real_rig_loaded", false)):
+		var roles: Dictionary = CHRONICLES_REGISTRY.workshop_zombie_roles() if bool(get_meta("chronicles_workshop_loaded", false)) else CHRONICLES_REGISTRY.original_zombie_roles()
 		anim_name = str(roles.get(state, ""))
 		if not anim_name.is_empty() and not _animation_player.has_animation(anim_name):
 			push_error("XZOGOT_ORIGINAL_ANIMATION_ROLE_MISSING " + state)
 			return
 	else:
 		anim_name = _animation_name_for_keys(keys)
-	if anim_name.is_empty() and not bool(get_meta("chronicles_original_loaded", false)):
+	if anim_name.is_empty() and not bool(get_meta("reference_real_rig_loaded", false)):
 		anim_name = _rigged_fallback_animation(state)
 	if not anim_name.is_empty():
 		var anim_speed: float = _animation_speed_for_state(state)
