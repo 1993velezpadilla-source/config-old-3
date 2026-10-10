@@ -7,6 +7,8 @@ per MATERIAL across the entire GLB, not unique high-res textures per object.
 from array import array
 import math
 import bpy
+import tempfile
+from pathlib import Path
 
 # Original per-material tileable aged surfaces. 512px wall/floor textures,
 # 256px metal/stains. Shared texture memory remains modest for Android.
@@ -86,9 +88,15 @@ def apply(api):
                 values[i+3] = 1.0
         im.pixels.foreach_set(values)
         im.update()
-        # Generated pictures MUST be packed with the blend and embedded in
-        # the GLB. Never depend on a machine-specific external file path.
-        im.pack(as_png=True)
+        # Blender 4.x exposes Image.pack(data, data_len), NOT as_png.
+        # Save original pixels as PNG in an ephemeral scratch directory,
+        # pack the resulting FILE image, then delete the external PNG.
+        # Both editable .blend and glTF have embedded sources.
+        with tempfile.TemporaryDirectory(prefix="bp_original_wear_") as tmp:
+            im.filepath_raw = str(Path(tmp) / (im.name + ".png"))
+            im.file_format = 'PNG'
+            im.save()
+            im.pack()
         im.colorspace_settings.name = "sRGB"
         tree = m.node_tree
         bsdf = tree.nodes.get("Principled BSDF")
