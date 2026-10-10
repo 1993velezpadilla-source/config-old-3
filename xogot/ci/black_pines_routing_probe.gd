@@ -98,11 +98,11 @@ func _run() -> void:
     print("BLACK_PINES_ROUTING_81_PAIRS_GREEN 9rooms=connected",
         " locked_routes=blocked physics_segments=",segments,
         " original_church_unchanged=true")
-    # Actual animated physics actors must enter through FOUR compass-facing
+    # Actual animated physics actors must enter through ALL TWELVE
     # barricades; doors already unlocked and windows prebroken for isolation.
     round_manager.set_process(false)
     round_manager.call("start_next_round")
-    var selected: Array[int]=[0,3,6,9]
+    var selected: Array[int]=[0,1,2,3,4,5,6,7,8,9,10,11]
     var actors: Array[Node]=[]
     for i in selected:
         var barrier: Node=scene.get_node_or_null("Architecture/Barricade_%02d"%i)
@@ -131,9 +131,9 @@ func _run() -> void:
             "zombies unable to CROSS real breached windows: "+
             str(entered.size())+"/"+str(actors.size())):
         return
-    print("BLACK_PINES_FOUR_COMPASS_ZOMBIE_TRAVERSAL_GREEN",
-        " animated_real_Godot_actors=4 windows_crossed=4",
-        " full_12_window_nav=false 20_rounds=false android=false")
+    print("BLACK_PINES_ALL_12_ZOMBIE_TRAVERSAL_GREEN",
+        " animated_real_Godot_actors=12 windows_crossed=12",
+        " full_12_window_crossings=true 20_rounds=false android=false")
     for actor: Node in actors:
         if is_instance_valid(actor) and actor.has_method("powerup_kill"):
             actor.call("powerup_kill")
