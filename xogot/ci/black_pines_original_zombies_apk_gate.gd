@@ -35,7 +35,7 @@ func _run() -> void:
 	if player == null or director == null or weapon == null:
 		_reject("actual player/weapon/director missing")
 		return
-	if str(get_tree().get_meta("active_map_id", "")) != "black_pines":
+	if str(get_meta("active_map_id", "")) != "black_pines":
 		_reject("sanatorium map contract not active")
 		return
 	if bool(director.get("special_rounds_enabled")) or not bool(director.get("endless_rounds_enabled")):
