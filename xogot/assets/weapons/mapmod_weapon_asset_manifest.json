@@ -176,7 +176,8 @@
           "reload": "res://assets/audio/weapons/mapmod/colt/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/colt/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/colt/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/colt/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -206,7 +207,8 @@
         "Real Aether UE5.7 viewmodel staged from 1911.",
         "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
         "Aether UE5.7 skeletal GLB now contains 19 imported real animation Actions.",
-        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists.",
+        "Previously recovered Aether WaW PSA skinned first-person hands restored from separate 2026-10-09 Godot AAA branch. Original grip/ADS bone binding under active testing, NOT yet visually approved."
       ],
       "optional_animation_aliases": {
         "ads_in": [
@@ -336,7 +338,8 @@
           "reload": "res://assets/audio/weapons/mapmod/mp40/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/mp40/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/mp40/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/t4_marine/mp40/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -366,7 +369,8 @@
         "Real Aether UE5.7 viewmodel staged from MP40.",
         "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
         "Aether UE5.7 skeletal GLB now contains 18 imported real animation Actions.",
-        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists.",
+        "Previously recovered Aether WaW PSA skinned first-person hands restored from separate 2026-10-09 Godot AAA branch. Original grip/ADS bone binding under active testing, NOT yet visually approved."
       ],
       "optional_animation_aliases": {
         "ads_in": [
