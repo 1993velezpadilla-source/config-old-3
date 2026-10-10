@@ -11,6 +11,7 @@ on:
       - "xogot/scripts/round_manager.gd"
       - "xogot/ci/black_pines_*.gd"
       - "xogot/tools/black_pines_author.py"
+      - "xogot/tools/black_pines_forge_*.py"
       - ".github/workflows/black-pines-original-playable-blender-gate.yml"
 permissions:
   contents: read
@@ -155,10 +156,33 @@ jobs:
           assert j["sameManifestAsGodot"]
           assert not j["commercialRippedAssets"]
           assert not j["publicReadiness"]
+          f=j["fidelity"]
+          assert f["pass"],f["issues"]
+          assert f["roomLandmarkCount"]==9
+          assert f["doorFrameCount"]==12
+          assert f["meshObjects"]<=f["meshObjectBudget"]
+          assert f["triangles"]<=f["triangleBudget"]
+          assert f["triangles"]>=5000
+          assert not f["humanReferenceVisualMatchProven"]
+          print("BLACK_PINES_FORGE_FIDELITY_REPORT_GREEN",
+                "roomLandmarks=",f["roomLandmarkCount"],
+                "meshes=",f["meshObjects"],"tris=",f["triangles"])
           assert Path(j["glb"]).stat().st_size>=10000
           assert Path("build/black-pines/blender/black-pines-blender-artpass.png").stat().st_size>=10000
           print("BLACK_PINES_BLENDER_ZERO_API_FIRST_ASSET_SOURCE_GREEN",j["objects"])
           PY
+      - name: Test actual Blender Forge GUI buttons and export
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 460 xvfb-run -a -s '-screen 0 1280x800x24' \
+            env PYTHONPATH=/usr/lib/python3/dist-packages blender -b \
+            --python xogot/tools/black_pines_forge_gui_smoke.py \
+            2>&1 | tee build/black-pines/blender/forge-gui-smoke.log
+          grep -q BLACK_PINES_FORGE_GUI_REAL_OPERATOR_GREEN \
+            build/black-pines/blender/forge-gui-smoke.log
+          ! grep -E 'Traceback|BLACK_PINES_FORGE_RED|BLACK_PINES_FIDELITY_RED|BLACK_PINES_GLTF_RED' \
+            build/black-pines/blender/forge-gui-smoke.log
       - name: Preserve true Blender rendered reference and authored GLB, never claim gameplay accepted
         if: always()
         uses: actions/upload-artifact@v4
