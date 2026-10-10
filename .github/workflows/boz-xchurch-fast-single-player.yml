@@ -161,6 +161,27 @@ jobs:
             else
               echo "XCHURCH_REAL_SINGLE_PLAYER_SCREEN_CHANGED_VISUAL_REVIEW_REQUIRED" | tee -a "$OUT/status.txt"
             fi
+
+            # This is now confirmed to display BOZ's ACTUAL SINGLE PLAYER
+            # screen, with NEW GAME on the lower-left illustration.
+            # Screenshot dimensions are 2280x1080, coordinates are full-size.
+            "$ADB" shell am start -W -n com.activision.boz/.Main \
+              --ez xzielDirectTap true --ei xzielX 970 --ei xzielY 828 \
+              > "$OUT/new-game-tap.txt" 2>&1
+            echo "REAL_NEW_GAME_TAP_SENT=970,828" | tee -a "$OUT/status.txt"
+            sleep 5
+            "$ADB" exec-out screencap -p > "$OUT/screens/after_new_game_05s.png"
+            sleep 10
+            "$ADB" exec-out screencap -p > "$OUT/screens/after_new_game_15s.png"
+            sleep 15
+            "$ADB" exec-out screencap -p > "$OUT/screens/after_new_game_30s.png"
+            AFTER_NEW_GAME_HASH="$(sha256sum "$OUT/screens/after_new_game_30s.png" | awk '{print $1}')"
+            echo "AFTER_NEW_GAME_HASH=$AFTER_NEW_GAME_HASH" >> "$OUT/status.txt"
+            if [ "$AFTER_NEW_GAME_HASH" = "$AFTER_HASH" ]; then
+              echo "XCHURCH_NEW_GAME_STILL_IN_SINGLE_PLAYER_MENU_RED" | tee -a "$OUT/status.txt"
+            else
+              echo "XCHURCH_NEW_GAME_SCREEN_CHANGED_VISUAL_REVIEW_REQUIRED" | tee -a "$OUT/status.txt"
+            fi
           fi
 
           "$ADB" logcat -d -v threadtime > "$OUT/logcat.txt"
