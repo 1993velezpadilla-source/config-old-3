@@ -56,9 +56,9 @@ jobs:
                   if len(h)<20 or h[:4]!=b"glTF" or struct.unpack_from("<I",h,4)[0]!=2:
                       missing.append(name+":invalid_gltf");continue
                   jsonlen,typ=struct.unpack_from("<II",h,12)
-                  if typ!=0x4e4f534a or jsonlen<=0 or jsonlen>2_000_000:
+                  if typ!=0x4e4f534a or jsonlen<=0 or jsonlen>p.stat().st_size-20:
                       missing.append(name+":invalid_json");continue
-                  info=json.loads(f.read(jsonlen).rstrip(b" \\x00"))
+                  info=json.loads(f.read(jsonlen).rstrip(bytes([0,32])))
                   if not info.get("meshes") or not info.get("animations"):
                       missing.append(name+":no_real_animated_geometry")
           if missing:
