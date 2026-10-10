@@ -23,6 +23,7 @@ from mathutils import Vector
 # Blender --python does not guarantee the executing script directory in sys.path.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import black_pines_forge_detail as forge_detail
+import black_pines_forge_mobile_export as mobile_export
 
 SEED=20261010
 random.seed(SEED)
@@ -313,21 +314,16 @@ def main():
     conf.out.parent.mkdir(parents=True,exist_ok=True)
     conf.preview.parent.mkdir(parents=True,exist_ok=True)
     conf.report.parent.mkdir(parents=True,exist_ok=True)
-    bpy.ops.object.select_all(action="DESELECT")
-    for obj in bpy.context.scene.objects:
-        if obj.type=="MESH":
-            obj.select_set(True)
-    bpy.context.view_layer.objects.active=next(o for o in bpy.context.scene.objects if o.type=="MESH")
-    bpy.ops.export_scene.gltf(filepath=str(conf.out.resolve()),export_format="GLB",
-                              use_selection=True,export_apply=False)
-    assert conf.out.exists() and conf.out.stat().st_size>10000
-    # Preserve the ENTIRE EDITABLE Blender source, not just a baked GLB.
-    # This is a CI artifact, not committed to the repository as binary data.
+    # FIRST preserve fully editable 581+ source meshes. Mobile batching
+    # makes temporary copies ONLY for GLB output and then removes them.
     blend_source=conf.out.with_suffix(".blend")
     bpy.ops.wm.save_as_mainfile(filepath=str(blend_source.resolve()))
     assert blend_source.exists() and blend_source.stat().st_size>10000
+    export_report=mobile_export.export_glb(str(conf.out.resolve()), layout)
+    assert conf.out.exists() and conf.out.stat().st_size>10000
     report.update({
         "editableBlenderSource":str(blend_source),
+        "mobileExport":export_report,
         "sourceBlueprint":str(conf.layout),
         "glb":str(conf.out),
         "glbBytes":conf.out.stat().st_size,
