@@ -27,7 +27,7 @@ static func attach(church: Node3D, machine_name: String, parts: Array[String], d
 	source_root.name = "ArchivedWorkshopReference3D"
 	body.add_child(source_root)
 	for part: String in parts:
-		var path: String = DIRECTORY + part + ".glb"
+		var path: String = DIRECTORY + part + (".gltf" if part == "nuketown_mystery_box" else ".glb")
 		if not ResourceLoader.exists(path):
 			source_root.queue_free()
 			return false
