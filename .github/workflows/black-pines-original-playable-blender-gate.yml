@@ -99,7 +99,8 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq blender xvfb libgl1-mesa-dri libegl1
+          sudo apt-get install -y -qq blender xvfb python3-numpy libgl1-mesa-dri libegl1
+          python3 -c 'import numpy; print("Blender glTF source numpy version", numpy.__version__)'
           blender --version | head -2
       - name: Build 9-zone original sanatorium mesh from same Godot source layout
         shell: bash
@@ -107,7 +108,7 @@ jobs:
           set -euo pipefail
           mkdir -p build/black-pines/blender xogot/assets/black_pines
           timeout 1100 xvfb-run -a -s '-screen 0 1280x800x24' \
-            blender -b --python xogot/tools/black_pines_author.py -- \
+            env PYTHONPATH=/usr/lib/python3/dist-packages blender -b --python xogot/tools/black_pines_author.py -- \
               --layout xogot/data/black_pines_layout.json \
               --out xogot/assets/black_pines/black_pines_architecture.glb \
               --preview build/black-pines/blender/black-pines-blender-artpass.png \
