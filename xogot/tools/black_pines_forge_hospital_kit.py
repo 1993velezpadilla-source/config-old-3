@@ -169,11 +169,35 @@ def build(api, layout, box, tube):
     }
 
 
-def guard():
+def guard(layout):
     problems=[]
     for room,name in ROOM_HERO_IDS.items():
         if bpy.data.objects.get(name) is None:
             problems.append("missing room-specific signature hero in "+room)
         if len(HERO_COMPONENTS.get(room,[]))<4:
             problems.append("insufficient identity hardware for "+room)
+    # Single source of truth: the saved Godot collision hull must correspond
+    # to the actual unbatched Blender asset, before any export-only joining.
+    manifest=layout.get("heroCollisionProxies", [])
+    if len(manifest)!=9:
+        problems.append("missing original shared hero collision manifest")
+    for fixture in manifest:
+        label=fixture["visual"]
+        obj=bpy.data.objects.get(label)
+        if obj is None:
+            problems.append("hero collider has no Blender source: "+label)
+            continue
+        if fixture["id"]=="yard":
+            # Court collision surrounds the vehicle shell, not the beacon.
+            if bpy.data.objects.get("RustyAmbulanceCab") is None:
+                problems.append("yard ambulance collision lacks cab")
+            continue
+        got=(float(obj.location.x),float(obj.location.z),-float(obj.location.y))
+        expected=fixture["center"]
+        if any(abs(got[i]-float(expected[i]))>.015 for i in range(3)):
+            problems.append("hero collider centroid mismatch "+fixture["id"])
+        size=(float(obj.dimensions.x),float(obj.dimensions.z),float(obj.dimensions.y))
+        spec=fixture["size"]
+        if any(abs(size[i]-float(spec[i]))>.025 for i in range(3)):
+            problems.append("hero collider extents mismatch "+fixture["id"])
     return problems

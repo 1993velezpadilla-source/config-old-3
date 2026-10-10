@@ -25,6 +25,7 @@ var _roof_root: Node3D
 var _materials: Dictionary = {}
 var _doors: Array[StaticBody3D] = []
 var _barricades: Array[StaticBody3D] = []
+var _hero_colliders: Array[StaticBody3D] = []
 var _machines: Array[StaticBody3D] = []
 var _mystery: StaticBody3D
 
@@ -65,6 +66,7 @@ func _ready() -> void:
                 visuals_from_blender=true
     _build_structure(not visuals_from_blender)
     _build_original_props(not visuals_from_blender)
+    _build_hero_colliders()
     _build_interactive_doors()
     _build_window_barricades()
     _build_machines_and_wallbuys()
@@ -93,6 +95,7 @@ func _ready() -> void:
     set_meta("black_pines_placed_door_count",_doors.size())
     set_meta("black_pines_barricade_count",_barricades.size())
     set_meta("black_pines_machine_count",_machines.size())
+    set_meta("black_pines_hero_solid_count",_hero_colliders.size())
     set_meta("black_pines_blender_visuals_mounted",visuals_from_blender)
     get_tree().set_meta("black_pines_gameplay_ready",true)
     print("BLACK_PINES_PHASE1_SCENE_GREEN zones=9 doors=",_doors.size(),
@@ -114,6 +117,9 @@ func _verify_layout_contract() -> bool:
         and (_layout.get("perks",[]) as Array).size()==6
         and (_layout.get("wallbuys",[]) as Array).size()==5
         and (_layout.get("mysterySpots",[]) as Array).size()==4
+        and (_layout.get("heroCollisionProxies",[]) as Array).size()==9
+        and bool(_layout.get("endlessSurvival",false))
+        and int(_layout.get("minimumAutomatedRoundSoak",-1))==20
         and not bool(gates.get("gobblegumEnabled",true))
         and not bool(gates.get("originalChurchFilesMayChange",true))
     )
@@ -499,6 +505,34 @@ func _build_mystery_box() -> void:
     _add_3d_label(mystery,"?  MYSTERY  ?",Vector3.ZERO)
     _mystery=mystery
 
+func _build_hero_colliders() -> void:
+    # Shared original manifest: Forge visual source and Godot physics use
+    # exactly the same nine room-specific fixtures. GLB exports visuals
+    # ONLY; low-cost native boxes provide collision in both render modes.
+    # DO NOT apply convex/tri-mesh collisions to 581 decorative pieces.
+    # Position fixed near outer walls, with door/window bays excluded.
+    var seen: Dictionary={}
+    for fixture: Dictionary in _layout["heroCollisionProxies"]:
+        var id: String=str(fixture["id"])
+        if seen.has(id):
+            push_error("BLACK_PINES_HERO_COLLIDER_RED repeated fixture "+id)
+            return
+        seen[id]=true
+        var location: Vector3=_vector(fixture["center"])
+        var dimensions: Vector3=_vector(fixture["size"])
+        if dimensions.x<0.15 or dimensions.y<0.15 or dimensions.z<0.15:
+            push_error("BLACK_PINES_HERO_COLLIDER_RED bad dimensions "+id)
+            return
+        var model: Node3D=_box(_props_root,"HeroSolid_"+id,
+            location,dimensions,"industrial",true,false)
+        var solid: StaticBody3D=model as StaticBody3D
+        solid.set_meta("black_pines_hero_collision_authority",true)
+        solid.set_meta("black_pines_source_visual",str(fixture["visual"]))
+        solid.set_meta("black_pines_room_id",id)
+        _hero_colliders.append(solid)
+    if seen.size()!=9 or _hero_colliders.size()!=9:
+        push_error("BLACK_PINES_HERO_COLLIDER_RED missing room collision")
+
 func _build_original_props(render_native_proxies: bool) -> void:
     # When the REAL Blender GLB is mounted, it already contains gurneys,
     # surgical tables, desks and the ambulance. Drawing native proxy copies
@@ -660,6 +694,7 @@ func get_black_pines_contract() -> Dictionary:
         "zoneCount":(_layout.get("cells",[]) as Array).size(),
         "purchasableDoorCount":_doors.size(),
         "repairableWindowCount":_barricades.size(),
+        "heroSolidCollisionCount":_hero_colliders.size(),
         "perkMachineCount":_machines.size(),
         "mysterySpots":(_layout.get("mysterySpots",[]) as Array).size(),
         "wallBuyCount":(_layout.get("wallbuys",[]) as Array).size(),

@@ -35,6 +35,17 @@ func _capture() -> void:
                 +" native_collider_count="+str(collision_count))
             quit(45)
             return
+        var solid_heroes: int=0
+        if scenery!=null:
+            for item: Node in scenery.get_children():
+                if item is StaticBody3D and bool(item.get_meta(
+                        "black_pines_hero_collision_authority",false)):
+                    solid_heroes+=1
+        if solid_heroes!=9:
+            push_error("BLACK_PINES_BLENDER_MOUNT_RED hero_collision_proxies="+str(solid_heroes))
+            quit(49)
+            return
+        print("BLACK_PINES_NINE_HERO_COLLIDERS_MOUNTED_GREEN", " count=",solid_heroes)
         if duplicate_props!=0 or not bool(scene.get_meta(
                 "black_pines_duplicate_scenery_prevented",false)):
             push_error("BLACK_PINES_BLENDER_MOUNT_RED double_scenery_meshes="

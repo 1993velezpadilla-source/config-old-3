@@ -412,7 +412,6 @@
       25
     ]
   ],
-  "maxRoundsAcceptance": 20,
   "technicalGates": {
     "originalChurchFilesMayChange": false,
     "levelCount": 1,
@@ -422,5 +421,135 @@
     "mysteryLocations": 4,
     "gobblegumEnabled": false,
     "testSkeletonAssetsNotSafeForPublicRedistribution": true
-  }
+  },
+  "minimumAutomatedRoundSoak": 20,
+  "endlessSurvival": true,
+  "heroCollisionProxies": [
+    {
+      "id": "generator",
+      "visual": "Forge_Hero_GeneratorControlDesk",
+      "center": [
+        -16.6,
+        0.75,
+        -12.9
+      ],
+      "size": [
+        1.15,
+        1.42,
+        0.46
+      ]
+    },
+    {
+      "id": "isolation",
+      "visual": "Forge_Hero_IsolationNegativePressureUnit",
+      "center": [
+        -5.75,
+        1.13,
+        -12.85
+      ],
+      "size": [
+        0.42,
+        2.14,
+        1.32
+      ]
+    },
+    {
+      "id": "surgery",
+      "visual": "Forge_Hero_SurgeryAnesthesiaCart",
+      "center": [
+        16.55,
+        0.7,
+        -12.9
+      ],
+      "size": [
+        0.72,
+        1.36,
+        0.6
+      ]
+    },
+    {
+      "id": "patients",
+      "visual": "Forge_Hero_PatientWardSupplyCabinet",
+      "center": [
+        -16.62,
+        1.15,
+        7.5
+      ],
+      "size": [
+        0.55,
+        2.14,
+        1.24
+      ]
+    },
+    {
+      "id": "triage",
+      "visual": "Forge_Hero_TriageEmergencyCrashCart",
+      "center": [
+        -5.64,
+        0.53,
+        7.4
+      ],
+      "size": [
+        0.62,
+        1.02,
+        0.6
+      ]
+    },
+    {
+      "id": "cafeteria",
+      "visual": "Forge_Hero_CafeteriaColdStorage",
+      "center": [
+        16.59,
+        1.14,
+        7.65
+      ],
+      "size": [
+        0.69,
+        2.2,
+        1.15
+      ]
+    },
+    {
+      "id": "security",
+      "visual": "Forge_Hero_SecuritySwitchboard",
+      "center": [
+        -16.87,
+        1.59,
+        18.76
+      ],
+      "size": [
+        0.25,
+        1.17,
+        1.74
+      ]
+    },
+    {
+      "id": "yard",
+      "visual": "RustyAmbulanceRear",
+      "center": [
+        4.38,
+        1.05,
+        17.8
+      ],
+      "size": [
+        4.7,
+        2.1,
+        1.65
+      ]
+    },
+    {
+      "id": "garage",
+      "visual": "Forge_Hero_GarageHydraulicCompressor",
+      "center": [
+        16.14,
+        0.65,
+        18.8
+      ],
+      "size": [
+        0.89,
+        1.25,
+        0.69
+      ]
+    }
+  ]
 }

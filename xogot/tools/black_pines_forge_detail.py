@@ -275,7 +275,7 @@ def fidelity_pass(api, layout):
     """Deterministic authoring guard; not a subjective AAA claim."""
     required = {cell["id"] for cell in layout["cells"]}
     actual = set(LANDMARKS)
-    issues = forge_materials.fidelity_gate() + hospital_kit.guard()
+    issues = forge_materials.fidelity_gate() + hospital_kit.guard(layout)
     if actual != required:
         issues.append("missing/double landmark rooms: " + str(required^actual))
     for room, labels in LANDMARKS.items():

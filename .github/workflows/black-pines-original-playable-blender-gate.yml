@@ -50,6 +50,8 @@ jobs:
           d=json.loads(Path("xogot/data/black_pines_layout.json").read_text())
           assert len(d["cells"])==9 and len(d["portals"])==12 and len(d["windows"])==12
           assert len(d["perks"])==6 and len(d["mysterySpots"])==4
+          assert len(d["heroCollisionProxies"])==9
+          assert d["endlessSurvival"] and d["minimumAutomatedRoundSoak"]==20
           assert not d["technicalGates"]["originalChurchFilesMayChange"]
           assert not d["technicalGates"]["gobblegumEnabled"]
           print("BLACK_PINES_AUTHORED_NINE_ZONES_TWELVE_DOORS_TWELVE_WINDOWS_GREEN")
@@ -88,6 +90,17 @@ jobs:
           grep -q BLACK_PINES_SPATIAL_PHYSICS_GREEN build/black-pines/godot/spatial-physics.log
           ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_SPATIAL_RED' \
             build/black-pines/godot/spatial-physics.log
+      - name: Gate nine original medical props physically solid without blocking gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150 /tmp/Godot_v4.6.1-stable_linux.x86_64 --headless --path xogot \
+            --script res://ci/black_pines_hero_collision_probe.gd \
+            2>&1 | tee build/black-pines/godot/hero-collisions.log
+          grep -q BLACK_PINES_NINE_REAL_HERO_COLLIDERS_GREEN \
+            build/black-pines/godot/hero-collisions.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_HERO_COLLIDER_RED' \
+            build/black-pines/godot/hero-collisions.log
       - name: Gate native door skins, variation and no ghost after purchase
         shell: bash
         run: |
@@ -350,6 +363,7 @@ jobs:
             2>&1 | tee build/black-pines/integrated/visual.log
           grep -q BLACK_PINES_BLENDER_MOUNT_GREEN build/black-pines/integrated/visual.log
           grep -q BLACK_PINES_NINE_HEROES_MOUNTED_GREEN build/black-pines/integrated/visual.log
+          grep -q BLACK_PINES_NINE_HERO_COLLIDERS_MOUNTED_GREEN build/black-pines/integrated/visual.log
           grep -q BLACK_PINES_DOUBLE_FURNITURE_ELIMINATED_GREEN build/black-pines/integrated/visual.log
           grep -q BLACK_PINES_REAL_GODOT_FIRSTPERSON_HUD_SCREENSHOT_GREEN \
             build/black-pines/integrated/visual.log
