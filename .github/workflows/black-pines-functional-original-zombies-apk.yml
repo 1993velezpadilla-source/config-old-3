@@ -1,0 +1,200 @@
+name: Black Pines Functional Original Zombies Android APK
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/black-pines-functional-original-zombies-apk-v1
+    paths:
+      - "xogot/scripts/round_manager.gd"
+      - "xogot/ci/black_pines_original_zombies_apk_gate.gd"
+      - "xogot/scripts/zombie_dummy.gd"
+      - "xogot/scripts/weapon.gd"
+      - ".github/workflows/black-pines-functional-original-zombies-apk.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: black-pines-functional-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 42
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Verify existing original game files (do not search or create assets)
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s xogot/black_pines.tscn
+          test -s xogot/scripts/round_manager.gd
+          test -s xogot/scripts/weapon.gd
+          test -s xogot/scripts/zombie_dummy.gd
+          python3 - <<'PY'
+          import json,struct
+          from pathlib import Path
+          original_zombies=[
+            Path("xogot/assets/zombies/source_waw/honorgd/zombie.glb"),
+            Path("xogot/assets/zombies/source_waw/sumpf/zombie.glb")
+          ]
+          original_guns=["colt","walther","nambu","tt33","357","mp40","thompson",
+            "ppsh","type100","stg","m1","m1a1","gewehr","svt40","arisaka",
+            "kar98k","springfield","mosin","ptrs","trench","doublebarrel",
+            "sawnoff","bar","fg42","mg42","browning","dp28","type99"]
+          missing=[]
+          for name,p in ([(f"zombie:{x.parent.name}",x) for x in original_zombies]
+              + [(f"gun:{w}",Path("xogot/assets/weapons/aether_waw_real")/w/"viewmodel.glb")
+                 for w in original_guns]):
+              if not p.is_file():
+                  missing.append(name);continue
+              with p.open("rb") as f:
+                  h=f.read(20)
+                  if len(h)<20 or h[:4]!=b"glTF" or struct.unpack_from("<I",h,4)[0]!=2:
+                      missing.append(name+":invalid_gltf");continue
+                  jsonlen,typ=struct.unpack_from("<II",h,12)
+                  if typ!=0x4e4f534a or jsonlen<=0 or jsonlen>p.stat().st_size-20:
+                      missing.append(name+":invalid_json");continue
+                  info=json.loads(f.read(jsonlen).rstrip(bytes([0,32])))
+                  if not info.get("meshes") or not info.get("animations"):
+                      missing.append(name+":no_real_animated_geometry")
+          if missing:
+              raise SystemExit("BLACK_PINES_SOURCE_MISSING (no placeholder substitutions): "+",".join(missing))
+          print("BLACK_PINES_EXISTING_WAW_2_ZOMBIE_RIGS_AND_28_GUNS_PRESENT_GREEN")
+          PY
+
+      - name: Restore previously generated Black Pines art, NO new asset downloads
+        uses: actions/download-artifact@v5
+        with:
+          name: Black-Pines-Original-Blender-Artpass-GLB-Preview
+          path: /tmp/black-pines-previous-art
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 38030010505
+
+      - name: Mount existing original sanatorium GLB unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s /tmp/black-pines-previous-art/black-pines-original-architecture.glb
+          mkdir -p xogot/assets/black_pines
+          cp /tmp/black-pines-previous-art/black-pines-original-architecture.glb \
+            xogot/assets/black_pines/black_pines_architecture.glb
+          echo "BLACK_PINES_EXISTING_BLENDER_MAP_RESTORED_NO_NEW_ASSETS"
+
+      - name: Use Black Pines scene for THIS APK only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("xogot/project.godot")
+          s=p.read_text()
+          key='run/main_scene="res://main.tscn"'
+          assert s.count(key)==1, "refuse to mutate unexpected project"
+          p.write_text(s.replace(key,'run/main_scene="res://black_pines.tscn"'))
+          assert Path("xogot/main.tscn").is_file()  # original church remains untouched in git
+          print("BLACK_PINES_APK_LOADS_ORIGINAL_SANATORIUM_SCENE")
+          PY
+
+      - name: Install Godot 4.6.1 and official free Android export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/black-pines-godot /tmp/godot-templates
+          curl --fail -L --retry 4 --retry-all-errors \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/black-pines-godot.zip
+          curl --fail -L --retry 4 --retry-all-errors \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_export_templates.tpz \
+            -o /tmp/godot-templates.tpz
+          unzip -q /tmp/black-pines-godot.zip -d /tmp/black-pines-godot
+          unzip -q /tmp/godot-templates.tpz -d /tmp/godot-templates
+          chmod +x /tmp/black-pines-godot/Godot_v4.6.1-stable_linux.x86_64
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.6.1.stable"
+          cp -a /tmp/godot-templates/templates/. "$HOME/.local/share/godot/export_templates/4.6.1.stable/"
+          test -s "$HOME/.local/share/godot/export_templates/4.6.1.stable/android_debug.apk"
+
+      - name: Android SDK and debug signing (no paid keys)
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export ANDROID_HOME="$SDK_ROOT" ANDROID_SDK_ROOT="$SDK_ROOT"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.1"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          KEYSTORE="$RUNNER_TEMP/black-pines-debug.keystore"
+          keytool -genkeypair -noprompt -keystore "$KEYSTORE" \
+            -storepass android -alias androiddebugkey -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=BlackPines,O=Mobile,C=US"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$KEYSTORE" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
+
+      - name: Import real source models into Godot
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 400 /tmp/black-pines-godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit \
+            2>&1 | tee /tmp/black-pines-import.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|ERROR: Failed to load script' /tmp/black-pines-import.log
+
+      - name: Prove actual original zombie animations and source MP40 in THIS map
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150 /tmp/black-pines-godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/black_pines_original_zombies_apk_gate.gd \
+            2>&1 | tee /tmp/black-pines-source-gate.log
+          grep -q 'BLACK_PINES_FUNCTIONAL_APK_SOURCE_BASELINE_GREEN' /tmp/black-pines-source-gate.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_ORIGINAL_RUNTIME_RED' /tmp/black-pines-source-gate.log
+
+      - name: Test existing gameplay systems without reauthoring map art
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 170 /tmp/black-pines-godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/black_pines_phase1_gameplay_probe.gd \
+            2>&1 | tee /tmp/black-pines-gameplay.log
+          grep -q 'BLACK_PINES_PHASE1_GAMEPLAY_GREEN' /tmp/black-pines-gameplay.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_PHASE1_RED' /tmp/black-pines-gameplay.log
+
+      - name: Export installable Android ARM64 functional test APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/android
+          timeout 400 /tmp/black-pines-godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --export-debug "Android ARM64" \
+            "../build/android/BLACK-PINES-ORIGINAL-ZOMBIES-test.apk" \
+            2>&1 | tee build/android/black-pines-export.log
+          test -s build/android/BLACK-PINES-ORIGINAL-ZOMBIES-test.apk
+          sha256sum build/android/BLACK-PINES-ORIGINAL-ZOMBIES-test.apk \
+            > build/android/BLACK-PINES-ORIGINAL-ZOMBIES-test.apk.sha256
+          unzip -l build/android/BLACK-PINES-ORIGINAL-ZOMBIES-test.apk \
+            | grep -q "lib/arm64-v8a/"
+          echo BLACK_PINES_INSTALLABLE_ANDROID_APK_CREATED
+          ls -lh build/android/*.apk
+
+      - name: Preserve APK or exact failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Black-Pines-Original-Zombies-Functional-Android-APK
+          path: |
+            build/android/BLACK-PINES-ORIGINAL-ZOMBIES-test.apk
+            build/android/BLACK-PINES-ORIGINAL-ZOMBIES-test.apk.sha256
+            build/android/black-pines-export.log
+            /tmp/black-pines-source-gate.log
+            /tmp/black-pines-gameplay.log
+            /tmp/black-pines-import.log
+          if-no-files-found: warn
+          retention-days: 7
