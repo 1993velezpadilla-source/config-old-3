@@ -1,0 +1,74 @@
+name: Nacht Independent Original First70 Black Wall 35 vs 35 Pixel Audit
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-independent-original-first70-35vs35-audit.yml"
+      - "tools/maps/nacht_independent_original_first70_35vs35_black_pixels.py"
+permissions:
+  contents: read
+  actions: read
+jobs:
+  actual-source-alpha-35-vs-35-independent-Godot-pixel-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Wait for existing authentic 141 source-material original Godot five-camera A-B
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/maps/nacht_independent_original_first70_35vs35_black_pixels.py
+          state=""
+          for i in $(seq 1 95); do
+            state="$(gh run view 38023727380 --json status --jq '.status')"
+            if test "$state" = completed; then break; fi
+            echo "Original full 10793-actor Nacht 35 vs 35 source frame raster still rendering: $i/95"
+            sleep 30
+          done
+          test "$state" = completed || { echo "RED: original archive renderer did not complete"; exit 1; }
+          test "$(gh run view 38023727380 --json conclusion --jq '.conclusion')" = success
+          mkdir -p build/nacht-35vs35/source
+          gh run download 38023727380 \
+            -n Nacht-Original-Group3-First70-35vs35-Materials-5-Godot-PNGs \
+            -D build/nacht-35vs35/source
+      - name: Independently measure original real source dark pixels and preserve four-frame zoom sheet
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --user pillow --disable-pip-version-check
+          python3 tools/maps/nacht_independent_original_first70_35vs35_black_pixels.py \
+            --source build/nacht-35vs35/source \
+            --output build/nacht-35vs35/independent \
+            2>&1 | tee build/nacht-35vs35/independent-actual-source-pixels.log
+          grep -q XZOGOT_NACHT_FIRST70_35_VS_35_ORIGINAL_SOURCE_BLACK_PIXELS_GREEN \
+            build/nacht-35vs35/independent-actual-source-pixels.log
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("build/nacht-35vs35/independent/original-first70-35-vs-35-source-material-independent-real-pixel-audit.json").read_text())
+          assert d["originalActorNodes"]==10793 and d["originalBoundSourceSurfaces"]==16595
+          assert d["originalSourceMaterialGroup3Count"]==141 and d["originalUsedDDS"]==718
+          assert d["originalSourceRelevantFirst70Materials"]==70
+          assert d["originalSourceRelevantFirst70Bindings"]==3431
+          assert d["remainingOriginalMasterMatSourcePathsUntouched"]==494
+          assert len(d["genuineOriginalMaterialHalfComparisons"])==2
+          assert d["unsafeAll141ControlBlackPixelsRecovered"]>=11000
+          assert d["originalViewportAfterMaterialRestorationMeanRGBPercent"]<=0.05
+          assert not d["productionShaderOrMaterialFixApproved"]
+          print("XZOGOT_NACHT_FIRST70_35VS35_ORIGINAL_INDEPENDENT_SCREEN_RECONSTRUCTION_GREEN")
+          PY
+      - name: Preserve authentic Godot source 70/71 black wall cause screenshot sheet and independent numeric counts even if RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Original-First70-Masked-35vs35-Independent-Pixel-Evidence
+          path: |
+            build/nacht-35vs35/independent/
+            build/nacht-35vs35/independent-actual-source-pixels.log
+          retention-days: 14
+          if-no-files-found: warn
