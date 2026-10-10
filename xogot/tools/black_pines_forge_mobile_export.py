@@ -12,7 +12,7 @@ from mathutils import Vector
 MAX_MOBILE_DRAW_NODES=165
 MIN_REDUCTION_FRACTION=.55
 TEMP_COLLECTION="BP_Forge_Mobile_Export_Temporary"
-PRESERVE_PREFIXES=("Forge_Hero_", "Forge_TiledFloor_", "Forge_Sign_")
+PRESERVE_PREFIXES=("Forge_Hero_", "Forge_TiledFloor_", "Forge_Sign_", "Forge_CC0_")
 
 def _zone(obj, layout):
     # Original Godot layout uses X,Z; Blender native X,-Z,Z.
@@ -126,6 +126,7 @@ def build_export_batches(layout):
             "nineFloorMeshesPreserved":sum(1 for obj in selected
                 if obj.name.startswith("Forge_TiledFloor_"))==9,
             "ambulanceZoneAwareBatching":True,
+            "cc0ModelNodesPreserved":sum(1 for obj in selected if obj.name.startswith("Forge_CC0_"))==4,
             "sourceBlendEditableUntouched":True,
             "mobileFrameratePhysicallyMeasured":False
         }
@@ -133,6 +134,8 @@ def build_export_batches(layout):
             raise RuntimeError("BLACK_PINES_MOBILE_BATCH_RED budget "+str(report))
         if report["reductionFraction"]<MIN_REDUCTION_FRACTION:
             raise RuntimeError("BLACK_PINES_MOBILE_BATCH_RED weak reduction "+str(report))
+        if not report["cc0ModelNodesPreserved"]:
+            raise RuntimeError("BLACK_PINES_MOBILE_BATCH_RED actual four licensed CC0 meshes lost")
         if not report["nineHeroMeshesPreserved"] or not report["nineFloorMeshesPreserved"]:
             raise RuntimeError("BLACK_PINES_MOBILE_BATCH_RED lost signature assets "+str(report))
         print("BLACK_PINES_MOBILE_DRAW_BATCH_GREEN",
