@@ -335,7 +335,7 @@ func _add_3d_label(owner: Node3D,content: String,local: Vector3) -> void:
     label.outline_size=12
     label.modulate=Color(0.90,0.85,0.73)
     label.position=local+Vector3(0,0.7,0)
-    label.billboard_mode=BaseMaterial3D.BILLBOARD_ENABLED
+    label.billboard=BaseMaterial3D.BILLBOARD_ENABLED
     owner.add_child(label)
 
 func _build_machines_and_wallbuys() -> void:
