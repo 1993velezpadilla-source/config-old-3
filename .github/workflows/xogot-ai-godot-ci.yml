@@ -425,6 +425,19 @@ jobs:
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|WS_4P_SERVER:" "$SERVER_LOG"
           echo "XZOGOT_WS_RELAY_4P_GATE_GREEN"
 
+      - name: Verify Chronicles-original-or-pending identity and physical zombie chasing
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 95 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/chronicles_original_template_probe.gd \
+            2>&1 | tee build/xogot-ai/chronicles-template-probe.log
+          grep -q "XZOGOT_CHURCH_TEMPLATE_PHYSICAL_CHASE_GREEN" build/xogot-ai/chronicles-template-probe.log
+          grep -q "XZOGOT_CHURCH_TEMPLATE_COLLISION_INDEPENDENT_OF_SKIN_GREEN" build/xogot-ai/chronicles-template-probe.log
+          grep -q "XZOGOT_CHURCH_TEMPLATE_SIX_MACHINE_BACKENDS_GREEN" build/xogot-ai/chronicles-template-probe.log
+          grep -q "XZOGOT_CHURCH_CHRONICLES_TEMPLATE_INFRASTRUCTURE_GREEN" build/xogot-ai/chronicles-template-probe.log
+          ! grep -E "SCRIPT ERROR|Parse Error|CHRONICLES_TEMPLATE_PROBE:" build/xogot-ai/chronicles-template-probe.log
+
       - name: Verify round barricade and zombie loop
         shell: bash
         run: |

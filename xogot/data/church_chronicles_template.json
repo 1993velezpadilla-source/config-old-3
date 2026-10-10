@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "sourceLane": "BO3_ZOMBIES_CHRONICLES",
+  "mode": "ORIGINAL_FIRST_THEN_RESKIN",
+  "originalZombie": {
+    "status": "SOURCE_MISSING_NOT_STAGED",
+    "sourcePath": "",
+    "sourceProvenanceVerified": false,
+    "sourceHashSha256": "",
+    "yawDegrees": 90,
+    "animationRoles": {
+      "idle": "",
+      "walk": "",
+      "attack": "",
+      "hit": "",
+      "death": "",
+      "crawl": ""
+    }
+  },
+  "originalVendingModels": {
+    "status": "SOURCE_MISSING_NOT_STAGED",
+    "paths": {}
+  },
+  "originalHandsAndInteractions": {
+    "status": "SOURCE_MISSING_NOT_STAGED",
+    "handsScenePath": "",
+    "drinkAnimation": "",
+    "machineUseAnimation": "",
+    "weaponAnimations": []
+  },
+  "originalSoundsAndParticles": {
+    "status": "SOURCE_MISSING_NOT_STAGED",
+    "soundPackPath": "",
+    "particleScenes": []
+  },
+  "existingRuntime": {
+    "map": "church-expansion-v1",
+    "zombieAI": "implemented_with_current_nun",
+    "collision": "CharacterBody3D_CapsuleShape3D",
+    "wallBuys": 10,
+    "perkMechanics": 6,
+    "machineVisualOrigin": "original_project_stylized_not_Bo3",
+    "firstPersonHandsOriginalVerified": false
+  },
+  "verificationRules": [
+    "Do not claim original BO3 asset imported without binary and runtime skeleton+clip checks",
+    "Do not use placeholder visual to pass original authenticity gate",
+    "Do not modify authoritative AI/collision when replacing visual rig",
+    "All six animation roles must map to real clips on original rig",
+    "Original audio, particles, machine visuals and hands require independent source/runtime proofs",
+    "Respect source licenses before publishing"
+  ]
+}

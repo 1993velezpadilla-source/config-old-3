@@ -3,6 +3,7 @@ extends CharacterBody3D
 signal died(zombie: Node)
 
 const MONJA_BASICA_PATH := "res://assets/zombies/monja_basica.glb"
+const CHRONICLES_REGISTRY := preload("res://scripts/chronicles_template_registry.gd")
 const MONJA_CMU_PATH := "res://assets/zombies/monja_clean/cmu_runtime/monja_basica_cmu_rig.gltf"
 const MONJA_CLEAN_PATH := "res://assets/zombies/monja_clean/clean_runtime/monja_basica_clean_rig.gltf"
 const MONJA_RIGGED_PATH := "res://assets/zombies/monja_basica_rigged.glb"
@@ -337,6 +338,15 @@ func _build_body() -> void:
 	var using_rigged_dismember: bool = false
 	var using_rigid_rig: bool = false
 	var special_model_id: String = ""
+	var using_original_chronicles_rig: bool = false
+	var original_yaw: float = 90.0
+	if enemy_variant == "normal" and CHRONICLES_REGISTRY.original_zombie_ready():
+		selected_path = CHRONICLES_REGISTRY.original_zombie_path()
+		special_model_id = "chronicles_original_zombie"
+		using_rigged = true
+		using_original_chronicles_rig = true
+		var template_spec: Dictionary = CHRONICLES_REGISTRY.contract().get("originalZombie", {}) as Dictionary
+		original_yaw = float(template_spec.get("yawDegrees", 90.0))
 	if enemy_variant == "sheep_runner":
 		selected_path = SHEEP_RUNNER_PATH
 		special_model_id = "sheep_runner"
@@ -347,7 +357,8 @@ func _build_body() -> void:
 		selected_path = MONJA_ELITE_CMU_PATH if ResourceLoader.exists(MONJA_ELITE_CMU_PATH) else MONJA_ELITE_PATH
 		using_rigged = true
 		special_model_id = "monja_elite_cmu" if selected_path == MONJA_ELITE_CMU_PATH else "monja_elite"
-	else:
+	elif not using_original_chronicles_rig:
+		# Existing nun lane is retained for playable development, never mislabelled original.
 		# Prefer the new clean Blender bind-pose rig. Legacy smooth/rigid assets
 		# remain compatibility fallbacks until the clean asset passes its Godot gate.
 		if ResourceLoader.exists(MONJA_CMU_PATH):
@@ -381,15 +392,13 @@ func _build_body() -> void:
 				add_child(visual)
 				_visual_root = visual
 				imported.name = "EnemySource_" + enemy_variant
-				imported.rotation_degrees.y = 90.0
+				imported.rotation_degrees.y = original_yaw if using_original_chronicles_rig else 90.0
 				visual.add_child(imported)
-				if _fit_visual_to_gameplay_bounds(
-					visual,
-					imported,
-					target_visual_height,
-					target_visual_max_width,
-					target_visual_max_depth
-				):
+				var geometry_fit: bool = _fit_chronicles_uniform_bounds(visual, imported) if using_original_chronicles_rig else _fit_visual_to_gameplay_bounds(
+					visual, imported, target_visual_height,
+					target_visual_max_width, target_visual_max_depth
+				)
+				if geometry_fit:
 					_animation_player = _find_animation_player(imported)
 					var model_id: String = special_model_id
 					if model_id.is_empty():
@@ -401,7 +410,9 @@ func _build_body() -> void:
 							)
 						)
 					set_meta("zombie_model", model_id)
-					set_meta("zombie_visual_forward_fix_deg", 90.0)
+					set_meta("chronicles_original_loaded", using_original_chronicles_rig)
+					set_meta("zombie_source_lane", "BO3_CHRONICLES_VERIFIED" if using_original_chronicles_rig else "PROJECT_NUN_DEVELOPMENT")
+					set_meta("zombie_visual_forward_fix_deg", imported.rotation_degrees.y)
 					set_meta("zombie_rig_ready", _animation_player != null)
 					set_meta("zombie_rigged_asset", using_rigged)
 					set_meta("zombie_authored_dismember_asset", using_rigged_dismember)
@@ -423,6 +434,43 @@ func _build_body() -> void:
 
 	_build_fallback_visual()
 	print("XZOGOT_ENEMY_VISUAL_FALLBACK variant=", enemy_variant)
+
+# Original model: preserve bone/limb proportions with UNIFORM scale; reject
+# oversize instead of nonuniform stretching that breaks authored animations.
+func _fit_chronicles_uniform_bounds(wrapper: Node3D, imported: Node3D) -> bool:
+	var points: Array[Vector3] = []
+	_collect_mesh_bounds(imported, Transform3D.IDENTITY, points)
+	if points.is_empty():
+		push_error("XZOGOT_CHRONICLES_ORIGINAL_NO_BOUNDS")
+		return false
+	var min_v: Vector3 = points[0]
+	var max_v: Vector3 = points[0]
+	for point: Vector3 in points:
+		min_v = min_v.min(point)
+		max_v = max_v.max(point)
+	var raw_size: Vector3 = max_v - min_v
+	if raw_size.x <= 0.0001 or raw_size.y <= 0.0001 or raw_size.z <= 0.0001:
+		return false
+	var uniform_scale: float = target_visual_height / raw_size.y
+	var final_size: Vector3 = raw_size * uniform_scale
+	# Exact human-sized collision envelope; no animation-distorting axis squash.
+	if final_size.x > collider_radius * 2.0 + 0.12 or final_size.z > collider_radius * 2.0 + 0.12:
+		push_error("XZOGOT_CHRONICLES_ORIGINAL_COLLIDER_ENVELOPE_RED size=" + str(final_size))
+		return false
+	wrapper.scale = Vector3.ONE * uniform_scale
+	wrapper.position = Vector3(
+		-(min_v.x + max_v.x) * 0.5 * uniform_scale,
+		-min_v.y * uniform_scale,
+		-(min_v.z + max_v.z) * 0.5 * uniform_scale
+	)
+	set_meta("zombie_visual_height_m", final_size.y)
+	set_meta("zombie_visual_width_m", final_size.x)
+	set_meta("zombie_visual_depth_m", final_size.z)
+	set_meta("zombie_visual_scale_xyz", wrapper.scale)
+	set_meta("zombie_visual_centered_on_feet", true)
+	set_meta("chronicles_uniform_skinning_fit", true)
+	print("XZOGOT_CHRONICLES_UNIFORM_FIT_GREEN ", final_size)
+	return true
 
 func _find_animation_player(node: Node) -> AnimationPlayer:
 	if node is AnimationPlayer:
@@ -918,8 +966,16 @@ func _play_motion_state(state: String) -> void:
 	elif state == "getup":
 		keys = GETUP_KEYS
 
-	var anim_name: String = _animation_name_for_keys(keys)
-	if anim_name.is_empty():
+	var anim_name: String = ""
+	if bool(get_meta("chronicles_original_loaded", false)):
+		var roles: Dictionary = CHRONICLES_REGISTRY.original_zombie_roles()
+		anim_name = str(roles.get(state, ""))
+		if not anim_name.is_empty() and not _animation_player.has_animation(anim_name):
+			push_error("XZOGOT_ORIGINAL_ANIMATION_ROLE_MISSING " + state)
+			return
+	else:
+		anim_name = _animation_name_for_keys(keys)
+	if anim_name.is_empty() and not bool(get_meta("chronicles_original_loaded", false)):
 		anim_name = _rigged_fallback_animation(state)
 	if not anim_name.is_empty():
 		var anim_speed: float = _animation_speed_for_state(state)
