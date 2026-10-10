@@ -13,6 +13,12 @@ const WALL_BUY_ORDER: Array[String] = [
 	"mp40",
 	"trench",
 	"thompson",
+	"kar98k",
+	"gewehr",
+	"ppsh",
+	"type100",
+	"stg",
+	"fg42",
 ]
 
 const MYSTERY_POOL: Array[Dictionary] = [
@@ -184,7 +190,7 @@ const WEAPONS: Dictionary = {
 		"display_name":"FG42","family":"rifle","damage":47.0,"range_m":135.0,
 		"fire_interval":0.092,"magazine":20,"reserve":160,"reload_time":2.00,
 		"automatic":true,"ads_fov":43.0,"hip_spread_deg":1.55,"ads_spread_deg":0.30,
-		"visual_recoil_deg":1.35,"wall_cost":-1,"ammo_cost":700,
+		"visual_recoil_deg":1.35,"wall_cost":1800,"ammo_cost":700,
 		"model_path":"res://assets/weapons/fg42.glb","fire_audio":"res://assets/audio/weapons/fg42_fire.ogg",
 		"reload_audio":"res://assets/audio/weapons/fg42_reload.ogg"
 	},
@@ -192,7 +198,7 @@ const WEAPONS: Dictionary = {
 		"display_name":"Gewehr","family":"rifle","damage":52.0,"range_m":150.0,
 		"fire_interval":0.18,"magazine":10,"reserve":100,"reload_time":1.95,
 		"automatic":false,"ads_fov":42.0,"hip_spread_deg":1.25,"ads_spread_deg":0.12,
-		"visual_recoil_deg":1.85,"wall_cost":-1,"ammo_cost":600,
+		"visual_recoil_deg":1.85,"wall_cost":900,"ammo_cost":600,
 		"model_path":"res://assets/weapons/gewehr.glb","fire_audio":"res://assets/audio/weapons/gewehr_fire.ogg",
 		"reload_audio":"res://assets/audio/weapons/gewehr_reload.ogg"
 	},
@@ -216,7 +222,7 @@ const WEAPONS: Dictionary = {
 		"display_name":"PPSh","family":"smg","damage":33.0,"range_m":105.0,
 		"fire_interval":0.072,"magazine":71,"reserve":284,"reload_time":2.35,
 		"automatic":true,"ads_fov":45.0,"hip_spread_deg":1.75,"ads_spread_deg":0.42,
-		"visual_recoil_deg":1.05,"wall_cost":-1,"ammo_cost":800,
+		"visual_recoil_deg":1.05,"wall_cost":2000,"ammo_cost":800,
 		"model_path":"res://assets/weapons/ppsh.glb","fire_audio":"res://assets/audio/weapons/ppsh_fire.ogg",
 		"reload_audio":"res://assets/audio/weapons/ppsh_reload.ogg"
 	},
@@ -232,7 +238,7 @@ const WEAPONS: Dictionary = {
 		"display_name":"STG","family":"rifle","damage":46.0,"range_m":135.0,
 		"fire_interval":0.095,"magazine":30,"reserve":180,"reload_time":1.95,
 		"automatic":true,"ads_fov":43.0,"hip_spread_deg":1.55,"ads_spread_deg":0.28,
-		"visual_recoil_deg":1.25,"wall_cost":-1,"ammo_cost":700,
+		"visual_recoil_deg":1.25,"wall_cost":2000,"ammo_cost":700,
 		"model_path":"res://assets/weapons/stg.glb","fire_audio":"res://assets/audio/weapons/stg_fire.ogg",
 		"reload_audio":"res://assets/audio/weapons/stg_reload.ogg"
 	},
@@ -240,7 +246,7 @@ const WEAPONS: Dictionary = {
 		"display_name":"Type 100","family":"smg","damage":31.0,"range_m":102.0,
 		"fire_interval":0.090,"magazine":30,"reserve":180,"reload_time":1.85,
 		"automatic":true,"ads_fov":46.0,"hip_spread_deg":1.65,"ads_spread_deg":0.38,
-		"visual_recoil_deg":0.95,"wall_cost":-1,"ammo_cost":600,
+		"visual_recoil_deg":0.95,"wall_cost":1000,"ammo_cost":600,
 		"model_path":"res://assets/weapons/type100.glb","fire_audio":"res://assets/audio/weapons/type100_fire.ogg",
 		"reload_audio":"res://assets/audio/weapons/type100_reload.ogg"
 	},
@@ -283,7 +289,7 @@ const WEAPONS: Dictionary = {
 		"display_name":"Kar98k","family":"sniper","damage":132.0,"range_m":245.0,
 		"fire_interval":0.82,"magazine":5,"reserve":55,"reload_time":2.60,
 		"automatic":false,"ads_fov":30.0,"hip_spread_deg":3.6,"ads_spread_deg":0.04,
-		"visual_recoil_deg":4.5,"wall_cost":-1,"ammo_cost":750,
+		"visual_recoil_deg":4.5,"wall_cost":500,"ammo_cost":750,
 		"model_path":"res://assets/weapons/aether_waw_real/kar98k/viewmodel.glb",
 		"fire_audio":"res://assets/audio/weapons/mapmod/kar98k/fire.ogg",
 		"reload_audio":"res://assets/audio/weapons/mapmod/kar98k/reload.ogg"

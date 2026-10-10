@@ -41,14 +41,14 @@ func _run_probe() -> void:
 		_fail(4, "one or more current interactables missing")
 		return
 
-	if get_nodes_in_group("zombie_interactable").size() != 21:
-		_fail(5, "expected 21 current interactables")
+	if get_nodes_in_group("zombie_interactable").size() != 27:
+		_fail(5, "expected 27 current interactables")
 		return
-	if get_nodes_in_group("wall_buy").size() != 4:
-		_fail(6, "expected four audited wall buys")
+	if get_nodes_in_group("wall_buy").size() != 10:
+		_fail(6, "expected ten audited wall buys")
 		return
-	if get_nodes_in_group("wall_buy_chalk").size() != 4:
-		_fail(7, "expected four diegetic chalk silhouettes")
+	if get_nodes_in_group("wall_buy_chalk").size() != 10:
+		_fail(7, "expected ten diegetic chalk silhouettes")
 		return
 	if get_nodes_in_group("perk_machine").size() != 6:
 		_fail(8, "expected six powered perk machines")
@@ -182,6 +182,23 @@ func _run_probe() -> void:
 	if bool(balcony_gate.call("interact", player)):
 		_fail(42, "unaffordable balcony gate opened")
 		return
+
+	# All six new wall weapons must be paid, equippable and catalog-backed,
+	# using the same real interaction method the player uses in the map.
+	player.call("add_points", 25000)
+	var expected_new_weapons: Array[String] = ["kar98k", "gewehr", "ppsh", "type100", "stg", "fg42"]
+	for id: String in expected_new_weapons:
+		var machine: Node = scene.get_node_or_null("WallBuy_" + id.to_upper())
+		if machine == null or str(machine.call("get_weapon_id")) != id:
+			_fail(50, "new wall weapon missing: " + id)
+			return
+		if not bool(machine.call("interact", player)):
+			_fail(51, "new wall weapon purchase failed: " + id)
+			return
+		if str(weapon.call("get_weapon_id")) != id:
+			_fail(52, "new wall weapon was not equipped: " + id)
+			return
+	print("XZOGOT_REVIVAL_SIX_WALLBUY_PURCHASES_GREEN")
 
 	print("XZOGOT_WALLBUY_PROBE_GREEN")
 	print("XZOGOT_MYSTERY_EQUIP_PROBE_GREEN ", mystery_result)

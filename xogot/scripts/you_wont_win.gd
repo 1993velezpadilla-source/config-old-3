@@ -6,6 +6,7 @@ const BENCH_ASSET_PATH := "res://assets/environment/church/bench.glb"
 const CANDLE_MANAGER_SCRIPT := preload("res://scripts/candle_manager.gd")
 const POWER_LIGHT_RIG_SCRIPT := preload("res://scripts/power_light_rig.gd")
 const PERK_CATALOG := preload("res://scripts/perk_catalog.gd")
+const WEAPON_CATALOG := preload("res://scripts/weapon_catalog.gd")
 const CHURCH_AUDIO_SCRIPT := preload("res://scripts/church_audio.gd")
 const FINAL_CHURCH_ARCH_PATH := "res://assets/environment/church/church_final_architecture.glb"
 const FINAL_STONE_DIFFUSE := "res://assets/materials/church/stone_wall_4k/stone_wall_diff_4k.jpg"
@@ -138,6 +139,7 @@ func _ready() -> void:
 	_build_site()
 	_build_church()
 	_build_expansion_v1()
+	_build_church_revival_courtyards()
 	_build_interior()
 	if ResourceLoader.exists(FINAL_CHURCH_ARCH_PATH):
 		_build_final_church_architecture()
@@ -268,6 +270,47 @@ func _build_expansion_v1() -> void:
 	add_child(reliquary_zone)
 	print("XZOGOT_RELIQUARY_ZONE_READY")
 	print("XZOGOT_EXPANSION_V1_LOOP_READY")
+
+# Church revival: two physical outdoor wings connected to the existing training
+# loop. Both east/west entrances remain completely open for players and zombies.
+# Geometry is purpose-authored; high-detail gift GLBs continue to mount separately.
+func _build_church_revival_courtyards() -> void:
+	var stone: Color = Color(0.115, 0.104, 0.095)
+	var dark_stone: Color = Color(0.067, 0.063, 0.061)
+	var paving: Color = Color(0.12, 0.108, 0.09)
+	var wings: Array[Dictionary] = [
+		{"name":"WestOssuaryGarden", "center":Vector3(-39.0, 0.0, -15.0), "size":Vector3(18.0, 0.22, 22.0), "outer_x":-47.8},
+		{"name":"EastPilgrimCloister", "center":Vector3(39.0, 0.0, -3.0), "size":Vector3(18.0, 0.22, 22.0), "outer_x":47.8},
+	]
+	# Overlap the existing training pads. No narrow threshold, wall or door
+	# can sever the path into either wing.
+	_box("WestOssuaryGardenConnector", Vector3(8.0, 0.18, 10.0), Vector3(-32.0, 0.09, -16.0), paving)
+	_box("EastPilgrimCloisterConnector", Vector3(8.0, 0.18, 10.0), Vector3(29.0, 0.09, -11.0), paving)
+	for wing: Dictionary in wings:
+		var wing_name: String = str(wing["name"])
+		var center: Vector3 = wing["center"] as Vector3
+		var size: Vector3 = wing["size"] as Vector3
+		var edge_x: float = float(wing["outer_x"])
+		_box(wing_name + "Floor", size, Vector3(center.x, 0.11, center.z), paving)
+		_box(wing_name + "OuterWall", Vector3(0.48, 3.7, size.z), Vector3(edge_x, 1.85, center.z), stone)
+		_box(wing_name + "NorthWall", Vector3(size.x, 3.7, 0.48), Vector3(center.x, 1.85, center.z + size.z * 0.5), stone)
+		_box(wing_name + "SouthWall", Vector3(size.x, 3.7, 0.48), Vector3(center.x, 1.85, center.z - size.z * 0.5), dark_stone)
+		# Outer-wall pillars and inset stonework are visual-only; these do not
+		# add invisible collision or obstruct a large zombie train.
+		for j in range(4):
+			var zz: float = center.z - 7.5 + float(j) * 5.0
+			_visual_box(wing_name + "Buttress_%02d" % j, Vector3(0.70, 4.2, 0.72), Vector3(edge_x, 2.10, zz), dark_stone)
+			_visual_box(wing_name + "WallInlay_%02d" % j, Vector3(0.14, 2.1, 1.2), Vector3(edge_x + (0.31 if edge_x < 0.0 else -0.31), 1.8, zz), Color(0.19, 0.17, 0.14))
+		var marker := Marker3D.new()
+		marker.name = "Zone_" + wing_name
+		marker.position = _wp(Vector3(center.x, 0.6, center.z))
+		marker.add_to_group("gameplay_zone")
+		marker.add_to_group("church_revival_zone")
+		marker.set_meta("zone_name", wing_name)
+		marker.set_meta("floor", 0)
+		marker.set_meta("entrance_open", true)
+		add_child(marker)
+	print("XZOGOT_CHURCH_REVIVAL_ANNEXES_READY 2")
 
 func _build_side_rooms_v1(stone: Color, dark_stone: Color, timber: Color) -> void:
 	# East sacristy / side chapel shell.
@@ -1700,6 +1743,7 @@ func _build_interactions() -> void:
 	_add_wallbuy_chalk("TRENCH", Vector3(18.24, 1.58, -4.0), 1500, Vector3(0.0, 0.0, 90.0))
 	_interactive_box("WallBuy_Thompson", Vector3(0.28, 1.45, 2.20), Vector3(-10.20, 5.92, -8.0), Color(0.10, 0.24, 0.34), 1, 1200, 0, false, "BUY THOMPSON", "thompson")
 	_add_wallbuy_chalk("THOMPSON", Vector3(-9.98, 5.95, -8.0), 1200, Vector3(0.0, 0.0, -90.0))
+	_build_revival_wallbuys()
 	var mystery := _interactive_box(
 		"MysteryBoxSocket",
 		Vector3(2.2, 1.25, 1.1),
@@ -1733,6 +1777,30 @@ func _build_interactions() -> void:
 	bell_rope.add_to_group("bell_interaction")
 	print("XZOGOT_BELL_ROPE_READY")
 	print("XZOGOT_INTERACTIONS_PREPARED ", get_tree().get_nodes_in_group("zombie_interactable").size())
+
+# Wall stations use the real authored weapon catalog; every ID must have a
+# nonzero catalog wall price. No dummy ammo-only wallbuy and no invisible guns.
+func _build_revival_wallbuys() -> void:
+	var placements: Array[Dictionary] = [
+		{"id":"kar98k", "label":"KAR98K", "pos":Vector3(-46.0, 1.55, -8.0), "chalk":Vector3(-45.78, 1.58, -8.0), "angle":-90.0},
+		{"id":"gewehr", "label":"GEWEHR", "pos":Vector3(-46.0, 1.55, -15.0), "chalk":Vector3(-45.78, 1.58, -15.0), "angle":-90.0},
+		{"id":"ppsh", "label":"PPSH", "pos":Vector3(-46.0, 1.55, -22.0), "chalk":Vector3(-45.78, 1.58, -22.0), "angle":-90.0},
+		{"id":"type100", "label":"TYPE 100", "pos":Vector3(46.0, 1.55, -9.0), "chalk":Vector3(45.78, 1.58, -9.0), "angle":90.0},
+		{"id":"stg", "label":"STG-44", "pos":Vector3(46.0, 1.55, -2.0), "chalk":Vector3(45.78, 1.58, -2.0), "angle":90.0},
+		{"id":"fg42", "label":"FG42", "pos":Vector3(46.0, 1.55, 5.0), "chalk":Vector3(45.78, 1.58, 5.0), "angle":90.0},
+	]
+	for item: Dictionary in placements:
+		var weapon_id: String = str(item["id"])
+		if not WEAPON_CATALOG.has_weapon(weapon_id):
+			push_error("XZOGOT_REVIVAL_WALLBUY_UNKNOWN_WEAPON " + weapon_id)
+			continue
+		var cost: int = WEAPON_CATALOG.wall_cost(weapon_id)
+		if cost <= 0:
+			push_error("XZOGOT_REVIVAL_WALLBUY_MISSING_COST " + weapon_id)
+			continue
+		_interactive_box("WallBuy_" + weapon_id.to_upper(), Vector3(0.28, 1.45, 2.10), item["pos"] as Vector3, Color(0.10, 0.24, 0.34), 1, cost, 0, false, "BUY " + str(item["label"]), weapon_id)
+		_add_wallbuy_chalk(str(item["label"]), item["chalk"] as Vector3, cost, Vector3(0.0, 0.0, float(item["angle"])))
+	print("XZOGOT_REVIVAL_SIX_REAL_CATALOG_WALLBUYS_READY")
 
 func _build_expansion_interactions() -> void:
 	var gate_color := Color(0.16, 0.055, 0.035)
@@ -1991,8 +2059,8 @@ func _add_perk_machine(
 
 func _build_perk_and_upgrade_machines() -> void:
 	_add_perk_machine("martyrs_blood", Vector3(-7.55, 1.12, -15.15), 180.0, "✚")
-	_add_perk_machine("quick_hands", Vector3(17.45, 1.12, -13.35), -90.0, "⚙")
-	_add_perk_machine("pilgrim_rush", Vector3(-14.8, 1.12, 29.2), 90.0, "➤")
+	_add_perk_machine("quick_hands", Vector3(40.0, 1.12, 5.4), 180.0, "⚙")
+	_add_perk_machine("pilgrim_rush", Vector3(-40.0, 1.12, -5.8), 180.0, "➤")
 	_add_perk_machine("choir_sight", Vector3(4.9, 6.12, -18.15), 180.0, "◎")
 	_add_perk_machine("twin_bells", Vector3(-25.0, 9.22, 7.25), 0.0, "♢")
 	_add_perk_machine("last_rites", Vector3(7.9, -1.78, -29.3), 180.0, "☩")

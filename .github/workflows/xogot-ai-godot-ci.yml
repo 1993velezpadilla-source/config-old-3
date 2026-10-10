@@ -74,7 +74,7 @@ jobs:
           grep -q "XZOGOT_COD_VIEW_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_WEAPON_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_INTERACTION_PLAYER_READY 500" build/xogot-ai/runtime.log
-          grep -q "XZOGOT_INTERACTIONS_PREPARED 21" build/xogot-ai/runtime.log
+          grep -q "XZOGOT_INTERACTIONS_PREPARED 27" build/xogot-ai/runtime.log
           grep -q "XZOGOT_EXPANSION_V1_LOOP_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_CHURCH_SECOND_FLOOR_LOOP_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_BELL_TOWER_V1_PLAYABLE" build/xogot-ai/runtime.log
@@ -128,6 +128,7 @@ jobs:
             --headless --path xogot --script res://ci/interaction_probe.gd \
             2>&1 | tee build/xogot-ai/interaction-probe.log
           grep -q "XZOGOT_INTERACTION_PROBE_GREEN" build/xogot-ai/interaction-probe.log
+          grep -q "XZOGOT_REVIVAL_SIX_WALLBUY_PURCHASES_GREEN" build/xogot-ai/interaction-probe.log
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/interaction-probe.log
           echo "XOGOT_AI_VM_GREEN"
 
@@ -530,6 +531,7 @@ jobs:
           grep -q "XZOGOT_SELECTIVE_SPAWN_PROBE_GREEN" build/xogot-ai/church-expansion-probe.log
           grep -q "XZOGOT_BELL_TOWER_PROBE_GREEN" build/xogot-ai/church-expansion-probe.log
           grep -q "XZOGOT_CHURCH_EXPANSION_PROBE_GREEN" build/xogot-ai/church-expansion-probe.log
+          grep -q "XZOGOT_REVIVAL_TWO_WALKABLE_COURTYARDS_GREEN" build/xogot-ai/church-expansion-probe.log
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/church-expansion-probe.log
           echo "XOGOT_EXPANSION_VM_GREEN"
 

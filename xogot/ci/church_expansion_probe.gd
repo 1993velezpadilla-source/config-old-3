@@ -32,6 +32,8 @@ func _run() -> void:
 		"SecondFloorEast",
 		"SecondFloorChoir",
 		"ReliquaryOssuary",
+		"WestOssuaryGarden",
+		"EastPilgrimCloister",
 	]
 	for zone_name: String in expected_zones:
 		if scene.get_node_or_null("Zone_" + zone_name) == null:
@@ -39,12 +41,23 @@ func _run() -> void:
 			return
 
 	var zones: Array[Node] = get_nodes_in_group("gameplay_zone")
-	if zones.size() != 12:
-		_fail(4, "expected 12 gameplay zones, got %d" % zones.size())
+	if zones.size() != 14:
+		_fail(4, "expected 14 gameplay zones, got %d" % zones.size())
 		return
 	if get_nodes_in_group("second_floor_zone").size() != 3:
 		_fail(5, "expected 3 second-floor zones")
 		return
+
+	if get_nodes_in_group("church_revival_zone").size() != 2:
+		_fail(29, "both revival courtyards must be true gameplay zones")
+		return
+	for wing_name: String in ["WestOssuaryGarden", "EastPilgrimCloister"]:
+		var floor_node: Node = scene.get_node_or_null(wing_name + "Floor")
+		var outer_wall: Node = scene.get_node_or_null(wing_name + "OuterWall")
+		if not (floor_node is StaticBody3D and outer_wall is StaticBody3D):
+			_fail(30, "missing physical floor/wall in " + wing_name)
+			return
+	print("XZOGOT_REVIVAL_TWO_WALKABLE_COURTYARDS_GREEN")
 
 	var ramps: Array[Node] = get_nodes_in_group("expansion_walkable_ramp")
 	if ramps.size() != 3:
