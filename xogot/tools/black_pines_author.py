@@ -209,11 +209,24 @@ def build(layout):
                    340 if warm else 420,"AREA",8.0)
     # PUBLIC quality focal points: patient gurneys, surgery table, generator,
     # ambulance and industrial piping; all original parametric mesh data.
+    # Proper open-bottom hospital gurneys rather than blocky solid cubes.
+    # Four small legs + slim frame + cushioning. Visual-only until collision
+    # authoring is explicitly accepted by the native Godot physics gate.
     for z in (-11.0,-7.3,0.0,4.2):
-        cube("PatientBedFrame_"+str(z),(-14,0.55,z),
-             (2.0,.9,.86),"dark_metal","prop",.08)
-        cube("PatientMattress_"+str(z),(-14,1.045,z),
-             (1.93,.13,.80),"medical","prop",.04)
+        name=str(z)
+        cube("PatientBedFrame_"+name,(-14,.74,z),
+             (2.0,.14,.88),"dark_metal","prop",.05)
+        cube("PatientMattress_"+name,(-14,.88,z),
+             (1.90,.14,.81),"medical","prop",.075)
+        cube("PatientPillow_"+name,(-14.68,.990,z),
+             (.40,.095,.71),"plaster","prop",.055)
+        cube("PatientHeadboard_"+name,(-15.03,1.05,z),
+             (.10,.68,.89),"brass","prop",.035)
+        for side_x in (-14.87,-13.13):
+            for side_z in (z-.33,z+.33):
+                cube("PatientLeg_"+name+"_"+str(side_x)+"_"+str(side_z),
+                    (side_x,.365,side_z),(.11,.73,.11),
+                    "dark_metal","prop",.029)
     for x in (10.0,15.5):
         for z in (0.0,4.2):
             cube("DiningTable_"+str(x)+"_"+str(z),(x,.74,z),
@@ -221,8 +234,16 @@ def build(layout):
             for dz in (-1.12,1.12):
                 cube("DiningBench_"+str(x)+"_"+str(z)+"_"+str(dz),
                      (x,.43,z+dz),(1.98,.15,.38),"dark_metal","prop",.045)
-    cube("SurgeryOperationTable",(13.8,.75,-9.5),(2.35,.18,1.1),
-         "dark_metal","prop",.05)
+    cube("SurgeryOperationTable",(13.8,.72,-9.5),(2.35,.16,1.1),
+         "dark_metal","prop",.050)
+    cube("SurgeryOperationMattress",(13.8,.85,-9.5),(2.20,.15,1.02),
+         "medical","prop",.071)
+    cube("SurgeryOperationHeadrest",(12.93,.955,-9.5),(.39,.10,.95),
+         "plaster","prop",.055)
+    cube("SurgeryOperationPedestal",(13.8,.34,-9.5),(.48,.66,.48),
+         "dark_metal","prop",.061)
+    cube("SurgeryOperationBase",(13.8,.068,-9.5),(1.0,.13,.81),
+         "dark_metal","prop",.03)
     cube("NurseStation",(0,.77,0),(4.1,1.5,.78),"lobby","prop",.04)
     for x in (-14.0,-10.8):
         cube("EmergencyGenerator_"+str(x),(x,.95,-7.5),
