@@ -21,7 +21,7 @@ permissions:
 # Preserve free GitHub Actions minutes: future rapid Forge fidelity commits
 # supersede stale map-render gauntlets on the SAME branch only.
 concurrency:
-  group: black-pines-forge-${{ github.ref }}
+  group: black-pines-forge-cc0-v2-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   godot-gameplay-compile-and-scene:
