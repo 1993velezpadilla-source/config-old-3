@@ -174,8 +174,8 @@ def build_forge_detail(api, layout):
     # Patient wing: separate bed headboards and IV treatment racks.
     patient_names=[]
     for i, z in enumerate((-11.,-7.3,0.,4.2)):
-        patient_names.append(add_box(api,"Patient_%02d_Headboard"%i,
-            (-15.02,.92,z),(.14,1.0,.89),"brass",.04).name)
+        patient_names.append(add_box(api,"Patient_%02d_SafetyRail"%i,
+            (-14.0,1.02,z+.46),(1.78,.070,.070),"brass",.025).name)
         patient_names.append(tube(api,"Patient_%02d_IV"%i,
             (-12.8,.05,z+.62),(-12.8,1.85,z+.62),.027,"dark_metal").name)
     _set_landmark("patients",patient_names+[
