@@ -73,7 +73,7 @@ def classify(root:Path,output:Path):
     restored=png(root,RESTORE)
     roi=np.zeros((H,W),dtype=bool)
     roi[int(H*.12):int(H*.88),int(W*.15):int(W*.85)]=True
-    central_black=int((np.max(base,axis=2)<(0.045*255) & roi).sum()) if False else int(((np.max(base,axis=2)<(0.045*255))&roi).sum())
+    central_black=int(((np.max(base,axis=2)<(0.045*255))&roi).sum())
     broad=recovered(base,positive,roi)
     broad_count=int(broad.sum())
     if central_black<50000 or broad_count<11000:
