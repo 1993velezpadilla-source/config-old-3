@@ -771,9 +771,10 @@ func equip_weapon(id: String, refill: bool = true) -> bool:
 	_trigger_held = false
 	_refresh_view_assets(def)
 	_ads_pose_alpha = 0.0
-	_view_pose_position = Vector3(0.22, -0.20, -0.48)
+	_view_pose_position = _source_hip if _real_hands_bound else Vector3(0.22, -0.20, -0.48)
 	if _view_root != null:
 		_view_root.position = _view_pose_position
+		_view_root.quaternion = Quaternion.IDENTITY
 	_last_ads_state = is_ads_active()
 	_play_asset_animation("equip", 0.0)
 
@@ -985,15 +986,17 @@ func _update_visual_recoil(delta: float) -> void:
 		# not only narrow the camera FOV.  Asset-specific animations still play
 		# on top of this camera-space pose.
 		var ads_target: float = 1.0 if is_ads_active() else 0.0
-		var ads_speed: float = 12.0 if ads_target > _ads_pose_alpha else 15.0
+		var transition: float = SourcePresentation.ads_in_time(_weapon_id) if ads_target > _ads_pose_alpha else SourcePresentation.ads_out_time(_weapon_id)
+		var ads_speed: float = (1.0 / maxf(transition, 0.001)) if _source_ads_ready else (12.0 if ads_target > _ads_pose_alpha else 15.0)
 		_ads_pose_alpha = move_toward(_ads_pose_alpha, ads_target, ads_speed * delta)
-		var hip_position := Vector3(0.22, -0.20, -0.48)
-		var ads_position := Vector3(0.0, -0.145, -0.365)
+		var hip_position: Vector3 = _source_hip if _real_hands_bound else Vector3(0.22, -0.20, -0.48)
+		var ads_position: Vector3 = _source_ads if _source_ads_ready else Vector3(0.0, -0.145, -0.365)
 		var target_position: Vector3 = hip_position.lerp(ads_position, _ads_pose_alpha)
 		var pose_blend: float = 1.0 - exp(-22.0 * delta)
 		_view_pose_position = _view_pose_position.lerp(target_position, pose_blend)
 		var recoil_push: float = minf(_visual_recoil_pitch * 0.0025, 0.022)
 		_view_root.position = _view_pose_position + Vector3(0.0, 0.0, recoil_push)
+		_view_root.quaternion = Quaternion.IDENTITY.slerp(_source_ads_quat, _ads_pose_alpha) if _source_ads_ready else Quaternion.IDENTITY
 		set_meta("weapon_ads_pose_alpha", _ads_pose_alpha)
 
 func set_dev_infinite_ammo(enabled: bool) -> void:
