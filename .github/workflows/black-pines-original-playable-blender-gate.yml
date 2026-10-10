@@ -108,6 +108,9 @@ jobs:
           cp xogot/black-pines-real-firstframe-overview.png build/black-pines/godot/black-pines-real-firstframe-overview.png
           grep -q BLACK_PINES_REAL_GODOT_FIRSTPERSON_HUD_SCREENSHOT_GREEN build/black-pines/godot/visual.log
           cp xogot/black-pines-real-firstperson-mobile-hud.png build/black-pines/godot/black-pines-real-firstperson-mobile-hud.png
+          grep -q BLACK_PINES_NINE_ROOM_FIDELITY_CAPTURE_GREEN build/black-pines/godot/visual.log
+          cp xogot/black-pines-fidelity-*.png build/black-pines/godot/
+          test "$(find build/black-pines/godot -maxdepth 1 -name 'black-pines-fidelity-*.png' | wc -l)" -eq 9
           file build/black-pines/godot/black-pines-real-firstframe-overview.png
           file build/black-pines/godot/black-pines-real-firstperson-mobile-hud.png
       - name: Preserve actual gameplay and screenshot proof
@@ -261,6 +264,10 @@ jobs:
             build/black-pines/integrated/black-pines-BLENDER-IN-GODOT-overview.png
           cp xogot/black-pines-real-firstperson-mobile-hud.png \
             build/black-pines/integrated/black-pines-BLENDER-IN-GODOT-firstperson-HUD.png
+          grep -q BLACK_PINES_NINE_ROOM_FIDELITY_CAPTURE_GREEN \
+            build/black-pines/integrated/visual.log
+          cp xogot/black-pines-fidelity-*.png build/black-pines/integrated/
+          test "$(find build/black-pines/integrated -maxdepth 1 -name 'black-pines-fidelity-*.png' | wc -l)" -eq 9
           file build/black-pines/integrated/*.png
       - name: Archive actual Blender to Godot evidence
         if: always()
