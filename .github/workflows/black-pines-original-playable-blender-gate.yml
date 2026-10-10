@@ -82,7 +82,10 @@ jobs:
             2>&1 | tee build/black-pines/godot/visual.log
           grep -q BLACK_PINES_REAL_GODOT_1360x900_OVERVIEW_GREEN build/black-pines/godot/visual.log
           cp xogot/black-pines-real-firstframe-overview.png build/black-pines/godot/black-pines-real-firstframe-overview.png
+          grep -q BLACK_PINES_REAL_GODOT_FIRSTPERSON_HUD_SCREENSHOT_GREEN build/black-pines/godot/visual.log
+          cp xogot/black-pines-real-firstperson-mobile-hud.png build/black-pines/godot/black-pines-real-firstperson-mobile-hud.png
           file build/black-pines/godot/black-pines-real-firstframe-overview.png
+          file build/black-pines/godot/black-pines-real-firstperson-mobile-hud.png
       - name: Preserve actual gameplay and screenshot proof
         if: always()
         uses: actions/upload-artifact@v4
