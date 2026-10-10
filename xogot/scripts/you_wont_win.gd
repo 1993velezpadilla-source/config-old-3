@@ -152,6 +152,7 @@ func _ready() -> void:
 	_build_candle_runtime()
 	_build_stained_glass_light_effects()
 	_build_interactions()
+	_mount_recovered_machine_references()
 	_build_windows()
 	_build_selective_spawn_anchors()
 	_build_zombie_path_network()
@@ -1728,6 +1729,25 @@ func _build_balcony_stair_ramp() -> void:
 	add_child(ramp)
 
 	print("XZOGOT_BALCONY_RAMP_READY ", angle_deg)
+
+# Original-first prototype: mount previously decoded Workshop 3D machines
+# on EXISTING live gameplay nodes. Geometry only; the verified backend,
+# colliders, weapons, multiplayer authority and FX remain untouched.
+func _mount_recovered_machine_references() -> void:
+	var adapter: Script = preload("res://scripts/church_source_machine_mount.gd")
+	var specs: Array[Dictionary] = [
+		{"node":"MysteryBoxSocket", "parts":["mystery_main"], "size":Vector3(1.65, 0.9, 0.8)},
+		{"node":"SanctumForge", "parts":["pap_shell", "pap_inside"], "size":Vector3(1.75, 1.3, 1.0)},
+		{"node":"PowerSwitch", "parts":["power_base", "power_hand"], "size":Vector3(0.55, 1.50, 0.45)},
+	]
+	var completed: int = 0
+	for spec: Dictionary in specs:
+		var part_list: Array[String] = []
+		for part: Variant in spec["parts"]:
+			part_list.append(str(part))
+		if bool(adapter.call("attach", self, str(spec["node"]), part_list, (spec["size"] as Vector3) * WORLD_SCALE)):
+			completed += 1
+	print("XZOGOT_CHURCH_REFERENCE_MACHINE_VISUALS ", completed, "/", specs.size(), " rights_audit=not_cleared")
 
 func _build_interactions() -> void:
 	# Interaction kinds: 0 door, 1 wallbuy, 2 mystery, 3 perk, 4 power, 5 weapon upgrade.
