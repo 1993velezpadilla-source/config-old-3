@@ -7,6 +7,7 @@ Both GUI and headless GitHub CI invoke this SAME authoring pass.
 import bpy
 import math
 from mathutils import Vector
+import black_pines_forge_surface as forge_surface
 
 LANDMARKS = {}
 ADDED_NAMES = []
@@ -243,8 +244,10 @@ def build_forge_detail(api, layout):
                "MAINTENANCE  /  GARAGE",.25).name,
     ])
 
+    surface = forge_surface.build_surfaces(api,layout,add_box,tube,_label)
     return {
         "forgeGuiBackend": True,
+        "surfacePass": surface,
         "distinctRoomLandmarks": {k: len(v) for k, v in LANDMARKS.items()},
         "fidelityGateType": "measurable_composition_not_human_visual_perfection",
     }
@@ -263,6 +266,14 @@ def fidelity_pass(api, layout):
         for name in labels:
             if bpy.data.objects.get(name) is None:
                 issues.append("missing authored geometry "+name)
+    for room_id in required:
+        floor = bpy.data.objects.get("Forge_TiledFloor_"+room_id)
+        if floor is None or floor.type!="MESH" or len(floor.data.polygons)<70:
+            issues.append("missing original batched tiled flooring "+room_id)
+    if bpy.data.objects.get("Forge_Facade_MarqueeBack") is None:
+        issues.append("missing original main entrance branded facade")
+    if bpy.data.objects.get("Forge_Sign_FACADE") is None:
+        issues.append("missing branded Black Pines sign")
     for i in range(12):
         n = "Forge_Door_%02d_Transom"%i
         if bpy.data.objects.get(n) is None:
