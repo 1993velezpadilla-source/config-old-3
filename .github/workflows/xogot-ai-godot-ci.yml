@@ -133,6 +133,16 @@ jobs:
           grep -q "XZOGOT_CHURCH_MP40_AUTHORED_ADS_HIP_LOOP_GREEN" build/xogot-ai/church-hands-ads-probe.log
           ! grep -E "SCRIPT ERROR|Parse Error|CHURCH_HANDS_ADS_PROBE:" build/xogot-ai/church-hands-ads-probe.log
 
+      - name: Diagnose real source hands and gun camera-space geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 80 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/church_real_fps_geometry_diagnostic.gd \
+            2>&1 | tee build/xogot-ai/church-fps-geometry-diagnostic.log
+          grep -q 'XZOGOT_SOURCE_2_WEAPON_FPS_BOUNDS_DIAGNOSTIC_COMPLETE' build/xogot-ai/church-fps-geometry-diagnostic.log
+          ! grep -E 'CHURCH_VIEWMODEL_GEOMETRY_DIAGNOSTIC:|SCRIPT ERROR|Parse Error' build/xogot-ai/church-fps-geometry-diagnostic.log
+
       - name: Verify interaction economy in Godot
         shell: bash
         run: |
