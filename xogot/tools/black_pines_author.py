@@ -20,6 +20,7 @@ import sys
 from pathlib import Path
 import bpy
 from mathutils import Vector
+import black_pines_forge_detail as forge_detail
 
 SEED=20261010
 random.seed(SEED)
@@ -258,9 +259,18 @@ def build(layout):
     bg=world.node_tree.nodes.get("Background")
     bg.inputs["Color"].default_value=(.015,.024,.043,1)
     bg.inputs["Strength"].default_value=.28
-    # All cube() / light() / cone() coords are now authored directly using
-    # the correct Blender Z-up axes. glTF conversion is handled by Blender.
-    return {**COUNTS,"objects":len(bpy.data.objects)}
+    # The same Forge authoring backend drives BOTH the interactive Blender
+    # Forge GUI and this headless CI entrypoint. No alternate geometry.
+    forge_result = forge_detail.build_forge_detail(sys.modules[__name__], layout)
+    fidelity_result = forge_detail.fidelity_pass(sys.modules[__name__], layout)
+    if not fidelity_result["pass"]:
+        raise RuntimeError("BLACK_PINES_FORGE_FIDELITY_RED "
+                           +repr(fidelity_result["issues"]))
+    print("BLACK_PINES_FORGE_FIDELITY_GREEN rooms=9 doors=12 meshes=%d tris=%d"%
+          (fidelity_result["meshObjects"],fidelity_result["triangles"]))
+    # All meshes are authored in native Blender Z-up and glTF exported Y-up.
+    return {**COUNTS,"objects":len(bpy.data.objects),
+            "forge":forge_result,"fidelity":fidelity_result}
 
 
 def main():
