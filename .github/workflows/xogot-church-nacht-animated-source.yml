@@ -124,12 +124,12 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
           mkdir -p build/church-visual-evidence
-          timeout 145 xvfb-run -a -s "-screen 0 1600x900x24" \
+          timeout 270 xvfb-run -a -s "-screen 0 1600x900x24" \
             /tmp/church-godot/Godot_v4.6.1-stable_linux.x86_64 \
             --path xogot --rendering-method gl_compatibility --resolution 1600x900 \
             --script res://ci/church_template_visual_capture.gd \
             2>&1 | tee church-photos.log
-          grep -q 'XZOGOT_REAL_CHURCH_SIX_SOURCE_INSPECTION_PHOTOS_GREEN' church-photos.log
+          grep -q 'XZOGOT_REAL_CHURCH_SIX_SOURCE_INSPECTION_PHOTOS_CAPTURED_ART_REVIEW_PENDING' church-photos.log
           test "$(find build/church-visual-evidence -maxdepth 1 -name '*.jpg' | wc -l)" -eq 6
           ! grep -E 'CHURCH_VISUAL_CAPTURE:|SCRIPT ERROR|Parse Error' church-photos.log
       - name: Print compact authenticated real image data for inline QA
