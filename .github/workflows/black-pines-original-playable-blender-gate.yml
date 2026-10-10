@@ -453,6 +453,19 @@ jobs:
           assert r["totalTriangles"]<=14000
           print("BLACK_PINES_CC0_PACK_RIGHTS_AND_TRIANGLE_BUDGET_GREEN",r["totalTriangles"])
           PY
+      - name: Dequantize signed 16-bit GLB positions and normals for Godot 4.6
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Raw CC0 geometry requires KHR_mesh_quantization, which stock
+          # Godot 4.6.1 DOES NOT support. Preserve source SHA256 report,
+          # rewrite float32 geometry instead of merely deleting extension.
+          python3 xogot/tools/cc0_dequantize_godot.py \
+            --source xogot/assets/black_pines/free_cc0_staging \
+            --dest xogot/assets/black_pines/free_cc0_staging \
+            2>&1 | tee build/black-pines/cc0-audition/dequantize.log
+          grep -q BLACK_PINES_CC0_ALL_16_GODOT_COMPATIBLE_GREEN \
+            build/black-pines/cc0-audition/dequantize.log
       - name: Import all audited GLBs into Godot staging project (never mount into live Black Pines)
         shell: bash
         run: |
