@@ -49,5 +49,25 @@
     "All six animation roles must map to real clips on original rig",
     "Original audio, particles, machine visuals and hands require independent source/runtime proofs",
     "Respect source licenses before publishing"
-  ]
+  ],
+  "recoveredWorkshopZombieSources": {
+    "status": "LOCATED_AND_DECODED_IN_PRIOR_ARTIFACT_NOT_YET_MOUNTED_IN_CHURCH",
+    "source": "Pavlov UE4.21 Nacht workshop reference",
+    "sourceRun": 37714627696,
+    "artifactId": 11524105191,
+    "locator": "res://data/church_recovered_zombie_source_locator.json",
+    "zombieCandidateKinds": [
+      "normal_zombie",
+      "waw_zombie",
+      "nazi_zombie",
+      "nazi_zombie_alt_mesh"
+    ],
+    "verifiedBones": [
+      93,
+      102
+    ],
+    "officialBO3T7": false,
+    "hasDecodedMotionClips": true,
+    "hasImportedGodotScene": false
+  }
 }

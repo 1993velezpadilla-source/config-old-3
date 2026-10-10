@@ -8,8 +8,15 @@ visual skins** to monjas and custom vending models. Do not restart the map.
 ## Source truth, 2026-10-10
 
 The current church repository contains a **working custom zombie AI/collision
-runtime** with project nun models and CMU motions; it does not contain a
-verified original BO3 Zombies Chronicles zombie skeletal mesh. Present WAW
+runtime** with project nun models and CMU motions. HOWEVER: previous multi-day
+Nacht extraction recovered multiple complete source zombie candidates and
+animated 93/102-bone rigs in the *existing archived CI artifact*. Their
+conversion was GREEN, and they were **not carried over to this church branch**.
+This was a misplaced-artifact/branch audit failure, not missing source art.
+They originate from the Pavlov UE4.21 CoD-inspired remake, **not proven first-
+party official BO3/T7 original assets**. See
+`res://data/church_recovered_zombie_source_locator.json` for exact .xrg,
+.xsk, .xan mapping, SHA rig IDs and source run. Present WAW
 weapon viewmodel GLBs do not prove original BO3 first-person hands, perk-drink
 animations, worldmodels, effects, or redistributable audio. Six church perk
 backend mechanics exist, but their rendered machines are project-authored,
@@ -51,3 +58,18 @@ Do not print "ORIGINAL GREEN" from the existing nun rig.
 
 Current truthful status: template infrastructure integration only. Original
 Chronicles source audit RED/PENDING, not a completed one-to-one game.
+
+## Recovered Nacht source and urgent preservation
+- Source workflow **37714627696**, successful job **113108182094**, artifact
+  **11524105191**, expires **2026-10-22**.
+- Decoded **45 rigs / 60 skinned meshes / 106 animation clips**. At least
+  **NormalZombie (93 bones)**, **Zombie1_COD (102 bones)** and
+  **Body_HeadV1 (102 bones)** have hash-linked skeleton/animation families.
+- Crucially, **Nuketown's 3/3/9 skeleton/mesh/animation files are the
+  Mystery Box and two window-shade props, not enemy rigs**.
+- Recover/stage only hash-verified zombie bundles, preserve the working
+  church gameplay and compare movement physically; **do not redo the
+  five-day source decoding from scratch**.
+- Accurate source attribution required: Pavlov Workshop UE4.21 community map
+  =/= first-party BO3 Chronicles native T7. Keep game/art publication-rights
+  audit separate from development tests.

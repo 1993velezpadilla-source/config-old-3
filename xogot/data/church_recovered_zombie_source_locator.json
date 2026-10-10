@@ -1,0 +1,661 @@
+{
+  "schemaVersion": 1,
+  "discoveredBy": "Recovered and cross-matched from successful GitHub Actions job log 113108182094 on 2026-10-08; not guessed",
+  "source": {
+    "workflowRun": 37714627696,
+    "jobId": 113108182094,
+    "artifactId": 11524105191,
+    "artifactName": "Xogot-Nacht-Chronicles-Full-Map-Authority",
+    "format": "UE4.21 cooked Pavlov Workshop 2755515831",
+    "expectedOriginalBO3T7": false,
+    "counts": {
+      "sourcePackages": 3871,
+      "skeletons": 45,
+      "skeletalMeshes": 60,
+      "animations": 106
+    },
+    "nativeDirs": {
+      "skeletons": "nacht-native/skeletons",
+      "skeletalMeshes": "nacht-native/skeletal-meshes",
+      "animations": "nacht-native/animations"
+    },
+    "artifactExpiration": "2026-10-22T02:00:45Z",
+    "archiveStatus": "ARTIFACT_EXISTS_NOT_COPIED_TO_CHURCH"
+  },
+  "matches": [
+    {
+      "kind": "normal_zombie",
+      "sourceGame": "Pavlov VR Workshop UE4.21 community remake / CoD-derived naming, NOT verified 2017 original T7 package",
+      "mesh": {
+        "native": "s0031.xsk",
+        "package": "Content/CustomMaps/UGC2755515831/Meshes/NormalZombie/NormalZombie.uasset",
+        "bones": 65
+      },
+      "skeleton": {
+        "native": "r0031.xrg",
+        "package": "Content/CustomMaps/UGC2755515831/Meshes/NormalZombie/NormalZombie_Skeleton.uasset",
+        "bones": 93,
+        "skeletonHash": "9200d8f9ebb4f1b3"
+      },
+      "animations": [
+        {
+          "native": "a0002.xan",
+          "name": "Being_Electrocuted",
+          "frames": 1242,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Animations/NormalZombie/Being_Electrocuted.uasset"
+        },
+        {
+          "native": "a0003.xan",
+          "name": "Climbing_Up_Wall",
+          "frames": 2941,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Animations/NormalZombie/Climbing_Up_Wall.uasset"
+        },
+        {
+          "native": "a0004.xan",
+          "name": "Rising_Out_Of_Ground",
+          "frames": 110,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Animations/NormalZombie/Rising_Out_Of_Ground.uasset"
+        },
+        {
+          "native": "a0005.xan",
+          "name": "Running",
+          "frames": 1217,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Animations/NormalZombie/Running.uasset"
+        },
+        {
+          "native": "a0006.xan",
+          "name": "Walking",
+          "frames": 37,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Animations/NormalZombie/Walking.uasset"
+        },
+        {
+          "native": "a0007.xan",
+          "name": "Zombie_Attack",
+          "frames": 181,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Animations/NormalZombie/Zombie_Attack.uasset"
+        },
+        {
+          "native": "a0008.xan",
+          "name": "Zombie_Idle",
+          "frames": 131,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Animations/NormalZombie/Zombie_Idle.uasset"
+        }
+      ]
+    },
+    {
+      "kind": "waw_zombie",
+      "sourceGame": "Pavlov VR Workshop UE4.21 community remake / CoD-derived naming, NOT verified 2017 original T7 package",
+      "mesh": {
+        "native": "s0036.xsk",
+        "package": "Content/CustomMaps/UGC2755515831/Meshes/WAWZombies/Zombie1_COD.uasset",
+        "bones": 102
+      },
+      "skeleton": {
+        "native": "r0036.xrg",
+        "package": "Content/CustomMaps/UGC2755515831/Meshes/WAWZombies/Zombie1_COD_Skeleton.uasset",
+        "bones": 102,
+        "skeletonHash": "e492d61754a88d4c"
+      },
+      "animations": [
+        {
+          "native": "a0009.xan",
+          "name": "ai_zombie_attack_v1_new",
+          "frames": 67,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Animations/WAWZombies/ai_zombie_attack_v1_new.uasset"
+        },
+        {
+          "native": "a0010.xan",
+          "name": "ai_zombie_attack_v4",
+          "frames": 32,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Animations/WAWZombies/ai_zombie_attack_v4.uasset"
+        },
+        {
+          "native": "a0011.xan",
+          "name": "ai_zombie_idle_v1_delta",
+          "frames": 60,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Animations/WAWZombies/ai_zombie_idle_v1_delta.uasset"
+        },
+        {
+          "native": "a0012.xan",
+          "name": "ai_zombie_ladder_climb_loop",
+          "frames": 56,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Animations/WAWZombies/ai_zombie_ladder_climb_loop.uasset"
+        },
+        {
+          "native": "a0013.xan",
+          "name": "ai_zombie_run_v1",
+          "frames": 58,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Animations/WAWZombies/ai_zombie_run_v1.uasset"
+        },
+        {
+          "native": "a0014.xan",
+          "name": "ai_zombie_sprint_v1",
+          "frames": 65,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Animations/WAWZombies/ai_zombie_sprint_v1.uasset"
+        },
+        {
+          "native": "a0015.xan",
+          "name": "ai_zombie_tesla_death_a",
+          "frames": 136,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Animations/WAWZombies/ai_zombie_tesla_death_a.uasset"
+        },
+        {
+          "native": "a0016.xan",
+          "name": "ai_zombie_tesla_death_b",
+          "frames": 129,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Animations/WAWZombies/ai_zombie_tesla_death_b.uasset"
+        },
+        {
+          "native": "a0017.xan",
+          "name": "ai_zombie_tesla_death_e",
+          "frames": 102,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Animations/WAWZombies/ai_zombie_tesla_death_e.uasset"
+        },
+        {
+          "native": "a0018.xan",
+          "name": "ai_zombie_walk_v1",
+          "frames": 125,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Animations/WAWZombies/ai_zombie_walk_v1.uasset"
+        },
+        {
+          "native": "a0019.xan",
+          "name": "_rising_ai_zombie_traverse_ground_v2_walk",
+          "frames": 80,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Animations/WAWZombies/_rising_ai_zombie_traverse_ground_v2_walk.uasset"
+        }
+      ]
+    },
+    {
+      "kind": "nazi_zombie",
+      "sourceGame": "Pavlov VR Workshop UE4.21 community remake / CoD-derived naming, NOT verified 2017 original T7 package",
+      "mesh": {
+        "native": "s0048.xsk",
+        "package": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Body_HeadV1.uasset",
+        "bones": 102
+      },
+      "skeleton": {
+        "native": "r0040.xrg",
+        "package": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Body_HeadV1_Skeleton.uasset",
+        "bones": 102,
+        "skeletonHash": "bcd0ac6b5cae8d26"
+      },
+      "animations": [
+        {
+          "native": "a0051.xan",
+          "name": "ai_zombie_Fast_sprint_Alt",
+          "frames": 56,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/ai_zombie_Fast_sprint_Alt.uasset"
+        },
+        {
+          "native": "a0052.xan",
+          "name": "ai_zombie_jump_up",
+          "frames": 113,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/ai_zombie_jump_up.uasset"
+        },
+        {
+          "native": "a0053.xan",
+          "name": "ai_zombie_run_v1",
+          "frames": 58,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/ai_zombie_run_v1.uasset"
+        },
+        {
+          "native": "a0054.xan",
+          "name": "ai_zombie_walk_fast_v1",
+          "frames": 83,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/ai_zombie_walk_fast_v1.uasset"
+        },
+        {
+          "native": "a0055.xan",
+          "name": "ai_zombie_walk_v1",
+          "frames": 125,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/ai_zombie_walk_v1.uasset"
+        },
+        {
+          "native": "a0056.xan",
+          "name": "AttackV4_Body_Head_V1",
+          "frames": 32,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/AttackV4_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0057.xan",
+          "name": "AttackV6_Body_Head_V1",
+          "frames": 71,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/AttackV6_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0058.xan",
+          "name": "Attack_Body_Head_V1",
+          "frames": 55,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Attack_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0059.xan",
+          "name": "Body_Head_rising_V1",
+          "frames": 73,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Body_Head_rising_V1.uasset"
+        },
+        {
+          "native": "a0060.xan",
+          "name": "Body_Head_Tesla1_V1",
+          "frames": 136,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Body_Head_Tesla1_V1.uasset"
+        },
+        {
+          "native": "a0061.xan",
+          "name": "Body_Head_Tesla2_V1",
+          "frames": 101,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Body_Head_Tesla2_V1.uasset"
+        },
+        {
+          "native": "a0062.xan",
+          "name": "FastWalkV2_V8_Body_Head_V1",
+          "frames": 75,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/FastWalkV2_V8_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0063.xan",
+          "name": "FastWalkV3_V8_Body_Head_V1",
+          "frames": 69,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/FastWalkV3_V8_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0064.xan",
+          "name": "Idle_Body_Death1_V1",
+          "frames": 61,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Idle_Body_Death1_V1.uasset"
+        },
+        {
+          "native": "a0065.xan",
+          "name": "Idle_Body_Death2_V1",
+          "frames": 69,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Idle_Body_Death2_V1.uasset"
+        },
+        {
+          "native": "a0066.xan",
+          "name": "Idle_Body_Death3_V1",
+          "frames": 134,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Idle_Body_Death3_V1.uasset"
+        },
+        {
+          "native": "a0067.xan",
+          "name": "Idle_Body_Death4_V5",
+          "frames": 65,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Idle_Body_Death4_V5.uasset"
+        },
+        {
+          "native": "a0068.xan",
+          "name": "Idle_Body_Head_V1",
+          "frames": 60,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Idle_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0069.xan",
+          "name": "RunV4_V8_Body_Head_V1",
+          "frames": 75,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/RunV4_V8_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0070.xan",
+          "name": "SprintV1_V8_Body_Head_V1",
+          "frames": 65,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/SprintV1_V8_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0071.xan",
+          "name": "SprintV2_V8_Body_Head_V1",
+          "frames": 60,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/SprintV2_V8_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0072.xan",
+          "name": "Walk_V4_Body_Head_V1",
+          "frames": 87,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Walk_V4_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0073.xan",
+          "name": "Walk_V8_Body_Head_V1",
+          "frames": 118,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Walk_V8_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0092.xan",
+          "name": "ai_zombie_jump_up",
+          "frames": 113,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/ai_zombie_jump_up.uasset"
+        },
+        {
+          "native": "a0093.xan",
+          "name": "Body_Head_rising_V1_Anim",
+          "frames": 73,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/Body_Head_rising_V1_Anim.uasset"
+        },
+        {
+          "native": "a0094.xan",
+          "name": "Body_Head_Tesla1_V1",
+          "frames": 136,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/Body_Head_Tesla1_V1.uasset"
+        },
+        {
+          "native": "a0095.xan",
+          "name": "Body_Head_Tesla2_V1",
+          "frames": 101,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/Body_Head_Tesla2_V1.uasset"
+        },
+        {
+          "native": "a0096.xan",
+          "name": "FastWalkV3_V8_Body_Head_V1",
+          "frames": 69,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/FastWalkV3_V8_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0097.xan",
+          "name": "Idle_Body_Death1",
+          "frames": 61,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/Idle_Body_Death1.uasset"
+        },
+        {
+          "native": "a0098.xan",
+          "name": "Idle_Body_Death2",
+          "frames": 69,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/Idle_Body_Death2.uasset"
+        },
+        {
+          "native": "a0099.xan",
+          "name": "Idle_Body_Death3_V1",
+          "frames": 134,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/Idle_Body_Death3_V1.uasset"
+        },
+        {
+          "native": "a0100.xan",
+          "name": "Idle_Body_Death4_V1",
+          "frames": 81,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/Idle_Body_Death4_V1.uasset"
+        },
+        {
+          "native": "a0101.xan",
+          "name": "Idle_Body_Death4_V5",
+          "frames": 65,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/Idle_Body_Death4_V5.uasset"
+        },
+        {
+          "native": "a0102.xan",
+          "name": "Idle_Body_Head_V1",
+          "frames": 60,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/Idle_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0103.xan",
+          "name": "Run_Body_Head_v2_Anim",
+          "frames": 68,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/Run_Body_Head_v2_Anim.uasset"
+        },
+        {
+          "native": "a0104.xan",
+          "name": "SprintV1_V8_Body_Head_V1",
+          "frames": 65,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/SprintV1_V8_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0105.xan",
+          "name": "Walk_V8_Body_Head_V1",
+          "frames": 118,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/Walk_V8_Body_Head_V1.uasset"
+        }
+      ]
+    },
+    {
+      "kind": "nazi_zombie_alt_mesh",
+      "sourceGame": "Pavlov VR Workshop UE4.21 community remake / CoD-derived naming, NOT verified 2017 original T7 package",
+      "mesh": {
+        "native": "s0058.xsk",
+        "package": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/Body_Head_v1.uasset",
+        "bones": 102
+      },
+      "skeleton": {
+        "native": "r0040.xrg",
+        "package": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Body_HeadV1_Skeleton.uasset",
+        "bones": 102,
+        "skeletonHash": "bcd0ac6b5cae8d26"
+      },
+      "animations": [
+        {
+          "native": "a0051.xan",
+          "name": "ai_zombie_Fast_sprint_Alt",
+          "frames": 56,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/ai_zombie_Fast_sprint_Alt.uasset"
+        },
+        {
+          "native": "a0052.xan",
+          "name": "ai_zombie_jump_up",
+          "frames": 113,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/ai_zombie_jump_up.uasset"
+        },
+        {
+          "native": "a0053.xan",
+          "name": "ai_zombie_run_v1",
+          "frames": 58,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/ai_zombie_run_v1.uasset"
+        },
+        {
+          "native": "a0054.xan",
+          "name": "ai_zombie_walk_fast_v1",
+          "frames": 83,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/ai_zombie_walk_fast_v1.uasset"
+        },
+        {
+          "native": "a0055.xan",
+          "name": "ai_zombie_walk_v1",
+          "frames": 125,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/ai_zombie_walk_v1.uasset"
+        },
+        {
+          "native": "a0056.xan",
+          "name": "AttackV4_Body_Head_V1",
+          "frames": 32,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/AttackV4_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0057.xan",
+          "name": "AttackV6_Body_Head_V1",
+          "frames": 71,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/AttackV6_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0058.xan",
+          "name": "Attack_Body_Head_V1",
+          "frames": 55,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Attack_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0059.xan",
+          "name": "Body_Head_rising_V1",
+          "frames": 73,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Body_Head_rising_V1.uasset"
+        },
+        {
+          "native": "a0060.xan",
+          "name": "Body_Head_Tesla1_V1",
+          "frames": 136,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Body_Head_Tesla1_V1.uasset"
+        },
+        {
+          "native": "a0061.xan",
+          "name": "Body_Head_Tesla2_V1",
+          "frames": 101,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Body_Head_Tesla2_V1.uasset"
+        },
+        {
+          "native": "a0062.xan",
+          "name": "FastWalkV2_V8_Body_Head_V1",
+          "frames": 75,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/FastWalkV2_V8_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0063.xan",
+          "name": "FastWalkV3_V8_Body_Head_V1",
+          "frames": 69,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/FastWalkV3_V8_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0064.xan",
+          "name": "Idle_Body_Death1_V1",
+          "frames": 61,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Idle_Body_Death1_V1.uasset"
+        },
+        {
+          "native": "a0065.xan",
+          "name": "Idle_Body_Death2_V1",
+          "frames": 69,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Idle_Body_Death2_V1.uasset"
+        },
+        {
+          "native": "a0066.xan",
+          "name": "Idle_Body_Death3_V1",
+          "frames": 134,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Idle_Body_Death3_V1.uasset"
+        },
+        {
+          "native": "a0067.xan",
+          "name": "Idle_Body_Death4_V5",
+          "frames": 65,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Idle_Body_Death4_V5.uasset"
+        },
+        {
+          "native": "a0068.xan",
+          "name": "Idle_Body_Head_V1",
+          "frames": 60,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Idle_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0069.xan",
+          "name": "RunV4_V8_Body_Head_V1",
+          "frames": 75,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/RunV4_V8_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0070.xan",
+          "name": "SprintV1_V8_Body_Head_V1",
+          "frames": 65,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/SprintV1_V8_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0071.xan",
+          "name": "SprintV2_V8_Body_Head_V1",
+          "frames": 60,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/SprintV2_V8_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0072.xan",
+          "name": "Walk_V4_Body_Head_V1",
+          "frames": 87,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Walk_V4_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0073.xan",
+          "name": "Walk_V8_Body_Head_V1",
+          "frames": 118,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/2_Real_NazieZombie/Walk_V8_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0092.xan",
+          "name": "ai_zombie_jump_up",
+          "frames": 113,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/ai_zombie_jump_up.uasset"
+        },
+        {
+          "native": "a0093.xan",
+          "name": "Body_Head_rising_V1_Anim",
+          "frames": 73,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/Body_Head_rising_V1_Anim.uasset"
+        },
+        {
+          "native": "a0094.xan",
+          "name": "Body_Head_Tesla1_V1",
+          "frames": 136,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/Body_Head_Tesla1_V1.uasset"
+        },
+        {
+          "native": "a0095.xan",
+          "name": "Body_Head_Tesla2_V1",
+          "frames": 101,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/Body_Head_Tesla2_V1.uasset"
+        },
+        {
+          "native": "a0096.xan",
+          "name": "FastWalkV3_V8_Body_Head_V1",
+          "frames": 69,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/FastWalkV3_V8_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0097.xan",
+          "name": "Idle_Body_Death1",
+          "frames": 61,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/Idle_Body_Death1.uasset"
+        },
+        {
+          "native": "a0098.xan",
+          "name": "Idle_Body_Death2",
+          "frames": 69,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/Idle_Body_Death2.uasset"
+        },
+        {
+          "native": "a0099.xan",
+          "name": "Idle_Body_Death3_V1",
+          "frames": 134,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/Idle_Body_Death3_V1.uasset"
+        },
+        {
+          "native": "a0100.xan",
+          "name": "Idle_Body_Death4_V1",
+          "frames": 81,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/Idle_Body_Death4_V1.uasset"
+        },
+        {
+          "native": "a0101.xan",
+          "name": "Idle_Body_Death4_V5",
+          "frames": 65,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/Idle_Body_Death4_V5.uasset"
+        },
+        {
+          "native": "a0102.xan",
+          "name": "Idle_Body_Head_V1",
+          "frames": 60,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/Idle_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0103.xan",
+          "name": "Run_Body_Head_v2_Anim",
+          "frames": 68,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/Run_Body_Head_v2_Anim.uasset"
+        },
+        {
+          "native": "a0104.xan",
+          "name": "SprintV1_V8_Body_Head_V1",
+          "frames": 65,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/SprintV1_V8_Body_Head_V1.uasset"
+        },
+        {
+          "native": "a0105.xan",
+          "name": "Walk_V8_Body_Head_V1",
+          "frames": 118,
+          "sourcePackage": "Content/CustomMaps/UGC2755515831/Nazi_Zombie/RealV_1/Walk_V8_Body_Head_V1.uasset"
+        }
+      ]
+    }
+  ],
+  "nuketownClarification": {
+    "run": 37714627705,
+    "source": "Pavlov/Plugins/UGC5097941/Content",
+    "skeletons": 3,
+    "skeletalMeshes": 3,
+    "animations": 9,
+    "identities": [
+      "mystery_box",
+      "shades_prop_1",
+      "shades_prop_2"
+    ],
+    "note": "Nuketown three source skeletal rigs are not zombies; zombie characters with 102-bone rigs recovered from Nacht UE4.21 workshop archive instead."
+  },
+  "nextGate": "stage a single source rig and its hash-matching clips as Godot GLTF for ORIGINAL-REFERENCE-in-church test; do not mislabel it native official BO3 T7"
+}
