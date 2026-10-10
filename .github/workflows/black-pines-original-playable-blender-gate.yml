@@ -6,6 +6,7 @@ on:
       - feature/black-pines-sanatorium-playable-v1
     paths:
       - "xogot/data/black_pines_layout.json"
+      - "xogot/data/black_pines_cc0_manifest.json"
       - "xogot/black_pines.tscn"
       - "xogot/scripts/black_pines_*.gd"
       - "xogot/scripts/round_manager.gd"
@@ -13,6 +14,7 @@ on:
       - "xogot/ci/black_pines_*.py"
       - "xogot/tools/black_pines_author.py"
       - "xogot/tools/black_pines_forge_*.py"
+      - "xogot/tools/black_pines_cc0_*.py"
       - ".github/workflows/black-pines-original-playable-blender-gate.yml"
 permissions:
   contents: read
@@ -193,6 +195,18 @@ jobs:
           sudo apt-get install -y -qq blender xvfb python3-numpy libgl1-mesa-dri libegl1
           python3 -c 'import numpy; print("Blender glTF source numpy version", numpy.__version__)'
           blender --version | head -2
+      - name: Fetch verified free CC0 medical props
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/black-pines/blender
+          python3 xogot/tools/black_pines_cc0_fetch.py \
+            --manifest xogot/data/black_pines_cc0_manifest.json \
+            --out xogot/assets/black_pines/cc0_source \
+            --report build/black-pines/blender/cc0-source-provenance.json \
+            2>&1 | tee build/black-pines/blender/cc0-download.log
+          grep -q BLACK_PINES_CC0_FOUR_REAL_GLBS_GREEN build/black-pines/blender/cc0-download.log
+          test "$(find xogot/assets/black_pines/cc0_source -name '*.glb' | wc -l)" -eq 4
       - name: Build 9-zone original sanatorium mesh from same Godot source layout
         shell: bash
         run: |
