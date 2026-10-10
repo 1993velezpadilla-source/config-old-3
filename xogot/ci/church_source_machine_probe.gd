@@ -23,7 +23,7 @@ func _run() -> void:
 	var church: Node = packed.instantiate()
 	root.add_child(church)
 	await process_frame
-	var names: Array[String] = ["SanctumForge", "PowerSwitch"]
+	var names: Array[String] = ["MysteryBoxSocket", "SanctumForge", "PowerSwitch"]
 	for machine_name: String in names:
 		var machine: StaticBody3D = church.get_node_or_null(machine_name) as StaticBody3D
 		if machine == null:
@@ -56,21 +56,31 @@ func _run() -> void:
 			" meshes=", _real_mesh_count(ref_root),
 			" parts=", (machine.get_meta("source_reference_parts", []) as Array).size())
 	if get_nodes_in_group("church_source_machine_visual").size() != names.size():
-		_fail(9, "Only two properly proportioned source visuals should be mounted")
+		_fail(9, "Three archived machine reference visuals must be mounted")
 		return
-	var box: StaticBody3D = church.get_node_or_null("MysteryBoxSocket") as StaticBody3D
-	if box == null or not bool(box.get_meta("source_reference_visual_rejected", false)):
-		_fail(10, "Implausibly proportioned original-style box source not flagged for artwork review")
+	var box: Node = church.get_node_or_null("MysteryBoxSocket")
+	var source: Node = box.get_node_or_null("ArchivedWorkshopReference3D")
+	if source == null:
+		_fail(10, "Archived animated box visual missing")
 		return
-	var fallback_visible: bool = false
-	for child: Node in box.get_children():
-		if child is MeshInstance3D and (child as MeshInstance3D).visible:
-			fallback_visible = true
-	if not fallback_visible or not box.has_method("interact"):
-		_fail(11, "Rejected box visual must preserve functional fallback")
+	var actor: AnimationPlayer = null
+	var stack: Array[Node] = [source]
+	while not stack.is_empty():
+		var obj: Node = stack.pop_back()
+		if obj is AnimationPlayer:
+			actor = obj as AnimationPlayer
+			break
+		for child: Node in obj.get_children():
+			stack.append(child)
+	if actor == null or not actor.has_animation("open") or not actor.has_animation("weapon_rise"):
+		_fail(11, "Source box missing real open/weapon rise skeletal clips")
 		return
-	print("XZOGOT_CHURCH_MYSTERY_SOURCE_ASPECT_REJECTED_WITH_FUNCTIONAL_FALLBACK")
-	print("XZOGOT_CHURCH_TWO_ARCHIVED_MACHINE_MODELS_MOUNTED_GREEN")
+	box.call("_animate_mystery_box")
+	if not bool(box.get_meta("source_box_open_animation_played", false)):
+		_fail(12, "Source box model imported but interaction does not actually animate")
+		return
+	print("XZOGOT_CHURCH_SOURCE_BOX_OPEN_AUTHORED_ANIMATION_GREEN")
+	print("XZOGOT_CHURCH_THREE_ARCHIVED_MACHINE_MODELS_MOUNTED_GREEN")
 	print("XZOGOT_CHURCH_MACHINE_GAMEPLAY_BACKEND_COLLISION_PRESERVED")
 	church.queue_free()
 	await process_frame
