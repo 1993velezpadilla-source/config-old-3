@@ -13,7 +13,7 @@ from PIL import Image, ImageChops, ImageDraw
 
 W, H = 960, 540
 ORIGINAL="source_group3_70source_35vs35_original"
-BOTH="source_group3_70source_35vs35_all141_positive"
+BOTH="source_group3_70source_35vs35_positive"
 HALVES=("source_group3_70source_35vs35_only_0","source_group3_70source_35vs35_only_1")
 RESTORED="source_group3_70source_35vs35_original_restored"
 
