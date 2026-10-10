@@ -81,6 +81,19 @@ jobs:
           grep -q BLACK_PINES_SPATIAL_PHYSICS_GREEN build/black-pines/godot/spatial-physics.log
           ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_SPATIAL_RED' \
             build/black-pines/godot/spatial-physics.log
+      - name: Gate 9-zone locked-door routing and real window-crossing zombies
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 175 /tmp/Godot_v4.6.1-stable_linux.x86_64 --headless --path xogot \
+            --script res://ci/black_pines_routing_probe.gd \
+            2>&1 | tee build/black-pines/godot/routing-and-zombie-crossings.log
+          grep -q BLACK_PINES_ROUTING_81_PAIRS_GREEN \
+            build/black-pines/godot/routing-and-zombie-crossings.log
+          grep -q BLACK_PINES_FOUR_COMPASS_ZOMBIE_TRAVERSAL_GREEN \
+            build/black-pines/godot/routing-and-zombie-crossings.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_ROUTING_RED' \
+            build/black-pines/godot/routing-and-zombie-crossings.log
       - name: Capture REAL Godot source-map overview image
         shell: bash
         run: |
