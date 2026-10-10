@@ -111,8 +111,10 @@ def make_camera():
     data=bpy.data.cameras.new("Survey_45deg_Black_Pines")
     obj=bpy.data.objects.new("Survey_45deg_Black_Pines",data)
     bpy.context.collection.objects.link(obj)
-    obj.location=(42,-59,62)
-    target=Vector((0,3,0))
+    # This camera is authored AFTER the level Y-up to Blender Z-up
+    # conversion: keep camera in Blender's own native Z-up coordinates.
+    obj.location=(49,-58,66)
+    target=Vector((0,-3,0))
     direction=target-obj.location
     obj.rotation_euler=direction.to_track_quat("-Z","Y").to_euler()
     data.type="ORTHO"
@@ -242,6 +244,9 @@ def build(layout):
         tree=bpy.context.object
         tree.name="PineSilhouette_"+str(i)
         tree.data.materials.append(mat("dark_metal"))
+        # Cones are Blender Z-up primitives. Reorient locally to logical
+        # Y-up so global level conversion preserves vertical pine crowns.
+        tree.rotation_euler.x=-math.pi/2
         COUNTS["prop"]+=1
     make_camera()
     world=bpy.context.scene.world or bpy.data.worlds.new("BlackPinesNight")
@@ -265,11 +270,18 @@ def reorient_blender_coordinate_system():
     from mathutils import Matrix
     rot=Matrix.Rotation(math.pi/2,4,"X")
     for obj in bpy.context.scene.objects:
-        if obj.type=="CAMERA" or obj.type=="LIGHT":
-            # Preview camera/light must be reoriented too.
+        if obj.type=="MESH":
             obj.matrix_world=rot @ obj.matrix_world
-        elif obj.type=="MESH":
-            obj.matrix_world=rot @ obj.matrix_world
+        elif obj.type=="LIGHT":
+            # Positions follow logical Y-up cells. However Blender area
+            # lamps point along native -Z, which must stay downward into
+            # the now-Z-up rooms; rotating their basis points at a wall.
+            obj.location=rot @ obj.location
+            obj.rotation_euler=(0,0,0)
+        elif obj.type=="CAMERA":
+            # make_camera() is already authored in native Blender Z-up.
+            # Rotating it caused the first visual test to look *side-on*.
+            pass
 
 def main():
     args=sys.argv
