@@ -10,6 +10,7 @@ from mathutils import Vector
 import black_pines_forge_surface as forge_surface
 import black_pines_forge_materials as forge_materials
 import black_pines_forge_hospital_kit as hospital_kit
+import black_pines_cc0_import as cc0_import
 
 LANDMARKS = {}
 ADDED_NAMES = []
@@ -260,6 +261,7 @@ def build_forge_detail(api, layout):
 
     surface = forge_surface.build_surfaces(api,layout,add_box,tube,_label)
     hero_props = hospital_kit.build(api,layout,add_box,tube)
+    cc0_props = cc0_import.build(layout)
     # Real yard screenshot audit: the source ambulance bumper touched the
     # garage divider at x=7.0. Move the COMPLETE cohesive vehicle left by
     # 0.75m (not merely cab windows) so physical hull and body no longer
@@ -283,6 +285,7 @@ def build_forge_detail(api, layout):
         "ambulanceRepositionMeters":0.75,
         "ambulanceMovedMeshes":ambulance_meshes,
         "originalHospitalKit": hero_props,
+        "hospitalCC0ImportedProps": cc0_props,
         "pbrSourceWear": pbr,
         "distinctRoomLandmarks": {k: len(v) for k, v in LANDMARKS.items()},
         "fidelityGateType": "measurable_composition_not_human_visual_perfection",
@@ -293,7 +296,7 @@ def fidelity_pass(api, layout):
     """Deterministic authoring guard; not a subjective AAA claim."""
     required = {cell["id"] for cell in layout["cells"]}
     actual = set(LANDMARKS)
-    issues = forge_materials.fidelity_gate() + hospital_kit.guard(layout)
+    issues = forge_materials.fidelity_gate() + hospital_kit.guard(layout) + cc0_import.guard()
     if actual != required:
         issues.append("missing/double landmark rooms: " + str(required^actual))
     for room, labels in LANDMARKS.items():
