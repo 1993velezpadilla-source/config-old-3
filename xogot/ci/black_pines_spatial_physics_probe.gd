@@ -8,8 +8,8 @@ const BLUEPRINT := "res://data/black_pines_layout.json"
 func _init() -> void:
     call_deferred("_run")
 
-func _assert(pass: bool, message: String) -> bool:
-    if pass:
+func _assert(condition: bool, message: String) -> bool:
+    if condition:
         return true
     push_error("BLACK_PINES_SPATIAL_RED " + message)
     quit(51)
