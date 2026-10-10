@@ -11,6 +11,7 @@ on:
       - "xogot/scripts/you_wont_win.gd"
       - "xogot/ci/church_source_machine_probe.gd"
       - "xogot/ci/church_three_real_rounds_probe.gd"
+      - "xogot/ci/church_template_visual_capture.gd"
       - "xogot/scripts/zombie_dummy.gd"
       - "xogot/scripts/chronicles_template_registry.gd"
       - "xogot/data/church_chronicles_template.json"
@@ -116,6 +117,44 @@ jobs:
           grep -q XZOGOT_CHURCH_THREE_LIVE_WAVES_GREEN church-three-rounds.log
           grep -q XZOGOT_CHURCH_ROUNDS_1000_FORMULA_GREEN church-three-rounds.log
           ! grep -E 'CHURCH_THREE_ROUNDS_PROBE:|SCRIPT ERROR|Parse Error' church-three-rounds.log
+      - name: Capture FIVE authentic source-template Godot screenshots
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+          mkdir -p build/church-visual-evidence
+          timeout 145 xvfb-run -a -s "-screen 0 1600x900x24" \
+            /tmp/church-godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --path xogot --rendering-method gl_compatibility --resolution 1600x900 \
+            --script res://ci/church_template_visual_capture.gd \
+            2>&1 | tee church-photos.log
+          grep -q 'XZOGOT_REAL_CHURCH_FIVE_SOURCE_PHOTOS_GREEN' church-photos.log
+          test "$(find build/church-visual-evidence -maxdepth 1 -name '*.jpg' | wc -l)" -eq 5
+          ! grep -E 'CHURCH_VISUAL_CAPTURE:|SCRIPT ERROR|Parse Error' church-photos.log
+      - name: Print compact authenticated real image data for inline QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64
+          for path in sorted(Path("build/church-visual-evidence").glob("*.jpg")):
+              encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+              for index, offset in enumerate(range(0,len(encoded),3400)):
+                  print(f"XZOGOT_IMAGE_CHUNK {path.stem} {index:05d} {encoded[offset:offset+3400]}")
+              print(f"XZOGOT_IMAGE_COMPLETE {path.stem} {len(encoded)}")
+          PY
+      - name: Upload authentic Godot church screenshots (not asset meshes)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Church-Real-Godot-Source-Template-Photos
+          path: |
+            build/church-visual-evidence/*.jpg
+            church-photos.log
+          if-no-files-found: warn
+          retention-days: 10
       - name: Upload technical verification LOGS ONLY (not copyrighted asset files)
         if: always()
         uses: actions/upload-artifact@v4
