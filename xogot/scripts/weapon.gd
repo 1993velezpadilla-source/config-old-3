@@ -2,6 +2,8 @@ extends Node
 
 const WeaponCatalog = preload("res://scripts/weapon_catalog.gd")
 const WeaponAssetRegistry = preload("res://scripts/weapon_asset_registry.gd")
+const SourcePresentation = preload("res://scripts/weapon_viewmodel_source_presentation.gd")
+const SourceHipPose = preload("res://scripts/weapon_viewmodel_source_pose.gd")
 
 @export var damage: float = 24.0
 @export var range_m: float = 95.0
@@ -52,6 +54,11 @@ var _smoke_particles: GPUParticles3D
 var _shell_particles: GPUParticles3D
 var _muzzle_flash_timer: float = 0.0
 var _last_ads_state: bool = false
+var _real_hands_bound: bool = false
+var _source_ads_ready: bool = false
+var _source_hip: Vector3 = Vector3.ZERO
+var _source_ads: Vector3 = Vector3.ZERO
+var _source_ads_quat: Quaternion = Quaternion.IDENTITY
 var _dev_infinite_ammo: bool = false
 var _upgraded_ids: Dictionary = {}
 var _upgraded: bool = false
@@ -129,6 +136,8 @@ func _clear_view_model() -> void:
 	_weapon_model_root = null
 	_hands_animation_player = null
 	_hands_model_root = null
+	_real_hands_bound = false
+	_source_ads_ready = false
 	_melee_animation_player = null
 	_melee_model_root = null
 	_melee_overlay_timer = 0.0
@@ -567,6 +576,30 @@ func get_muzzle_anchor_mode() -> String:
 func get_muzzle_flash_timer() -> float:
 	return _muzzle_flash_timer
 
+func _bind_real_hands_source_grip() -> void:
+	if _hands_model_root == null or _weapon_model_root == null:
+		return
+	var socket: Node3D = _find_skeleton_bone_attachment(_hands_model_root, ["tag_weapon"], "SourceTagWeapon")
+	if socket == null:
+		push_warning("XZOGOT_AUTHORED_HANDS_NO_TAG_WEAPON " + _weapon_id)
+		return
+	_weapon_model_root.reparent(socket, false)
+	_weapon_model_root.transform = Transform3D.IDENTITY
+	_weapon_model_root.quaternion = Quaternion(Vector3.RIGHT, deg_to_rad(90.0))
+	_weapon_model_root.scale = Vector3.ONE
+	_real_hands_bound = true
+	_source_hip = SourceHipPose.hip_position(_weapon_id) if SourceHipPose.has_source_hip_pose(_weapon_id) else Vector3.ZERO
+	_source_ads_ready = SourcePresentation.has_source_presentation(_weapon_id)
+	if _source_ads_ready:
+		_source_hip = SourcePresentation.hip_position(_weapon_id)
+		_source_ads = SourcePresentation.ads_position(_weapon_id)
+		_source_ads_quat = SourcePresentation.ads_rotation(_weapon_id)
+	set_meta("weapon_source_weapon_attachment_ready", true)
+	set_meta("weapon_ads_calibration_mode", "source_datatable" if _source_ads_ready else "source_pending")
+	set_meta("weapon_source_hand_transform_position", _source_hip)
+	set_meta("weapon_source_ads_transform_position", _source_ads)
+	print("XZOGOT_CHURCH_TAG_WEAPON_GRIP_READY ", _weapon_id, " source_ads=", _source_ads_ready)
+
 func _refresh_view_assets(def: Dictionary) -> void:
 	_clear_view_model()
 	set_meta("weapon_view_fallback", false)
@@ -614,6 +647,7 @@ func _refresh_view_assets(def: Dictionary) -> void:
 		set_meta("weapon_hands_asset", hands_path)
 		set_meta("weapon_hands_animation_ready", _hands_animation_player != null)
 		print("XZOGOT_FIRST_PERSON_HANDS_LOADED ", _weapon_id, " ", hands_path)
+		_bind_real_hands_source_grip()
 
 	var melee_path := WeaponAssetRegistry.preferred_melee_viewmodel_path(_weapon_id)
 	var melee_res: Resource = _load_optional_asset(melee_path)
