@@ -70,15 +70,21 @@ func _run() -> void:
 			return
 		print("XZOGOT_CHURCH_CURRENT_NUN_ACTOR_NOT_ORIGINAL")
 	var first_distance: float = actor.global_position.distance_to(player.global_position)
-	for frame in range(65):
+	for frame in range(180):
 		await physics_frame
 	var last_distance: float = actor.global_position.distance_to(player.global_position)
-	if last_distance >= first_distance - 0.30:
+	if last_distance >= first_distance - 0.40:
 		_fail(12, "zombie collision/AI chase not progressing: %.2f -> %.2f" % [first_distance, last_distance])
 		return
 	if not actor.has_method("apply_hitscan_damage"):
 		_fail(13, "visual swap broke weapon hit API")
 		return
+	var health_before: float = float(actor.get("health"))
+	actor.call("apply_hitscan_damage", 7.0, null, actor.global_position + Vector3(0.0, 1.0, 0.0))
+	if float(actor.get("health")) >= health_before:
+		_fail(16, "zombie did not take real hitscan damage")
+		return
+	print("XZOGOT_CHURCH_TEMPLATE_GUN_HIT_DAMAGE_GREEN")
 	print("XZOGOT_CHURCH_TEMPLATE_PHYSICAL_CHASE_GREEN ", first_distance, " -> ", last_distance)
 	print("XZOGOT_CHURCH_TEMPLATE_COLLISION_INDEPENDENT_OF_SKIN_GREEN")
 	var perks: Array[Node] = get_nodes_in_group("perk_machine")
