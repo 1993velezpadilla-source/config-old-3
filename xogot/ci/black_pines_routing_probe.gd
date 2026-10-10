@@ -83,6 +83,11 @@ func _run() -> void:
                 var to: Vector3=Vector3(point.x,1.25,point.z)
                 if from.distance_to(to)>0.08:
                     var query:=PhysicsRayQueryParameters3D.create(from,to)
+                    # Path clearance is for static level obstacles. The live
+                    # player is a moving chase target, not a blocked corridor.
+                    var player: CollisionObject3D=scene.get_node_or_null("Player") as CollisionObject3D
+                    if player!=null:
+                        query.exclude=[player.get_rid()]
                     var hit: Dictionary=physics.intersect_ray(query)
                     if not _assert(hit.is_empty(),
                             "physical obstruction "+str(i)+"->"+str(j)+
