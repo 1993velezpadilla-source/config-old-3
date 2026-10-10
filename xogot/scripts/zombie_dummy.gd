@@ -401,6 +401,11 @@ func _build_body() -> void:
 				add_child(visual)
 				_visual_root = visual
 				imported.name = "EnemySource_" + enemy_variant
+				# Recovered XZIEL mesh space uses Z-up; Godot scenes use Y-up.
+				# Apply only to the workshop visual root; animation/physics stay intact.
+				if using_workshop_rig:
+					imported.rotation_degrees.x = -90.0
+					set_meta("workshop_coordinate_basis_correction", "XZIEL_ZUP_TO_GODOT_YUP_X_MINUS_90")
 				imported.rotation_degrees.y = original_yaw if using_original_chronicles_rig else 90.0
 				visual.add_child(imported)
 				var geometry_fit: bool = _fit_chronicles_uniform_bounds(visual, imported) if using_original_chronicles_rig else _fit_visual_to_gameplay_bounds(
