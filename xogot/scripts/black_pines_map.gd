@@ -69,7 +69,7 @@ func _ready() -> void:
     _build_window_barricades()
     _build_machines_and_wallbuys()
     _build_mystery_box()
-    _build_light_and_mood()
+    _build_light_and_mood(not visuals_from_blender)
     _build_spawn_markers()
     _build_roof()
     set_roof_visible(show_roof)
@@ -467,7 +467,7 @@ func _build_original_props(render_native_proxies: bool) -> void:
         _props_root.add_child(anchor)
         _add_3d_label(anchor,str(room["name"]),Vector3.ZERO)
 
-func _build_light_and_mood() -> void:
+func _build_light_and_mood(render_native_fixtures: bool) -> void:
     var env:=WorldEnvironment.new()
     var background:=Environment.new()
     background.background_mode=Environment.BG_COLOR
@@ -499,8 +499,9 @@ func _build_light_and_mood() -> void:
         light.omni_range=12.0
         light.shadow_enabled=false
         add_child(light)
-        _box(_props_root,"CeilingLuminaire",light.position+Vector3.UP*0.24,
-            Vector3(0.9,0.12,0.65),"brass")
+        if render_native_fixtures:
+            _box(_props_root,"CeilingLuminaire",light.position+Vector3.UP*0.24,
+                Vector3(0.9,0.12,0.65),"brass")
     var fog_color: Color=Color(0.12,0.18,0.23)
     set_meta("black_pines_art_direction","mountain snow, rust, emergency red, amber surgical lamps")
     set_meta("black_pines_palette_fog",fog_color)
