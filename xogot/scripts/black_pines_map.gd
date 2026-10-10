@@ -463,10 +463,10 @@ func _build_light_and_mood() -> void:
     var env:=WorldEnvironment.new()
     var background:=Environment.new()
     background.background_mode=Environment.BG_COLOR
-    background.background_color=Color(0.016,0.026,0.043)
+    background.background_color=Color(0.033,0.052,0.071)
     background.ambient_light_source=Environment.AMBIENT_SOURCE_COLOR
     background.ambient_light_color=Color(0.13,0.20,0.25)
-    background.ambient_light_energy=0.35
+    background.ambient_light_energy=0.78
     background.tonemap_mode=Environment.TONE_MAPPER_FILMIC
     env.environment=background
     add_child(env)
@@ -474,7 +474,7 @@ func _build_light_and_mood() -> void:
     sun.name="ColdMoon"
     sun.rotation_degrees=Vector3(-50,25,0)
     sun.light_color=Color(0.42,0.57,0.75)
-    sun.light_energy=0.25
+    sun.light_energy=0.43
     sun.shadow_enabled=false
     add_child(sun)
     for cell: Dictionary in _layout["cells"]:
@@ -487,7 +487,7 @@ func _build_light_and_mood() -> void:
         light.position=Vector3((float(xs[i])+float(xs[i+1]))*.5,
             2.85,(float(zs[j])+float(zs[j+1]))*.5)
         light.light_color=Color(1.0,0.63,0.31) if (i+j)%3==0 else Color(0.42,0.65,0.83)
-        light.light_energy=0.72
+        light.light_energy=1.45
         light.omni_range=12.0
         light.shadow_enabled=false
         add_child(light)
