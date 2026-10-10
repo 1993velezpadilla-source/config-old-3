@@ -108,6 +108,61 @@ static func inspect_original_zombie() -> Dictionary:
 	_cached = result
 	return result.duplicate(true)
 
+
+# Previously decoded Pavlov UE4.21 community source. This is technically
+# real skinned/animated reference geometry, NOT official BO3/T7 provenance.
+static func inspect_workshop_zombie() -> Dictionary:
+	var spec: Dictionary = contract().get("workshopZombie", {}) as Dictionary
+	var path: String = str(spec.get("sourcePath", ""))
+	var result: Dictionary = {"ready":false,"path":path,"reason":"REFERENCE_UNSTAGED","roles":{}}
+	if str(spec.get("sourceEngine", "")) != "PAVLOV_UE421":
+		return result
+	if str(spec.get("status", "")) != "VERIFIED_REFERENCE_IMPORT":
+		return result
+	if not path.begins_with("res://assets/zombies/chronicles/") or not ResourceLoader.exists(path):
+		result["reason"] = "REFERENCE_SCENE_FILE_MISSING"
+		return result
+	var packed: PackedScene = load(path) as PackedScene
+	if packed == null:
+		result["reason"] = "REFERENCE_SCENE_UNREADABLE"
+		return result
+	var node: Node = packed.instantiate()
+	if node == null:
+		result["reason"] = "REFERENCE_SCENE_CANNOT_INSTANTIATE"
+		return result
+	var skeleton: Skeleton3D = _find_skeleton(node)
+	var animation: AnimationPlayer = _find_anim_player(node)
+	var bones: int = skeleton.get_bone_count() if skeleton != null else 0
+	var meshes: int = _mesh_count(node)
+	var roles: Dictionary = spec.get("animationRoles", {}) as Dictionary
+	result["bones"] = bones
+	result["meshes"] = meshes
+	if bones != 102 or meshes < 1 or animation == null:
+		result["reason"] = "REFERENCE_MISSING_102BONE_RIG_MESH_OR_ANIM_PLAYER"
+	else:
+		var missing: Array[String] = []
+		for role: String in ["idle","walk","attack","hit","death"]:
+			var name: String = str(roles.get(role, ""))
+			if name.is_empty() or not animation.has_animation(name):
+				missing.append(role)
+		if missing.is_empty():
+			result["ready"] = true
+			result["roles"] = roles.duplicate(true)
+			result["reason"] = "REFERENCE_RIG_PLUS_FIVE_AUTHORED_MOTION_ROLES"
+		else:
+			result["reason"] = "SOURCE_CLIP_ROLE_MISSING_" + ",".join(missing)
+	node.free()
+	return result
+
+static func workshop_zombie_ready() -> bool:
+	return bool(inspect_workshop_zombie().get("ready", false))
+
+static func workshop_zombie_path() -> String:
+	return str(inspect_workshop_zombie().get("path", "")) if workshop_zombie_ready() else ""
+
+static func workshop_zombie_roles() -> Dictionary:
+	return inspect_workshop_zombie().get("roles", {}) as Dictionary
+
 static func original_zombie_ready() -> bool:
 	return bool(inspect_original_zombie().get("ready", false))
 

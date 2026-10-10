@@ -69,5 +69,26 @@
     "officialBO3T7": false,
     "hasDecodedMotionClips": true,
     "hasImportedGodotScene": false
+  },
+  "workshopZombie": {
+    "status": "NOT_STAGED",
+    "sourceEngine": "PAVLOV_UE421",
+    "sourceRun": 37714627696,
+    "sourceArtifact": 11524105191,
+    "sourcePath": "",
+    "expectedBones": 102,
+    "sourceSkeletonHash": "bcd0ac6b5cae8d26",
+    "yawDegrees": 90,
+    "animationRoles": {
+      "idle": "Idle_Body_Head_V1",
+      "walk": "ai_zombie_walk_v1",
+      "attack": "Attack_Body_Head_V1",
+      "hit": "Body_Head_Tesla1_V1",
+      "death": "Idle_Body_Death1_V1",
+      "getup": "Body_Head_rising_V1"
+    },
+    "crawl": "MISSING_AUTHORED_CRAWL_CLIP",
+    "hitNote": "Electrical Tesla response used as test reaction, NOT verified bullet-specific hurt",
+    "sourceProvenance": "Community Pavlov VR UE4.21 remix, not official 2017 BO3/T7; redistribution rights unverified"
   }
 }
