@@ -185,6 +185,13 @@ func _update_power_visual() -> void:
 		set_meta("powered_visual_on", powered)
 
 func _animate_mystery_box() -> void:
+	var visual: Node = find_child("ArchivedWorkshopReference3D", true, false)
+	if visual != null:
+		var animation: AnimationPlayer = _find_machine_animation_player(visual)
+		if animation != null and animation.has_animation("open"):
+			animation.play("open", 0.04)
+			set_meta("source_box_open_animation_played", true)
+			return
 	var lid := find_child("MysteryLid", true, false) as Node3D
 	if lid == null:
 		return
