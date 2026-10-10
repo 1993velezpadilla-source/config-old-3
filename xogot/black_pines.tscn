@@ -1,6 +1,6 @@
-# ORIGINAL Black Pines Sanatorium playable gameplay laboratory.
-# Uses existing touch HUD, weapon, round director, powerup, network systems.
-# NO modifications to the church scene.
+; ORIGINAL Black Pines Sanatorium playable gameplay laboratory.
+; Uses existing touch HUD, weapon, round director, powerup, network systems.
+; NO modifications to the church scene.
 [gd_scene load_steps=14 format=3]
 
 [ext_resource path="res://scripts/black_pines_map.gd" type="Script" id="1"]
