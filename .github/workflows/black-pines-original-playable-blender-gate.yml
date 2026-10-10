@@ -112,6 +112,19 @@ jobs:
             build/black-pines/godot/routing-and-zombie-crossings.log
           ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_ROUTING_RED' \
             build/black-pines/godot/routing-and-zombie-crossings.log
+      - name: Soak all 20 rounds with actual zombie actors and 24-alive hard cap
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 430 /tmp/Godot_v4.6.1-stable_linux.x86_64 --headless --path xogot \
+            --script res://ci/black_pines_20_round_spawn_soak.gd \
+            2>&1 | tee build/black-pines/godot/20-round-director-soak.log
+          grep -q BLACK_PINES_20_ROUND_DIRECTOR_SOAK_GREEN \
+            build/black-pines/godot/20-round-director-soak.log
+          test "$(grep -c 'BLACK_PINES_20_ROUND_SOAK_WAVE_GREEN' \
+            build/black-pines/godot/20-round-director-soak.log)" -eq 20
+          ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_20_ROUND_SOAK_RED' \
+            build/black-pines/godot/20-round-director-soak.log
       - name: Capture REAL Godot source-map overview image
         shell: bash
         run: |
