@@ -43,6 +43,13 @@ def tube(api, label, start, end, radius, material, segments=9):
 
 
 def _label(api, label, pos, title, size=.28, material="light"):
+    # An original dark plaque keeps signs readable against weathered plaster.
+    # It is visual-only and does not interfere with zombie collision openings.
+    width=min(8.70,max(1.05,len(title)*size*.59+.46))
+    plaque=api.cube("Forge_Plaque_"+label,
+                    (pos[0],pos[1]+size*.13,pos[2]-.075),
+                    (width,size*1.42,.075),"dark_metal","trim",.023)
+    ADDED_NAMES.append(plaque.name)
     # Text converted to an ORIGINAL mesh so glTF selected-MESH export includes
     # it. Avoid externally shipped font files or proprietary text assets.
     bpy.ops.object.text_add(location=godot_to_blender(pos))
@@ -128,7 +135,7 @@ def build_forge_detail(api, layout):
              (-9.2,3.2,-13),.11,"brass").name,
         tube(api,"Generator_Downpipe",(-9.2,3.2,-13),
              (-9.2,1.6,-13),.09,"rust").name,
-        _label(api,"GENERATOR",(-12.6,2.60,-14.68),
+        _label(api,"GENERATOR",(-12.6,3.17,-14.68),
                "BLACK PINES  /  POWER",.28).name,
     ])
 
@@ -144,7 +151,7 @@ def build_forge_detail(api, layout):
              (4.9,2.1,-11.7),.026,"brass").name,
         tube(api,"Isolation_IVHook",(4.7,2.06,-11.7),
              (5.1,2.06,-11.7),.022,"brass").name,
-        _label(api,"ISOLATION",(0.0,2.48,-14.68),
+        _label(api,"ISOLATION",(0.0,3.17,-14.68),
                "QUARANTINE  /  1948",.32).name,
     ])
 
@@ -160,7 +167,7 @@ def build_forge_detail(api, layout):
              (14.8,2.42,-9.6),.054,"brass").name,
         add_box(api,"Surgery_SpotLamp",(14.8,2.33,-9.6),
                 (.75,.14,.50),"light",.06).name,
-        _label(api,"SURGERY",(12.3,2.53,-14.68),
+        _label(api,"SURGERY",(12.3,3.17,-14.68),
                "SURGICAL THEATRE",.26).name,
     ])
 
