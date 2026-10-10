@@ -16,6 +16,11 @@ on:
       - ".github/workflows/black-pines-original-playable-blender-gate.yml"
 permissions:
   contents: read
+# Preserve free GitHub Actions minutes: future rapid Forge fidelity commits
+# supersede stale map-render gauntlets on the SAME branch only.
+concurrency:
+  group: black-pines-forge-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   godot-gameplay-compile-and-scene:
     runs-on: ubuntu-latest
