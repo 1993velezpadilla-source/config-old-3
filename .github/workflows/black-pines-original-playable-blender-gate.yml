@@ -71,6 +71,16 @@ jobs:
             2>&1 | tee build/black-pines/godot/gameplay.log
           grep -q BLACK_PINES_PHASE1_GAMEPLAY_GREEN build/black-pines/godot/gameplay.log
           ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_PHASE1_RED' build/black-pines/godot/gameplay.log
+      - name: Probe REAL physics for all 12 paid doors and all 12 barricades
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150 /tmp/Godot_v4.6.1-stable_linux.x86_64 --headless --path xogot \
+            --script res://ci/black_pines_spatial_physics_probe.gd \
+            2>&1 | tee build/black-pines/godot/spatial-physics.log
+          grep -q BLACK_PINES_SPATIAL_PHYSICS_GREEN build/black-pines/godot/spatial-physics.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_SPATIAL_RED' \
+            build/black-pines/godot/spatial-physics.log
       - name: Capture REAL Godot source-map overview image
         shell: bash
         run: |
