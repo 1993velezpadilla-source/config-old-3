@@ -247,6 +247,7 @@ jobs:
           assert mobile["mobileExportMeshObjects"]<=165
           assert mobile["reductionFraction"]>=0.55
           assert mobile["nineHeroMeshesPreserved"] and mobile["nineFloorMeshesPreserved"]
+          assert mobile["ambulanceZoneAwareBatching"], "shape-profile objects must batch in the yard cell"
           assert mobile["sourceBlendEditableUntouched"]
           print("BLACK_PINES_MOBILE_DRAW_BATCH_CI_GREEN",mobile)
           assert f["meshObjects"]<=f["meshObjectBudget"]
