@@ -232,6 +232,12 @@ func _apply_enemy_variant_stats(zombie: Node, variant: String, round_number: int
 		_:
 			zombie.set("health", base_health)
 			zombie.set("move_speed", base_speed)
+	# Elite/special variants can multiply base HP. Apply the mobile-safe
+	# endless ceiling AFTER variant bonuses so no millionth-round elite can
+	# overflow, become unkillable, or bypass the Black Pines HP contract.
+	if endless_rounds_enabled:
+		zombie.set("health", minf(float(zombie.get("health")),
+			float(maxi(950, endless_zombie_health_cap))))
 	zombie.set_meta("classic_round_health", float(zombie.get("health")))
 	zombie.set_meta("classic_round_speed", float(zombie.get("move_speed")))
 
