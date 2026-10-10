@@ -144,3 +144,82 @@ jobs:
           path: build/black-pines/blender/
           retention-days: 14
           if-no-files-found: warn
+
+  blender-godot-integrated-playable:
+    # The original two GREEN jobs are independent. This THIRD job proves that
+    # Blender's GLB is actually imported and rendered by the gameplay scene.
+    needs: [blender-original-level-author, godot-gameplay-compile-and-scene]
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v5
+      - name: Download true Blender-authored architecture
+        uses: actions/download-artifact@v4
+        with:
+          name: Black-Pines-Original-Blender-Artpass-GLB-Preview
+          path: build/black-pines/blender-in
+      - name: Mount authored GLB without changing the original collision map
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p xogot/assets/black_pines build/black-pines/integrated
+          cp build/black-pines/blender-in/black-pines-original-architecture.glb \
+            xogot/assets/black_pines/black_pines_architecture.glb
+          python3 - <<'PY'
+          import struct
+          from pathlib import Path
+          p=Path('xogot/assets/black_pines/black_pines_architecture.glb')
+          header=p.read_bytes()[:12]
+          magic,version,length=struct.unpack('<4sII',header)
+          assert magic==b'glTF' and version==2 and length==p.stat().st_size
+          assert length>10000
+          print('BLACK_PINES_GLTF2_BINARY_INTEGRITY_GREEN bytes=',length)
+          PY
+      - name: Install free Godot 4.6.1 for imported Blender runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libegl1 libx11-6 libxcursor1 libxrandr2 libxi6
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/black-pines-godot.zip
+          unzip -q /tmp/black-pines-godot.zip -d /tmp
+          chmod +x /tmp/Godot_v4.6.1-stable_linux.x86_64
+          /tmp/Godot_v4.6.1-stable_linux.x86_64 --version
+      - name: Import GLB into Godot editor without source-map changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 600 /tmp/Godot_v4.6.1-stable_linux.x86_64 --headless \
+            --editor --path xogot --quit 2>&1 | tee build/black-pines/integrated/import.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|ERROR:.*black_pines_architecture' \
+            build/black-pines/integrated/import.log
+      - name: Capture REAL Blender mesh mounted into live Godot gameplay
+        shell: bash
+        run: |
+          set -euo pipefail
+          BLACK_PINES_REQUIRE_BLENDER_MOUNT=1 timeout 180 xvfb-run -a \
+            -s '-screen 0 1360x900x24' \
+            /tmp/Godot_v4.6.1-stable_linux.x86_64 --path xogot \
+            --rendering-method gl_compatibility --resolution 1360x900 \
+            --script res://ci/black_pines_visual_probe.gd \
+            2>&1 | tee build/black-pines/integrated/visual.log
+          grep -q BLACK_PINES_BLENDER_MOUNT_GREEN build/black-pines/integrated/visual.log
+          grep -q BLACK_PINES_REAL_GODOT_FIRSTPERSON_HUD_SCREENSHOT_GREEN \
+            build/black-pines/integrated/visual.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_BLENDER_MOUNT_RED' \
+            build/black-pines/integrated/visual.log
+          cp xogot/black-pines-real-firstframe-overview.png \
+            build/black-pines/integrated/black-pines-BLENDER-IN-GODOT-overview.png
+          cp xogot/black-pines-real-firstperson-mobile-hud.png \
+            build/black-pines/integrated/black-pines-BLENDER-IN-GODOT-firstperson-HUD.png
+          file build/black-pines/integrated/*.png
+      - name: Archive actual Blender to Godot evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Black-Pines-Blender-Mounted-In-Godot-Evidence
+          path: build/black-pines/integrated/
+          retention-days: 14
+          if-no-files-found: warn
