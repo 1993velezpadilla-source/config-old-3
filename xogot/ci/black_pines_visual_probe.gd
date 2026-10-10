@@ -27,11 +27,22 @@ func _capture() -> void:
             "*","MeshInstance3D",true,false).size() if authored!=null else 0
         var collision_count: int=architecture.find_children(
             "*","CollisionShape3D",true,false).size() if architecture!=null else 0
+        var scenery: Node=scene.get_node_or_null("Scenery")
+        var duplicate_props: int=scenery.find_children(
+            "*","MeshInstance3D",true,false).size() if scenery!=null else -1
         if not bool(scene.get_meta("black_pines_blender_visuals_mounted",false)) or mesh_count<40 or collision_count<70:
             push_error("BLACK_PINES_BLENDER_MOUNT_RED authored_meshes="+str(mesh_count)
                 +" native_collider_count="+str(collision_count))
             quit(45)
             return
+        if duplicate_props!=0 or not bool(scene.get_meta(
+                "black_pines_duplicate_scenery_prevented",false)):
+            push_error("BLACK_PINES_BLENDER_MOUNT_RED double_scenery_meshes="
+                +str(duplicate_props))
+            quit(46)
+            return
+        print("BLACK_PINES_DOUBLE_FURNITURE_ELIMINATED_GREEN",
+            " native_scenery_meshes=0 blender_only=true")
         print("BLACK_PINES_BLENDER_MOUNT_GREEN meshes=",mesh_count,
             " native_collision_shapes=",collision_count,
             " true_blender_visuals=true android_device_test=false")
