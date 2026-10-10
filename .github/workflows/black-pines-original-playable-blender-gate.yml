@@ -400,6 +400,86 @@ jobs:
           grep -q BLACK_PINES_FIDELITY_9_ROOM_CONTACT_SHEET_GREEN \
             build/black-pines/integrated/fidelity-image-audit.log
           test -s build/black-pines/integrated/black-pines-FIDELITY-9-REAL-GODOT-ROOMS.png
+      - name: Fetch only VERIFIED CC0 hospital GLBs for isolated art review
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/black-pines/cc0-audition
+          python3 xogot/ci/black_pines_cc0_asset_intake.py \
+            --out xogot/assets/black_pines/free_cc0_staging \
+            2>&1 | tee build/black-pines/cc0-audition/provenance-and-download.log
+          grep -q BLACK_PINES_CC0_16_REAL_DOWNLOADS_GREEN \
+            build/black-pines/cc0-audition/provenance-and-download.log
+          cp xogot/assets/black_pines/free_cc0_staging/cc0-intake-evidence.json \
+            build/black-pines/cc0-audition/
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("build/black-pines/cc0-audition/cc0-intake-evidence.json").read_text())
+          assert r["assetCount"]==16 and r["stage"]=="REVIEW_ONLY_NOT_SHIPPED"
+          assert all(x["license"]=="CC0 1.0 Universal" for x in r["assets"])
+          assert all(x["notIncludedInProductionAPK"] for x in r["assets"])
+          assert r["totalTriangles"]<=14000
+          print("BLACK_PINES_CC0_PACK_RIGHTS_AND_TRIANGLE_BUDGET_GREEN",r["totalTriangles"])
+          PY
+      - name: Import all audited GLBs into Godot staging project (never mount into live Black Pines)
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 140 /tmp/Godot_v4.6.1-stable_linux.x86_64 --headless --editor \
+            --path xogot --quit 2>&1 | tee build/black-pines/cc0-audition/godot-import.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|ERROR:.*free_cc0_staging' \
+            build/black-pines/cc0-audition/godot-import.log
+      - name: Capture 16 real Godot preview PNGs of audited free hospital props
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 210 xvfb-run -a -s '-screen 0 1360x900x24' \
+            /tmp/Godot_v4.6.1-stable_linux.x86_64 --path xogot \
+            --rendering-method gl_compatibility --resolution 1360x900 \
+            --script res://ci/black_pines_cc0_preview.gd \
+            2>&1 | tee build/black-pines/cc0-audition/godot-real-samples.log
+          grep -q BLACK_PINES_CC0_16_REAL_GODOT_PREVIEWS_GREEN \
+            build/black-pines/cc0-audition/godot-real-samples.log
+          test "$(grep -c 'BLACK_PINES_CC0_REAL_GODOT_ASSET_GREEN' \
+            build/black-pines/cc0-audition/godot-real-samples.log)" -eq 16
+          cp xogot/cc0-staging-*.png build/black-pines/cc0-audition/
+          test "$(find build/black-pines/cc0-audition -maxdepth 1 \
+            -name 'cc0-staging-*.png' | wc -l)" -eq 16
+          ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_FREE_CC0_PREVIEW_RED' \
+            build/black-pines/cc0-audition/godot-real-samples.log
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image,ImageDraw
+          source=Path('build/black-pines/cc0-audition')
+          images=sorted(source.glob('cc0-staging-*.png'))
+          assert len(images)==16
+          w,h=360,240
+          out=Image.new('RGB',(w*4,(h+36)*4),(21,24,30))
+          dr=ImageDraw.Draw(out)
+          for i,path in enumerate(images):
+              with Image.open(path) as im:
+                  frame=im.convert('RGB')
+                  assert frame.size[0]>=900 and frame.size[1]>=600
+                  frame.thumbnail((w,h),Image.Resampling.LANCZOS)
+              x=(i%4)*w; y=(i//4)*(h+36)
+              out.paste(frame,(x+(w-frame.width)//2,y))
+              dr.text((x+12,y+h+8),path.stem.replace('cc0-staging-','').upper(),
+                      fill=(230,234,239))
+          dest=source/'BLACK-PINES-16-REAL-CC0-GODOT-PROP-PREVIEWS.png'
+          out.save(dest,optimize=True)
+          assert dest.stat().st_size>30000
+          print('BLACK_PINES_CC0_16_REAL_CONTACT_SHEET_GREEN',dest)
+          PY
+      - name: Archive free CC0 model candidate renders — staging only, NOT shipping
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Black-Pines-Free-CC0-16-Assets-Godot-Art-Audition
+          path: build/black-pines/cc0-audition/
+          retention-days: 14
+          if-no-files-found: warn
+
       - name: Archive actual Blender to Godot evidence
         if: always()
         uses: actions/upload-artifact@v4
