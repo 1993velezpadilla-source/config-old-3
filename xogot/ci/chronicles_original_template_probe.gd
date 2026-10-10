@@ -41,7 +41,11 @@ func _run() -> void:
 	var actor := CharacterBody3D.new()
 	actor.name = "OriginalTemplateRuntimeActorProbe"
 	actor.set_script(zombie_script)
-	actor.global_position = player.global_position + Vector3(3.5, 0.15, 0.0)
+	# Test 102-bone rig in a clear collision-backed church courtyard, not
+	# behind benches where 1m of collision avoidance resembled failed chasing.
+	var test_floor: Vector3 = scene.call("_wp", Vector3(39.0, 0.36, -3.0))
+	player.global_position = test_floor
+	actor.global_position = test_floor + Vector3(3.5, 0.0, 0.0)
 	actor.call("configure_direct", player, null)
 	scene.add_child(actor)
 	await process_frame
@@ -69,6 +73,19 @@ func _run() -> void:
 			_fail(11, "original source reported ready without validated rig")
 			return
 		print("XZOGOT_CHURCH_CURRENT_NUN_ACTOR_NOT_ORIGINAL")
+	var workshop: Dictionary = Registry.inspect_workshop_zombie()
+	var required: bool = OS.get_environment("XZOGOT_REQUIRE_WORKSHOP_ZOMBIE") == "1"
+	if required and not bool(workshop.get("ready", false)):
+		_fail(20, "recovered 102-bone zombie source was not actually importable: " + str(workshop.get("reason", "")))
+		return
+	if bool(workshop.get("ready", false)):
+		if str(actor.get_meta("zombie_source_lane", "")) != "PAVLOV_UE421_NACHT_REFERENCE":
+			_fail(21, "live church zombie still drawing substitute monja, not recovered source")
+			return
+		if not bool(actor.get_meta("chronicles_uniform_skinning_fit", false)):
+			_fail(22, "recovered zombie skinning was squashed instead of uniformly fitted")
+			return
+		print("XZOGOT_CHURCH_RECOVERED_NACHT_102_BONE_RIG_GREEN")
 	var first_distance: float = actor.global_position.distance_to(player.global_position)
 	for frame in range(180):
 		await physics_frame
@@ -84,6 +101,12 @@ func _run() -> void:
 	if float(actor.get("health")) >= health_before:
 		_fail(16, "zombie did not take real hitscan damage")
 		return
+	if bool(workshop.get("ready", false)):
+		var role: String = str((workshop.get("roles", {}) as Dictionary).get("hit", ""))
+		if str(actor.get_meta("active_animation", "")) != role:
+			_fail(23, "recoverable hit animation not played on weapon damage, expected " + role)
+			return
+		print("XZOGOT_CHURCH_RECOVERED_NACHT_HIT_REACTION_GREEN")
 	print("XZOGOT_CHURCH_TEMPLATE_GUN_HIT_DAMAGE_GREEN")
 	print("XZOGOT_CHURCH_TEMPLATE_PHYSICAL_CHASE_GREEN ", first_distance, " -> ", last_distance)
 	print("XZOGOT_CHURCH_TEMPLATE_COLLISION_INDEPENDENT_OF_SKIN_GREEN")
