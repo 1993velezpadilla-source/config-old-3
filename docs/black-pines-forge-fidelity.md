@@ -8,7 +8,7 @@
 - Gameplay doors, zombies, collision, repairs, purchases and spawns remain owned by Godot. **Forge art is currently visual-only**; furniture collision/capsule sweeps will be a later gate. Church/Nacht unchanged.
 
 ## Open the Forge GUI
-1. In Blender (3.x+), install and enable `black_pines_forge_gui.py` via **Edit > Preferences > Add-ons > Install**.
+1. In Blender (3.x+), install the **`Black-Pines-Forge-GUI-install-in-Blender.zip`** produced by the **Blender Artpass** GitHub Actions artifact via **Edit > Preferences > Add-ons > Install**. The ZIP contains all FOUR Python modules; installing only the loose GUI `.py` without its author/detail/surface siblings does not work.
 2. In **3D Viewport**, press **N** and open **Black Pines Forge**.
 3. Set the repository's `xogot/data/black_pines_layout.json` as the manifest. The default `//xogot/... ` path only resolves from Blender's project working directory; browse explicitly if necessary.
 4. Run **01 - Forge Entire Map**, **02 - Fidelity Pass**, then **03 - Export Original GLB**. Export is refused after RED.
