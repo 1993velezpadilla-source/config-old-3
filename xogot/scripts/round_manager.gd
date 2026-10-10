@@ -13,6 +13,14 @@ signal last_zombie_started(round_number: int, zombie: Node)
 @export var special_rounds_enabled: bool = true
 # Map-local override only; existing maps continue using the original zombie logic.
 @export var zombie_script_path: String = "res://scripts/zombie_dummy.gd"
+# Black Pines opts into ENDLESS survival. This is a map-local switch so
+# Church/Nacht retains its existing classic population/health progression.
+# A round number is NOT capped at 20/100/255. The engine uses signed int64.
+# Only simultaneous actors and per-wave population/health are bounded for
+# mobile performance, so a very high round cannot freeze or overflow Godot.
+@export var endless_rounds_enabled: bool = false
+@export_range(24, 512, 1) var endless_wave_population_cap: int = 144
+@export_range(950, 1000000, 50) var endless_zombie_health_cap: int = 250000
 
 # Classic Treyarch-style round flow. The total round population grows beyond
 # 24; the cap only limits how many can exist simultaneously.
@@ -120,6 +128,15 @@ func zombies_for_round(round_number: int, player_count: int = -1) -> int:
 	var round_id: int = maxi(1, round_number)
 	var players: int = maxi(1, player_count if player_count > 0 else _active_player_count())
 	var player_term: float = 3.0 if players == 1 else float(players - 1) * 6.0
+	if endless_rounds_enabled and round_id >= 10:
+		# Never convert quadratic late-wave float populations to unbounded
+		# int64. Keep late survival challenging, but playable on a phone.
+		# This caps zombie COUNT PER WAVE, not the number of ROUNDS.
+		var pop_cap: int = maxi(24, endless_wave_population_cap) + (mini(4, players) - 1) * 16
+		if round_id >= 100:
+			return pop_cap
+		var estimate: float = 24.0 + player_term * float(round_id) * float(round_id) * 0.03
+		return mini(pop_cap, int(floor(estimate)))
 
 	if round_id < 10:
 		var base: float = 24.0 + player_term * maxf(1.0, float(round_id) / 5.0)
@@ -225,6 +242,14 @@ func zombie_health_for_round(round_number: int) -> int:
 	var round_id: int = maxi(1, round_number)
 	if round_id <= 9:
 		return round_id * 100 + 50
+	if endless_rounds_enabled:
+		# pow(1.1, round-9) overflows on high rounds. Clamp BEFORE pow
+		# at rounds far above the hit-point ceiling. Do not turn 1e6 rounds
+		# into an infinite-health or negative-health zombie.
+		var hp_cap: int = maxi(950, endless_zombie_health_cap)
+		if round_id >= 90:
+			return hp_cap
+		return mini(hp_cap, int(floor(950.0 * pow(1.1, float(round_id - 9)))))
 	return int(floor(950.0 * pow(1.1, float(round_id - 9))))
 
 func spawn_interval_for_round(round_number: int) -> float:
@@ -638,6 +663,14 @@ func apply_network_round_state(
 
 func get_round() -> int:
 	return current_round
+
+func is_endless_survival() -> bool:
+	return endless_rounds_enabled
+
+func get_configured_round_limit() -> int:
+	# 0 is explicitly unlimited rounds; late-wave population/health budgets
+	# do NOT impose a terminal round on the survival mode.
+	return 0 if endless_rounds_enabled else -1
 
 func get_alive() -> int:
 	return _alive
