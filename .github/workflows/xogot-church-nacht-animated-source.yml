@@ -102,8 +102,8 @@ jobs:
           timeout 105 /tmp/church-godot/Godot_v4.6.1-stable_linux.x86_64 \
             --headless --path xogot --script res://ci/church_source_machine_probe.gd \
             2>&1 | tee church-machine-live.log
-          grep -q XZOGOT_CHURCH_TWO_ARCHIVED_MACHINE_MODELS_MOUNTED_GREEN church-machine-live.log
-          grep -q XZOGOT_CHURCH_MYSTERY_SOURCE_ASPECT_REJECTED_WITH_FUNCTIONAL_FALLBACK church-machine-live.log
+          grep -q XZOGOT_CHURCH_THREE_ARCHIVED_MACHINE_MODELS_MOUNTED_GREEN church-machine-live.log
+          grep -q XZOGOT_CHURCH_SOURCE_BOX_OPEN_AUTHORED_ANIMATION_GREEN church-machine-live.log
           grep -q XZOGOT_CHURCH_MACHINE_GAMEPLAY_BACKEND_COLLISION_PRESERVED church-machine-live.log
           ! grep -E 'CHURCH_SOURCE_MACHINE_PROBE:|SCRIPT ERROR|Parse Error' church-machine-live.log
       - name: Complete three real zombie rounds and validate unlimited round formula
