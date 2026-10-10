@@ -301,6 +301,17 @@ def fidelity_pass(api, layout):
                      "Forge_AmbulanceVisual_SideDoorSeam_"+side):
             if bpy.data.objects.get(name) is None:
                 issues.append("missing ambulatory-livery detail "+name)
+    for shell in ("RustyAmbulanceRear","RustyAmbulanceCab"):
+        candidate=bpy.data.objects.get(shell)
+        if candidate is None or candidate.type!="MESH" or len(candidate.data.polygons)<25:
+            issues.append("ambulance returned to blocky cube: "+shell)
+    windscreen=bpy.data.objects.get("Forge_AmbulanceVisual_CabWindshield")
+    if windscreen is None or windscreen.type!="MESH" or (
+            len(windscreen.data.vertices)!=4):
+        issues.append("not a real diagonal ambulance windshield mesh")
+    elif abs(float(windscreen.data.vertices[0].co.z)
+             -float(windscreen.data.vertices[2].co.z))<.50:
+        issues.append("ambulance windshield lost its angled silhouette")
     for name in ("Forge_AmbulanceVisual_CabWindshield",
                  "Forge_AmbulanceVisual_FrontGrille",
                  "Forge_AmbulanceVisual_FrontHeadlamp_0",

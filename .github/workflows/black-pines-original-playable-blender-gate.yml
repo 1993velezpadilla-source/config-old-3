@@ -367,6 +367,7 @@ jobs:
           grep -q BLACK_PINES_BLENDER_MOUNT_GREEN build/black-pines/integrated/visual.log
           grep -q BLACK_PINES_NINE_HEROES_MOUNTED_GREEN build/black-pines/integrated/visual.log
           grep -q BLACK_PINES_AMBULANCE_LIVERY_MOUNT_GREEN build/black-pines/integrated/visual.log
+          grep -q BLACK_PINES_AMBULANCE_REAL_TWO_ANGLES_GREEN build/black-pines/integrated/visual.log
           grep -q BLACK_PINES_NINE_HERO_COLLIDERS_MOUNTED_GREEN build/black-pines/integrated/visual.log
           grep -q BLACK_PINES_DOUBLE_FURNITURE_ELIMINATED_GREEN build/black-pines/integrated/visual.log
           grep -q BLACK_PINES_REAL_GODOT_FIRSTPERSON_HUD_SCREENSHOT_GREEN \
@@ -380,6 +381,8 @@ jobs:
           grep -q BLACK_PINES_NINE_ROOM_FIDELITY_CAPTURE_GREEN \
             build/black-pines/integrated/visual.log
           cp xogot/black-pines-fidelity-*.png build/black-pines/integrated/
+          cp xogot/black-pines-ambulance-real-Godot-front.png build/black-pines/integrated/
+          test -s build/black-pines/integrated/black-pines-ambulance-real-Godot-front.png
           test "$(find build/black-pines/integrated -maxdepth 1 -name 'black-pines-fidelity-*.png' | wc -l)" -eq 9
           file build/black-pines/integrated/*.png
       - name: Fidelity screenshot audit of ALL nine REAL Godot rooms

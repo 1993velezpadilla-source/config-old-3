@@ -148,7 +148,7 @@ func _capture() -> void:
         {"id":"triage","eye":Vector3(3.5,1.6,5.8),"target":Vector3(-1,1.1,-0.5)},
         {"id":"cafeteria","eye":Vector3(9,1.6,5.4),"target":Vector3(13,1.2,1.5)},
         {"id":"security","eye":Vector3(-9,1.6,16.8),"target":Vector3(-15,1.2,12)},
-        {"id":"yard","eye":Vector3(0.6,1.68,12.4),"target":Vector3(4.5,1.62,17.8)},
+        {"id":"yard","eye":Vector3(6.15,1.78,11.55),"target":Vector3(4.8,1.49,17.80)},
         {"id":"garage","eye":Vector3(9,1.6,11.4),"target":Vector3(15,1.2,18)}
     ]
     if hud!=null:
@@ -181,4 +181,20 @@ func _capture() -> void:
             " path=",path)
     print("BLACK_PINES_NINE_ROOM_FIDELITY_CAPTURE_GREEN",
         " count=9 real_godot=true visual_perfection_not_certified=true")
+    # Actual second view: camera stays in Ambulance Court, allowing visual
+    # verification of profiled cab + sloped windscreen from frontal angle.
+    # Separate filename from the nine-room image audit contract.
+    camera.global_position=Vector3(6.77,1.87,19.82)
+    camera.look_at(Vector3(5.80,1.46,17.80))
+    for i in range(12):
+        await process_frame
+    var front: Image=root.get_texture().get_image()
+    var front_path: String=ProjectSettings.globalize_path(
+        "res://black-pines-ambulance-real-Godot-front.png")
+    if front==null or front.get_width()<900 or front.save_png(front_path)!=OK:
+        push_error("BLACK_PINES_AMBULANCE_FRONT_RED actual frontal render missing")
+        quit(53)
+        return
+    print("BLACK_PINES_AMBULANCE_REAL_TWO_ANGLES_GREEN",
+        " side=black-pines-fidelity-yard.png front=black-pines-ambulance-real-Godot-front.png")
     quit(0)

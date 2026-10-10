@@ -82,6 +82,50 @@ def cube(label,pos,dims,material,kind="prop",bevel=0.0):
     COUNTS[kind]+=1
     return obj
 
+
+def ambulance_original_shaped_shell(label, rings, material):
+    """Create a true 3D profiled ambulance mesh, not a beveled BoxMesh.
+
+    Every X station has a sealed chamfered 8-point Y/Z profile, with a
+    sloped front windscreen and shorter hood. Fits native Godot yard
+    collision proxy; no engine-side mesh collider or external vehicle.
+    World vertices authored as (Godot X,Y,Z), mapped to Blender native.
+    """
+    verts=[]
+    faces=[]
+    center_z=17.8
+    for x, top, width in rings:
+        # Upper body shoulders taper in and all four roof corners chamfer.
+        profile=[
+            (-width*.73,.22),(-width,.39),
+            (-width,max(.58,top-.29)),
+            (-width*.70,top),
+            (width*.70,top),
+            (width,max(.58,top-.29)),
+            (width,.39),(width*.73,.22)]
+        for offset, y in profile:
+            verts.append((x,-(center_z+offset),y))
+    n=8
+    faces.append(tuple(reversed(range(n))))
+    for station in range(len(rings)-1):
+        lo,hi=station*n,(station+1)*n
+        for i in range(n):
+            next_i=(i+1)%n
+            faces.append((lo+i,lo+next_i,hi+next_i,hi+i))
+    faces.append(tuple((len(rings)-1)*n+i for i in range(n)))
+    mesh=bpy.data.meshes.new(label+"_OriginalProfileMesh")
+    mesh.from_pydata(verts,[],faces)
+    mesh.update()
+    uv=mesh.uv_layers.new(name="UVMap")
+    for poly in mesh.polygons:
+        for corner,loop_index in enumerate(poly.loop_indices):
+            uv.data[loop_index].uv=(float(corner%2),float((corner//2)%2))
+    obj=bpy.data.objects.new(label,mesh)
+    bpy.context.collection.objects.link(obj)
+    mesh.materials.append(mat(material))
+    COUNTS["prop"]+=1
+    return obj
+
 def wall_chunk(axis,fixed,start,end,bottom,height,label,kind="wall"):
     if end-start<=0:
         raise ValueError("negative building wall run")
@@ -249,10 +293,15 @@ def build(layout):
     for x in (-14.0,-10.8):
         cube("EmergencyGenerator_"+str(x),(x,.95,-7.5),
              (1.8,1.9,1.6),"rust","prop",.08)
-    cube("RustyAmbulanceRear",(3.8,1.05,17.8),(3.6,2.1,1.7),
-         "medical","prop",.13)
-    cube("RustyAmbulanceCab",(6.25,.9,17.8),(1.40,1.8,1.65),
-         "rust","prop",.13)
+    # Profiled van shell: roof chamfers / cab's sloping windshield
+    # visibly replace previous two giant straight-sided cubes.
+    ambulance_original_shaped_shell("RustyAmbulanceRear",[
+        (2.05,1.99,.73),(2.21,2.09,.84),
+        (5.42,2.09,.84),(5.55,1.99,.74)],"medical")
+    ambulance_original_shaped_shell("RustyAmbulanceCab",[
+        (5.55,1.66,.70),(5.74,1.78,.81),
+        (6.31,1.73,.78),(6.83,1.04,.75),
+        (6.96,.99,.69)],"rust")
     for z in (-24,30):
         cube("BoundaryFenceZ_"+str(z),(0,1.10,z),(52,2.2,.22),
              "dark_metal","trim")

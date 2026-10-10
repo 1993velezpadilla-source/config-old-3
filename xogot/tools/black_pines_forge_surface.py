@@ -131,12 +131,31 @@ def build_surfaces(api, layout, cube, tube, sign):
         return obj
     # Four relieved windows, a navy medical side stripe, service door,
     # windshield and recognizable front end (vehicle front faces +X).
-    vehicle_box("CabWindshield",(6.994,1.46,17.8),(.066,.63,1.27),"dark_glass",.016)
+    # The windshield slopes WITH the original shaped front cabin.
+    # Previously it was an upright box floating outside the van's hood.
+    # This four-vertex translucent-profile panel is source-authored and UVd.
+    window_verts=[(6.31,-17.26,1.742),
+                  (6.31,-18.34,1.742),
+                  (6.837,-18.38,1.086),
+                  (6.837,-17.22,1.086)]
+    window_mesh=bpy.data.meshes.new("BP_ActualAngledCabGlass")
+    window_mesh.from_pydata(window_verts,[],[(0,1,2,3)])
+    window_mesh.update()
+    window_uv=window_mesh.uv_layers.new(name="UVMap")
+    for loop_index,coord in zip(window_mesh.polygons[0].loop_indices,
+                                ((0.,1.),(1.,1.),(1.,0.),(0.,0.))):
+        window_uv.data[loop_index].uv=coord
+    pane=bpy.data.objects.new("Forge_AmbulanceVisual_CabWindshield",
+                              window_mesh)
+    bpy.context.collection.objects.link(pane)
+    window_mesh.materials.append(api.mat("dark_glass"))
+    api.COUNTS["prop"]+=1
+    ambulance_parts.append(pane.name)
     vehicle_box("FrontGrille",(7.005,.66,17.8),(.072,.39,.85),"dark_metal",.018)
     for side,side_z,outside in (
             ("NORTH",16.936,-1),("SOUTH",18.664,1)):
         vehicle_box("SideCabWindow_"+side,
-                    (6.27,1.30,side_z),(.77,.52,.034),"dark_glass",.023)
+                    (6.06,1.31,side_z),(.62,.47,.034),"dark_glass",.023)
         vehicle_box("SideStripe_"+side,
                     (3.75,.84,side_z), (3.46,.17,.045),"red",.008)
         vehicle_box("SideSafetyStripe_"+side,
@@ -163,7 +182,7 @@ def build_surfaces(api, layout, cube, tube, sign):
     vehicle_box("FrontBumper",(7.08,.35,17.8),(.15,.16,1.80),"dark_metal",.045)
     vehicle_box("RearBumper",(1.98,.35,17.8),(.13,.16,1.88),"dark_metal",.044)
     vehicle_box("RearServiceSplit",(1.957,1.47,17.8),(.04,1.05,.039),"industrial",.009)
-    vehicle_box("CabHood",(6.88,.96,17.8),(.36,.13,1.60),"industrial",.02)
+    vehicle_box("CabHood",(6.79,.91,17.8),(.39,.09,1.45),"industrial",.038)
     for side,zside in (("NORTH",16.72),("SOUTH",18.88)):
         vehicle_box("WingMirror_"+side,(6.71,1.23,zside),(.17,.22,.14),
                     "dark_metal",.034)
