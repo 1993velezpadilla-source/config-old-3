@@ -1,0 +1,139 @@
+name: Black Pines Sanatorium Original Playable And Blender Art Gate
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/black-pines-sanatorium-playable-v1
+    paths:
+      - "xogot/data/black_pines_layout.json"
+      - "xogot/black_pines.tscn"
+      - "xogot/scripts/black_pines_*.gd"
+      - "xogot/scripts/round_manager.gd"
+      - "xogot/ci/black_pines_*.gd"
+      - "xogot/tools/black_pines_author.py"
+      - ".github/workflows/black-pines-original-playable-blender-gate.yml"
+permissions:
+  contents: read
+jobs:
+  godot-gameplay-compile-and-scene:
+    runs-on: ubuntu-latest
+    timeout-minutes: 32
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install free Godot 4.6.1 and Mesa OpenGL
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libegl1 libx11-6 libxcursor1 libxrandr2 libxi6
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/black-pines-godot.zip
+          unzip -q /tmp/black-pines-godot.zip -d /tmp
+          chmod +x /tmp/Godot_v4.6.1-stable_linux.x86_64
+          /tmp/Godot_v4.6.1-stable_linux.x86_64 --version
+      - name: Original map JSON invariants; protect existing church scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/black-pines/godot
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("xogot/data/black_pines_layout.json").read_text())
+          assert len(d["cells"])==9 and len(d["portals"])==12 and len(d["windows"])==12
+          assert len(d["perks"])==6 and len(d["mysterySpots"])==4
+          assert not d["technicalGates"]["originalChurchFilesMayChange"]
+          assert not d["technicalGates"]["gobblegumEnabled"]
+          print("BLACK_PINES_AUTHORED_NINE_ZONES_TWELVE_DOORS_TWELVE_WINDOWS_GREEN")
+          PY
+          # Hard deny modifications to any of the existing church/Nacht artifacts.
+          git diff --name-only HEAD^ HEAD | tee build/black-pines/godot/changed-last-commit.txt
+          if git diff --name-only HEAD^ HEAD | grep -E '^xogot/(scripts/(you_wont_win|nacht_full_map)\.gd|main\.tscn|nacht_full_map\.tscn|assets/benchmarks/nacht)'; then
+            echo "BLACK_PINES_RED church/Nacht map edited"; exit 1
+          fi
+      - name: Godot import project and parse ALL original Black Pines scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 520 /tmp/Godot_v4.6.1-stable_linux.x86_64 --headless --editor --path xogot --quit \
+            2>&1 | tee build/black-pines/godot/import.log
+          ! grep -E 'SCRIPT ERROR|Parse Error' build/black-pines/godot/import.log
+      - name: Run black Pines playable interactions (real authored scene, WaW internal test assets)
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 200 /tmp/Godot_v4.6.1-stable_linux.x86_64 --headless --path xogot \
+            --script res://ci/black_pines_phase1_gameplay_probe.gd \
+            2>&1 | tee build/black-pines/godot/gameplay.log
+          grep -q BLACK_PINES_PHASE1_GAMEPLAY_GREEN build/black-pines/godot/gameplay.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_PHASE1_RED' build/black-pines/godot/gameplay.log
+      - name: Capture REAL Godot source-map overview image
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120 xvfb-run -a -s '-screen 0 1360x900x24' \
+            /tmp/Godot_v4.6.1-stable_linux.x86_64 --path xogot \
+            --rendering-method gl_compatibility --resolution 1360x900 \
+            --script res://ci/black_pines_visual_probe.gd \
+            2>&1 | tee build/black-pines/godot/visual.log
+          grep -q BLACK_PINES_REAL_GODOT_1360x900_OVERVIEW_GREEN build/black-pines/godot/visual.log
+          cp xogot/black-pines-real-firstframe-overview.png build/black-pines/godot/black-pines-real-firstframe-overview.png
+          file build/black-pines/godot/black-pines-real-firstframe-overview.png
+      - name: Preserve actual gameplay and screenshot proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Black-Pines-Phase1-Real-Godot-Gameplay-Screenshot-Proof
+          path: build/black-pines/godot/
+          retention-days: 14
+          if-no-files-found: warn
+
+  blender-original-level-author:
+    runs-on: ubuntu-latest
+    timeout-minutes: 38
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install original Blender editor free (zero generative API usage)
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender xvfb libgl1-mesa-dri libegl1
+          blender --version | head -2
+      - name: Build 9-zone original sanatorium mesh from same Godot source layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/black-pines/blender xogot/assets/black_pines
+          timeout 1100 xvfb-run -a -s '-screen 0 1280x800x24' \
+            blender -b --python xogot/tools/black_pines_author.py -- \
+              --layout xogot/data/black_pines_layout.json \
+              --out xogot/assets/black_pines/black_pines_architecture.glb \
+              --preview build/black-pines/blender/black-pines-blender-artpass.png \
+              --report build/black-pines/blender/source-original-art-report.json \
+            2>&1 | tee build/black-pines/blender/blender.log
+          grep -q BLACK_PINES_BLENDER_ORIGINAL_ARCHITECTURE_GREEN build/black-pines/blender/blender.log
+          cp xogot/assets/black_pines/black_pines_architecture.glb \
+            build/black-pines/blender/black-pines-original-architecture.glb
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          j=json.loads(Path("build/black-pines/blender/source-original-art-report.json").read_text())
+          assert j["floor"]==9
+          assert j["allOriginalAuthoring"]
+          assert j["sameManifestAsGodot"]
+          assert not j["commercialRippedAssets"]
+          assert not j["publicReadiness"]
+          assert Path(j["glb"]).stat().st_size>=10000
+          assert Path("build/black-pines/blender/black-pines-blender-artpass.png").stat().st_size>=10000
+          print("BLACK_PINES_BLENDER_ZERO_API_FIRST_ASSET_SOURCE_GREEN",j["objects"])
+          PY
+      - name: Preserve true Blender rendered reference and authored GLB, never claim gameplay accepted
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Black-Pines-Original-Blender-Artpass-GLB-Preview
+          path: build/black-pines/blender/
+          retention-days: 14
+          if-no-files-found: warn
