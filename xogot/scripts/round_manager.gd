@@ -182,7 +182,9 @@ func _enemy_variant_for_spawn(round_number: int, spawn_serial: int) -> String:
 	if _special_round_kind == "sheep":
 		var sheep_roll: int = abs(("sheep:%d:%d" % [round_number, spawn_serial]).hash()) % 100
 		return "sheep_runner" if sheep_roll < 62 else "sheep_brute"
-	if _elite_nun_asset_ready():
+	# Black Pines is the original-zombie gameplay template: no reskinned elite
+	# nuns even if a nun GLB happens to be present in the shared repository.
+	if str(get_tree().get_meta("active_map_id", "")) != "black_pines" and _elite_nun_asset_ready():
 		var elite_roll: float = float(abs(("elite_nun:%d:%d" % [round_number, spawn_serial]).hash()) % 10000) / 10000.0
 		if elite_roll < _elite_nun_chance(round_number):
 			return "nun_elite"
