@@ -78,6 +78,11 @@ func _ready() -> void:
         # Do not let original imported sheep substitute zombie-only round 5.
         # This option is scoped to Black Pines; other scenes keep defaults.
         manager.set("special_rounds_enabled",false)
+        manager.set("endless_rounds_enabled",true)
+        manager.set("endless_wave_population_cap",144)
+        manager.set("endless_zombie_health_cap",250000)
+        # NO terminal wave. A run ends when the squad is eliminated, not
+        # when the director reaches round 20, 100 or 255.
         manager.set("auto_start",rounds_enabled and not preview_no_enemies)
         if manager.has_method("reset_network_match"):
             manager.call("reset_network_match")
@@ -666,5 +671,9 @@ func get_black_pines_contract() -> Dictionary:
         "gobblegumExcluded":true,
         "publicCopyrightAssetClearanceComplete":false,
         "real20RoundCompletionValidated":false,
+        "endlessSurvivalEnabled":bool(get_node("RoundManager").call("is_endless_survival")),
+        "terminalRound":int(get_node("RoundManager").call("get_configured_round_limit")),
+        "endlessWaveMaxSoloZombies":144,
+        "endlessSimultaneousZombieCap":24,
         "actualAndroidPhysicalPerformanceValidated":false
     }
