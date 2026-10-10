@@ -228,6 +228,9 @@ jobs:
           assert surface["facadeBranding"] is True
           assert surface["mobileBatchedFloorTiles"] is True
           assert all(v>=70 for v in surface["perRoomTileFaces"].values())
+          assert surface["ambulanceSignatureParts"]>=20
+          assert surface["ambulanceSideLabels"]==2
+          assert not surface["ambulanceProtectedEmblems"]
           pbr=j["forge"]["pbrSourceWear"]
           assert pbr["textureCount"]==7
           assert pbr["allEmbedded"]
@@ -363,6 +366,7 @@ jobs:
             2>&1 | tee build/black-pines/integrated/visual.log
           grep -q BLACK_PINES_BLENDER_MOUNT_GREEN build/black-pines/integrated/visual.log
           grep -q BLACK_PINES_NINE_HEROES_MOUNTED_GREEN build/black-pines/integrated/visual.log
+          grep -q BLACK_PINES_AMBULANCE_LIVERY_MOUNT_GREEN build/black-pines/integrated/visual.log
           grep -q BLACK_PINES_NINE_HERO_COLLIDERS_MOUNTED_GREEN build/black-pines/integrated/visual.log
           grep -q BLACK_PINES_DOUBLE_FURNITURE_ELIMINATED_GREEN build/black-pines/integrated/visual.log
           grep -q BLACK_PINES_REAL_GODOT_FIRSTPERSON_HUD_SCREENSHOT_GREEN \

@@ -292,6 +292,22 @@ def fidelity_pass(api, layout):
         issues.append("missing original main entrance branded facade")
     if bpy.data.objects.get("Forge_Sign_FACADE") is None:
         issues.append("missing branded Black Pines sign")
+    # Signature props were reviewed in the genuine in-game screenshot:
+    # the source ambulance must not revert to a wheeled opaque cuboid.
+    for side in ("NORTH","SOUTH"):
+        for name in ("Forge_Sign_AMBULANCE_"+side,
+                     "Forge_AmbulanceVisual_SideCabWindow_"+side,
+                     "Forge_AmbulanceVisual_SideStripe_"+side,
+                     "Forge_AmbulanceVisual_SideDoorSeam_"+side):
+            if bpy.data.objects.get(name) is None:
+                issues.append("missing ambulatory-livery detail "+name)
+    for name in ("Forge_AmbulanceVisual_CabWindshield",
+                 "Forge_AmbulanceVisual_FrontGrille",
+                 "Forge_AmbulanceVisual_FrontHeadlamp_0",
+                 "Forge_AmbulanceVisual_FrontHeadlamp_1",
+                 "Forge_AmbulanceVisual_RearServiceSplit"):
+        if bpy.data.objects.get(name) is None:
+            issues.append("ambulance silhouette regressed "+name)
     # Converted text mesh orientation is preserved in Blender mesh vertices,
     # while object.rotation_euler carries the sign's authored facing direction.
     # North-wall signs previously faced away from the player and appeared

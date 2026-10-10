@@ -119,7 +119,61 @@ def build_surfaces(api, layout, cube, tube, sign):
             tube(api,"Ambulance_Hub_%d_%d"%(i,j),
                  (px,.39,pz-.24),(px,.39,pz+.24),
                  .11,"brass",10)
+    # FIDELITY PASS: turn the overly simple giant beige cuboid into an
+    # unmistakable ORIGINAL sanatorium emergency response ambulance.
+    # Roof beacon is already in hospital_kit, wheels in surface pass above.
+    # All elements are visual-only; the shared yard BoxShape3D remains the
+    # low-cost Godot collision authority. No third-party emblems.
+    ambulance_parts = []
+    def vehicle_box(name,xyz,dims,material,bevel=.019):
+        obj=cube(api,"AmbulanceVisual_"+name,xyz,dims,material,bevel,"prop")
+        ambulance_parts.append(obj.name)
+        return obj
+    # Four relieved windows, a navy medical side stripe, service door,
+    # windshield and recognizable front end (vehicle front faces +X).
+    vehicle_box("CabWindshield",(6.994,1.46,17.8),(.066,.63,1.27),"dark_glass",.016)
+    vehicle_box("FrontGrille",(7.005,.66,17.8),(.072,.39,.85),"dark_metal",.018)
+    for side,side_z,outside in (
+            ("NORTH",16.936,-1),("SOUTH",18.664,1)):
+        vehicle_box("SideCabWindow_"+side,
+                    (6.27,1.30,side_z),(.77,.52,.034),"dark_glass",.023)
+        vehicle_box("SideStripe_"+side,
+                    (3.75,.84,side_z), (3.46,.17,.045),"red",.008)
+        vehicle_box("SideSafetyStripe_"+side,
+                    (3.75,.99,side_z), (3.46,.065,.050),"brass",.007)
+        vehicle_box("SideDoorSeam_"+side,
+                    (4.85,1.51,side_z),(.033,1.08,.029),"dark_metal",.006)
+        vehicle_box("SideHandle_"+side,
+                    (4.61,1.41,side_z+outside*.038),(.21,.045,.044),
+                    "brass",.012)
+        vehicle_box("SideWindowRear_"+side,
+                    (2.46,1.68,side_z),(.48,.49,.032),"dark_glass",.012)
+        # Unique emergency vehicle livery; DO NOT use the protected
+        # Red Cross emblem or reproduce any commercial game's logos.
+        sign(api,"AMBULANCE_"+side,(3.76,1.62,side_z+outside*.055),
+             "BLACK PINES  /  MEDICAL",.19,
+             face_negative_z=(outside<0))
+    for idx,side_z in enumerate((17.26,18.34)):
+        vehicle_box("FrontHeadlamp_"+str(idx),
+                    (7.056,.76,side_z),(.06,.18,.34),"light",.024)
+        vehicle_box("FrontIndicator_"+str(idx),
+                    (7.059,.49,side_z),(.067,.11,.23),"brass",.01)
+        vehicle_box("RearStopLamp_"+str(idx),
+                    (1.972,.76,side_z),(.055,.20,.29),"red",.019)
+    vehicle_box("FrontBumper",(7.08,.35,17.8),(.15,.16,1.80),"dark_metal",.045)
+    vehicle_box("RearBumper",(1.98,.35,17.8),(.13,.16,1.88),"dark_metal",.044)
+    vehicle_box("RearServiceSplit",(1.957,1.47,17.8),(.04,1.05,.039),"industrial",.009)
+    vehicle_box("CabHood",(6.88,.96,17.8),(.36,.13,1.60),"industrial",.02)
+    for side,zside in (("NORTH",16.72),("SOUTH",18.88)):
+        vehicle_box("WingMirror_"+side,(6.71,1.23,zside),(.17,.22,.14),
+                    "dark_metal",.034)
+    # No protrusion through any window opening or zombie path. Bounds remain
+    # inside the yard ambulance fixture and floor/collision above the wheels.
+    assert len(ambulance_parts)>=20
     return {"perRoomTileFaces":done,
             "batchedRoomFloorCount":len(done),
             "facadeBranding":True,
+            "ambulanceSignatureParts":len(ambulance_parts),
+            "ambulanceSideLabels":2,
+            "ambulanceProtectedEmblems":False,
             "mobileBatchedFloorTiles":True}

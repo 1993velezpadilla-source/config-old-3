@@ -64,6 +64,21 @@ func _capture() -> void:
                 +str(heroes.size())+" expected=9")
             quit(48)
             return
+        # Insist distinctive medical vehicle labels survived the mobile
+        # batching AND Blender->GLB->Godot importer. Invisible screenshot
+        # shell geometry alone is not acceptable original art fidelity.
+        var ambulance_labels: int=0
+        for rendered: Node in authored.find_children(
+                "*","MeshInstance3D",true,false):
+            if str(rendered.name).begins_with("Forge_Sign_AMBULANCE_"):
+                ambulance_labels+=1
+        if ambulance_labels!=2:
+            push_error("BLACK_PINES_AMBULANCE_FIDELITY_RED mounted_side_labels="
+                +str(ambulance_labels))
+            quit(50)
+            return
+        print("BLACK_PINES_AMBULANCE_LIVERY_MOUNT_GREEN",
+            " legible_side_labels=2 original=true")
         print("BLACK_PINES_NINE_HEROES_MOUNTED_GREEN original_meshes=9")
         print("BLACK_PINES_DOUBLE_FURNITURE_ELIMINATED_GREEN",
             " native_scenery_meshes=0 blender_only=true")
@@ -133,7 +148,7 @@ func _capture() -> void:
         {"id":"triage","eye":Vector3(3.5,1.6,5.8),"target":Vector3(-1,1.1,-0.5)},
         {"id":"cafeteria","eye":Vector3(9,1.6,5.4),"target":Vector3(13,1.2,1.5)},
         {"id":"security","eye":Vector3(-9,1.6,16.8),"target":Vector3(-15,1.2,12)},
-        {"id":"yard","eye":Vector3(-3,1.6,12.2),"target":Vector3(5,1.2,18)},
+        {"id":"yard","eye":Vector3(0.6,1.68,12.4),"target":Vector3(4.5,1.62,17.8)},
         {"id":"garage","eye":Vector3(9,1.6,11.4),"target":Vector3(15,1.2,18)}
     ]
     if hud!=null:
