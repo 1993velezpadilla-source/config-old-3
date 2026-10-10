@@ -1,0 +1,43 @@
+name: Black Pines Unreal Source Contract (No Unreal Download)
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - experiment/unreal-black-pines-feasibility-v1
+    paths:
+      - "unreal/BlackPines/**"
+      - "xogot/data/black_pines_layout.json"
+      - ".github/workflows/black-pines-unreal-source-contract.yml"
+permissions:
+  contents: read
+jobs:
+  source-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Validate original layout, openings, and Unreal Python syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile unreal/BlackPines/Scripts/*.py
+          python3 - <<'PY'
+          import json,sys
+          from pathlib import Path
+          sys.path.insert(0, 'unreal/BlackPines/Scripts')
+          from layout_model import read_layout,rooms,walls,hero_blockouts,markers
+          d=read_layout('xogot/data/black_pines_layout.json')
+          assert json.loads(Path('unreal/BlackPines/BlackPines.uproject').read_text())['EngineAssociation']=='5.8'
+          floors=list(rooms(d))
+          sections=list(walls(d))
+          heroes=list(hero_blockouts(d))
+          points=list(markers(d))
+          assert len(floors)==9 and len(heroes)==9
+          assert len(sections)>=65
+          assert len(points)>=40
+          assert len({x['name'] for x in floors+sections+heroes})==len(floors+sections+heroes)
+          assert len({x[0] for x in points})==len(points)
+          print('BLACK_PINES_UNREAL_STATIC_CONTRACT_GREEN',len(floors),
+                len(sections),len(heroes),len(points))
+          print('REAL_UNREAL_EDITOR_AND_ANDROID_APK_NOT_TESTED')
+          PY
