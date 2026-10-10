@@ -55,6 +55,16 @@ static func attach(church: Node3D, machine_name: String, parts: Array[String], d
 	if dims.x <= 0.0001 or dims.y <= 0.0001 or dims.z <= 0.0001:
 		source_root.queue_free()
 		return false
+	# The archived Mystery Box candidate contains an extreme 88m vertical
+	# source bound vs 5.7m depth. It produces a narrow pole when fitted.
+	# Reject its current visual rather than stretching it or falsely approving.
+	if machine_name == "MysteryBoxSocket" and dims.y > dims.z * 6.0:
+		body.set_meta("source_reference_visual_rejected", true)
+		body.set_meta("source_reference_reject_reason", "ARCHIVE_BOX_MESH_ABNORMAL_ASPECT")
+		body.set_meta("source_reference_raw_size", dims)
+		print("XZOGOT_CHURCH_MYSTERY_SOURCE_VISUAL_REJECTED_BAD_PROPORTIONS ", dims)
+		source_root.queue_free()
+		return false
 	# Preserve proportional source geometry. Never axis-squash visuals to fake a
 	# successful matching machine; compare actual screenshot silhouette later.
 	var uniform: float = minf(desired_size.x / dims.x, minf(desired_size.y / dims.y, desired_size.z / dims.z))
