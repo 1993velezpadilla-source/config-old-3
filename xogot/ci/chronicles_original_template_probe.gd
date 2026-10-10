@@ -45,7 +45,9 @@ func _run() -> void:
 	# behind benches where 1m of collision avoidance resembled failed chasing.
 	var test_floor: Vector3 = scene.call("_wp", Vector3(39.0, 0.36, -3.0))
 	player.global_position = test_floor
-	actor.global_position = test_floor + Vector3(3.5, 0.0, 0.0)
+	# CharacterBody3D is not parented yet: never write global_position
+	# until it is inside the SceneTree, or Godot refuses the transform.
+	actor.position = test_floor + Vector3(3.5, 0.0, 0.0)
 	actor.call("configure_direct", player, null)
 	scene.add_child(actor)
 	await process_frame

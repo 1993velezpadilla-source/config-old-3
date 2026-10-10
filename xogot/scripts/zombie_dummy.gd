@@ -467,7 +467,11 @@ func _fit_chronicles_uniform_bounds(wrapper: Node3D, imported: Node3D) -> bool:
 	# Exact human-sized collision envelope; no animation-distorting axis squash.
 	# Arms may protrude beyond the physics capsule. Do not squash a 102-bone
 	# skeleton across axes to fake a tighter body silhouette.
-	if final_size.x > 1.95 or final_size.z > 1.65:
+	# Source bind-pose arms can span 2.86m in a T-pose even though the
+	# zombie's torso collision is a 0.68m capsule. Do not reject or
+	# non-uniformly compress a 102-bone mesh just because its arms extend.
+	# Extreme size is still rejected as an import-units corruption guard.
+	if final_size.x > 5.0 or final_size.z > 3.5:
 		push_error("XZOGOT_CHRONICLES_ORIGINAL_COLLIDER_ENVELOPE_RED size=" + str(final_size))
 		return false
 	wrapper.scale = Vector3.ONE * uniform_scale
