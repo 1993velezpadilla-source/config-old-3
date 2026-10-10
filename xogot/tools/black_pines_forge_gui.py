@@ -95,16 +95,9 @@ class BP_FORGE_OT_export(bpy.types.Operator):
                 return {'CANCELLED'}
             filepath = Path(bpy.path.abspath(context.scene.bp_forge_export))
             filepath.parent.mkdir(parents=True,exist_ok=True)
-            bpy.ops.object.select_all(action="DESELECT")
-            chosen = [obj for obj in bpy.context.scene.objects if obj.type=="MESH"]
-            if not chosen:
-                raise RuntimeError("no Forge meshes")
-            for obj in chosen:
-                obj.select_set(True)
-            bpy.context.view_layer.objects.active=chosen[0]
-            bpy.ops.export_scene.gltf(
-                filepath=str(filepath.resolve()), export_format="GLB",
-                use_selection=True, export_apply=False)
+            report = api.mobile_export.export_glb(
+                str(filepath.resolve()),_layout(context.scene))
+            context.scene["bp_forge_mobile_export_report"] = json.dumps(report)
             if filepath.stat().st_size<10000:
                 raise RuntimeError("GLB export unexpectedly empty")
             self.report({'INFO'},"Forge GLB exported: "+str(filepath))
