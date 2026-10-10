@@ -34,6 +34,11 @@ func _run() -> void:
 		_fail(4, "church player/director missing")
 		return
 	round_manager.set("auto_start", false)
+	# The production auto-knife silently kills the actor within one frame of
+	# approaching the player; that invalidated the previous 102-bone chase test.
+	# Turn it off in this isolated probe to test chase/collision and gunshot
+	# damage, rather than a melee kill unrelated to the model import.
+	player.set("auto_knife_enabled", false)
 	var zombie_script: Script = load("res://scripts/zombie_dummy.gd") as Script
 	if zombie_script == null:
 		_fail(5, "zombie behaviour missing")
