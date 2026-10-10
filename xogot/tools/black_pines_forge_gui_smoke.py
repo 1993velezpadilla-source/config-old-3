@@ -4,8 +4,11 @@ from pathlib import Path
 import sys
 
 repo_root = Path.cwd()
-sys.path.insert(0,str(repo_root/"xogot"/"tools"))
-import black_pines_forge_gui as gui
+# Test the actual DISTRIBUTABLE ADDON package, not local loose scripts.
+addon_dir=repo_root/"build"/"black-pines"/"blender"/"addon-staging"
+assert (addon_dir/"black_pines_forge"/"__init__.py").is_file()
+sys.path.insert(0,str(addon_dir))
+import black_pines_forge as gui
 
 gui.register()
 try:
