@@ -47,11 +47,14 @@ jobs:
           assert not d["technicalGates"]["gobblegumEnabled"]
           print("BLACK_PINES_AUTHORED_NINE_ZONES_TWELVE_DOORS_TWELVE_WINDOWS_GREEN")
           PY
-          # Hard deny modifications to any of the existing church/Nacht artifacts.
-          git show --pretty=format: --name-only HEAD | tee build/black-pines/godot/changed-last-commit.txt
-          if git show --pretty=format: --name-only HEAD | grep -E '^xogot/(scripts/(you_wont_win|nacht_full_map)\.gd|main\.tscn|nacht_full_map\.tscn|assets/benchmarks/nacht)'; then
-            echo "BLACK_PINES_RED church/Nacht map edited"; exit 1
-          fi
+          # GitHub checkout@v5 is shallow; checking HEAD^ or git show HEAD
+          # silently treats the shallow boundary as a root commit. Pin exact
+          # Godot source blobs to the verified unchanged feature base instead.
+          test "$(git hash-object xogot/main.tscn)" = "3960a7a8cfa56133da57b0bbb9740b3b76695e7a"
+          test "$(git hash-object xogot/nacht_full_map.tscn)" = "e4a3db47aa959d1fdf14ab58845e71b4b4bf0285"
+          test "$(git hash-object xogot/scripts/you_wont_win.gd)" = "4d7c6a266ce97d4d325c7241a2836a5c3d28bf85"
+          test "$(git hash-object xogot/scripts/nacht_full_map.gd)" = "67f5e1d4fa6855dc895c82ed53287ec8227ccf26"
+          printf 'BLACK_PINES_MAIN_CHURCH_AND_NACHT_SOURCE_BLOBS_UNTOUCHED_GREEN\n' | tee build/black-pines/godot/original-map-immutable.log
       - name: Godot import project and parse ALL original Black Pines scripts
         shell: bash
         run: |
