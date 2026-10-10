@@ -1,0 +1,48 @@
+name: Nacht Real Source 3-Camera Pixel A-B Godot Parser Preflight
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-real-source-vista-visual-parser-preflight.yml"
+      - "tools/maps/nacht_real_source_vista_visual_parser_preflight.gd"
+      - "tools/maps/nacht_real_source_vista_multimesh_visual_ab.gd"
+      - "tools/maps/nacht_apply_vista_spatial_multimesh_research.gd"
+permissions:
+  contents: read
+
+jobs:
+  parse-four-real-source-godot-scripts-without-heavy-archives:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Verify source research GDScript consistency using actual Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot-fast-parser" build/nacht-visual-parser/project
+          curl --fail -L --retry 3 \
+            -o "$RUNNER_TEMP/godot-fast-parser/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot-fast-parser/godot.zip" -d "$RUNNER_TEMP/godot-fast-parser"
+          chmod +x "$RUNNER_TEMP/godot-fast-parser/Godot_v4.6.1-stable_linux.x86_64"
+          printf '[application]\nconfig/name="OriginalNachtVisualABGodotParserOnly"\n' > build/nacht-visual-parser/project/project.godot
+          cp tools/maps/nacht_real_source_vista_visual_parser_preflight.gd build/nacht-visual-parser/project/preflight.gd
+          for f in nacht_real_source_vista_multimesh_visual_ab.gd nacht_apply_vista_spatial_multimesh_research.gd nacht_apply_source_exterior_visual_lod.gd nacht_apply_source_vista_actor_local_dds.gd; do
+            cp "tools/maps/$f" build/nacht-visual-parser/project/
+          done
+          timeout 60 "$RUNNER_TEMP/godot-fast-parser/Godot_v4.6.1-stable_linux.x86_64" \
+            --headless --path build/nacht-visual-parser/project --script res://preflight.gd \
+            2>&1 | tee build/nacht-visual-parser/godot-parser.log
+          grep -q XZOGOT_NACHT_REAL_SOURCE_GODOT_PARSER_PREFLIGHT_GREEN build/nacht-visual-parser/godot-parser.log
+          ! grep -E "SCRIPT ERROR|Parse Error|PARSER_RED" build/nacht-visual-parser/godot-parser.log
+      - name: Preserve parser failures and real Godot version provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Four-Original-Source-GDScript-Parse-Preflight
+          path: build/nacht-visual-parser/godot-parser.log
+          retention-days: 14
+          if-no-files-found: warn

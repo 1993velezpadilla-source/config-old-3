@@ -1,0 +1,53 @@
+name: Nacht Sharded Source 360 Candidate Godot Parser Preflight
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-sharded-source-360-parser.yml"
+      - "tools/maps/nacht_real_vista_360_cardinal_sharded_sweep.gd"
+permissions:
+  contents: read
+jobs:
+  godot-source-sharded-parser-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Compile actual Godot 4.6.1 sharded viewer script before expensive source staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot" build/nacht-source-shard-parser/project
+          curl --fail -L --retry 3 -o "$RUNNER_TEMP/godot/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64"
+          chmod +x "$GODOT"
+          printf '[application]\nconfig/name="SourceFullNachtShardedProbeOnly"\n' > build/nacht-source-shard-parser/project/project.godot
+          cp tools/maps/nacht_real_vista_360_cardinal_sharded_sweep.gd \
+            build/nacht-source-shard-parser/project/sharded.gd
+          cat > build/nacht-source-shard-parser/project/probe.gd <<'GDS'
+          extends SceneTree
+          func _initialize() -> void:
+              var sc: Script=load("res://sharded.gd") as Script
+              if sc==null or not sc.can_instantiate():
+                  push_error("XZOGOT_NACHT_SHARDED_16_CAMERA_GDSCRIPT_PARSE_RED")
+                  quit(2)
+                  return
+              print("XZOGOT_NACHT_SHARDED_16_CAMERA_ACTUAL_GODOT461_PARSER_GREEN")
+              quit(0)
+          GDS
+          timeout 75 "$GODOT" --headless --path build/nacht-source-shard-parser/project \
+            --script res://probe.gd 2>&1 | tee build/nacht-source-shard-parser/log.txt
+          grep -q XZOGOT_NACHT_SHARDED_16_CAMERA_ACTUAL_GODOT461_PARSER_GREEN build/nacht-source-shard-parser/log.txt
+          ! grep -E "SCRIPT ERROR|Parse Error" build/nacht-source-shard-parser/log.txt
+      - name: Preserve Godot parser RED/GREEN before staging 2GB archival assets
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Sharded-Original-Godot-Camera-Parser
+          path: build/nacht-source-shard-parser/log.txt
+          retention-days: 14
+          if-no-files-found: warn

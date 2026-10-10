@@ -1,0 +1,180 @@
+name: Xogot Nacht REAL Pavlov UE421 Source to Meridian A-B
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-meridian-real-ue421-slice.yml"
+      - "tools/maps/nacht_meridian_source_bridge.py"
+      - "tools/maps/validate_meridian_nacht_gltf.py"
+      - "tools/maps/validate_meridian_source_geometry.py"
+      - "tools/maps/select_nacht_distinct_source_actors.py"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  real-pavlov-source-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: "37762871109"
+      SOURCE_ARTIFACT: "Xogot-Nacht-Chronicles-Godot-Runtime"
+    steps:
+      - uses: actions/checkout@v5
+      - name: Reuse original archived 2.1GB Pavlov UE4.21 real source (not BO3 T7)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/real-ue4-source" build/nacht-meridian-real
+          gh run download "$SOURCE_RUN" -n "$SOURCE_ARTIFACT"             -D "$RUNNER_TEMP/real-ue4-source"             2>&1 | tee build/nacht-meridian-real/source-download.log
+          SRC=$(find "$RUNNER_TEMP/real-ue4-source" -type f -name nacht-static-scene.json -print -quit)
+          MESHES=$(find "$RUNNER_TEMP/real-ue4-source" -type d -name meshes_glb -print -quit)
+          test -s "$SRC"
+          test -d "$MESHES"
+          echo "UE_SCENE=$SRC" >> "$GITHUB_ENV"
+          echo "UE_MESHES=$MESHES" >> "$GITHUB_ENV"
+          python3 - "$SRC" "$MESHES" <<'PY'
+          import json,sys,pathlib
+          data=json.loads(pathlib.Path(sys.argv[1]).read_text())
+          assert data['format']=='xziel_visual_scene_v1',data.get('format')
+          assert data['summary']['ready'] is True
+          assert len(data['instances'])>=493,len(data['instances'])
+          missing=[]
+          for row in data['instances'][:493]:
+              m=data['meshes'][row['meshIndex']]
+              fn=pathlib.Path(m['runtimeFile']).stem+'.glb'
+              p=pathlib.Path(sys.argv[2])/fn
+              if not p.is_file():missing.append(str(p))
+          assert not missing, ('native-GLB missing',missing[:5])
+          print('XZOGOT_NACHT_REAL_PAVLOV_SOURCE_READY',
+                'instances=',len(data['instances']),
+                'meshes=',len(data['meshes']),
+                'first493_NativeGLBs_present=true')
+          print('XZOGOT_NACHT_NOT_2017_BO3_T7_SOURCE')
+          PY
+      - name: Select 493 DISTINCT verified real native geometries across entire Nacht source
+        shell: bash
+        run: |
+          set -euo pipefail
+          export UE_SCENE_FULL="$UE_SCENE"
+          python3 tools/maps/select_nacht_distinct_source_actors.py \
+            --scene "$UE_SCENE_FULL" --mesh-root "$UE_MESHES" \
+            --count 493 \
+            --max-individual-glb-bytes 256000000 \
+            --max-total-glb-bytes 1000000000 \
+            --output build/nacht-meridian-real/selected-distinct-source-scene.json \
+            2>&1 | tee build/nacht-meridian-real/diversity-select.log
+          grep -q "XZOGOT_NACHT_DISTINCT_UE_NATIVE_SOURCE_SELECTION_GREEN" \
+            build/nacht-meridian-real/diversity-select.log
+          echo "UE_SCENE=$PWD/build/nacht-meridian-real/selected-distinct-source-scene.json" >> "$GITHUB_ENV"
+          python3 - <<'PY'
+          import json
+          data=json.load(open("build/nacht-meridian-real/selected-distinct-source-scene.json"))
+          proof=data["selectionProof"]
+          assert proof["selected_distinct_mesh_types"] == 493,proof
+          assert proof["original_native_mesh_types"] == 493,proof
+          assert proof["original_actor_count"] == 10793,proof
+          assert proof["source_glb_individual_byte_cap"] == 256000000, proof
+          assert proof["source_glb_total_byte_cap"] == 1000000000, proof
+          assert len(set(proof["original_mesh_indices"])) == 493, proof
+          print("XZOGOT_NACHT_NO_DUPLICATE_MESH_TYPE_IN_493_GREEN")
+          PY
+      - name: Install pin-blender and independently pinned Meridian
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libgl1-mesa-dri libglx-mesa0 libegl1 libxi6 libxrender1 libsm6 libxxf86vm1 libxfixes3 unzip
+          python3 -m pip install --disable-pip-version-check blender-downloader
+          BLENDER=$(blender-downloader 5.0 --extract --remove-compressed --print-blender-executable)
+          test -x "$BLENDER"
+          echo "BLENDER=$BLENDER" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/addon-source"
+          git clone https://github.com/Naxela/Meridian.git "$RUNNER_TEMP/addon-source/Meridian"
+          git -C "$RUNNER_TEMP/addon-source/Meridian" checkout --detach af7749fe03c6c595f67c991628a5892a200eb8ee
+          echo "MERIDIAN_PARENT=$RUNNER_TEMP/addon-source" >> "$GITHUB_ENV"
+      - name: Compile native source UE actors and actual GLBs with Meridian 2.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BLENDER" --background --factory-startup             --python tools/maps/nacht_meridian_source_bridge.py --             --scene "$UE_SCENE" --mesh-root "$UE_MESHES"             --meridian-parent "$MERIDIAN_PARENT"             --out "$PWD/build/nacht-meridian-real"             --max-instances 493             2>&1 | tee build/nacht-meridian-real/blender-real-source.log
+          grep -q "XZOGOT_NACHT_MERIDIAN_REAL_ADDON_COMPILE_GREEN test_fixture= False"             build/nacht-meridian-real/blender-real-source.log
+          python3 tools/maps/validate_meridian_nacht_gltf.py             --glb build/nacht-meridian-real/godot/assets/meshes/Nacht_Source_Bridge_Probe.glb             --report build/nacht-meridian-real/source-equivalence.json             --output build/nacht-meridian-real/transform-parity.json             2>&1 | tee build/nacht-meridian-real/transform-parity.log
+          grep -q "XZOGOT_NACHT_MERIDIAN_SOURCE_XFORM_GREEN"             build/nacht-meridian-real/transform-parity.log
+          echo "XZOGOT_NACHT_REAL_PAVLOV_SOURCE_TO_MERIDIAN_GREEN"
+      - name: Independent raw source native mesh -> Meridian exported GLB world-geometry bounds proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/validate_meridian_source_geometry.py \
+            --scene "$UE_SCENE" \
+            --native-glb-dir "$UE_MESHES" \
+            --meridian-glb build/nacht-meridian-real/godot/assets/meshes/Nacht_Source_Bridge_Probe.glb \
+            --report build/nacht-meridian-real/source-equivalence.json \
+            --output build/nacht-meridian-real/source-vertex-bounds-parity.json \
+            2>&1 | tee build/nacht-meridian-real/source-vertex-bounds-parity.log
+          grep -q "XZOGOT_NACHT_REAL_SOURCE_GEOMETRY_PARITY_GREEN" build/nacht-meridian-real/source-vertex-bounds-parity.log
+      - name: Import 493 DISTINCT real native meshes in Godot 4.6.1 (not only GLB JSON)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot"
+          curl --fail -L --retry 3 -o "$RUNNER_TEMP/godot/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64"
+          chmod +x "$GODOT"
+          "$GODOT" --headless --path build/nacht-meridian-real/godot --import \
+            2>&1 | tee build/nacht-meridian-real/godot-real-import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load" build/nacht-meridian-real/godot-real-import.log
+          cat > build/nacht-meridian-real/godot/real_source_gate.gd <<'GDS'
+          extends SceneTree
+          func _initialize() -> void:
+              call_deferred("_run")
+          func _run() -> void:
+              var pack: PackedScene = load("res://scenes/main.tscn") as PackedScene
+              if pack == null:
+                  push_error("XZOGOT_MERIDIAN_REAL_NACHT_SCENE_LOAD_RED")
+                  quit(4)
+                  return
+              var world: Node = pack.instantiate()
+              get_root().add_child(world)
+              var meshes := world.find_children("*", "MeshInstance3D", true, false).size()
+              if meshes < 493:
+                  push_error("XZOGOT_MERIDIAN_REAL_NACHT_MESH_LOSS count=" + str(meshes))
+                  quit(5)
+                  return
+              print("XZOGOT_NACHT_REAL_MERIDIAN_GODOT_4_6_GREEN actors=493 meshes=",meshes)
+              world.queue_free()
+              quit(0)
+          GDS
+          "$GODOT" --headless --path build/nacht-meridian-real/godot \
+            --script res://real_source_gate.gd \
+            2>&1 | tee build/nacht-meridian-real/godot-real-runtime.log
+          grep -q "XZOGOT_NACHT_REAL_MERIDIAN_GODOT_4_6_GREEN" \
+            build/nacht-meridian-real/godot-real-runtime.log
+      - name: Preserve all real source comparison evidence even on RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-UE421-Source-Meridian-493-DISTINCT-Native-Meshes-AB
+          path: |
+            build/nacht-meridian-real/source-download.log
+            build/nacht-meridian-real/blender-real-source.log
+            build/nacht-meridian-real/selected-distinct-source-scene.json
+            build/nacht-meridian-real/diversity-select.log
+            build/nacht-meridian-real/source-equivalence.json
+            build/nacht-meridian-real/transform-parity.*
+            build/nacht-meridian-real/source-vertex-bounds-parity.*
+            build/nacht-meridian-real/godot-real-import.log
+            build/nacht-meridian-real/godot-real-runtime.log
+            build/nacht-meridian-real/godot/project.godot
+            build/nacht-meridian-real/godot/scenes/*.tscn
+            build/nacht-meridian-real/godot/assets/meshes/*.glb
+          if-no-files-found: warn
+          retention-days: 7

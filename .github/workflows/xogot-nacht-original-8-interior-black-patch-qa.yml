@@ -1,0 +1,63 @@
+name: Nacht Original Eight Interior Black Patch Capture QA
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-original-8-interior-black-patch-qa.yml"
+      - "tools/maps/nacht_original_interior_black_patch_qa.py"
+permissions:
+  contents: read
+  actions: read
+jobs:
+  classify-source-native-unbatched-black-screenshot-regions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Download all original Godot 4.6.1 source screenshots; do NOT use optimized-after baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh run view 37979580156 --json conclusion --jq '.conclusion')" = success
+          mkdir -p build/nacht-interior-black-photo/source
+          gh run download 37979580156 \
+            -n Nacht-10793-Source-16-Candidate-EyeHeight-Yaw-Directions-32-Original-Godot-PNGs \
+            -D build/nacht-interior-black-photo/source
+          python3 -m pip install --user pillow --disable-pip-version-check
+      - name: Mark suspect black patch pixels in EIGHT original unbatched interior source captures
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/maps/nacht_original_interior_black_patch_qa.py
+          python3 tools/maps/nacht_original_interior_black_patch_qa.py \
+            --input build/nacht-interior-black-photo/source \
+            --output build/nacht-interior-black-photo/diagnostics \
+            2>&1 | tee build/nacht-interior-black-photo/dark-region-triage.log
+          grep -q XZOGOT_NACHT_EIGHT_REAL_UNBATCHED_INTERIOR_FRAMES_BLACK_PATCH_QA_GREEN \
+            build/nacht-interior-black-photo/dark-region-triage.log
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          folder=Path("build/nacht-interior-black-photo/diagnostics")
+          d=json.loads((folder/"nacht-original-8-interior-dark-patch-triage.json").read_text())
+          assert d["interiorViewsSampled"]==8
+          assert len(list(folder.glob("*-darkmask-purple-diagnostic.png")))==8
+          assert d["blackInteriorArtIsNotCertifiedComplete"]
+          assert not d["missingTextureCauseProven"]
+          assert not d["productionShippingApproved"]
+          print("XZOGOT_NACHT_BLACK_WALL_PIXELS_LABELED_RESEARCH_NO_ART_QUALITY_CLAIM_GREEN")
+          PY
+      - name: Preserve eight real image black-region annotations, original untouched
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Nacht-Eight-Original-Interior-Black-Patch-Real-Godot-Captures-Magenta-Diagnostic
+          path: |
+            build/nacht-interior-black-photo/diagnostics/
+            build/nacht-interior-black-photo/dark-region-triage.log
+          retention-days: 14
+          if-no-files-found: warn

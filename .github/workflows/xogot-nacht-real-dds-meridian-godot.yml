@@ -1,0 +1,112 @@
+name: Xogot Nacht Real Source DDS Material Sample in Godot 4.6.1 (Research)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-real-dds-meridian-godot.yml"
+      - "tools/maps/stage_nacht_source_material_preview.py"
+      - "tools/maps/nacht_real_source_material_godot_probe.gd"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  original-material-actual-godot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Gate archived ORIGINAL XZMI all actors and lossless Godot triangles
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh run view 37944732189 --json conclusion --jq '.conclusion')" = success
+          test "$(gh run view 37938836028 --json conclusion --jq '.conclusion')" = success
+          test "$(gh run view 37939504798 --json conclusion --jq '.conclusion')" = success
+          echo "XZOGOT_NACHT_SOURCE_XZMI_AUTHORED_ALL_ACTORS_AND_GODOT_SOURCE_TRIANGLES_GREEN"
+
+      - name: Fetch exactly proven Godot Meridian scene, compiled ORIGINAL material binding report and original DDS
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-dds-godot/reused build/nacht-dds-godot/manifest "$RUNNER_TEMP/original"
+          gh run download 37938836028 -n Nacht-LOSSLESS-Native-493-GLB-10793-Actor-Godot-Research-Proof \
+            -D build/nacht-dds-godot/reused \
+            2>&1 | tee build/nacht-dds-godot/geometry-download.log
+          gh run download 37944732189 -n Nacht-10793-Original-574-Materials-16595-Source-Surface-Assignments \
+            -D build/nacht-dds-godot/manifest \
+            2>&1 | tee build/nacht-dds-godot/manifest-download.log
+          gh run download 37762871109 -n Xogot-Nacht-Chronicles-Godot-Runtime \
+            -D "$RUNNER_TEMP/original" \
+            2>&1 | tee build/nacht-dds-godot/original-source-download.log
+          PROJECT=$(find build/nacht-dds-godot/reused -name project.godot -type f -print -quit)
+          REPORT=$(find build/nacht-dds-godot/manifest -name nacht-actor-material-authority.json -type f -print -quit)
+          STAGE=$(dirname "$(find "$RUNNER_TEMP/original" -name material-binding-manifest.json -type f -print -quit)")
+          DDS=$(find "$RUNNER_TEMP/original" -name textures_dds -type d -print -quit)
+          test -s "$PROJECT" && test -s "$REPORT"
+          test -s "$STAGE/material-binding-manifest.json" && test -d "$DDS"
+          echo "GODOT_PROJECT=$(dirname "$PROJECT")" >> "$GITHUB_ENV"
+          echo "COMPILED_REPORT=$PWD/$REPORT" >> "$GITHUB_ENV"
+          echo "MATERIAL_STAGE=$STAGE" >> "$GITHUB_ENV"
+          echo "ORIGINAL_DDS=$DDS" >> "$GITHUB_ENV"
+
+      - name: Stage ONLY original authored materials and referenced real DDS, never invented textures
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GODOT_PROJECT/scripts"
+          cp xogot/scripts/xziel_benchmark_loader.gd "$GODOT_PROJECT/scripts/xziel_benchmark_loader.gd"
+          cp tools/maps/nacht_real_source_material_godot_probe.gd \
+            "$GODOT_PROJECT/nacht_real_source_material_godot_probe.gd"
+          python3 tools/maps/stage_nacht_source_material_preview.py \
+            --bridge "$COMPILED_REPORT" \
+            --source-stage "$MATERIAL_STAGE" \
+            --dds "$ORIGINAL_DDS" \
+            --godot-project "$GODOT_PROJECT" \
+            --output build/nacht-dds-godot/selected-source-materials.json \
+            --max-actors 24 \
+            2>&1 | tee build/nacht-dds-godot/stage-original-dds.log
+          grep -q XZOGOT_NACHT_AUTHORED_MATERIAL_TEXTURE_PREVIEW_STAGE_GREEN \
+            build/nacht-dds-godot/stage-original-dds.log
+
+      - name: Run real Godot 4.6.1 original textured surface material load and XZMI instance binding gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot"
+          curl --fail -L --retry 3 -o "$RUNNER_TEMP/godot/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64"
+          chmod +x "$GODOT"
+          "$GODOT" --headless --path "$GODOT_PROJECT" --import \
+            2>&1 | tee build/nacht-dds-godot/godot-texture-import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load" \
+            build/nacht-dds-godot/godot-texture-import.log
+          "$GODOT" --headless --path "$GODOT_PROJECT" \
+            --script res://nacht_real_source_material_godot_probe.gd \
+            2>&1 | tee build/nacht-dds-godot/godot-material-bindings.log
+          cp "$GODOT_PROJECT/nacht-authored-material-godot-probe.json" \
+            build/nacht-dds-godot/godot-material-bindings.json
+          grep -q XZOGOT_NACHT_REAL_SOURCE_DDS_AND_AUTHORED_MATERIAL_IN_GODOT_GREEN \
+            build/nacht-dds-godot/godot-material-bindings.log
+
+      - name: Preserve original-source proof and concrete missing material RED evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Godot-Actual-Original-Pavlov-DDS-Sampled-Material-Surface-Proof
+          path: |
+            build/nacht-dds-godot/stage-original-dds.log
+            build/nacht-dds-godot/selected-source-materials.json
+            build/nacht-dds-godot/godot-texture-import.log
+            build/nacht-dds-godot/godot-material-bindings.log
+            build/nacht-dds-godot/godot-material-bindings.json
+          retention-days: 14
+          if-no-files-found: warn

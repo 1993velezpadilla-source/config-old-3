@@ -1,0 +1,205 @@
+name: Xogot Nacht REAL 10793 Source Textured Lit Godot Screenshots (Research)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-meridian-full-source-screenshots.yml"
+      - "tools/maps/nacht_meridian_real_visual_capture.gd"
+      - "tools/maps/nacht_apply_source_exterior_visual_lod.gd"
+      - "tools/maps/nacht_apply_source_vista_actor_local_dds.gd"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  real-source-lit-meridian-render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Gate 10793 geometry, 574 materials, 166 original lights, far-source policy; independently gate 55m actual mesh AABBs at runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in 37938836028 37939504798 37944732189 37945872261 37947767584 37961985956 37965581696 37967088357; do
+            test "$(gh run view "$i" --json conclusion --jq '.conclusion')" = success || {
+              echo "XZOGOT_NACHT_SOURCE_VISUAL_DEPENDENCY_RED run=$i"
+              exit 1
+            }
+          done
+          echo "XZOGOT_NACHT_ALL_REAL_SOURCE_GEOMETRY_MATERIAL_LIGHT_DEPENDENCIES_GREEN"
+
+      - name: Retrieve exact validated lossless Meridian Godot GLB, native material report and original Pavlov UE4.21 map asset archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-meridian-visual/glb build/nacht-meridian-visual/materials build/nacht-meridian-visual/far-lod build/nacht-meridian-visual/vista-policy "$RUNNER_TEMP/source"
+          gh run download 37938836028 -n Nacht-LOSSLESS-Native-493-GLB-10793-Actor-Godot-Research-Proof \
+            -D build/nacht-meridian-visual/glb \
+            2>&1 | tee build/nacht-meridian-visual/glb-download.log
+          gh run download 37944732189 -n Nacht-10793-Original-574-Materials-16595-Source-Surface-Assignments \
+            -D build/nacht-meridian-visual/materials \
+            2>&1 | tee build/nacht-meridian-visual/materials-download.log
+          gh run download 37961985956 \
+            -n Nacht-Original-10793-Exterior-Foliage-World-Distance-LOD-Policy \
+            -D build/nacht-meridian-visual/far-lod \
+            2>&1 | tee build/nacht-meridian-visual/source-far-lod-download.log
+          gh run download 37965581696 \
+            -n Nacht-Original-UE421-Authored-Vista-Far-Background-Reachability-Guard \
+            -D build/nacht-meridian-visual/vista-policy \
+            2>&1 | tee build/nacht-meridian-visual/source-vista-download.log
+          gh run download 37762871109 -n Xogot-Nacht-Chronicles-Godot-Runtime \
+            -D "$RUNNER_TEMP/source" \
+            2>&1 | tee build/nacht-meridian-visual/authorities-download.log
+          PROJECT=$(find build/nacht-meridian-visual/glb -name project.godot -type f -print -quit)
+          REPORT=$(find build/nacht-meridian-visual/materials -name nacht-actor-material-authority.json -type f -print -quit)
+          STAGE=$(dirname "$(find "$RUNNER_TEMP/source" -name material-binding-manifest.json -type f -print -quit)")
+          DDS=$(find "$RUNNER_TEMP/source" -name textures_dds -type d -print -quit)
+          RAW_LIGHT=$(find "$RUNNER_TEMP/source" -name nacht-lights.json -type f -print -quit)
+          LIGHT_ENV=$(find "$RUNNER_TEMP/source" -name nacht-environment-report.json -type f -print -quit)
+          RUNTIME_ENV=$(find "$RUNNER_TEMP/source" -name nacht-environment-runtime-authority.json -type f -print -quit)
+          FAR_POLICY=$(find build/nacht-meridian-visual/far-lod -name original-exterior-source-actor-visual-policy.json -type f -print -quit)
+          VISTA_POLICY=$(find build/nacht-meridian-visual/vista-policy -name authored-vista-distance-source.json -type f -print -quit)
+          test -s "$PROJECT" && test -s "$REPORT"
+          test -d "$DDS" && test -s "$STAGE/xzml-report.json"
+          test -s "$RAW_LIGHT" && test -s "$LIGHT_ENV" && test -s "$RUNTIME_ENV" && test -s "$FAR_POLICY" && test -s "$VISTA_POLICY"
+          echo "GODOT_PROJECT=$(dirname "$PROJECT")" >> "$GITHUB_ENV"
+          echo "MATERIAL_REPORT=$PWD/$REPORT" >> "$GITHUB_ENV"
+          echo "STAGE=$STAGE" >> "$GITHUB_ENV"
+          echo "DDS=$DDS" >> "$GITHUB_ENV"
+          echo "RAW_LIGHT=$RAW_LIGHT" >> "$GITHUB_ENV"
+          echo "LIGHT_ENV=$LIGHT_ENV" >> "$GITHUB_ENV"
+          echo "RUNTIME_ENV=$RUNTIME_ENV" >> "$GITHUB_ENV"
+          echo "FAR_EXTERIOR_POLICY=$PWD/$FAR_POLICY" >> "$GITHUB_ENV"
+          echo "VISTA_SOURCE_POLICY=$PWD/$VISTA_POLICY" >> "$GITHUB_ENV"
+          echo "XZOGOT_NACHT_EXACT_SOURCE_LOSSLESS_GLTF_TEXTURE_LIGHT_DOWNLOAD_GREEN"
+
+      - name: Reattach all original 718 used DDS, 574 materials / 16595 original surface bindings, and 166 original UE4 lights
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GODOT_PROJECT/scripts" "$GODOT_PROJECT/nacht-authority"
+          cp xogot/scripts/xziel_benchmark_loader.gd "$GODOT_PROJECT/scripts/xziel_benchmark_loader.gd"
+          cp tools/maps/nacht_meridian_real_visual_capture.gd "$GODOT_PROJECT/nacht_meridian_real_visual_capture.gd"
+          cp tools/maps/nacht_apply_source_exterior_visual_lod.gd "$GODOT_PROJECT/nacht_apply_source_exterior_visual_lod.gd"
+          cp tools/maps/nacht_apply_source_vista_actor_local_dds.gd "$GODOT_PROJECT/nacht_apply_source_vista_actor_local_dds.gd"
+          cp "$VISTA_SOURCE_POLICY" "$GODOT_PROJECT/nacht-authored-vista-actor-policy.json"
+          cp "$FAR_EXTERIOR_POLICY" "$GODOT_PROJECT/nacht-exterior-visual-policy.json"
+          cp "$MATERIAL_REPORT" "$GODOT_PROJECT/nacht-actor-material-authority.json"
+          cp "$RUNTIME_ENV" "$GODOT_PROJECT/nacht-authority/nacht-environment-runtime-authority.json"
+          python3 tools/maps/stage_nacht_all_used_source_dds.py \
+            --stage "$STAGE" --dds "$DDS" --project "$GODOT_PROJECT" \
+            --output build/nacht-meridian-visual/original-dds-stage-report.json \
+            2>&1 | tee build/nacht-meridian-visual/source-dds-stage.log
+          python3 tools/maps/compile_nacht_source_lights_for_meridian.py \
+            --environment "$LIGHT_ENV" --source-lights "$RAW_LIGHT" \
+            --output "$GODOT_PROJECT/nacht-authority/xzen-report.json" \
+            --report build/nacht-meridian-visual/source-lights-report.json \
+            2>&1 | tee build/nacht-meridian-visual/source-lights-bridge.log
+          grep -q XZOGOT_NACHT_ALL_USED_UE421_SOURCE_DDS_STAGE_GREEN \
+            build/nacht-meridian-visual/source-dds-stage.log
+          grep -q XZOGOT_NACHT_166_SOURCE_UE_LIGHTS_EXACT_AUTHORITY_ADAPTER_GREEN \
+            build/nacht-meridian-visual/source-lights-bridge.log
+          echo "XZOGOT_NACHT_MERIDIAN_REAL_SOURCE_TEXTURES_AND_LIGHTS_STAGED_GREEN"
+
+      - name: Install tested Godot 4.6.1 Mesa compatibility framebuffer
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb unzip libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+          mkdir -p "$RUNNER_TEMP/godot"
+          curl --fail -L --retry 4 -o "$RUNNER_TEMP/godot/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64"
+          echo "GODOT=$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64" >> "$GITHUB_ENV"
+
+      - name: Import original real DDS compressed images and lossless world into Godot
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 600 "$GODOT" --headless --editor --path "$GODOT_PROJECT" --quit \
+            2>&1 | tee build/nacht-meridian-visual/import.log
+          if grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load|ERROR: Cannot open" \
+             build/nacht-meridian-visual/import.log; then
+            echo "XZOGOT_NACHT_REAL_TEXTURE_IMPORT_RED"
+            exit 1
+          fi
+          echo "XZOGOT_NACHT_REAL_SOURCE_DDS_GLTF_IMPORT_GREEN"
+
+      - name: Render 10 source/night + 2 source-far-LOD + 2 original-Vista actor-specific lower-res DDS comparisons
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 1200 xvfb-run -a -s "-screen 0 1280x720x24" \
+            "$GODOT" --path "$GODOT_PROJECT" \
+            --rendering-method gl_compatibility \
+            --resolution 1280x720 \
+            --script res://nacht_meridian_real_visual_capture.gd \
+            2>&1 | tee build/nacht-meridian-visual/capture.log
+          grep -q XZOGOT_NACHT_VISUAL_REAL_SOURCE_MATERIALS_GREEN build/nacht-meridian-visual/capture.log
+          grep -q XZOGOT_NACHT_VISUAL_REAL_SOURCE_LIGHTS_GREEN build/nacht-meridian-visual/capture.log
+          grep -q 'XZOGOT_NACHT_MERIDIAN_10793_REAL_SOURCE_VISUAL_CAPTURE_GREEN count=10' \
+            build/nacht-meridian-visual/capture.log
+          grep -q 'XZOGOT_NACHT_NIGHT_LOOKDEV_SHADOW_VISIBILITY_BRACKET_GREEN both_camera_views=2' build/nacht-meridian-visual/capture.log
+          grep -q XZOGOT_NACHT_REAL_GODOT_OUTDOOR_FAR_LOD_AB_GREEN build/nacht-meridian-visual/capture.log
+          grep -q XZOGOT_NACHT_REAL_GODOT_173_FAR_VISTA_TEXTURE_AB_SOURCE_FIDELITY_GREEN build/nacht-meridian-visual/capture.log
+          grep -q 'XZOGOT_NACHT_FINAL_SOURCE_RENDER_IMAGES_COUNT 14' build/nacht-meridian-visual/capture.log
+          for name in 01-source-overview 02-source-spawn10-interior 03-source-spawn4-interior 04-source-spawn6-interior 05-diagnostic-overview-ambient 06-diagnostic-spawn6-ambient 07-night-lookdev-moon-overview 08-night-lookdev-moon-interior 09-night-lookdev-dark-overview 10-night-lookdev-dark-interior 11-exterior-moon-optimized 12-interior-moon-optimized 13-far-vista-lowres-outdoor 14-far-vista-lowres-interior; do
+            test -s "$GODOT_PROJECT/$name.png"
+            cp "$GODOT_PROJECT/$name.png" build/nacht-meridian-visual/
+          done
+          cp "$GODOT_PROJECT/nacht-source-visual-capture-audit.json" \
+             build/nacht-meridian-visual/capture-audit.json
+          echo "XZOGOT_NACHT_REAL_14_BEFORE_AFTER_FAR_VISTA_256_512_DDS_AND_PROTECTED_INTERIOR_PHOTOS_GREEN"
+
+      - name: Preserve actually rendered image evidence EVEN when night visual gate turns RED
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${GODOT_PROJECT:-}" ] && [ -d "$GODOT_PROJECT" ]; then
+            find "$GODOT_PROJECT" -maxdepth 1 -type f -name '*.png' -print |
+              while IFS= read -r source_photo; do
+                cp -f "$source_photo" build/nacht-meridian-visual/ || true
+              done
+            if [ -f "$GODOT_PROJECT/nacht-source-visual-capture-audit.json" ]; then
+              cp -f "$GODOT_PROJECT/nacht-source-visual-capture-audit.json" build/nacht-meridian-visual/capture-audit.json || true
+            fi
+          fi
+
+      - name: Always deliver images/logs even if screenshots RED for truthful visual debugging
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Meridian-14-Source-Night-Far-Foliage-And-Actor-Vista-DDS-AB
+          path: |
+            build/nacht-meridian-visual/01-source-overview.png
+            build/nacht-meridian-visual/02-source-spawn10-interior.png
+            build/nacht-meridian-visual/03-source-spawn4-interior.png
+            build/nacht-meridian-visual/04-source-spawn6-interior.png
+            build/nacht-meridian-visual/05-diagnostic-overview-ambient.png
+            build/nacht-meridian-visual/06-diagnostic-spawn6-ambient.png
+            build/nacht-meridian-visual/07-night-lookdev-moon-overview.png
+            build/nacht-meridian-visual/08-night-lookdev-moon-interior.png
+            build/nacht-meridian-visual/09-night-lookdev-dark-overview.png
+            build/nacht-meridian-visual/10-night-lookdev-dark-interior.png
+            build/nacht-meridian-visual/11-exterior-moon-optimized.png
+            build/nacht-meridian-visual/12-interior-moon-optimized.png
+            build/nacht-meridian-visual/13-far-vista-lowres-outdoor.png
+            build/nacht-meridian-visual/14-far-vista-lowres-interior.png
+            build/nacht-meridian-visual/capture-audit.json
+            build/nacht-meridian-visual/capture.log
+            build/nacht-meridian-visual/import.log
+            build/nacht-meridian-visual/source-dds-stage.log
+            build/nacht-meridian-visual/source-lights-bridge.log
+          if-no-files-found: warn
+          retention-days: 14
+          compression-level: 3

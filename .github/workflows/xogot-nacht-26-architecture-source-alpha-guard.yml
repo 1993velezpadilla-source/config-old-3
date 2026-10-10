@@ -1,0 +1,90 @@
+name: Nacht Source Architectural Opaque Candidate and GDScript Guard
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-26-architecture-source-alpha-guard.yml"
+      - "tools/maps/nacht_compile_conservative_architecture_opaque_source_policy.py"
+      - "tools/maps/nacht_apply_conservative_opaque_architecture_research.gd"
+permissions:
+  contents: read
+  actions: read
+jobs:
+  source-authority-fail-closed-alpha-and-Godot-parser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Prove 26 source architecture candidates; foliage/glass/decals all excluded
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-26-architecture/source build/nacht-26-architecture/project
+          gh run download 37944732189 \
+            -n Nacht-10793-Original-574-Materials-16595-Source-Surface-Assignments \
+            -D build/nacht-26-architecture/source
+          python3 -m py_compile tools/maps/nacht_compile_conservative_architecture_opaque_source_policy.py
+          python3 tools/maps/nacht_compile_conservative_architecture_opaque_source_policy.py \
+            --source build/nacht-26-architecture/source/nacht-actor-material-authority.json \
+            --output build/nacht-26-architecture/original-architecture-26-candidate-policy.json \
+            2>&1 | tee build/nacht-26-architecture/source-actor-alpha-policy.log
+          grep -q XZOGOT_NACHT_ARCHIVE_EXACT_26_ARCHITECTURE_ONLY_ALPHA_SCISSOR_CANDIDATES_GREEN \
+            build/nacht-26-architecture/source-actor-alpha-policy.log
+      - name: Load original-resource reversible scoped architecture controller in actual Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot"
+          curl --fail -L --retry 3 -o "$RUNNER_TEMP/godot/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64"
+          printf '[application]\nconfig/name="NachtSourceArchitecture26ResearchOnly"\n' \
+            > build/nacht-26-architecture/project/project.godot
+          cp tools/maps/nacht_apply_conservative_opaque_architecture_research.gd \
+            build/nacht-26-architecture/project/architecture.gd
+          cat > build/nacht-26-architecture/project/probe.gd <<'GDS'
+          extends SceneTree
+          func _initialize() -> void:
+              var s: Script=load("res://architecture.gd") as Script
+              if s==null or not s.can_instantiate():
+                  push_error("XZOGOT_NACHT_ARCHITECTURAL_SOURCE_ALPHA_PARSER_RED")
+                  quit(2)
+                  return
+              var instance: RefCounted=s.new() as RefCounted
+              var invalid: Dictionary=instance.call(
+                  "apply_source_architecture_opaque_research",{},{},{}) as Dictionary
+              if (invalid.get("errors",[]) as Array).is_empty():
+                  push_error("XZOGOT_NACHT_ARCHITECTURAL_SOURCE_ALPHA_INVALID_SOURCE_ACCEPTED_RED")
+                  quit(3)
+                  return
+              var rollback: Dictionary=instance.call(
+                  "restore_original_source_architecture") as Dictionary
+              if (rollback.get("errors",[]) as Array).is_empty():
+                  push_error("XZOGOT_NACHT_ARCHITECTURAL_SOURCE_ALPHA_UNARMED_ROLLBACK_RED")
+                  quit(4)
+                  return
+              print("XZOGOT_NACHT_ARCHITECTURAL_SOURCE_26_CONTROLLER_GODOT461_PARSER_AND_FAILCLOSED_GREEN")
+              quit(0)
+          GDS
+          timeout 70 "$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64" --headless \
+            --path build/nacht-26-architecture/project --script res://probe.gd \
+            2>&1 | tee build/nacht-26-architecture/reversible-source-godot.log
+          grep -q XZOGOT_NACHT_ARCHITECTURAL_SOURCE_26_CONTROLLER_GODOT461_PARSER_AND_FAILCLOSED_GREEN \
+            build/nacht-26-architecture/reversible-source-godot.log
+          ! grep -E "SCRIPT ERROR|Parse Error" build/nacht-26-architecture/reversible-source-godot.log
+      - name: Keep exact source policy, original material control status
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-26-Exact-Source-Architectural-1262-Surfaces-Reversible-Mask-Research
+          path: |
+            build/nacht-26-architecture/original-architecture-26-candidate-policy.json
+            build/nacht-26-architecture/source-actor-alpha-policy.log
+            build/nacht-26-architecture/reversible-source-godot.log
+          retention-days: 14
+          if-no-files-found: warn

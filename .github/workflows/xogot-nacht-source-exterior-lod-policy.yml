@@ -1,0 +1,73 @@
+name: Xogot Nacht 10793 Exact-Source Exterior LOD Plan and Protected Building (Research)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-source-exterior-lod-policy.yml"
+      - "tools/maps/compile_nacht_source_exterior_lod_policy.py"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  exact-original-source-exterior-actor-filter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Demand original source camera and complete mesh geometry and collisions proof GREEN
+        shell: bash
+        run: |
+          set -euo pipefail
+          for id in 37938836028 37956535853 37960232923 37961600907; do
+            test "$(gh run view "$id" --json conclusion --jq '.conclusion')" = success
+          done
+          echo "XZOGOT_NACHT_PROTECTED_SOURCE_BUILDING_EXTERIOR_DEPENDENCIES_GREEN"
+      - name: Retrieve original Pavlov UE4.21 static actor and asset identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-exterior-lod "$RUNNER_TEMP/source"
+          gh run download 37762871109 -n Xogot-Nacht-Chronicles-Godot-Runtime \
+            -D "$RUNNER_TEMP/source" \
+            2>&1 | tee build/nacht-exterior-lod/download.log
+          SCENE=$(find "$RUNNER_TEMP/source" -name nacht-static-scene.json -type f -print -quit)
+          test -s "$SCENE"
+          echo "SOURCE_STATIC_SCENE=$SCENE" >> "$GITHUB_ENV"
+      - name: Generate explicit original actor IDs for far exterior grass, trees and small clutter without geometry changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/compile_nacht_source_exterior_lod_policy.py \
+            --scene "$SOURCE_STATIC_SCENE" \
+            --output build/nacht-exterior-lod/original-exterior-source-actor-visual-policy.json \
+            2>&1 | tee build/nacht-exterior-lod/policy.log
+          grep -q XZOGOT_NACHT_ORIGINAL_SAFE_EXTERIOR_ASSET_LOD_PLAN_GREEN \
+            build/nacht-exterior-lod/policy.log
+          python3 - <<'PY'
+          import json,math
+          d=json.load(open("build/nacht-exterior-lod/original-exterior-source-actor-visual-policy.json"))
+          assert d["sourceActorCount"]==10793 and d["sourceNativeMeshTypes"]==493
+          assert d["eligibleOriginalVisualActors"]==len(d["actors"])
+          assert all(x["buildingAnchorHorizontalDistanceM"]>=55 for x in d["actors"])
+          assert all(x["authoredAssetClass"] in ("small_foliage","tree_silhouette","small_decorative_ground")
+                     for x in d["actors"])
+          assert not d["collisionsAndNavigationModified"] and d["sourceOriginalActorTransformsChanged"]==0
+          print("XZOGOT_NACHT_SOURCE_NEAR_BUILDING_COLLISION_AND_MATERIAL_IMMUTABILITY_GREEN")
+          PY
+      - name: Retain source-authored exterior-only candidate eligibility policy, NOT shipping game assets
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Original-10793-Exterior-Foliage-World-Distance-LOD-Policy
+          path: |
+            build/nacht-exterior-lod/original-exterior-source-actor-visual-policy.json
+            build/nacht-exterior-lod/policy.log
+          retention-days: 14
+          if-no-files-found: warn

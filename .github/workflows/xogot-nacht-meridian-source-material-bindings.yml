@@ -1,0 +1,91 @@
+name: Xogot Nacht All 10793 Authoritative Material Surface Bindings (Research)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-meridian-source-material-bindings.yml"
+      - "tools/maps/compile_nacht_meridian_material_bindings.py"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  source-authored-material-assignments:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Require actual 10793 source geometry / Godot triangles / native manifests previous GREEN
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh run view 37938836028 --json conclusion --jq '.conclusion')" = success
+          test "$(gh run view 37939504798 --json conclusion --jq '.conclusion')" = success
+          test "$(gh run view 37944268694 --json conclusion --jq '.conclusion')" = success
+          echo "XZOGOT_NACHT_COMPLETE_GLTF_GEOMETRY_AND_NATIVE_MATERIAL_MANIFEST_DEPENDENCIES_GREEN"
+
+      - name: Reuse EXACT prior archived 2.1 GB Pavlov UE4.21 source material and DDS authorities
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ue421-original" build/nacht-material-bridge
+          gh run download 37762871109 -n Xogot-Nacht-Chronicles-Godot-Runtime \
+            -D "$RUNNER_TEMP/ue421-original" \
+            2>&1 | tee build/nacht-material-bridge/source-download.log
+          STAGE=$(dirname "$(find "$RUNNER_TEMP/ue421-original" -name material-binding-manifest.json -type f -print -quit)")
+          test -s "$STAGE/material-binding-manifest.json"
+          test -s "$STAGE/xzmi-report.json"
+          test -s "$STAGE/xzml-report.json"
+          test -s "$STAGE/complete-xztx-report.json"
+          test -s "$STAGE/nacht-static-scene.json"
+          MESHES=$(find "$RUNNER_TEMP/ue421-original" -type d -name meshes_glb -print -quit)
+          DDS=$(find "$RUNNER_TEMP/ue421-original" -type d -name textures_dds -print -quit)
+          test -d "$MESHES" && test -d "$DDS"
+          echo "ORIGINAL_STAGE=$STAGE" >> "$GITHUB_ENV"
+          echo "NATIVE_MESHES=$MESHES" >> "$GITHUB_ENV"
+          echo "NATIVE_DDS=$DDS" >> "$GITHUB_ENV"
+          echo "XZOGOT_NACHT_REAL_UE4_MATERIALS_XZMI_XZML_AND_DDS_FOUND"
+
+      - name: Compile complete 10793 real source actor material identities with 16595 native surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/compile_nacht_meridian_material_bindings.py \
+            --scene "$ORIGINAL_STAGE/nacht-static-scene.json" \
+            --bindings "$ORIGINAL_STAGE/material-binding-manifest.json" \
+            --xzmi "$ORIGINAL_STAGE/xzmi-report.json" \
+            --xzml "$ORIGINAL_STAGE/xzml-report.json" \
+            --complete "$ORIGINAL_STAGE/complete-xztx-report.json" \
+            --native-glbs "$NATIVE_MESHES" \
+            --dds "$NATIVE_DDS" \
+            --output build/nacht-material-bridge/nacht-actor-material-authority.json \
+            2>&1 | tee build/nacht-material-bridge/material-authority.log
+          grep -q XZOGOT_NACHT_SOURCE_MATERIAL_ASSIGNMENT_GREEN \
+            build/nacht-material-bridge/material-authority.log
+          python3 - <<'PY'
+          import json
+          p=json.load(open("build/nacht-material-bridge/nacht-actor-material-authority.json"))
+          assert p["sourceActorCount"]==10793
+          assert p["sourceMeshTypeCount"]==493
+          assert p["originalSourceSurfaceBindings"]==16595
+          assert p["distinctSourceEffectiveMaterials"]==574
+          assert p["sourceDDSFilesVerified"]==1581
+          print("XZOGOT_NACHT_REAL_SOURCE_MATERIAL_MESH_SURFACE_IDENTITY_GREEN")
+          PY
+
+      - name: Retain exact source material linkage evidence (not original pixel payloads)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-10793-Original-574-Materials-16595-Source-Surface-Assignments
+          path: |
+            build/nacht-material-bridge/material-authority.log
+            build/nacht-material-bridge/nacht-actor-material-authority.json
+          if-no-files-found: warn
+          retention-days: 14

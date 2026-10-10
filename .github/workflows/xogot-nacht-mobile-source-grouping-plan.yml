@@ -1,0 +1,80 @@
+name: Xogot Nacht Android Exact-Source Spatial Batching Feasibility (Research)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-mobile-source-grouping-plan.yml"
+      - "tools/maps/plan_nacht_mobile_source_grouping.py"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  spatial-batching-static-source-provenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Require original Godot geometry and all material mapping gates GREEN
+        shell: bash
+        run: |
+          set -euo pipefail
+          for id in 37938836028 37939504798 37944732189 37945872261; do
+            test "$(gh run view "$id" --json conclusion --jq '.conclusion')" = success
+          done
+          echo "XZOGOT_NACHT_ALL_10793_ORIGINAL_MESH_MATERIAL_AUTHORITIES_GREEN"
+      - name: Recover original source actor world matrices and Godot 574-material surface mapping
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-android-plan "$RUNNER_TEMP/archived-source"
+          gh run download 37944732189 \
+            -n Nacht-10793-Original-574-Materials-16595-Source-Surface-Assignments \
+            -D build/nacht-android-plan \
+            2>&1 | tee build/nacht-android-plan/material-download.log
+          gh run download 37762871109 \
+            -n Xogot-Nacht-Chronicles-Godot-Runtime \
+            -D "$RUNNER_TEMP/archived-source" \
+            2>&1 | tee build/nacht-android-plan/source-download.log
+          FILE=$(find "$RUNNER_TEMP/archived-source" -name nacht-static-scene.json -type f -print -quit)
+          BRIDGE=$(find build/nacht-android-plan -name nacht-actor-material-authority.json -type f -print -quit)
+          test -s "$FILE" && test -s "$BRIDGE"
+          echo "NACHT_ORIGINAL_SCENE=$FILE" >> "$GITHUB_ENV"
+          echo "NACHT_MATERIAL_BRIDGE=$PWD/$BRIDGE" >> "$GITHUB_ENV"
+      - name: Compare 8m 16m 32m cell source-identity preserving grouping costs and never falsify real FPS
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/plan_nacht_mobile_source_grouping.py \
+            --scene "$NACHT_ORIGINAL_SCENE" \
+            --material-bridge "$NACHT_MATERIAL_BRIDGE" \
+            --output build/nacht-android-plan/source-static-batching-candidates.json \
+            2>&1 | tee build/nacht-android-plan/grouping-plan.log
+          grep -q XZOGOT_NACHT_MOBILE_SOURCE_GROUPING_10793_ACTORS_16595_SURFACES_GREEN \
+            build/nacht-android-plan/grouping-plan.log
+          python3 - <<'PY'
+          import json
+          d=json.load(open("build/nacht-android-plan/source-static-batching-candidates.json"))
+          assert len(d["candidates"])==3
+          assert len(set(c["original_transform_material_identity_sha256"] for c in d["candidates"]))==1
+          assert all(c["actor_count"]==10793 and c["original_source_surfaces"]==16595 for c in d["candidates"])
+          assert all(c["rendered_Godot_multimesh_not_yet_built"] and
+                     not c["actual_GPU_draw_calls_or_FPS_proven"] for c in d["candidates"])
+          print("XZOGOT_NACHT_ANDROID_GROUPING_SOURCE_WORLD_MATRICES_MATERIALS_EXACT_GREEN")
+          PY
+      - name: Preserve source-provenance-only Android optimization evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Android-10793-Source-Exact-Spatial-Batching-Feasibility
+          path: |
+            build/nacht-android-plan/source-static-batching-candidates.json
+            build/nacht-android-plan/grouping-plan.log
+          retention-days: 14
+          if-no-files-found: warn

@@ -1,0 +1,68 @@
+name: Xogot Nacht 13 Source Triangle Loss Root-Cause (Research)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-triangle-loss-rootcause.yml"
+      - "tools/maps/diagnose_nacht_triangle_loss_blender.py"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  identify-loss-stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: "37762871109"
+      SOURCE_ARTIFACT: Xogot-Nacht-Chronicles-Godot-Runtime
+    steps:
+      - uses: actions/checkout@v5
+      - name: Reuse untouched source native GLB and extracted original actor manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/nacht-original" build/nacht-triangle-rootcause
+          gh run download "$SOURCE_RUN" -n "$SOURCE_ARTIFACT" \
+            -D "$RUNNER_TEMP/nacht-original" \
+            2>&1 | tee build/nacht-triangle-rootcause/source-download.log
+          SRC=$(find "$RUNNER_TEMP/nacht-original" -name nacht-static-scene.json -type f -print -quit)
+          MESHES=$(find "$RUNNER_TEMP/nacht-original" -name meshes_glb -type d -print -quit)
+          test -s "$SRC" && test -d "$MESHES"
+          echo "UE_SCENE=$SRC" >> "$GITHUB_ENV"
+          echo "UE_MESHES=$MESHES" >> "$GITHUB_ENV"
+      - name: Install exactly Blender 5.0 real glTF source import
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libgl1-mesa-dri libglx-mesa0 libegl1 libxi6 libxrender1 libsm6 libxxf86vm1 libxfixes3
+          python3 -m pip install --disable-pip-version-check blender-downloader
+          BLENDER=$(blender-downloader 5.0 --extract --remove-compressed --print-blender-executable)
+          test -x "$BLENDER"
+          echo "BLENDER=$BLENDER" >> "$GITHUB_ENV"
+      - name: Compare 13 exact anomalous native GLB source triangle counts against Blender IMPORT
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BLENDER" --background --factory-startup \
+            --python tools/maps/diagnose_nacht_triangle_loss_blender.py -- \
+            --scene "$UE_SCENE" --native-glb-dir "$UE_MESHES" \
+            --out build/nacht-triangle-rootcause/blender-import-triangle-counts.json \
+            --mesh-index 7 11 63 142 146 160 284 453 454 466 485 486 490 \
+            2>&1 | tee build/nacht-triangle-rootcause/blender-import-triangle-counts.log
+          grep -q "XZOGOT_NACHT_TRIANGLE_IMPORT_STAGE_DIAGNOSTIC_DONE" \
+            build/nacht-triangle-rootcause/blender-import-triangle-counts.log
+      - name: Preserve evidence on success or failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Blender-Source-Triangle-Loss-RootCause-Diagnostic
+          path: build/nacht-triangle-rootcause/*
+          if-no-files-found: warn
+          retention-days: 14

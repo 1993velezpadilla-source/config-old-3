@@ -1,0 +1,56 @@
+name: Nacht Real Interior Black Material 3-Stage Godot Parser Guard
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-black-interior-parser-preflight.yml"
+      - "tools/maps/nacht_real_black_interior_source_material_forensics.gd"
+permissions:
+  contents: read
+jobs:
+  real-godot-461-material-geometry-probe-compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Actual Godot 4.6.1 parser no huge 2 GB source stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot" build/nacht-black-parser/project
+          curl --fail -L --retry 3 -o "$RUNNER_TEMP/godot/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64"
+          printf '[application]\nconfig/name="Source-Black-Interior-Parser-Preflight"\n' \
+            > build/nacht-black-parser/project/project.godot
+          cp tools/maps/nacht_real_black_interior_source_material_forensics.gd \
+            build/nacht-black-parser/project/black_source.gd
+          cat > build/nacht-black-parser/project/parse.gd <<'GDS'
+          extends SceneTree
+          func _initialize() -> void:
+              var s: Script=load("res://black_source.gd") as Script
+              if s==null or not s.can_instantiate():
+                  push_error("XZOGOT_NACHT_BLACK_SOURCE_GODOT_PARSER_RED")
+                  quit(2)
+                  return
+              print("XZOGOT_NACHT_BLACK_SOURCE_GODOT461_REAL_SCENE_SCRIPT_PARSER_GREEN")
+              quit(0)
+          GDS
+          timeout 75 "$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64" \
+            --headless --path build/nacht-black-parser/project \
+            --script res://parse.gd \
+            2>&1 | tee build/nacht-black-parser/parser.log
+          grep -q XZOGOT_NACHT_BLACK_SOURCE_GODOT461_REAL_SCENE_SCRIPT_PARSER_GREEN \
+            build/nacht-black-parser/parser.log
+          ! grep -E "SCRIPT ERROR|Parse Error" build/nacht-black-parser/parser.log
+      - name: Preserve parser RED/GREEN
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Black-Interior-Forensics-Godot461-Parser
+          path: build/nacht-black-parser/parser.log
+          retention-days: 14
+          if-no-files-found: warn

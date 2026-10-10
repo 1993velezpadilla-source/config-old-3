@@ -1,0 +1,67 @@
+name: Xogot Nacht Lossless Source Triangle Import Experimental A-B
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-lossless-triangle-import-probe.yml"
+      - "tools/maps/probe_nacht_lossless_blender_import.py"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  direct-native-triangles:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Fetch original untouched archived GLBs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/original" build/nacht-raw-import
+          gh run download 37762871109 -n Xogot-Nacht-Chronicles-Godot-Runtime \
+            -D "$RUNNER_TEMP/original"
+          SRC=$(find "$RUNNER_TEMP/original" -name nacht-static-scene.json -type f -print -quit)
+          MESHES=$(find "$RUNNER_TEMP/original" -name meshes_glb -type d -print -quit)
+          test -s "$SRC" && test -d "$MESHES"
+          echo "UE_SCENE=$SRC" >> "$GITHUB_ENV"
+          echo "UE_MESHES=$MESHES" >> "$GITHUB_ENV"
+      - name: Install Blender 5.0 and native direct mesh A-B dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libgl1-mesa-dri libglx-mesa0 libegl1 libxi6 libxrender1 libsm6 libxxf86vm1 libxfixes3
+          python3 -m pip install --disable-pip-version-check blender-downloader
+          BLENDER=$(blender-downloader 5.0 --extract --remove-compressed --print-blender-executable)
+          test -x "$BLENDER"
+          echo "BLENDER=$BLENDER" >> "$GITHUB_ENV"
+      - name: Test lossless native indexed geometry -> native Blender mesh -> glTF export
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BLENDER" --background --factory-startup \
+            --python tools/maps/probe_nacht_lossless_blender_import.py -- \
+            --scene "$UE_SCENE" --native-glb-dir "$UE_MESHES" \
+            --output build/nacht-raw-import/experiment-report.json \
+            --mesh-index 7 486 485 146 \
+            2>&1 | tee build/nacht-raw-import/direct-import.log
+          grep -q XZOGOT_NACHT_DIRECT_RAW_TRIANGLE_EXPERIMENT_DONE \
+            build/nacht-raw-import/direct-import.log
+      - name: Preserve experimental evidence on RED or GREEN
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Lossless-Raw-Indexed-Triangle-Blender-Experiment
+          path: |
+            build/nacht-raw-import/experiment-report.json
+            build/nacht-raw-import/direct-import.log
+          if-no-files-found: warn
+          retention-days: 14

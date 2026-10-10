@@ -1,0 +1,106 @@
+name: Xogot Nacht Independent Meridian 2.0 Source Scene A-B
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-meridian-independent-source-ab.yml"
+      - "tools/maps/nacht_meridian_source_bridge.py"
+      - "tools/maps/validate_meridian_nacht_gltf.py"
+      - "tests/fixtures/nacht-meridian/**"
+
+permissions:
+  contents: read
+
+jobs:
+  independent-blender-godot-transfer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Blender 5.0 real conversion engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libgl1-mesa-dri libglx-mesa0 libegl1 libxi6 libxrender1 libsm6 libxxf86vm1 libxfixes3 xvfb unzip
+          python3 -m pip install --disable-pip-version-check blender-downloader
+          BLENDER=$(blender-downloader 5.0 --extract --remove-compressed --print-blender-executable)
+          test -x "$BLENDER"
+          "$BLENDER" --version | head -n 2
+          echo "BLENDER=$BLENDER" >> "$GITHUB_ENV"
+      - name: Pin exact real upstream Meridian 2.0 engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/addon-source"
+          git clone https://github.com/Naxela/Meridian.git "$RUNNER_TEMP/addon-source/Meridian"
+          git -C "$RUNNER_TEMP/addon-source/Meridian" checkout --detach af7749fe03c6c595f67c991628a5892a200eb8ee
+          test -s "$RUNNER_TEMP/addon-source/Meridian/operators/mx_export.py"
+          echo "MERIDIAN_PARENT=$RUNNER_TEMP/addon-source" >> "$GITHUB_ENV"
+          echo "XZOGOT_MERIDIAN_PINNED_UPSTREAM_GREEN af7749fe03c6"
+      - name: Render real Blender asset and compile native Godot scene through Meridian operators
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/meridian-nacht
+          "$BLENDER" --background --factory-startup             --python tools/maps/nacht_meridian_source_bridge.py --             --scene tests/fixtures/nacht-meridian/ue421-source-scene-fixture.json             --meridian-parent "$MERIDIAN_PARENT"             --out "$PWD/build/meridian-nacht"             --fixture             2>&1 | tee build/meridian-nacht/blender-meridian.log
+          grep -q "XZOGOT_NACHT_MERIDIAN_REAL_ADDON_COMPILE_GREEN" build/meridian-nacht/blender-meridian.log
+          python3 tools/maps/validate_meridian_nacht_gltf.py             --glb build/meridian-nacht/godot/assets/meshes/Nacht_Source_Bridge_Probe.glb             --report build/meridian-nacht/source-equivalence.json             --output build/meridian-nacht/transform-parity.json             2>&1 | tee build/meridian-nacht/transform-parity.log
+          grep -q "XZOGOT_NACHT_MERIDIAN_SOURCE_XFORM_GREEN" build/meridian-nacht/transform-parity.log
+      - name: Install Godot 4.6.1 matching current shipped source engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot"
+          curl --fail -L --retry 3             -o "$RUNNER_TEMP/godot/godot.zip"             https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64"
+          echo "GODOT=$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64" >> "$GITHUB_ENV"
+      - name: Validate real Godot engine can load MERIDIAN-generated scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$GODOT" --headless --path build/meridian-nacht/godot --import             2>&1 | tee build/meridian-nacht/godot-import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load" build/meridian-nacht/godot-import.log
+          cat > build/meridian-nacht/godot/check_scene.gd <<'GDS'
+          extends SceneTree
+          func _initialize() -> void:
+              call_deferred("_validate")
+          func _validate() -> void:
+              var p: PackedScene = load("res://scenes/main.tscn") as PackedScene
+              if p == null:
+                  push_error("XZOGOT_MERIDIAN_GODOT_SCENE_LOAD_RED")
+                  quit(3)
+                  return
+              var root: Node = p.instantiate()
+              get_root().add_child(root)
+              var meshes := root.find_children("*", "MeshInstance3D", true, false).size()
+              if meshes < 3:
+                  push_error("XZOGOT_MERIDIAN_GODOT_MESH_COUNT_RED actual=" + str(meshes))
+                  quit(4)
+                  return
+              print("XZOGOT_NACHT_MERIDIAN_REAL_GODOT_4_6_SCENE_GREEN meshes=", meshes)
+              root.queue_free()
+              quit(0)
+          GDS
+          "$GODOT" --headless --path build/meridian-nacht/godot             --script res://check_scene.gd             2>&1 | tee build/meridian-nacht/godot-runtime.log
+          grep -q "XZOGOT_NACHT_MERIDIAN_REAL_GODOT_4_6_SCENE_GREEN" build/meridian-nacht/godot-runtime.log
+      - name: Preserve artifacts and RED evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Meridian-2-Real-Godot-Transform-AB-Fixture-Only
+          path: |
+            build/meridian-nacht/blender-meridian.log
+            build/meridian-nacht/transform-parity.*
+            build/meridian-nacht/source-equivalence.json
+            build/meridian-nacht/godot-import.log
+            build/meridian-nacht/godot-runtime.log
+            build/meridian-nacht/godot/project.godot
+            build/meridian-nacht/godot/scenes/*.tscn
+            build/meridian-nacht/godot/assets/meshes/*.glb
+          if-no-files-found: warn
+          retention-days: 14

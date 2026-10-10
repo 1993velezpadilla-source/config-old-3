@@ -1,0 +1,64 @@
+name: Nacht Independent 3-Camera Real Black Alpha vs Lighting Pixels
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-independent-alpha-light-three-source-camera.yml"
+      - "tools/maps/nacht_independent_three_camera_source_alpha_lighting_qa.py"
+permissions:
+  contents: read
+  actions: read
+jobs:
+  independent-actual-source-shader-light-pixel-verification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Download genuine full-source ten Godot Mesa camera images, not synthetic or preview placeholders
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh run view 37991956823 --json conclusion --jq '.conclusion')" = success
+          mkdir -p build/nacht-alpha-light-independent/source
+          gh run download 37991956823 \
+            -n Nacht-Native-3-Camera-AlphaCutout-vs-Lighting-Unshaded-OriginalDDS-10-PNG \
+            -D build/nacht-alpha-light-independent/source
+          python3 -m pip install --user pillow --disable-pip-version-check
+      - name: Independently count actual per-pixel original black, alpha recovery, and unshaded recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/maps/nacht_independent_three_camera_source_alpha_lighting_qa.py
+          python3 tools/maps/nacht_independent_three_camera_source_alpha_lighting_qa.py \
+            --source build/nacht-alpha-light-independent/source \
+            --output build/nacht-alpha-light-independent/verified \
+            2>&1 | tee build/nacht-alpha-light-independent/qa.log
+          grep -q XZOGOT_NACHT_REAL_THREE_CAMERA_ALPHA_AND_LIGHT_SEPARATE_ROOT_CAUSES_INDEPENDENT_GREEN \
+            build/nacht-alpha-light-independent/qa.log
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          root=Path("build/nacht-alpha-light-independent/verified")
+          d=json.loads((root/"Nacht-independent-3-camera-original-mask-vs-light-pixel-diagnosis.json").read_text())
+          assert d["originalMaterialPtrsRevertedAndSourceImageExact"]
+          assert d["twoDistinctBlackMechanismsBothMeasurable"]
+          assert len(d["sourceCameraCaseStudy"])==3
+          assert len(list(root.glob("*-actual-DDS-original-mask-light.png")))==3
+          assert not d["shippingApproved"]
+          assert not d["originalBlackInteriorArtFixed"]
+          print("XZOGOT_NACHT_SOURCE_ALPHA_LIGHT_BLACK_DDS_FIDELITY_HOLD_GREEN")
+          PY
+      - name: Preserve three zoomable authentic Godot source before-mask-unlit photo strips and numeric evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Independent-Original-Alpha-and-Lighting-3-Camera-Pixel-10-PNG-ContactSheets
+          path: |
+            build/nacht-alpha-light-independent/verified/
+            build/nacht-alpha-light-independent/qa.log
+          retention-days: 14
+          if-no-files-found: warn

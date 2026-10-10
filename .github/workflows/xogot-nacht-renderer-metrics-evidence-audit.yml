@@ -1,0 +1,74 @@
+name: Nacht Real Godot Mesa A-B Evidence Audit (Research)
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-renderer-metrics-evidence-audit.yml"
+      - "tools/maps/nacht_renderer_ab_audit.py"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  classify-actual-mesa-counters:
+    runs-on: ubuntu-latest
+    timeout-minutes: 32
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: "37972316745"
+    steps:
+      - uses: actions/checkout@v5
+      - name: Reject misleading Android, unpaired-camera, and regression claims (unit tests)
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/maps/nacht_renderer_ab_audit.py
+          python3 tools/maps/nacht_renderer_ab_audit.py --self-test
+      - name: Fetch ACTUAL measured native-Godot Mesa A-B counters from source run
+        shell: bash
+        run: |
+          set -euo pipefail
+          status=""
+          for attempt in $(seq 1 44); do
+            status="$(gh run view "$SOURCE_RUN" --json status --jq '.status')"
+            if test "$status" = "completed"; then
+              break
+            fi
+            echo "Waiting for original source render job #$SOURCE_RUN, attempt $attempt/44; not launching another 2GB renderer job"
+            sleep 30
+          done
+          if test "$status" != "completed"; then
+            echo "RED: original Mesa render measurement has not concluded; no unverified GREEN"
+            exit 1
+          fi
+          echo "Source result: $(gh run view "$SOURCE_RUN" --json conclusion --jq '.conclusion')"
+          mkdir -p build/nacht-metrics-audit/source
+          gh run download "$SOURCE_RUN" \
+            -n Nacht-Actual-Godot-Mesa-Source-Far-LOD-DDS-Drawcall-VisiblePrimitive-AB \
+            -D build/nacht-metrics-audit/source
+          REPORT="$(find build/nacht-metrics-audit/source \
+            -name real-Godot-visible-drawcall-AB.json -type f -print -quit)"
+          test -n "$REPORT" && test -s "$REPORT" || {
+            echo "RED: no real Godot counters JSON available in original source artifact"
+            exit 1
+          }
+          cp "$REPORT" build/nacht-metrics-audit/real-source-measurement.json
+      - name: Quantify same-camera source-to-LOD-to-DDS deltas; fail closed on regression
+        run: |
+          set -euo pipefail
+          python3 tools/maps/nacht_renderer_ab_audit.py \
+            --input build/nacht-metrics-audit/real-source-measurement.json \
+            --output build/nacht-metrics-audit/paired-counter-audit.json
+          cat build/nacht-metrics-audit/paired-counter-audit.json
+      - name: Preserve independently checked counters; research only, not Android FPS
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Real-Mesa-Paired-Camera-Drawcall-Primitive-Certification
+          path: |
+            build/nacht-metrics-audit/real-source-measurement.json
+            build/nacht-metrics-audit/paired-counter-audit.json
+          retention-days: 14
+          if-no-files-found: warn

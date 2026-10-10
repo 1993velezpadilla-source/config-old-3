@@ -1,0 +1,48 @@
+name: Nacht Source-Relative Candela Lighting Compatibility Reversibility Guard
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-source-relative-light-godot-unit.yml"
+      - "tools/maps/nacht_compatibility_source_relative_light_research.gd"
+      - "tools/maps/nacht_compatibility_source_relative_light_unit.gd"
+permissions:
+  contents: read
+jobs:
+  authentic-godot-461-source-relative-lighting-synthetic-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Compile and run source-safe 165 light photometry research controller in actual Godot
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot" build/nacht-relative-light-unit/project
+          curl --fail -L --retry 3 \
+            -o "$RUNNER_TEMP/godot/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64"
+          printf '[application]\nconfig/name="NachtResearchSourceLightRatioNoPhysicalUnits"\n' \
+            > build/nacht-relative-light-unit/project/project.godot
+          cp tools/maps/nacht_compatibility_source_relative_light_research.gd \
+            build/nacht-relative-light-unit/project/
+          cp tools/maps/nacht_compatibility_source_relative_light_unit.gd \
+            build/nacht-relative-light-unit/project/probe.gd
+          timeout 75 "$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64" \
+            --headless --path build/nacht-relative-light-unit/project --script res://probe.gd \
+            2>&1 | tee build/nacht-relative-light-unit/source-relative-light-unit.log
+          grep -q XZOGOT_NACHT_COMPAT_165_LIGHT_AUTHORED_INTENSITY_RATIOS_GODOT461_PROBE_GREEN \
+            build/nacht-relative-light-unit/source-relative-light-unit.log
+          ! grep -E "SCRIPT ERROR|Parse Error" build/nacht-relative-light-unit/source-relative-light-unit.log
+      - name: Preserve physical equivalence NOT verified statement and original rollback counters
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Original-165-Light-Relative-UE-Intensity-Godot461-Unit-Not-Shipping
+          path: build/nacht-relative-light-unit/source-relative-light-unit.log
+          retention-days: 14
+          if-no-files-found: warn

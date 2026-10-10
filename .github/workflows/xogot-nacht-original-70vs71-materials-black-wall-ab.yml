@@ -1,0 +1,157 @@
+name: Nacht True Original Masked Quartile3 70vs71 Two Halves A-B
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-original-70vs71-materials-black-wall-ab.yml"
+      - "tools/maps/nacht_original_masked_group3_halves_blackwall_source_ab.gd"
+      - "tools/maps/nacht_apply_vista_spatial_multimesh_research.gd"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  real-godot-source-pixel-visual-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Require 10793 source actors, real 574 materials/718 DDS, lights and protected far-Vista classification
+        shell: bash
+        run: |
+          set -euo pipefail
+          for id in 37938836028 37939504798 37944732189 37945872261 37947767584 37961985956 37965581696 37967088357 37966178042; do
+            test "$(gh run view "$id" --json conclusion --jq '.conclusion')" = success
+          done
+          echo "XZOGOT_NACHT_REAL_GLTF_DDS_EXTERIOR_DRAW_CALL_SOURCE_DEPENDENCIES_GREEN"
+      - name: Stage authoritative original native Godot GLB/UE materials source DDS, original lights, and 55m guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-renderer-ab/glb build/nacht-renderer-ab/materials \
+            build/nacht-renderer-ab/vista build/nacht-renderer-ab/policy "$RUNNER_TEMP/source"
+          gh run download 37938836028 \
+            -n Nacht-LOSSLESS-Native-493-GLB-10793-Actor-Godot-Research-Proof \
+            -D build/nacht-renderer-ab/glb
+          gh run download 37944732189 \
+            -n Nacht-10793-Original-574-Materials-16595-Source-Surface-Assignments \
+            -D build/nacht-renderer-ab/materials
+          gh run download 37961985956 \
+            -n Nacht-Original-10793-Exterior-Foliage-World-Distance-LOD-Policy \
+            -D build/nacht-renderer-ab/policy
+          gh run download 37965581696 \
+            -n Nacht-Original-UE421-Authored-Vista-Far-Background-Reachability-Guard \
+            -D build/nacht-renderer-ab/vista
+          gh run download 37762871109 \
+            -n Xogot-Nacht-Chronicles-Godot-Runtime \
+            -D "$RUNNER_TEMP/source"
+          PROJECT=$(find build/nacht-renderer-ab/glb -name project.godot -type f -print -quit)
+          MATERIAL=$(find build/nacht-renderer-ab/materials -name nacht-actor-material-authority.json -type f -print -quit)
+          POLICY=$(find build/nacht-renderer-ab/policy -name original-exterior-source-actor-visual-policy.json -type f -print -quit)
+          VISTA=$(find build/nacht-renderer-ab/vista -name authored-vista-distance-source.json -type f -print -quit)
+          STAGE=$(dirname "$(find "$RUNNER_TEMP/source" -name material-binding-manifest.json -type f -print -quit)")
+          DDS=$(find "$RUNNER_TEMP/source" -name textures_dds -type d -print -quit)
+          LIGHT=$(find "$RUNNER_TEMP/source" -name nacht-lights.json -type f -print -quit)
+          ENV=$(find "$RUNNER_TEMP/source" -name nacht-environment-report.json -type f -print -quit)
+          AUTH_ENV=$(find "$RUNNER_TEMP/source" -name nacht-environment-runtime-authority.json -type f -print -quit)
+          test -s "$PROJECT" && test -s "$MATERIAL" && test -s "$POLICY" && test -s "$VISTA"
+          test -s "$LIGHT" && test -s "$ENV" && test -s "$AUTH_ENV" && test -d "$DDS"
+          echo "GODOT_PROJECT=$(dirname "$PROJECT")" >> "$GITHUB_ENV"
+          echo "SOURCE_MATERIAL=$PWD/$MATERIAL" >> "$GITHUB_ENV"
+          echo "SOURCE_POLICY=$PWD/$POLICY" >> "$GITHUB_ENV"
+          echo "SOURCE_VISTA=$PWD/$VISTA" >> "$GITHUB_ENV"
+          echo "STAGE=$STAGE" >> "$GITHUB_ENV"
+          echo "DDS=$DDS" >> "$GITHUB_ENV"
+          echo "UE_LIGHT=$LIGHT" >> "$GITHUB_ENV"
+          echo "UE_ENV=$ENV" >> "$GITHUB_ENV"
+          echo "ORIGINAL_ENV=$AUTH_ENV" >> "$GITHUB_ENV"
+      - name: Reconstruct actual Godot scene with original 718 DDS 574 materials 166 UE4 light components
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GODOT_PROJECT/nacht-authority" "$GODOT_PROJECT/scripts"
+          cp xogot/scripts/xziel_benchmark_loader.gd "$GODOT_PROJECT/scripts/xziel_benchmark_loader.gd"
+          cp tools/maps/nacht_apply_source_exterior_visual_lod.gd "$GODOT_PROJECT/nacht_apply_source_exterior_visual_lod.gd"
+          cp tools/maps/nacht_apply_source_vista_actor_local_dds.gd "$GODOT_PROJECT/nacht_apply_source_vista_actor_local_dds.gd"
+          cp tools/maps/nacht_apply_vista_spatial_multimesh_research.gd "$GODOT_PROJECT/nacht_apply_vista_spatial_multimesh_research.gd"
+          cp tools/maps/nacht_original_masked_group3_halves_blackwall_source_ab.gd "$GODOT_PROJECT/nacht_original_masked_group3_halves_blackwall_source_ab.gd"
+          cp "$SOURCE_MATERIAL" "$GODOT_PROJECT/nacht-actor-material-authority.json"
+          cp "$SOURCE_POLICY" "$GODOT_PROJECT/nacht-exterior-visual-policy.json"
+          cp "$SOURCE_VISTA" "$GODOT_PROJECT/nacht-authored-vista-actor-policy.json"
+          cp "$ORIGINAL_ENV" "$GODOT_PROJECT/nacht-authority/nacht-environment-runtime-authority.json"
+          python3 tools/maps/stage_nacht_all_used_source_dds.py \
+            --stage "$STAGE" --dds "$DDS" --project "$GODOT_PROJECT" \
+            --output build/nacht-renderer-ab/stage-source-DDS-audit.json \
+            2>&1 | tee build/nacht-renderer-ab/stage-DDS.log
+          python3 tools/maps/compile_nacht_source_lights_for_meridian.py \
+            --environment "$UE_ENV" --source-lights "$UE_LIGHT" \
+            --output "$GODOT_PROJECT/nacht-authority/xzen-report.json" \
+            --report build/nacht-renderer-ab/native-lights-audit.json \
+            2>&1 | tee build/nacht-renderer-ab/stage-lights.log
+          grep -q XZOGOT_NACHT_ALL_USED_UE421_SOURCE_DDS_STAGE_GREEN build/nacht-renderer-ab/stage-DDS.log
+          grep -q XZOGOT_NACHT_166_SOURCE_UE_LIGHTS_EXACT_AUTHORITY_ADAPTER_GREEN build/nacht-renderer-ab/stage-lights.log
+      - name: Install real Mesa Compatibility GL renderer under Xvfb; software GPU is NOT actual Android
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb unzip libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+          mkdir -p "$RUNNER_TEMP/godot"
+          curl --fail -L --retry 3 \
+            -o "$RUNNER_TEMP/godot/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64"
+          chmod +x "$GODOT"
+          echo "GODOT=$GODOT" >> "$GITHUB_ENV"
+      - name: Import complete real native source geometry DDS
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 600 "$GODOT" --headless --editor --path "$GODOT_PROJECT" --quit \
+            2>&1 | tee build/nacht-renderer-ab/import.log
+          if grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load" build/nacht-renderer-ab/import.log; then exit 1; fi
+      - name: Original full source 10793 actors, research quartile 3 masks 70 vs 71 native Godot A-B five frames
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 2350 xvfb-run -a -s "-screen 0 960x540x24" "$GODOT" --path "$GODOT_PROJECT" --rendering-method gl_compatibility --resolution 960x540 --script res://nacht_original_masked_group3_halves_blackwall_source_ab.gd 2>&1 | tee build/nacht-renderer-ab/original-group3-twohalves.log
+          grep -q XZOGOT_NACHT_ORIGINAL_SOURCE_QUARTILE3_TWOHALVES_FIVE_PNG_GREEN build/nacht-renderer-ab/original-group3-twohalves.log
+          cp "$GODOT_PROJECT/nacht-original-source-quartile3-twohalves-black-region.json" build/nacht-renderer-ab/source-group3-70vs71-analysis.json
+          python3 - <<'PY'
+          import json,glob,os
+          d=json.load(open("build/nacht-renderer-ab/source-group3-70vs71-analysis.json"))
+          assert d["originalSourceMeshActors"]==10793
+          assert d["originalMaterialSurfaceBindings"]==16595
+          assert d["originalSourceLightComponents"]==166
+          assert d["originalUsedDDS"]==718
+          assert d["originalSource564MasterMatAvailable"]==564
+          assert d["originalSevenNonMasterMaskedProtected"]==7
+          assert d["quartile3OriginalSourceMaterialCount"]==141
+          assert d["quartile3OriginalSourceBoundSurfaces"]==5068
+          assert len(d["twoOriginalMaterialHalves"])==2
+          assert [len(x["originalMaterialPaths"]) for x in d["twoOriginalMaterialHalves"]]==[70,71]
+          assert sum(x["originalSourceBindings"] for x in d["twoOriginalMaterialHalves"])==5068
+          assert d["quartile3FullUnsafePositiveControlBlackROI"]["blackRecoveredByDisablingOnlyDiffuseAlphaScissor"]>=11000
+          assert d["allOriginalSourceMaterialPointersRestored"]
+          assert d["originalRestoredViewportRGB"]["meanRGBDifferencePercent"]<=0.30
+          assert not d["productionMaterialShaderFixNotApproved"] is False
+          assert len(glob.glob(os.environ["GODOT_PROJECT"]+"/source_group3_twohalves_*.png"))==5
+          print("XZOGOT_NACHT_GROUP3_ORIGINAL_70VS71_FIVE_REAL_GODOT_PNG_RESEARCH_GREEN")
+          PY
+      - name: Preserve original source five camera A-B screenshots and material names
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Original-Group3-70vs71-Materials-5-Godot-PNGs
+          path: |
+            build/nacht-renderer-ab/glb/new-godot/source_group3_twohalves_*.png
+            build/nacht-renderer-ab/source-group3-70vs71-analysis.json
+            build/nacht-renderer-ab/original-group3-twohalves.log
+          retention-days: 14

@@ -1,0 +1,78 @@
+name: Nacht Real Source Vista Spatial MultiMesh Eligibility (Research)
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-vista-source-multimesh-eligibility.yml"
+      - "tools/maps/nacht_vista_source_multimesh_eligibility.py"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  read-only-original-vista-batchability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Verify original source manifests are GREEN (do not generate replacements)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/maps/nacht_vista_source_multimesh_eligibility.py
+          for id in 37944732189 37961985956 37965581696 37967357411; do
+            test "$(gh run view "$id" --json conclusion --jq '.conclusion')" = success
+          done
+      - name: Download exact 10793 original actor material identities + protected 55m and 340 Vista source positions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-vista-batch
+          gh run download 37944732189 \
+            -n Nacht-10793-Original-574-Materials-16595-Source-Surface-Assignments \
+            -D build/nacht-vista-batch
+          gh run download 37961985956 \
+            -n Nacht-Original-10793-Exterior-Foliage-World-Distance-LOD-Policy \
+            -D build/nacht-vista-batch
+          gh run download 37965581696 \
+            -n Nacht-Original-UE421-Authored-Vista-Far-Background-Reachability-Guard \
+            -D build/nacht-vista-batch
+          for f in nacht-actor-material-authority.json original-exterior-source-actor-visual-policy.json authored-vista-distance-source.json; do
+            test -s "build/nacht-vista-batch/$f"
+          done
+      - name: Report spatial per-material instance batching candidates; no source actor changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/nacht_vista_source_multimesh_eligibility.py \
+            --material build/nacht-vista-batch/nacht-actor-material-authority.json \
+            --policy build/nacht-vista-batch/original-exterior-source-actor-visual-policy.json \
+            --vista build/nacht-vista-batch/authored-vista-distance-source.json \
+            --output build/nacht-vista-batch/real-source-340-vista-spatial-batching-candidates.json \
+            2>&1 | tee build/nacht-vista-batch/eligibility.log
+          grep -q XZOGOT_NACHT_340_VISTA_SOURCE_BATCH_ELIGIBILITY_GREEN_NONSHIPPING build/nacht-vista-batch/eligibility.log
+          python3 - <<'PY'
+          import json
+          f = "build/nacht-vista-batch/real-source-340-vista-spatial-batching-candidates.json"
+          d = json.load(open(f))
+          assert d["vistaSourceActorsIdentified"] == 340
+          assert d["originalActorsDeleted"] == 0
+          assert not d["approvedForShipping"]
+          assert not d["actualMultimeshGodotDrawCallsMeasured"]
+          print("XZOGOT_NACHT_SOURCE_VISTA_BATCH_CANDIDATES_GUARDED_RESEARCH_GREEN")
+          PY
+      - name: Preserve read-only genuine source research results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Source-340-Vista-16-64m-Spatial-MultiMesh-Eligibility
+          path: |
+            build/nacht-vista-batch/real-source-340-vista-spatial-batching-candidates.json
+            build/nacht-vista-batch/eligibility.log
+          retention-days: 14
+          if-no-files-found: warn

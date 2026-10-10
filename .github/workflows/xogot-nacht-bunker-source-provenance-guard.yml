@@ -1,0 +1,33 @@
+name: Nacht Separate Original Bunker Material Provenance
+on:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - "tools/maps/nacht_exact_original_bunker_two_distinct_source_dds_guard.py"
+      - ".github/workflows/xogot-nacht-bunker-source-provenance-guard.yml"
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Validate archived source assignments
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/material-source/authority
+          gh run download 37944732189 -n Nacht-10793-Original-574-Materials-16595-Source-Surface-Assignments -D build/material-source/authority
+          python3 -m py_compile tools/maps/nacht_exact_original_bunker_two_distinct_source_dds_guard.py
+          python3 tools/maps/nacht_exact_original_bunker_two_distinct_source_dds_guard.py --source build/material-source/authority/nacht-actor-material-authority.json --output build/material-source/provenance.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Nacht-Original-Bunker-Source-Material-Provenance
+          path: build/material-source/provenance.json
+          retention-days: 14

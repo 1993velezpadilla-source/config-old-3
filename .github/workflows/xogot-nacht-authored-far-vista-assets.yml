@@ -1,0 +1,74 @@
+name: Nacht Backdrop-Only Authored Vista Source Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-authored-far-vista-assets.yml"
+      - "tools/maps/audit_nacht_vista_authored_backdrop.py"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  source-original-vista-background-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Require prior original 493-source-mesh inventory and 440 actor far-only policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh run view 37961600907 --json conclusion --jq '.conclusion')" = success
+          test "$(gh run view 37961985956 --json conclusion --jq '.conclusion')" = success
+          test "$(gh run view 37964446136 --json conclusion --jq '.conclusion')" = success
+          echo "XZOGOT_NACHT_NATIVE_VISTA_SOURCE_DEPENDENCIES_GREEN"
+      - name: Read only lightweight original authored UE4 source names and source actor IDs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-native-vista/model-names build/nacht-native-vista/far-policy
+          gh run download 37961600907 \
+            -n Nacht-10793-Source-Actor-Exterior-Foliage-Building-Categories \
+            -D build/nacht-native-vista/model-names
+          gh run download 37961985956 \
+            -n Nacht-Original-10793-Exterior-Foliage-World-Distance-LOD-Policy \
+            -D build/nacht-native-vista/far-policy
+          test -s build/nacht-native-vista/model-names/category-inventory.json
+          test -s build/nacht-native-vista/far-policy/original-exterior-source-actor-visual-policy.json
+      - name: Source vista tag audit; no fake claim that distant forest is never visible
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/audit_nacht_vista_authored_backdrop.py \
+            --original-source-inventory build/nacht-native-vista/model-names/category-inventory.json \
+            --distant-actor-policy build/nacht-native-vista/far-policy/original-exterior-source-actor-visual-policy.json \
+            --output build/nacht-native-vista/authored-vista-distance-source.json \
+            2>&1 | tee build/nacht-native-vista/native-vista-audit.log
+          grep -q XZOGOT_NACHT_ORIGINAL_SOURCE_VISTA_FAR_BACKDROP_RESEARCH_GREEN \
+            build/nacht-native-vista/native-vista-audit.log
+          python3 - <<'PY'
+          import json
+          d=json.load(open("build/nacht-native-vista/authored-vista-distance-source.json"))
+          assert d["sourceModels"]==493 and d["originalSourceActors"]==10793
+          assert not d["proofNeverVisibleOrReachable"] and not d["safeToPermanentlyDelete"]
+          assert d["sourceOriginalsStillUntouched"]
+          assert d["sourceVistaDistantActorsOutside55mCANDIDATES"]>0
+          print("XZOGOT_NACHT_NEAR_GAMEPLAY_PROTECTED_BACKGROUND_ONLY_VISTA_CANDIDATES_GREEN")
+          PY
+      - name: Save original-only source-vista eligibility evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Original-UE421-Authored-Vista-Far-Background-Reachability-Guard
+          path: |
+            build/nacht-native-vista/authored-vista-distance-source.json
+            build/nacht-native-vista/native-vista-audit.log
+          retention-days: 14
+          if-no-files-found: warn

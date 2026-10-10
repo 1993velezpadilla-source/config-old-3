@@ -1,0 +1,46 @@
+name: Nacht Native Vista MultiMesh Original Actor Revert Safety Gate
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-revert-vista-multimesh-original-actors.yml"
+      - "tools/maps/nacht_revert_vista_spatial_multimesh_research.gd"
+      - "tools/maps/nacht_revert_vista_spatial_multimesh_research_probe.gd"
+permissions:
+  contents: read
+jobs:
+  godot-461-source-actor-revert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Real Godot 4.6.1 test original Vista actor reappearance, preserved transforms and reject duplicate rollback
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot" build/nacht-source-revert/project
+          curl --fail -L --retry 3 \
+            -o "$RUNNER_TEMP/godot/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64"
+          printf '[application]\nconfig/name="Nacht Source Vistas Revert Safety Test Only"\n' > build/nacht-source-revert/project/project.godot
+          cp tools/maps/nacht_apply_vista_spatial_multimesh_research.gd build/nacht-source-revert/project/
+          cp tools/maps/nacht_revert_vista_spatial_multimesh_research.gd build/nacht-source-revert/project/
+          cp tools/maps/nacht_revert_vista_spatial_multimesh_research_probe.gd build/nacht-source-revert/project/probe.gd
+          timeout 75 "$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64" --headless \
+            --path build/nacht-source-revert/project --script res://probe.gd \
+            2>&1 | tee build/nacht-source-revert/Godot461-Reversible-Original-Actor-Safety.log
+          grep -q XZOGOT_NACHT_GODOT461_RESEARCH_VISTA_MULTIMESH_REAL_SOURCE_NODE_RESTORE_GREEN \
+            build/nacht-source-revert/Godot461-Reversible-Original-Actor-Safety.log
+          ! grep -E "SCRIPT ERROR|Parse Error" build/nacht-source-revert/Godot461-Reversible-Original-Actor-Safety.log
+      - name: Preserve source actor rollback research GREEN/RED evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Godot461-Revert-340-Source-Vistas-And-90-Spatial-Research-Groups
+          path: build/nacht-source-revert/Godot461-Reversible-Original-Actor-Safety.log
+          retention-days: 14
+          if-no-files-found: warn

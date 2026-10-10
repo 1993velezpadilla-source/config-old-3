@@ -1,0 +1,113 @@
+name: Xogot Nacht Real Godot 4.6 Native Source MultiMesh Transform Gauntlet (Research)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-real-multimesh-source-proof.yml"
+      - "tools/maps/nacht_source_multimesh_transform_probe.gd"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  godot-real-native-multimesh-transform-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Require original 10793 triangles and 574 authored source materials and Android plan GREEN
+        shell: bash
+        run: |
+          set -euo pipefail
+          for id in 37938836028 37939504798 37944732189 37955795707; do
+            test "$(gh run view "$id" --json conclusion --jq '.conclusion')" = success
+          done
+          echo "XZOGOT_NACHT_GODOT_REAL_MULTIMESH_ALL_SOURCE_DEPENDENCIES_GREEN"
+
+      - name: Reuse exact 10793 source-actor lossless Godot GLB and 574-material index authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-native-multimesh/godot build/nacht-native-multimesh/authority
+          gh run download 37938836028 \
+            -n Nacht-LOSSLESS-Native-493-GLB-10793-Actor-Godot-Research-Proof \
+            -D build/nacht-native-multimesh/godot \
+            2>&1 | tee build/nacht-native-multimesh/godot-download.log
+          gh run download 37944732189 \
+            -n Nacht-10793-Original-574-Materials-16595-Source-Surface-Assignments \
+            -D build/nacht-native-multimesh/authority \
+            2>&1 | tee build/nacht-native-multimesh/authority-download.log
+          PROJECT=$(find build/nacht-native-multimesh/godot -name project.godot -type f -print -quit)
+          BRIDGE=$(find build/nacht-native-multimesh/authority -name nacht-actor-material-authority.json -type f -print -quit)
+          test -s "$PROJECT" && test -s "$BRIDGE"
+          echo "PROJECT=$(dirname "$PROJECT")" >> "$GITHUB_ENV"
+          echo "BRIDGE=$PWD/$BRIDGE" >> "$GITHUB_ENV"
+
+      - name: Insert non-shipping research proof only (no production game edits or asset invention)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$BRIDGE" "$PROJECT/nacht-actor-material-authority.json"
+          cp tools/maps/nacht_source_multimesh_transform_probe.gd \
+            "$PROJECT/nacht_source_multimesh_transform_probe.gd"
+          test -s "$PROJECT/assets/meshes/Nacht_Source_Bridge_Probe.glb"
+
+      - name: Godot 4.6.1 actual Native MeshInstance3D to MultiMesh transform and triangle conservation
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot"
+          curl --fail -L --retry 4 -o "$RUNNER_TEMP/godot/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64"
+          chmod +x "$GODOT"
+          "$GODOT" --headless --editor --path "$PROJECT" --quit \
+            2>&1 | tee build/nacht-native-multimesh/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load" \
+            build/nacht-native-multimesh/import.log
+          # Godot --headless selects a Dummy RenderingServer on Linux.
+          # Dummy RS reports IDENTITY for MultiMesh.get_instance_transform()
+          # even after a valid set_instance_transform()! Use REAL Mesa GL via
+          # Xvfb to verify actual MultiMesh buffer roundtripping.
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+          timeout 240 xvfb-run -a -s "-screen 0 1280x720x24" \
+            "$GODOT" --path "$PROJECT" --rendering-method gl_compatibility \
+            --resolution 1280x720 \
+            --script res://nacht_source_multimesh_transform_probe.gd \
+            2>&1 | tee build/nacht-native-multimesh/godot-multimesh.log
+          cp "$PROJECT/nacht-real-source-multimesh-research-report.json" \
+            build/nacht-native-multimesh/godot-source-multimesh-audit.json
+          grep -q XZOGOT_NACHT_REAL_GODOT_MULTIMESH_UE421_SOURCE_TRANSFORMS_GREEN \
+            build/nacht-native-multimesh/godot-multimesh.log
+          python3 - <<'PY'
+          import json
+          r=json.load(open("build/nacht-native-multimesh/godot-source-multimesh-audit.json"))
+          assert r["original_actor_mesh_nodes"]==10793
+          assert r["original_source_authored_surface_assignments"]==16595
+          assert r["original_source_distinct_effective_materials"]==574
+          assert r["source_indexed_triangles_in_test_groups"]==r["actual_godot_multimesh_triangles_in_test_groups"]
+          assert r["max_actor_affine_transform_component_difference_m"]<=0.0003
+          assert r["original_source_material_binding_preserved_in_prototype_geometry_only"] is False
+          assert r["actual_mobile_fps_proven"] is False
+          print("XZOGOT_NACHT_REAL_GODOT_MULTIMESH_CI_SOURCE_IDENTITY_SCOPE_GREEN")
+          PY
+
+      - name: Preserve real Godot RED/GREEN evidence and fail to label a prototype as shipping
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Real-Godot-4.6-MultiMesh-Original-Affine-Geometry-Research-Proof
+          path: |
+            build/nacht-native-multimesh/import.log
+            build/nacht-native-multimesh/godot-multimesh.log
+            build/nacht-native-multimesh/godot-source-multimesh-audit.json
+          if-no-files-found: warn
+          retention-days: 14

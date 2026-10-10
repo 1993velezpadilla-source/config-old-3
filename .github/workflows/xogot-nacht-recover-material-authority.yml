@@ -1,0 +1,51 @@
+name: Xogot Nacht Recover Archived Real Material Manifests (Research)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-recover-material-authority.yml"
+      - "tools/maps/inventory_nacht_archived_material_authority.py"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  inventory-source-material-authority:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Download SAME archived genuine Pavlov UE4.21 map source already imported
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/real-nacht" build/nacht-material-recovery
+          gh run download 37762871109 -n Xogot-Nacht-Chronicles-Godot-Runtime \
+            -D "$RUNNER_TEMP/real-nacht" \
+            2>&1 | tee build/nacht-material-recovery/download.log
+      - name: Identify source-authoritative 574 material records, 16595 bindings and original DDS
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/inventory_nacht_archived_material_authority.py \
+            --root "$RUNNER_TEMP/real-nacht" \
+            --out build/nacht-material-recovery/material-authority-inventory.json \
+            2>&1 | tee build/nacht-material-recovery/material-authority-inventory.log
+          grep -q XZOGOT_NACHT_ARCHIVED_AUTHORITY_MANIFEST_INVENTORY build/nacht-material-recovery/material-authority-inventory.log
+      - name: Preserve exact source metadata discovery (no images/material source export)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Actual-574-Materials-1581-DDS-Source-Manifest-Inventory
+          path: |
+            build/nacht-material-recovery/download.log
+            build/nacht-material-recovery/material-authority-inventory.log
+            build/nacht-material-recovery/material-authority-inventory.json
+          retention-days: 14
+          if-no-files-found: warn

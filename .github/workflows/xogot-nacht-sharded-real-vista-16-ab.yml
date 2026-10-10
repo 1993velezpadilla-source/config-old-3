@@ -1,0 +1,227 @@
+name: Nacht Two-Shard Original Source 16 Camera Pixel GPU A-B
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-sharded-real-vista-16-ab.yml"
+      - "tools/maps/nacht_real_vista_360_cardinal_sharded_sweep.gd"
+      - "tools/maps/nacht_apply_vista_spatial_multimesh_research.gd"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  original-source-eight-view-pixel-shard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [indoors, outdoors]
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SHARD: ${{ matrix.shard }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Require real Godot 4.6.1 sweep parser GREEN and source actors/materials/lights authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh run view 37982629251 --json conclusion --jq '.conclusion')" = success
+          for id in 37938836028 37939504798 37944732189 37945872261 37947767584 37961985956 37965581696 37967088357 37966178042; do
+            test "$(gh run view "$id" --json conclusion --jq '.conclusion')" = success
+          done
+          echo "XZOGOT_NACHT_REAL_GLTF_DDS_EXTERIOR_DRAW_CALL_SOURCE_DEPENDENCIES_GREEN"
+      - name: Stage authoritative original native Godot GLB/UE materials source DDS, original lights, and 55m guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-renderer-ab/glb build/nacht-renderer-ab/materials \
+            build/nacht-renderer-ab/vista build/nacht-renderer-ab/policy "$RUNNER_TEMP/source"
+          gh run download 37938836028 \
+            -n Nacht-LOSSLESS-Native-493-GLB-10793-Actor-Godot-Research-Proof \
+            -D build/nacht-renderer-ab/glb
+          gh run download 37944732189 \
+            -n Nacht-10793-Original-574-Materials-16595-Source-Surface-Assignments \
+            -D build/nacht-renderer-ab/materials
+          gh run download 37961985956 \
+            -n Nacht-Original-10793-Exterior-Foliage-World-Distance-LOD-Policy \
+            -D build/nacht-renderer-ab/policy
+          gh run download 37965581696 \
+            -n Nacht-Original-UE421-Authored-Vista-Far-Background-Reachability-Guard \
+            -D build/nacht-renderer-ab/vista
+          gh run download 37762871109 \
+            -n Xogot-Nacht-Chronicles-Godot-Runtime \
+            -D "$RUNNER_TEMP/source"
+          PROJECT=$(find build/nacht-renderer-ab/glb -name project.godot -type f -print -quit)
+          MATERIAL=$(find build/nacht-renderer-ab/materials -name nacht-actor-material-authority.json -type f -print -quit)
+          POLICY=$(find build/nacht-renderer-ab/policy -name original-exterior-source-actor-visual-policy.json -type f -print -quit)
+          VISTA=$(find build/nacht-renderer-ab/vista -name authored-vista-distance-source.json -type f -print -quit)
+          STAGE=$(dirname "$(find "$RUNNER_TEMP/source" -name material-binding-manifest.json -type f -print -quit)")
+          DDS=$(find "$RUNNER_TEMP/source" -name textures_dds -type d -print -quit)
+          LIGHT=$(find "$RUNNER_TEMP/source" -name nacht-lights.json -type f -print -quit)
+          ENV=$(find "$RUNNER_TEMP/source" -name nacht-environment-report.json -type f -print -quit)
+          AUTH_ENV=$(find "$RUNNER_TEMP/source" -name nacht-environment-runtime-authority.json -type f -print -quit)
+          test -s "$PROJECT" && test -s "$MATERIAL" && test -s "$POLICY" && test -s "$VISTA"
+          test -s "$LIGHT" && test -s "$ENV" && test -s "$AUTH_ENV" && test -d "$DDS"
+          echo "GODOT_PROJECT=$(dirname "$PROJECT")" >> "$GITHUB_ENV"
+          echo "SOURCE_MATERIAL=$PWD/$MATERIAL" >> "$GITHUB_ENV"
+          echo "SOURCE_POLICY=$PWD/$POLICY" >> "$GITHUB_ENV"
+          echo "SOURCE_VISTA=$PWD/$VISTA" >> "$GITHUB_ENV"
+          echo "STAGE=$STAGE" >> "$GITHUB_ENV"
+          echo "DDS=$DDS" >> "$GITHUB_ENV"
+          echo "UE_LIGHT=$LIGHT" >> "$GITHUB_ENV"
+          echo "UE_ENV=$ENV" >> "$GITHUB_ENV"
+          echo "ORIGINAL_ENV=$AUTH_ENV" >> "$GITHUB_ENV"
+      - name: Reconstruct actual Godot scene with original 718 DDS 574 materials 166 UE4 light components
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GODOT_PROJECT/nacht-authority" "$GODOT_PROJECT/scripts"
+          cp xogot/scripts/xziel_benchmark_loader.gd "$GODOT_PROJECT/scripts/xziel_benchmark_loader.gd"
+          cp tools/maps/nacht_apply_source_exterior_visual_lod.gd "$GODOT_PROJECT/nacht_apply_source_exterior_visual_lod.gd"
+          cp tools/maps/nacht_apply_source_vista_actor_local_dds.gd "$GODOT_PROJECT/nacht_apply_source_vista_actor_local_dds.gd"
+          cp tools/maps/nacht_apply_vista_spatial_multimesh_research.gd "$GODOT_PROJECT/nacht_apply_vista_spatial_multimesh_research.gd"
+          cp tools/maps/nacht_real_vista_360_cardinal_sharded_sweep.gd "$GODOT_PROJECT/nacht_real_vista_360_cardinal_sharded_sweep.gd"
+          cp "$SOURCE_MATERIAL" "$GODOT_PROJECT/nacht-actor-material-authority.json"
+          cp "$SOURCE_POLICY" "$GODOT_PROJECT/nacht-exterior-visual-policy.json"
+          cp "$SOURCE_VISTA" "$GODOT_PROJECT/nacht-authored-vista-actor-policy.json"
+          cp "$ORIGINAL_ENV" "$GODOT_PROJECT/nacht-authority/nacht-environment-runtime-authority.json"
+          python3 tools/maps/stage_nacht_all_used_source_dds.py \
+            --stage "$STAGE" --dds "$DDS" --project "$GODOT_PROJECT" \
+            --output build/nacht-renderer-ab/stage-source-DDS-audit.json \
+            2>&1 | tee build/nacht-renderer-ab/stage-DDS.log
+          python3 tools/maps/compile_nacht_source_lights_for_meridian.py \
+            --environment "$UE_ENV" --source-lights "$UE_LIGHT" \
+            --output "$GODOT_PROJECT/nacht-authority/xzen-report.json" \
+            --report build/nacht-renderer-ab/native-lights-audit.json \
+            2>&1 | tee build/nacht-renderer-ab/stage-lights.log
+          grep -q XZOGOT_NACHT_ALL_USED_UE421_SOURCE_DDS_STAGE_GREEN build/nacht-renderer-ab/stage-DDS.log
+          grep -q XZOGOT_NACHT_166_SOURCE_UE_LIGHTS_EXACT_AUTHORITY_ADAPTER_GREEN build/nacht-renderer-ab/stage-lights.log
+      - name: Install real Mesa Compatibility GL renderer under Xvfb; software GPU is NOT actual Android
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb unzip libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+          mkdir -p "$RUNNER_TEMP/godot"
+          curl --fail -L --retry 3 \
+            -o "$RUNNER_TEMP/godot/godot.zip" \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.6.1-stable_linux.x86_64"
+          chmod +x "$GODOT"
+          echo "GODOT=$GODOT" >> "$GITHUB_ENV"
+      - name: Import complete real native source geometry DDS
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 600 "$GODOT" --headless --editor --path "$GODOT_PROJECT" --quit \
+            2>&1 | tee build/nacht-renderer-ab/import.log
+          if grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load" build/nacht-renderer-ab/import.log; then exit 1; fi
+      - name: 8 real full-source camera views × 2 actual Mesa screenshot renders per candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 2100 xvfb-run -a -s "-screen 0 960x540x24" \
+            "$GODOT" --path "$GODOT_PROJECT" --rendering-method gl_compatibility \
+            --resolution 960x540 \
+            --script res://nacht_real_vista_360_cardinal_sharded_sweep.gd \
+            -- "--shard=$SHARD" \
+            2>&1 | tee "build/nacht-renderer-ab/shard-$SHARD.log"
+          REPORT="$GODOT_PROJECT/nacht-original-vista-360-candidate-$SHARD-visual-sweep.json"
+          test -s "$REPORT"
+          cp "$REPORT" "build/nacht-renderer-ab/nacht-$SHARD-8view-report.json"
+          grep -q XZOGOT_NACHT_REAL_SOURCE_VISTA_8_SHARDED_YAWS_16_PIXELS_GREEN \
+            "build/nacht-renderer-ab/shard-$SHARD.log"
+          python3 - <<'PY'
+          import os,json
+          from pathlib import Path
+          name=os.environ["SHARD"]
+          d=json.loads(Path(f"build/nacht-renderer-ab/nacht-{name}-8view-report.json").read_text())
+          assert d["fullOriginalActors"]==10793
+          assert d["originalSourceMaterialBindings"]==16595
+          assert d["sourceLightsReconstructed"]==166
+          assert d["originalVistaTreeIds"]==340
+          assert d["originalActorsRetained"]==10793
+          assert d["sourceMultiMeshGroups"]==90
+          assert d["originalActorsTemporarilyHidden"]==282
+          assert d["sampledCandidateEyeHeightPositions"]==2
+          assert d["cardinal360DegreesHeadingsPerSample"]==4
+          assert d["pairedBeforeAfterScreenshots"]==16
+          assert len(d["individualPairReports"])==8
+          assert d["shardName"]==name
+          assert d["viewsWithAtLeast500NonDarkSourcePixels"]>=6
+          assert d["originalWorld3DNavigationAndWindowsNotCertified"]
+          assert not d["realPhysicalAndroidGPUFPSOrMemoryMeasured"]
+          assert not d["productionShipApproved"]
+          assert not d["errors"]
+          print("XZOGOT_NACHT_REAL_SOURCE_EIGHT_PAIRED_SHARD_GREEN",name)
+          PY
+          mkdir -p "build/nacht-renderer-ab/shard-$SHARD"
+          cp "$GODOT_PROJECT/"*_spatial32m.png "build/nacht-renderer-ab/shard-$SHARD/"
+          cp "build/nacht-renderer-ab/nacht-$SHARD-8view-report.json" "build/nacht-renderer-ab/shard-$SHARD/"
+          test "$(find "build/nacht-renderer-ab/shard-$SHARD" -maxdepth 1 -name '*_spatial32m.png' | wc -l)" -eq 16
+      - name: Preserve original Godot source shard RED and RGB frames
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Original-Source-8View-16PNG-Shard-${{ matrix.shard }}
+          path: |
+            build/nacht-renderer-ab/shard-${{ matrix.shard }}/
+            build/nacht-renderer-ab/shard-${{ matrix.shard }}.log
+            build/nacht-renderer-ab/import.log
+          retention-days: 14
+          if-no-files-found: warn
+
+  merge-and-retest-full-source-16view:
+    needs: original-source-eight-view-pixel-shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+      - name: Require real original source 16 camera paired outputs from two independent Godot jobs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: Nacht-Original-Source-8View-16PNG-Shard-*
+          merge-multiple: true
+          path: build/nacht-two-shard/merged
+      - name: Assemble verified 16 original-source camera report and run independent 32 PNG + GPU audits
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --user pillow --disable-pip-version-check
+          mkdir -p build/nacht-two-shard/audited
+          python3 tools/maps/nacht_merge_original_eight_view_shards.py \
+            --source build/nacht-two-shard/flat-verified \
+            --output build/nacht-two-shard/flat-verified \
+            2>&1 | tee build/nacht-two-shard/source-shard-merge.log
+          python3 tools/maps/nacht_independent_original_source_16cardinal_pixel_audit.py \
+            --source build/nacht-two-shard/flat-verified \
+            --output build/nacht-two-shard/audited \
+            2>&1 | tee build/nacht-two-shard/independent-pixels.log
+          python3 tools/maps/nacht_original_source_16view_mesa_drawcall_audit.py --self-test
+          python3 tools/maps/nacht_original_source_16view_mesa_drawcall_audit.py \
+            --source build/nacht-two-shard/flat-verified/nacht-original-vista-360-candidate-visual-sweep.json \
+            --output build/nacht-two-shard/audited/independent-native-GPU-results.json \
+            2>&1 | tee build/nacht-two-shard/independent-gpu.log
+          grep -q XZOGOT_NACHT_ACTUAL_FULL_SOURCE_16_VIEW_32_PNG_INDEPENDENT_RGB_PARITY_GREEN \
+            build/nacht-two-shard/independent-pixels.log
+          grep -q MEASURED_MESA_16_CANDIDATE_VIEW_COUNTS_IMPROVED_NOT_ANDROID_FPS \
+            build/nacht-two-shard/independent-gpu.log
+      - name: Preserve four original source before-after galleries and numerical GPU audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Original-16-Candidate-Camera-32-PNG-TwoShard-Audit-ContactSheets
+          path: |
+            build/nacht-two-shard/audited/
+            build/nacht-two-shard/independent-pixels.log
+            build/nacht-two-shard/independent-gpu.log
+            build/nacht-two-shard/flat-verified/nacht-original-vista-360-candidate-visual-sweep.json
+          retention-days: 14
+          if-no-files-found: warn

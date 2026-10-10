@@ -1,0 +1,78 @@
+name: Nacht Independent Exact 70 Source Mask Black Pixel Seven Bit Decoding
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/nacht-bo3-meridian-source-bridge-20261009
+    paths:
+      - ".github/workflows/xogot-nacht-source-first70-sevenbit-independent.yml"
+      - "tools/maps/nacht_independent_source_first70_sevenbit_material_owner.py"
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-70-bitplanes-true-Godot-independent-source-mask-owner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 58
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ORIGINAL_GODOT_RUN_ID: "38024143866"
+    steps:
+      - uses: actions/checkout@v5
+      - name: Require actual native original Nacht 10793 actor 10 PNG source render completed
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/maps/nacht_independent_source_first70_sevenbit_material_owner.py
+          status=""
+          for i in $(seq 1 100); do
+            status="$(gh run view "$ORIGINAL_GODOT_RUN_ID" --json status --jq '.status')"
+            if test "$status" = completed; then break; fi
+            echo "Waiting for original archive 718 DDS 7-bit source material image proof $i/100"
+            sleep 30
+          done
+          test "$status" = completed
+          test "$(gh run view "$ORIGINAL_GODOT_RUN_ID" --json conclusion --jq '.conclusion')" = success
+          mkdir -p build/nacht-original-sevenbit/actual
+          gh run download "$ORIGINAL_GODOT_RUN_ID" \
+            -n Nacht-Original-First70-Source-Masked-7bit-10-Godot-PNG \
+            -D build/nacht-original-sevenbit/actual
+      - name: Independently decode TRUE Godot original alpha-scissor source bits with overlapping-source ambiguity flags
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --user pillow numpy --disable-pip-version-check
+          python3 tools/maps/nacht_independent_source_first70_sevenbit_material_owner.py \
+            --input build/nacht-original-sevenbit/actual \
+            --output build/nacht-original-sevenbit/independent \
+            2>&1 | tee build/nacht-original-sevenbit/independent-source-owner.log
+          grep -q XZOGOT_NACHT_TRUE_SOURCE_FIRST70_SEVEN_BIT_MATERIAL_PIXEL_RANKING_GREEN \
+            build/nacht-original-sevenbit/independent-source-owner.log
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("build/nacht-original-sevenbit/independent")
+          d=json.loads((p/"nacht-original-first70-bitwise-black-wall-material-suspects.json").read_text())
+          assert d["fullOriginalActors"]==10793
+          assert d["originalSourceBoundSurfaces"]==16595
+          assert d["originalUsedDDS"]==718
+          assert d["originalMasterMatMaterialsConsidered"]==70
+          assert d["unsafeFirst70OpaqueBlackPixelsRecovered"]>=11000
+          assert len(d["rankedOriginalSourceAlphaMaterialCandidates"])==70
+          assert d["MUSTVerifyOneSourceMaterialAtATime"]
+          assert d["bitCodeMayBeOROfOverlappingSourceMaterials"]
+          assert d["blackRegionMayBeIntentionalVoidSkyOrCaulk"]
+          assert not d["productionApproved"]
+          assert len(list(p.glob("*pixel-mask.png")))==6
+          print("XZOGOT_NACHT_TRUE_SOURCE_7BIT_OWNER_PNG_RANKING_RESEARCH_ONLY_GREEN")
+          PY
+      - name: Preserve original source candidate material ownership and 6 zoomable real-camera overlays even if RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-Original-First70-Exact-Material-BitOwner-Independent-6-PNG-Ranking
+          path: |
+            build/nacht-original-sevenbit/independent/
+            build/nacht-original-sevenbit/independent-source-owner.log
+          retention-days: 14
+          if-no-files-found: warn
