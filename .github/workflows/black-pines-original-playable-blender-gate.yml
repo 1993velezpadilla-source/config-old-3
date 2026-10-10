@@ -306,6 +306,7 @@ jobs:
             --script res://ci/black_pines_visual_probe.gd \
             2>&1 | tee build/black-pines/integrated/visual.log
           grep -q BLACK_PINES_BLENDER_MOUNT_GREEN build/black-pines/integrated/visual.log
+          grep -q BLACK_PINES_NINE_HEROES_MOUNTED_GREEN build/black-pines/integrated/visual.log
           grep -q BLACK_PINES_DOUBLE_FURNITURE_ELIMINATED_GREEN build/black-pines/integrated/visual.log
           grep -q BLACK_PINES_REAL_GODOT_FIRSTPERSON_HUD_SCREENSHOT_GREEN \
             build/black-pines/integrated/visual.log
