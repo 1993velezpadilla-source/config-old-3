@@ -240,7 +240,7 @@ func _run() -> void:
     var results: Array[Dictionary]=[]
     for bit: int in range(7):
         _source_70_bit_mask_override(chosen,bit)
-        var pass: Image=await _capture(cam,
+        var bit_frame: Image=await _capture(cam,
             "source_70bitmask_native_bit_"+str(bit),eye,look)
         var active_source_materials: int=0
         var active_source_surfaces: int=0
@@ -254,8 +254,8 @@ func _run() -> void:
             "sourceBitIndex":bit,
             "selectedSourceMaterialCount":active_source_materials,
             "sourceBoundSurfaceOverridesSelected":active_source_surfaces,
-            "realOriginalDarkPixelRecovery":_black_recover(before,pass,pass),
-            "realOriginalSourceWholeScreenRGBDifference":_image_delta(before,pass)
+            "realOriginalDarkPixelRecovery":_black_recover(before,bit_frame,bit_frame),
+            "realOriginalSourceWholeScreenRGBDifference":_image_delta(before,bit_frame)
         }
         results.append(diag)
         print("XZOGOT_NACHT_BLACK_70_ORIGINAL_SOURCE_MASK_BIT_TEST ",
