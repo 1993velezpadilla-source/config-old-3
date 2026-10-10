@@ -272,6 +272,10 @@ def build_forge_detail(api, layout):
     if ambulance_meshes < 30:
         raise RuntimeError("BLACK_PINES_AMBULANCE_RED partial vehicle move "+
                            str(ambulance_meshes))
+    # Blender world matrices remain stale in headless mode after modifying
+    # object.location without depsgraph evaluation. Refresh BEFORE
+    # fidelity_pass reads transformed bounding boxes / export culling.
+    bpy.context.view_layer.update()
     pbr = forge_materials.apply(api)
     return {
         "forgeGuiBackend": True,
