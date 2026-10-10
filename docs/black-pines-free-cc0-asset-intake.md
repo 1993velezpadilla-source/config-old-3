@@ -9,3 +9,28 @@ Artifacts: `Black-Pines-Free-CC0-16-Assets-Godot-Art-Audition`, containing the m
 Final review still requires matching styles, legal provenance, collision, AI pathfinding, texture treatment and actual Android memory/FPS. Do not confuse nominal CC0 or visual preview GREEN with public-release approval.
 
 The original map, Black Pines endless rounds, church and Nacht remain unchanged during this audition.
+
+## Proven import compatibility (2026-10-10)
+
+The original 16 source meshes downloaded successfully and passed source CC0,
+binary GLB2, per-mesh triangle and SHA256 audits (9,964 triangles total).
+**Stock Godot 4.6.1 rejected every raw GLB** because each requires
+`KHR_mesh_quantization`. The source website's general claim that this
+extension needs no special support in Godot did not hold for the CI build.
+
+Fixed in `xogot/tools/cc0_dequantize_godot.py`, which decodes the exact
+original signed 16-bit normalized POSITION and NORMAL data into float32
+core glTF2, retaining nodes/materials/pivots, instead of hiding the
+extension flag. This was validated both with offline mesh-bounds comparisons
+and with **all 16 Godot imports + 16 actual screenshot renders GREEN**
+([standalone workflow run](https://github.com/1993velezpadilla-source/config-old-3/actions/runs/38068252634)).
+
+Artifact `Black-Pines-Free-CC0-16-Real-Assets-And-Godot-Photos`
+contains the unmodified original source files, dequantized Godot-compatible
+copies, license hashes, 16 individual real Godot screenshots and the 4x4 sheet.
+
+Separately, **four specific source props** — wheelchair, IV stand,
+privacy screen and surgical lamp — are authored as original named
+`Forge_CC0_*` meshes in Blender, with source provenance in
+`xogot/data/black_pines_cc0_manifest.json`. Godot gameplay-mount
+approval remains gated independently in the main Black Pines workflow.
