@@ -48,6 +48,18 @@ jobs:
           grep -q XZOGOT_NACHT_102BONE_REFERENCE_IMPORTED zombie-bridge.log
           python3 tools/maps/chronicles_bridge/stage_church_machines.py recovered-workshop xogot | tee machine-bridge.log
           grep -q XZOGOT_NACHT_13_MACHINE_PIECES_CONVERTED_GREEN machine-bridge.log
+          gh api "repos/${GITHUB_REPOSITORY}/git/blobs/6ae63194bae7682c4f8188e95fb31cefd0b7c315" --jq .content | base64 --decode > xogot/assets/reference/church/machines/nuketown_mystery_box.gltf
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path=Path("xogot/assets/reference/church/machines/nuketown_mystery_box.gltf")
+          doc=json.loads(path.read_text())
+          clips={c.get("name","") for c in doc.get("animations",[])}
+          assert len(doc.get("skins",[]))==1
+          assert len(doc["skins"][0].get("joints",[]))==5
+          assert {"open","close","weapon_rise","teddy_rise","arrive","leave"}.issubset(clips),clips
+          print("XZOGOT_NUKETOWN_BOX_5BONE_SEVEN_REAL_CLIPS_STAGED")
+          PY
           rm -rf recovered-workshop
       - name: Verify real animated gun model bytes, not procedural placeholders
         shell: bash
