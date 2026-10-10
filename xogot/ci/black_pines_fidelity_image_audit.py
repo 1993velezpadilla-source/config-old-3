@@ -10,7 +10,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
-from PIL import Image, ImageStat
+from PIL import Image, ImageStat, ImageDraw
 
 ROOMS = ("generator", "isolation", "surgery", "patients", "triage",
          "cafeteria", "security", "yard", "garage")
@@ -76,6 +76,27 @@ def analyze(folder: Path):
     }
 
 
+def make_contact_sheet(folder: Path, report: dict) -> Path:
+    """Visual audit companion: 9 genuine Godot frames, never synthetic art."""
+    tile_w,tile_h=480,300
+    band=36
+    canvas=Image.new("RGB",(3*tile_w,3*(tile_h+band)),(19,24,30))
+    pen=ImageDraw.Draw(canvas)
+    for i,room in enumerate(ROOMS):
+        with Image.open(folder/("black-pines-fidelity-"+room+".png")) as src:
+            frame=src.convert("RGB")
+            frame.thumbnail((tile_w,tile_h),Image.Resampling.LANCZOS)
+        x=(i%3)*tile_w
+        y=(i//3)*(tile_h+band)
+        canvas.paste(frame,(x+(tile_w-frame.width)//2,y))
+        data=report["rooms"][room]
+        label=room.upper()+" / TOP RGB "+str(data["meanTopRGB"])
+        pen.text((x+10,y+tile_h+9),label,fill=(226,232,224))
+    dest=folder/"black-pines-FIDELITY-9-REAL-GODOT-ROOMS.png"
+    canvas.save(dest,optimize=True)
+    return dest
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("folder",type=Path)
@@ -83,6 +104,10 @@ def main():
     report = analyze(args.folder)
     (args.folder / "black-pines-godot-nine-room-fidelity.json").write_text(
         json.dumps(report,indent=2,sort_keys=True)+"\n")
+    poster=make_contact_sheet(args.folder,report)
+    if poster.stat().st_size<20000:
+        raise AssertionError("Fidelity RED contact output too small")
+    print("BLACK_PINES_FIDELITY_9_ROOM_CONTACT_SHEET_GREEN",poster)
     print("BLACK_PINES_NINE_ROOM_REAL_IMAGE_FIDELITY_GREEN",
           "distinct_images=9",
           "interior_min_ceiling_luma=%.1f" %
