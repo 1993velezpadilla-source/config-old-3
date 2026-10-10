@@ -260,9 +260,12 @@ func _run() -> void:
                 (entry["originalMaterialPathsInPartition"] as Array).append(path)
         results.append(entry)
         print("XZOGOT_NACHT_ORIGINAL_MATERIAL_MASK_SOURCE_QUARTILE_FORENSIC ",
-            JSON.stringify({k:entry[k] for k in [
-                "sourcePartition","originalSourceSurfaceBindingsInPartition",
-                "oneOfFourOnlyBlackROI","allOtherThreePartitionsBlackROI"]}))
+            JSON.stringify({
+                "sourcePartition":entry["sourcePartition"],
+                "originalSourceSurfaceBindingsInPartition":entry["originalSourceSurfaceBindingsInPartition"],
+                "oneOfFourOnlyBlackROI":entry["oneOfFourOnlyBlackROI"],
+                "allOtherThreePartitionsBlackROI":entry["allOtherThreePartitionsBlackROI"]
+            }))
     _mask_four_partition_override(stage,[])
     for entry: Dictionary in stage:
         if (entry["node"] as MeshInstance3D).get_surface_override_material(
