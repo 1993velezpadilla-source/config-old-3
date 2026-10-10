@@ -17,6 +17,24 @@ func _capture() -> void:
     scene.set("rounds_enabled",false)
     scene.set("preview_no_enemies",true)
     root.add_child(scene)
+    # Distinguish ordinary fallback renders from the ACTUAL Blender -> GLB ->
+    # Godot mount. A screenshot of placeholder cubes is not art approval.
+    if OS.get_environment("BLACK_PINES_REQUIRE_BLENDER_MOUNT") == "1":
+        var architecture: Node=scene.get_node_or_null("Architecture")
+        var authored: Node=scene.get_node_or_null(
+            "Architecture/BlenderOriginalArchitecturalVisuals")
+        var mesh_count: int=authored.find_children(
+            "*","MeshInstance3D",true,false).size() if authored!=null else 0
+        var collision_count: int=architecture.find_children(
+            "*","CollisionShape3D",true,false).size() if architecture!=null else 0
+        if not bool(scene.get_meta("black_pines_blender_visuals_mounted",false)) or mesh_count<40 or collision_count<70:
+            push_error("BLACK_PINES_BLENDER_MOUNT_RED authored_meshes="+str(mesh_count)
+                +" native_collider_count="+str(collision_count))
+            quit(45)
+            return
+        print("BLACK_PINES_BLENDER_MOUNT_GREEN meshes=",mesh_count,
+            " native_collision_shapes=",collision_count,
+            " true_blender_visuals=true android_device_test=false")
     for i in range(8):
         await process_frame
     scene.call("set_roof_visible",false)
