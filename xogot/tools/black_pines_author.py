@@ -20,6 +20,8 @@ import sys
 from pathlib import Path
 import bpy
 from mathutils import Vector
+# Blender --python does not guarantee the executing script directory in sys.path.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import black_pines_forge_detail as forge_detail
 
 SEED=20261010
