@@ -1,0 +1,17 @@
+{
+  "FileVersion": 3,
+  "EngineAssociation": "5.8",
+  "Category": "Games",
+  "Description": "Black Pines Sanatorium - native Unreal Engine 5.8 Android survival",
+  "Modules": [
+    {
+      "Name": "BlackPines",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ],
+  "TargetPlatforms": [
+    "Windows",
+    "Android"
+  ]
+}
