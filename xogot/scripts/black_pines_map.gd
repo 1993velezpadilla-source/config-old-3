@@ -64,7 +64,7 @@ func _ready() -> void:
                 _geometry_root.add_child(authored)
                 visuals_from_blender=true
     _build_structure(not visuals_from_blender)
-    _build_original_props()
+    _build_original_props(not visuals_from_blender)
     _build_interactive_doors()
     _build_window_barricades()
     _build_machines_and_wallbuys()
@@ -414,7 +414,15 @@ func _build_mystery_box() -> void:
     _add_3d_label(mystery,"?  MYSTERY  ?",Vector3.ZERO)
     _mystery=mystery
 
-func _build_original_props() -> void:
+func _build_original_props(render_native_proxies: bool) -> void:
+    # When the REAL Blender GLB is mounted, it already contains gurneys,
+    # surgical tables, desks and the ambulance. Drawing native proxy copies
+    # on the exact same coordinates creates z-fighting, hollow-looking black
+    # rectangles and needless mobile draws. Preserve fallback ONLY when GLB
+    # is missing; never remove native gameplay colliders.
+    if not render_native_proxies:
+        set_meta("black_pines_duplicate_scenery_prevented",true)
+        return
     # Original reusable modular low-poly Blender/Godot proxy parts.
     # Furniture is NOT collision-blocking for the first 20-round navigation
     # test. Only outer and partition walls, doors, windows, machine bodies
