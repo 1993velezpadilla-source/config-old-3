@@ -628,9 +628,21 @@ func _build_roof() -> void:
         var right: float=float(xs[c+1])
         var start: float=float(zs[r])
         var finish: float=float(zs[r+1])
+        # Flat metallic-black roofs absorbed almost all light and produced
+        # unnaturally empty black ceiling bands (8-14/255 real screenshot
+        # luminance). Nonmetal institutional plaster receives ceiling light.
+        var ceiling_color: String="industrial" if str(room["floor"])=="industrial" else "medical"
         _box(_roof_root,"Roof_"+str(room["id"]),
             Vector3((left+right)*0.5,3.87,(start+finish)*0.5),
-            Vector3(right-left,0.19,finish-start),"dark_metal",false)
+            Vector3(right-left,0.19,finish-start),ceiling_color,false)
+        # Original exposed service channel / institutional beam geometry:
+        # entirely visual-only and toggleable with the same roof.
+        for beam_side: float in [-1.0,1.0]:
+            var span: float=right-left
+            var beam_x: float=(left+right)*0.5+beam_side*span*.36
+            _box(_roof_root,"CeilingCableRun_"+str(room["id"]),
+                Vector3(beam_x,3.715,(start+finish)*0.5),
+                Vector3(0.095,0.09,finish-start),"dark_metal",false)
 
 func set_roof_visible(value: bool) -> void:
     if _roof_root!=null:
