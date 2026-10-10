@@ -40,6 +40,22 @@ jobs:
           cp xogot/assets/black_pines/free_cc0_staging/cc0-intake-evidence.json \
             build/black-pines/cc0-audition/
           test "$(find build/black-pines/cc0-audition/models -maxdepth 1 -name '*.glb' | wc -l)" -eq 16
+      - name: Convert quantized source GLBs to genuinely Godot-compatible float32 GLBs
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Godot 4.6.1 importer explicitly REJECTS required
+          # KHR_mesh_quantization. Do not strip the JSON extension only:
+          # decode all original 16-bit positions/normals into float32.
+          python3 xogot/tools/cc0_dequantize_godot.py \
+            --source xogot/assets/black_pines/free_cc0_staging \
+            --dest xogot/assets/black_pines/free_cc0_staging \
+            2>&1 | tee build/black-pines/cc0-audition/dequantize.log
+          grep -q BLACK_PINES_CC0_ALL_16_GODOT_COMPATIBLE_GREEN \
+            build/black-pines/cc0-audition/dequantize.log
+          mkdir -p build/black-pines/cc0-audition/godot-converted
+          cp xogot/assets/black_pines/free_cc0_staging/*.glb \
+            build/black-pines/cc0-audition/godot-converted/
       - name: Import actual CC0 GLBs through Godot editor
         shell: bash
         run: |
