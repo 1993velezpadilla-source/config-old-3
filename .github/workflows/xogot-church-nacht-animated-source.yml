@@ -10,6 +10,7 @@ on:
       - "xogot/scripts/zombie_dummy.gd"
       - "xogot/scripts/chronicles_template_registry.gd"
       - "xogot/data/church_chronicles_template.json"
+      - "xogot/ci/chronicles_original_template_probe.gd"
       - ".github/workflows/xogot-church-nacht-animated-source.yml"
 
 permissions:
