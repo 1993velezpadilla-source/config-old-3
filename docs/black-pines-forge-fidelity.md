@@ -3,12 +3,12 @@
 ## Source of truth / no paid tools
 - Editable nine-zone map contract: `xogot/data/black_pines_layout.json`.
 - Original Blender architectural authority: `xogot/tools/black_pines_author.py`.
-- Original Forge decorative authority: `xogot/tools/black_pines_forge_detail.py` and `black_pines_forge_surface.py`.
+- Original Forge decorative authority: `xogot/tools/black_pines_forge_detail.py`, `black_pines_forge_surface.py`, `black_pines_forge_hospital_kit.py` and `black_pines_forge_materials.py`.
 - The GUI at `xogot/tools/black_pines_forge_gui.py` and headless CI call the *same backend*. No alternate source geometry, texture subscriptions, AI generation, stolen textures, or asset-store dependencies.
-- Gameplay doors, zombies, collision, repairs, purchases and spawns remain owned by Godot. **Forge art is currently visual-only**; furniture collision/capsule sweeps will be a later gate. Church/Nacht unchanged.
+- Gameplay doors, zombies, collision, repairs, purchases and spawns remain owned by Godot. **Nine major furnishings now have native low-cost collision** driven by the same manifest as Blender; other small decorations remain visual-only. Church/Nacht unchanged.
 
 ## Open the Forge GUI
-1. In Blender (3.x+), install the **`Black-Pines-Forge-GUI-install-in-Blender.zip`** produced by the **Blender Artpass** GitHub Actions artifact via **Edit > Preferences > Add-ons > Install**. The ZIP contains all FOUR Python modules; installing only the loose GUI `.py` without its author/detail/surface siblings does not work.
+1. In Blender (3.x+), install the **`Black-Pines-Forge-GUI-install-in-Blender.zip`** produced by the **Blender Artpass** GitHub Actions artifact via **Edit > Preferences > Add-ons > Install**. The ZIP contains all SEVEN Python modules (GUI, author, detail, surfaces, materials, hospital kit, mobile batching); installing only the loose GUI `.py` without its author/detail/surface siblings does not work.
 2. In **3D Viewport**, press **N** and open **Black Pines Forge**.
 3. Set the repository's `xogot/data/black_pines_layout.json` as the manifest. The default `//xogot/... ` path only resolves from Blender's project working directory; browse explicitly if necessary.
 4. Run **01 - Forge Entire Map**, **02 - Fidelity Pass**, then **03 - Export Original GLB**. Export is refused after RED.
@@ -19,15 +19,15 @@
 - All 12 doorframes have original steel transoms.
 - All 9 rooms have *batched*, material-varied tile-floor meshes.
 - Exterior main facade has a branded, original Black Pines sign, not a commercial game mesh.
-- Budgets: <=850 mesh objects, <=190,000 original mesh triangles. These numbers are *provisional authoring limits*, **not proven device FPS**.
+- Budgets: <=850 source mesh objects, <=190,000 source mesh triangles. The latest passing mobile batch reduced 581 original meshes to 121 exported Godot meshes (79.2% reduction) while retaining 9 hero objects, 9 floor meshes and the editable `.blend`. These numbers are *provisional authoring limits*, **not proven device FPS**.
 - Real Godot visual probe captures original overview + first-person with the actual touch HUD + *nine full-resolution room closeups* from the mounted GLB. CI checks PNG existence and genuine rendering; **no automated screenshot test can certify 'perfect' artistic fidelity**.
-- Independent physics/AI verifies all 12 real window crossings, all 12 door openings and all 81 nine-room route combinations.
+- Independent physics/AI verifies all 12 real window crossings, all 12 door openings and all 81 nine-room route combinations. Nine medical/industrial hero collision boxes are ray-tested, and 36 player-height rays must remain clear through the opened portals.
 - The remaining artistic fidelity review is human: spatial composition, silhouettes, lighting, material complexity, floor wear, window detail, prop realism, readability, immersion. Fix issues from the actual Godot screenshots, not simulated previews.
 
 ## Non-negotiable next gates
-1. Synchronize any solid decorative props with native Godot collision and re-run traversal/nav checks (without shrinking zombie lanes).
+1. Expand collision carefully to additional large furniture only after maintaining door/window routes; nine major hero fixtures already have Godot native colliders with a shared Blender/Godot manifest.
 2. Authentic game-ready doors, medical equipment, structural silhouette, weathering/baked PBR textures, adjusted lighting and native mobile LOD/material budgets. **No fabricated PBR source or visual perfection claim.**
-3. Physically verified 15-20 rounds and zombie anti-stuck in Black Pines.
+3. **Endless-round survival is now configured** for Black Pines; 20 automated rounds (674 zombie actors), full actual round 21 (63), and one-actor samples at rounds 50 through 1,000,000 pass Godot director tests. This is NOT 1,000,000 played rounds. The game has no designed terminal round, but Android-safe wave/HP caps (144 solo, 192 four-player, 24 simultaneously, 250,000 max HP) do apply. Still required: physically played long sessions with zombie anti-stuck audits.
 4. Real Android hardware touch/gyro/FPS/memory acceptance and all-weapon ADS/hands audits.
 5. Multiplayer 4-player authoritative replication + legal redistributability audit. Existing WaW ripped/sourced assets remain internal test ONLY; never bundle them into a public release without permission.
 6. Re-evaluate the nine Godot screenshots after each Fidelity Pass, iterating until approved; never substitute AI illustration for real gameplay evidence.
