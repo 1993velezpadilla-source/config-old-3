@@ -1,0 +1,90 @@
+name: Church Recovered 102-bone Nacht Zombie Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - "tools/maps/chronicles_bridge/**"
+      - "xogot/scripts/zombie_dummy.gd"
+      - "xogot/scripts/chronicles_template_registry.gd"
+      - "xogot/data/church_chronicles_template.json"
+      - ".github/workflows/xogot-church-nacht-animated-source.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  source-runtime-church:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      XZOGOT_REQUIRE_WORKSHOP_ZOMBIE: "1"
+    steps:
+      - uses: actions/checkout@v5
+      - name: Use EXISTING decoded rig archive, no new source decoding
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p recovered-workshop
+          gh run download 37714627696 -n Xogot-Nacht-Chronicles-Full-Map-Authority -D recovered-workshop
+          test "$(find recovered-workshop -path '*/skeletons/report.json' -type f | wc -l)" -eq 1
+          test "$(find recovered-workshop -path '*/skeletal-meshes/report.json' -type f | wc -l)" -eq 1
+          test "$(find recovered-workshop -path '*/animations/report.json' -type f | wc -l)" -eq 1
+          echo XZOGOT_EXISTING_DECODED_NACHT_ARCHIVE_RECOVERED
+      - name: Source 102-bone / original source animation bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/chronicles_bridge/stage_reference_zombie.py recovered-workshop xogot | tee zombie-bridge.log
+          grep -q XZOGOT_NACHT_102BONE_REFERENCE_IMPORTED zombie-bridge.log
+          rm -rf recovered-workshop
+      - name: Verify real animated gun model bytes, not procedural placeholders
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/maps/chronicles_bridge/check_real_guns.py xogot | tee gun-meshes.log
+          grep -q XZOGOT_CHURCH_11_REAL_GUN_MODELS_GREEN gun-meshes.log
+      - name: Install Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/church-godot
+          curl -L --fail --retry 4 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/church-godot.zip
+          unzip -q /tmp/church-godot.zip -d /tmp/church-godot
+          chmod +x /tmp/church-godot/Godot_v4.6.1-stable_linux.x86_64
+      - name: Import 102-bone animated real source scene into Godot
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180 /tmp/church-godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit 2>&1 | tee godot-import.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|ERROR: Failed to load script' godot-import.log
+      - name: Real church chase collision hitscan and source animation test
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 140 /tmp/church-godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/chronicles_original_template_probe.gd \
+            2>&1 | tee church-zombie-live.log
+          grep -q XZOGOT_CHURCH_RECOVERED_NACHT_102_BONE_RIG_GREEN church-zombie-live.log
+          grep -q XZOGOT_CHURCH_TEMPLATE_PHYSICAL_CHASE_GREEN church-zombie-live.log
+          grep -q XZOGOT_CHURCH_TEMPLATE_GUN_HIT_DAMAGE_GREEN church-zombie-live.log
+          ! grep -E 'CHRONICLES_TEMPLATE_PROBE:|SCRIPT ERROR|Parse Error' church-zombie-live.log
+      - name: Upload technical verification LOGS ONLY (not copyrighted asset files)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Church-102Bone-Zombie-and-3DGuns-Technical-Logs
+          path: |
+            zombie-bridge.log
+            gun-meshes.log
+            godot-import.log
+            church-zombie-live.log
+          if-no-files-found: ignore
+          retention-days: 7
