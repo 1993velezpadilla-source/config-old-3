@@ -52,18 +52,22 @@ func _run() -> void:
         var door: Node=scene.get_node_or_null("Machines/Door_%02d"%i)
         if not _assert(door!=null, "missing door "+str(i)):
             return
-        var blocked: Dictionary=_cast(space,center-offset,center+offset)
-        if not _assert(blocked.get("collider",null)==door,
-            "closed portal not physically blocked by door "+str(i)+": "+str(blocked.get("collider",null))):
-            return
+        for lane: float in [-0.65,0.0,0.65]:
+            var lateral: Vector3=Vector3(0,0,lane) if axis=="x" else Vector3(lane,0,0)
+            var blocked: Dictionary=_cast(space,center-offset+lateral,center+offset+lateral)
+            if not _assert(blocked.get("collider",null)==door,
+                "closed portal "+str(i)+" lane="+str(lane)+" hit="+str(blocked.get("collider",null))):
+                return
         if not _assert(bool(door.call("dev_force_open")),
             "cannot open paid door "+str(i)):
             return
         await physics_frame
-        var opened: Dictionary=_cast(space,center-offset,center+offset)
-        if not _assert(opened.is_empty(),
-            "opened portal still physically obstructed "+str(i)+": "+str(opened.get("collider",null))):
-            return
+        for lane: float in [-0.65,0.0,0.65]:
+            var lateral: Vector3=Vector3(0,0,lane) if axis=="x" else Vector3(lane,0,0)
+            var opened: Dictionary=_cast(space,center-offset+lateral,center+offset+lateral)
+            if not _assert(opened.is_empty(),
+                "opened portal "+str(i)+" lane="+str(lane)+" hit="+str(opened.get("collider",null))):
+                return
     for i in range(windows.size()):
         var barrier: Node=scene.get_node_or_null("Architecture/Barricade_%02d"%i)
         if not _assert(barrier!=null, "missing barricade "+str(i)):
@@ -72,22 +76,27 @@ func _run() -> void:
         var inside: Vector3=barrier.call("get_inside_point")
         outside.y=1.25
         inside.y=1.25
-        var blocked: Dictionary=_cast(space,outside,inside)
-        if not _assert(blocked.get("collider",null)==barrier,
-            "intact barricade fails to stop a body "+str(i)+": "+str(blocked.get("collider",null))):
-            return
+        var axis: String=str((windows[i] as Dictionary)["axis"])
+        for lane: float in [-0.65,0.0,0.65]:
+            var lateral: Vector3=Vector3(0,0,lane) if axis=="x" else Vector3(lane,0,0)
+            var blocked: Dictionary=_cast(space,outside+lateral,inside+lateral)
+            if not _assert(blocked.get("collider",null)==barrier,
+                "intact window "+str(i)+" lane="+str(lane)+" hit="+str(blocked.get("collider",null))):
+                return
         barrier.call("zombie_damage",400.0)
         if not _assert(bool(barrier.call("is_broken")),
             "barricade damage did not destroy boards "+str(i)):
             return
         await physics_frame
-        var opened: Dictionary=_cast(space,outside,inside)
-        if not _assert(opened.is_empty(),
-            "destroyed window still physically obstructed "+str(i)+": "+str(opened.get("collider",null))):
-            return
+        for lane: float in [-0.65,0.0,0.65]:
+            var lateral: Vector3=Vector3(0,0,lane) if axis=="x" else Vector3(lane,0,0)
+            var opened: Dictionary=_cast(space,outside+lateral,inside+lateral)
+            if not _assert(opened.is_empty(),
+                "breached window "+str(i)+" lane="+str(lane)+" hit="+str(opened.get("collider",null))):
+                return
     print("BLACK_PINES_SPATIAL_PHYSICS_GREEN 12_closed_then_open_doors=true",
         " 12_closed_then_breached_windows=true",
-        " real_Godot_raycast=true",
+        " three_lateral_rays_each=true real_Godot_raycast=true",
         " full_20_round_navmesh=false physical_android=false")
     scene.queue_free()
     await process_frame
