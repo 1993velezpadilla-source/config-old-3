@@ -262,9 +262,89 @@ func _build_interactive_doors() -> void:
             "UNLOCK "+str(portal["label"]),true)
         body.set_meta("door_mechanism",str(portal["type"]))
         body.set_meta("black_pines_gate_number",i)
-        _add_3d_label(body,str(portal["type"]).to_upper(),Vector3(0,0.25,0))
+        # Native door skins stay parented to the purchased door, so the
+        # existing interaction script hides ALL skin parts upon unlocking.
+        # No floating billboard names remain after a door was opened.
+        _dress_paid_door(body,axis,str(portal["type"]),i)
         _doors.append(body)
         i+=1
+
+func _door_trim_mesh(body: StaticBody3D,part_name: String,
+        offset: Vector3,dimensions: Vector3,material_id: String) -> void:
+    var visual:=MeshInstance3D.new()
+    visual.name=part_name
+    visual.position=offset
+    var mesh:=BoxMesh.new()
+    mesh.size=dimensions
+    mesh.material=_materials[material_id] as Material
+    visual.mesh=mesh
+    body.add_child(visual)
+
+func _dress_paid_door(body: StaticBody3D,axis: String,
+        mechanism: String,number: int) -> void:
+    # Every original room transition uses distinct authored game-facing door
+    # skins. Door collision remains the tested base 3.02m purchase panel.
+    # Decorations are MeshInstance3D direct children: interactable.gd hides
+    # them all alongside MachineBody, including network-open transitions.
+    var signature: String="industrial"
+    match mechanism:
+        "sealed": signature="medical"
+        "gate": signature="dark_metal"
+        "rolling": signature="rust"
+        "double": signature="brass"
+        "sliding": signature="industrial"
+        _: signature="medical"
+    for facing: int in [-1,1]:
+        var depth: float=float(facing)*0.169
+        var local: Vector3=Vector3(depth,0,0) if axis=="x" else Vector3(0,0,depth)
+        var slab_size: Vector3=Vector3(.046,1.94,2.58) if axis=="x" else (
+            Vector3(2.58,1.94,.046))
+        _door_trim_mesh(body,"BP_DoorSkin_%02d_%s"%[number,str(facing)],
+            local,slab_size,signature)
+        # Classic chipped enamel: one offset horizontal safety stripe, one
+        # lower kickplate and original reinforcing lock channel.
+        var band_offset: Vector3=Vector3(depth+float(facing)*.025,.34,0) if axis=="x" else (
+            Vector3(0,.34,depth+float(facing)*.025))
+        var band_size: Vector3=Vector3(.030,.14,2.48) if axis=="x" else (
+            Vector3(2.48,.14,.030))
+        _door_trim_mesh(body,"BP_SafetyStripe_%02d_%s"%[number,str(facing)],
+            band_offset,band_size,"brass")
+        var kick_offset: Vector3=Vector3(depth+float(facing)*.03,-.77,0) if axis=="x" else (
+            Vector3(0,-.77,depth+float(facing)*.03))
+        var kick_size: Vector3=Vector3(.038,.36,2.54) if axis=="x" else (
+            Vector3(2.54,.36,.038))
+        _door_trim_mesh(body,"BP_KickPlate_%02d_%s"%[number,str(facing)],
+            kick_offset,kick_size,"dark_metal")
+        var channel_offset: Vector3=Vector3(depth+float(facing)*.035,0,.76) if axis=="x" else (
+            Vector3(.76,0,depth+float(facing)*.035))
+        var channel_size: Vector3=Vector3(.045,1.58,.090) if axis=="x" else (
+            Vector3(.090,1.58,.045))
+        _door_trim_mesh(body,"BP_LockChannel_%02d_%s"%[number,str(facing)],
+            channel_offset,channel_size,"brass")
+        # Mechanism-specific silhouette, never an identical painted cube.
+        if mechanism in ["rolling","gate"]:
+            for rail: int in range(3):
+                var h: float=-.46+float(rail)*.45
+                var at: Vector3=Vector3(depth+float(facing)*.055,h,0) if axis=="x" else (
+                    Vector3(0,h,depth+float(facing)*.055))
+                var dims: Vector3=Vector3(.050,.11,2.70) if axis=="x" else (
+                    Vector3(2.70,.11,.050))
+                _door_trim_mesh(body,"BP_ShutterRail_%02d_%s_%d"%[number,str(facing),rail],
+                    at,dims,"dark_metal")
+        if mechanism=="double":
+            var seam: Vector3=Vector3(depth+float(facing)*.06,0,0) if axis=="x" else (
+                Vector3(0,0,depth+float(facing)*.06))
+            _door_trim_mesh(body,"BP_DoubleLeafSeam_%02d_%s"%[number,str(facing)],
+                seam,Vector3(.048,2.08,.065) if axis=="x" else Vector3(.065,2.08,.048),
+                "dark_metal")
+        if mechanism in ["hinged","sliding","sealed"]:
+            var slot: Vector3=Vector3(depth+float(facing)*.07,.50,0) if axis=="x" else (
+                Vector3(0,.50,depth+float(facing)*.07))
+            _door_trim_mesh(body,"BP_ObservationSlot_%02d_%s"%[number,str(facing)],
+                slot,Vector3(.052,.28,.62) if axis=="x" else Vector3(.62,.28,.052),
+                "dark_glass" if _materials.has("dark_glass") else "glass")
+    body.set_meta("black_pines_visual_mechanism",mechanism)
+    body.set_meta("black_pines_doorskin_v1",true)
 
 func _build_window_barricades() -> void:
     var i: int=0
