@@ -36,6 +36,12 @@ func _run() -> void:
         and not bool(report.get("actualAndroidPhysicalPerformanceValidated",true)),
         "shipping / goal status falsely claimed"):
         return
+    if not _assert(bool(report.get("endlessSurvivalEnabled",false))
+        and int(report.get("terminalRound",-1))==0
+        and int(report.get("endlessWaveMaxSoloZombies",0))==144
+        and int(report.get("endlessSimultaneousZombieCap",0))==24,
+        "Black Pines must have endless rounds and bounded live actors"):
+        return
     var player: Node=scene.get_node_or_null("Player")
     var round_manager: Node=scene.get_node_or_null("RoundManager")
     var pickup_manager: Node=scene.get_node_or_null("PowerUpManager")
@@ -152,7 +158,8 @@ func _run() -> void:
         " perks=6 wallbuys=5 mystery=4",
         " power=true repair=true carpenter=true insta=true double=true",
         " nuke=true max_ammo=true mystery_paid_weapon_4spins_and_relocation=true pack_a_punch=true",
-        " WaW_test_only=true public_ship=false 20round_untested=true")
+        " WaW_test_only=true public_ship=false 20round_untested=true",
+        " endless_survival=true terminal_round=none")
     scene.queue_free()
     await process_frame
     quit(0)
