@@ -87,4 +87,39 @@ func _capture() -> void:
     print("BLACK_PINES_REAL_GODOT_1360x900_OVERVIEW_GREEN path=",output,
         " actual_frame_not_illustration=true physical_android_test=false")
     print("BLACK_PINES_REAL_GODOT_FIRSTPERSON_HUD_SCREENSHOT_GREEN path=",fps_dest)
+    # Fidelity review needs honest close-up evidence of all nine rooms, not
+    # just a distant overview and a single cramped player start view.
+    # These are REAL Godot runtime frames, using the same loaded GLB.
+    var room_shots: Array[Dictionary]=[
+        {"id":"generator","eye":Vector3(-16,1.6,-5.0),"target":Vector3(-11,1.35,-12)},
+        {"id":"isolation","eye":Vector3(-4.7,1.6,-5.0),"target":Vector3(2.3,1.2,-12)},
+        {"id":"surgery","eye":Vector3(15.8,1.6,-5.2),"target":Vector3(13.8,1.2,-11)},
+        {"id":"patients","eye":Vector3(-9.0,1.6,6.5),"target":Vector3(-14,1.1,-1)},
+        {"id":"triage","eye":Vector3(3.5,1.6,5.8),"target":Vector3(-1,1.1,-0.5)},
+        {"id":"cafeteria","eye":Vector3(9,1.6,5.4),"target":Vector3(13,1.2,1.5)},
+        {"id":"security","eye":Vector3(-9,1.6,16.8),"target":Vector3(-15,1.2,12)},
+        {"id":"yard","eye":Vector3(-3,1.6,12.2),"target":Vector3(5,1.2,18)},
+        {"id":"garage","eye":Vector3(9,1.6,11.4),"target":Vector3(15,1.2,18)}
+    ]
+    if hud!=null:
+        hud.visible=false
+    if original_camera!=null:
+        original_camera.current=false
+    camera.current=true
+    for room: Dictionary in room_shots:
+        camera.global_position=room["eye"] as Vector3
+        camera.look_at(room["target"] as Vector3)
+        for i in range(8):
+            await process_frame
+        var still: Image=root.get_texture().get_image()
+        var path: String=ProjectSettings.globalize_path(
+            "res://black-pines-fidelity-"+str(room["id"])+".png")
+        if still==null or still.get_width()<900 or still.save_png(path)!=OK:
+            push_error("BLACK_PINES_NINE_ROOM_FIDELITY_RED "+str(room["id"]))
+            quit(47)
+            return
+        print("BLACK_PINES_FIDELITY_REAL_ROOM_IMAGE room=",str(room["id"]),
+            " path=",path)
+    print("BLACK_PINES_NINE_ROOM_FIDELITY_CAPTURE_GREEN",
+        " count=9 real_godot=true visual_perfection_not_certified=true")
     quit(0)
