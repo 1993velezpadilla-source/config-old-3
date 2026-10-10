@@ -117,6 +117,15 @@ func _capture() -> void:
     if original_camera!=null:
         original_camera.current=false
     camera.current=true
+    # During gallery capture the playable CharacterBody remains near spawn.
+    # Its first-person gun/arms otherwise look like a disembodied floating
+    # handgun in Triage views. Hide ONLY during visual review screenshots,
+    # not during the actual FPS screenshot or live gameplay.
+    var gallery_player: Node3D=scene.get_node_or_null("Player") as Node3D
+    if gallery_player!=null:
+        gallery_player.visible=false
+    print("BLACK_PINES_GALLERY_FREECAM_PLAYER_HIDDEN_GREEN",
+        " during_gallery_only=true live_player_unchanged=true")
     for room: Dictionary in room_shots:
         camera.global_position=room["eye"] as Vector3
         camera.look_at(room["target"] as Vector3)
