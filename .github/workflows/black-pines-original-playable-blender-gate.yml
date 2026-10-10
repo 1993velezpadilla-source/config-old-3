@@ -90,7 +90,7 @@ jobs:
             2>&1 | tee build/black-pines/godot/routing-and-zombie-crossings.log
           grep -q BLACK_PINES_ROUTING_81_PAIRS_GREEN \
             build/black-pines/godot/routing-and-zombie-crossings.log
-          grep -q BLACK_PINES_FOUR_COMPASS_ZOMBIE_TRAVERSAL_GREEN \
+          grep -q BLACK_PINES_ALL_12_ZOMBIE_TRAVERSAL_GREEN \
             build/black-pines/godot/routing-and-zombie-crossings.log
           ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_ROUTING_RED' \
             build/black-pines/godot/routing-and-zombie-crossings.log
