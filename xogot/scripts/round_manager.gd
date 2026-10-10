@@ -8,6 +8,9 @@ signal last_zombie_started(round_number: int, zombie: Node)
 @export var first_round_delay: float = 5.0
 @export var round_break: float = 8.0
 @export var max_alive_zombies: int = 24
+# Only independent maps may opt out of legacy sheep-special-wave scheduling;
+# default remains unchanged for Church, Nacht, and all prior regression tests.
+@export var special_rounds_enabled: bool = true
 
 # Classic Treyarch-style round flow. The total round population grows beyond
 # 24; the cap only limits how many can exist simultaneously.
@@ -74,7 +77,7 @@ func _process(delta: float) -> void:
 func start_next_round() -> void:
 	_started = true
 	current_round += 1
-	var planned_sheep_round: bool = is_sheep_round_number(current_round)
+	var planned_sheep_round: bool = special_rounds_enabled and is_sheep_round_number(current_round)
 	if planned_sheep_round and _sheep_assets_ready():
 		_special_round_kind = "sheep"
 		_round_total = sheep_for_round(current_round)
