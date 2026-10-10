@@ -511,6 +511,20 @@ func _build_spawn_markers() -> void:
         marker.set_meta("weight",0.3)
         marker.set_meta("entry_kind","offscreen")
         marker.set_meta("zone","mountain_perimeter")
+        # Every exterior offscreen spawn must select an actual barricade
+        # entrance. Pure direct chase from outside would hit a solid wall.
+        var nearest_name: String=""
+        var nearest_dist: float=INF
+        for barricade: StaticBody3D in _barricades:
+            var approach: Vector3=barricade.call("get_outside_spawn") as Vector3
+            var dist: float=Vector2(pos.x-approach.x,pos.z-approach.z).length_squared()
+            if dist<nearest_dist:
+                nearest_dist=dist
+                nearest_name=barricade.name
+        if nearest_name.is_empty() or nearest_dist>20.0:
+            push_error("BLACK_PINES_SPAWN_ROUTE_RED unmatched outside anchor "+marker.name)
+            return
+        marker.set_meta("routed_window_name",nearest_name)
         add_child(marker)
 
 func _build_roof() -> void:
