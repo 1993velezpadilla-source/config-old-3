@@ -9,6 +9,7 @@ import math
 from mathutils import Vector
 import black_pines_forge_surface as forge_surface
 import black_pines_forge_materials as forge_materials
+import black_pines_forge_hospital_kit as hospital_kit
 
 LANDMARKS = {}
 ADDED_NAMES = []
@@ -258,10 +259,12 @@ def build_forge_detail(api, layout):
     ])
 
     surface = forge_surface.build_surfaces(api,layout,add_box,tube,_label)
+    hero_props = hospital_kit.build(api,layout,add_box,tube)
     pbr = forge_materials.apply(api)
     return {
         "forgeGuiBackend": True,
         "surfacePass": surface,
+        "originalHospitalKit": hero_props,
         "pbrSourceWear": pbr,
         "distinctRoomLandmarks": {k: len(v) for k, v in LANDMARKS.items()},
         "fidelityGateType": "measurable_composition_not_human_visual_perfection",
@@ -272,7 +275,7 @@ def fidelity_pass(api, layout):
     """Deterministic authoring guard; not a subjective AAA claim."""
     required = {cell["id"] for cell in layout["cells"]}
     actual = set(LANDMARKS)
-    issues = forge_materials.fidelity_gate()
+    issues = forge_materials.fidelity_gate() + hospital_kit.guard()
     if actual != required:
         issues.append("missing/double landmark rooms: " + str(required^actual))
     for room, labels in LANDMARKS.items():
