@@ -144,6 +144,7 @@ def main():
             'aiGenerated':bool(a.get('aiGenerated')),
             'sha256':hashlib.sha256(binary).hexdigest(),
             'bytes':len(binary),'stats':info,
+            'sizeMeters':a['stats']['sizeMeters'],
             'artReviewRequired':True,'notIncludedInProductionAPK':True
         })
         print('BLACK_PINES_CC0_REAL_GLB_GREEN',label,asset_id,
