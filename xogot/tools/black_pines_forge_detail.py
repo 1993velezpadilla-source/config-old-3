@@ -8,6 +8,7 @@ import bpy
 import math
 from mathutils import Vector
 import black_pines_forge_surface as forge_surface
+import black_pines_forge_materials as forge_materials
 
 LANDMARKS = {}
 ADDED_NAMES = []
@@ -257,9 +258,11 @@ def build_forge_detail(api, layout):
     ])
 
     surface = forge_surface.build_surfaces(api,layout,add_box,tube,_label)
+    pbr = forge_materials.apply(api)
     return {
         "forgeGuiBackend": True,
         "surfacePass": surface,
+        "pbrSourceWear": pbr,
         "distinctRoomLandmarks": {k: len(v) for k, v in LANDMARKS.items()},
         "fidelityGateType": "measurable_composition_not_human_visual_perfection",
     }
@@ -269,7 +272,7 @@ def fidelity_pass(api, layout):
     """Deterministic authoring guard; not a subjective AAA claim."""
     required = {cell["id"] for cell in layout["cells"]}
     actual = set(LANDMARKS)
-    issues = []
+    issues = forge_materials.fidelity_gate()
     if actual != required:
         issues.append("missing/double landmark rooms: " + str(required^actual))
     for room, labels in LANDMARKS.items():
