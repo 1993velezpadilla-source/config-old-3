@@ -129,19 +129,37 @@ jobs:
             sleep 15
             "$ADB" exec-out screencap -p > "$OUT/screens/after_single_30s.png"
 
-            # The previous test incorrectly pressed 520,300 ON THE BIG
-            # CENTRAL LOGO, not the "SINGLE PLAYER" text.  The authentic
-            # Android 2280x1080 menu screenshot puts that button in the
-            # upper-left around 570,165.  Reject another idle main menu,
-            # don't call native touch delivery proof of gameplay.
-            MENU_HASH="$(sha256sum "$OUT/screens/main_menu_25s.png" | awk '{print $1}')"
-            AFTER_HASH="$(sha256sum "$OUT/screens/after_single_30s.png" | awk '{print $1}')"
-            echo "MENU_HASH=$MENU_HASH" >> "$OUT/status.txt"
-            echo "AFTER_SINGLE_HASH=$AFTER_HASH" >> "$OUT/status.txt"
-            if [ "$MENU_HASH" = "$AFTER_HASH" ]; then
-              echo "XCHURCH_SINGLE_PLAYER_STILL_ON_MAIN_MENU_RED" | tee -a "$OUT/status.txt"
+            # VISUAL CORRECTION from actual captured pixels:
+            # main_menu_25s.png was STILL "TOUCH SCREEN TO START".
+            # Our second touch was the one which finally opened Main Menu.
+            # Thus the old workflow had NEVER PRESSED SINGLE PLAYER.
+            cp "$OUT/screens/after_single_30s.png" "$OUT/screens/after_title_second_tap_30s.png"
+            echo "AFTER_SECOND_TITLE_TAP_CAPTURED=1" >> "$OUT/status.txt"
+
+            # Now the original BOZ MAIN MENU is on screen. Its upper-left
+            # SINGLE PLAYER button really spans approximately x=360..805,
+            # y=130..208 in the captured 2280x1080 Android framebuffer.
+            "$ADB" shell am start -W -n com.activision.boz/.Main \
+              --ez xzielDirectTap true --ei xzielX 570 --ei xzielY 165 \
+              > "$OUT/real-single-player-tap.txt" 2>&1
+            echo "ACTUAL_SINGLE_PLAYER_TAP_SENT=570,165" | tee -a "$OUT/status.txt"
+            sleep 5
+            "$ADB" exec-out screencap -p > "$OUT/screens/real_single_05s.png"
+            sleep 10
+            "$ADB" exec-out screencap -p > "$OUT/screens/real_single_15s.png"
+            sleep 15
+            "$ADB" exec-out screencap -p > "$OUT/screens/real_single_30s.png"
+
+            # A changed framebuffer only means screen transition, NOT proof
+            # of a loaded 3D map or visible zombies. Upload native evidence.
+            BEFORE_HASH="$(sha256sum "$OUT/screens/after_title_second_tap_30s.png" | awk '{print $1}')"
+            AFTER_HASH="$(sha256sum "$OUT/screens/real_single_30s.png" | awk '{print $1}')"
+            echo "BEFORE_SINGLE_HASH=$BEFORE_HASH" >> "$OUT/status.txt"
+            echo "AFTER_REAL_SINGLE_HASH=$AFTER_HASH" >> "$OUT/status.txt"
+            if [ "$BEFORE_HASH" = "$AFTER_HASH" ]; then
+              echo "XCHURCH_REAL_SINGLE_PLAYER_NO_SCREEN_TRANSITION_RED" | tee -a "$OUT/status.txt"
             else
-              echo "XCHURCH_SINGLE_PLAYER_SCREEN_TRANSITION_OBSERVED_NEEDS_VISUAL_QA" | tee -a "$OUT/status.txt"
+              echo "XCHURCH_REAL_SINGLE_PLAYER_SCREEN_CHANGED_VISUAL_REVIEW_REQUIRED" | tee -a "$OUT/status.txt"
             fi
           fi
 
