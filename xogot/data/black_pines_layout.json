@@ -1,0 +1,426 @@
+{
+  "schemaVersion": 1,
+  "mapId": "black_pines_sanatorium",
+  "worldUnits": "meters",
+  "source": "Original indie sanatorium concept; no map geometry from external commercial games",
+  "orientation": "Single floor, Godot XZ plane, player eye at Y=1.6",
+  "cellBoundaries": {
+    "x": [
+      -18,
+      -7,
+      7,
+      18
+    ],
+    "z": [
+      -15,
+      -3,
+      9,
+      21
+    ]
+  },
+  "floorY": 0,
+  "wallHeight": 3.8,
+  "playerSpawn": [
+    0,
+    0.38,
+    3.5
+  ],
+  "cells": [
+    {
+      "id": "generator",
+      "col": 0,
+      "row": 0,
+      "name": "GENERATOR HOUSE",
+      "floor": "industrial"
+    },
+    {
+      "id": "isolation",
+      "col": 1,
+      "row": 0,
+      "name": "ISOLATION WARD",
+      "floor": "medical"
+    },
+    {
+      "id": "surgery",
+      "col": 2,
+      "row": 0,
+      "name": "SURGICAL THEATRE",
+      "floor": "medical"
+    },
+    {
+      "id": "patients",
+      "col": 0,
+      "row": 1,
+      "name": "PATIENT WING",
+      "floor": "medical"
+    },
+    {
+      "id": "triage",
+      "col": 1,
+      "row": 1,
+      "name": "TRIAGE LOBBY",
+      "floor": "lobby"
+    },
+    {
+      "id": "cafeteria",
+      "col": 2,
+      "row": 1,
+      "name": "COMMON DINING",
+      "floor": "lobby"
+    },
+    {
+      "id": "security",
+      "col": 0,
+      "row": 2,
+      "name": "SECURITY OFFICE",
+      "floor": "industrial"
+    },
+    {
+      "id": "yard",
+      "col": 1,
+      "row": 2,
+      "name": "AMBULANCE COURT",
+      "floor": "outdoor"
+    },
+    {
+      "id": "garage",
+      "col": 2,
+      "row": 2,
+      "name": "MOTOR GARAGE",
+      "floor": "industrial"
+    }
+  ],
+  "portals": [
+    {
+      "axis": "x",
+      "coord": -7,
+      "at": -9,
+      "type": "hinged",
+      "price": 1000,
+      "label": "GENERATOR / ISOLATION"
+    },
+    {
+      "axis": "x",
+      "coord": 7,
+      "at": -9,
+      "type": "sliding",
+      "price": 1250,
+      "label": "ISOLATION / SURGERY"
+    },
+    {
+      "axis": "x",
+      "coord": -7,
+      "at": 3,
+      "type": "hinged",
+      "price": 750,
+      "label": "PATIENT WING"
+    },
+    {
+      "axis": "x",
+      "coord": 7,
+      "at": 3,
+      "type": "double",
+      "price": 1000,
+      "label": "COMMON DINING"
+    },
+    {
+      "axis": "x",
+      "coord": -7,
+      "at": 15,
+      "type": "gate",
+      "price": 1000,
+      "label": "SECURITY COURT"
+    },
+    {
+      "axis": "x",
+      "coord": 7,
+      "at": 15,
+      "type": "rolling",
+      "price": 1250,
+      "label": "MOTOR GARAGE"
+    },
+    {
+      "axis": "z",
+      "coord": -3,
+      "at": -12.5,
+      "type": "hinged",
+      "price": 1000,
+      "label": "PATIENTS / GENERATOR"
+    },
+    {
+      "axis": "z",
+      "coord": -3,
+      "at": 0,
+      "type": "sealed",
+      "price": 1250,
+      "label": "ISOLATION WARD"
+    },
+    {
+      "axis": "z",
+      "coord": -3,
+      "at": 12.5,
+      "type": "hinged",
+      "price": 1000,
+      "label": "SURGICAL THEATRE"
+    },
+    {
+      "axis": "z",
+      "coord": 9,
+      "at": -12.5,
+      "type": "hinged",
+      "price": 750,
+      "label": "SECURITY / PATIENTS"
+    },
+    {
+      "axis": "z",
+      "coord": 9,
+      "at": 0,
+      "type": "gate",
+      "price": 750,
+      "label": "AMBULANCE COURT"
+    },
+    {
+      "axis": "z",
+      "coord": 9,
+      "at": 12.5,
+      "type": "rolling",
+      "price": 1250,
+      "label": "GARAGE / DINING"
+    }
+  ],
+  "windows": [
+    {
+      "axis": "x",
+      "coord": -18,
+      "at": -9
+    },
+    {
+      "axis": "x",
+      "coord": -18,
+      "at": 3
+    },
+    {
+      "axis": "x",
+      "coord": -18,
+      "at": 15
+    },
+    {
+      "axis": "x",
+      "coord": 18,
+      "at": -9
+    },
+    {
+      "axis": "x",
+      "coord": 18,
+      "at": 3
+    },
+    {
+      "axis": "x",
+      "coord": 18,
+      "at": 15
+    },
+    {
+      "axis": "z",
+      "coord": -15,
+      "at": -12.5
+    },
+    {
+      "axis": "z",
+      "coord": -15,
+      "at": 0
+    },
+    {
+      "axis": "z",
+      "coord": -15,
+      "at": 12.5
+    },
+    {
+      "axis": "z",
+      "coord": 21,
+      "at": -12.5
+    },
+    {
+      "axis": "z",
+      "coord": 21,
+      "at": 0
+    },
+    {
+      "axis": "z",
+      "coord": 21,
+      "at": 12.5
+    }
+  ],
+  "perks": [
+    {
+      "id": "martyrs_blood",
+      "pos": [
+        -14.5,
+        0,
+        -1.3
+      ],
+      "yaw": 0
+    },
+    {
+      "id": "quick_hands",
+      "pos": [
+        13.5,
+        0,
+        8
+      ],
+      "yaw": 180
+    },
+    {
+      "id": "pilgrim_rush",
+      "pos": [
+        2.5,
+        0,
+        18.5
+      ],
+      "yaw": 180
+    },
+    {
+      "id": "choir_sight",
+      "pos": [
+        11.5,
+        0,
+        -13
+      ],
+      "yaw": 0
+    },
+    {
+      "id": "twin_bells",
+      "pos": [
+        -12.5,
+        0,
+        -12.6
+      ],
+      "yaw": 0
+    },
+    {
+      "id": "last_rites",
+      "pos": [
+        -4,
+        0,
+        6.7
+      ],
+      "yaw": 180
+    }
+  ],
+  "wallbuys": [
+    {
+      "id": "m1",
+      "pos": [
+        -6.7,
+        1.1,
+        6.2
+      ],
+      "yaw": 0,
+      "price": 600
+    },
+    {
+      "id": "mp40",
+      "pos": [
+        -17.65,
+        1.1,
+        -1
+      ],
+      "yaw": 0,
+      "price": 1000
+    },
+    {
+      "id": "trench",
+      "pos": [
+        17.65,
+        1.1,
+        -1.5
+      ],
+      "yaw": 0,
+      "price": 1500
+    },
+    {
+      "id": "thompson",
+      "pos": [
+        -1,
+        1.1,
+        -14.65
+      ],
+      "yaw": 90,
+      "price": 1200
+    },
+    {
+      "id": "bar",
+      "pos": [
+        17.65,
+        1.1,
+        13
+      ],
+      "yaw": 0,
+      "price": 2500
+    }
+  ],
+  "mysterySpots": [
+    [
+      -12.5,
+      0,
+      16.5
+    ],
+    [
+      12.5,
+      0,
+      5
+    ],
+    [
+      0,
+      0,
+      -10
+    ],
+    [
+      13,
+      0,
+      16.5
+    ]
+  ],
+  "powerSwitch": [
+    -15.5,
+    1,
+    -6
+  ],
+  "packAPunch": [
+    3,
+    0,
+    -11
+  ],
+  "outsideDirectSpawns": [
+    [
+      -22,
+      0,
+      -9
+    ],
+    [
+      22,
+      0,
+      3
+    ],
+    [
+      -14,
+      0,
+      -19
+    ],
+    [
+      14,
+      0,
+      25
+    ]
+  ],
+  "maxRoundsAcceptance": 20,
+  "technicalGates": {
+    "originalChurchFilesMayChange": false,
+    "levelCount": 1,
+    "minimumDoors": 12,
+    "minimumBarricades": 12,
+    "perkMachineCount": 6,
+    "mysteryLocations": 4,
+    "gobblegumEnabled": false,
+    "testSkeletonAssetsNotSafeForPublicRedistribution": true
+  }
+}
