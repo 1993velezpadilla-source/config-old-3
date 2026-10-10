@@ -11,6 +11,8 @@ signal last_zombie_started(round_number: int, zombie: Node)
 # Only independent maps may opt out of legacy sheep-special-wave scheduling;
 # default remains unchanged for Church, Nacht, and all prior regression tests.
 @export var special_rounds_enabled: bool = true
+# Map-local override only; existing maps continue using the original zombie logic.
+@export var zombie_script_path: String = "res://scripts/zombie_dummy.gd"
 
 # Classic Treyarch-style round flow. The total round population grows beyond
 # 24; the cap only limits how many can exist simultaneously.
@@ -433,7 +435,7 @@ func spawn_one() -> Node:
 		push_warning("XZOGOT_SPAWN_DIRECTOR_NO_LEGAL_ENTRY")
 		return null
 
-	var script_resource: Script = load("res://scripts/zombie_dummy.gd") as Script
+	var script_resource: Script = load(zombie_script_path) as Script
 	var zombie := CharacterBody3D.new()
 	_spawn_serial += 1
 	var variant: String = _enemy_variant_for_spawn(current_round, _spawn_serial)
@@ -445,6 +447,17 @@ func spawn_one() -> Node:
 	var entry: Node = candidate["node"] as Node
 	if str(candidate["kind"]) == "window":
 		zombie.call("configure", player, entry)
+	elif entry.has_meta("routed_window_name"):
+		# Black Pines' four offscreen outdoor anchors must enter through a
+		# REAL window. Never let a direct spawn walk against an intact wall.
+		var window_name: String=str(entry.get_meta("routed_window_name"))
+		var routed_window: Node=get_parent().get_node_or_null("Architecture/"+window_name)
+		if routed_window == null:
+			push_error("BLACK_PINES_SPAWN_ROUTE_RED "+window_name)
+			zombie.free()
+			return null
+		zombie.call("configure", player, routed_window)
+		zombie.set_meta("spawn_entry_kind", "offscreen_to_window")
 	else:
 		zombie.call("configure_direct", player, entry)
 
@@ -474,7 +487,7 @@ func spawn_from_barricade(barricade: Node) -> Node:
 		return null
 	if _alive >= get_simultaneous_cap():
 		return null
-	var script_resource: Script = load("res://scripts/zombie_dummy.gd") as Script
+	var script_resource: Script = load(zombie_script_path) as Script
 	var zombie := CharacterBody3D.new()
 	_spawn_serial += 1
 	var variant: String = _enemy_variant_for_spawn(current_round, _spawn_serial)
