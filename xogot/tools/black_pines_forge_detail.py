@@ -260,10 +260,24 @@ def build_forge_detail(api, layout):
 
     surface = forge_surface.build_surfaces(api,layout,add_box,tube,_label)
     hero_props = hospital_kit.build(api,layout,add_box,tube)
+    # Real yard screenshot audit: the source ambulance bumper touched the
+    # garage divider at x=7.0. Move the COMPLETE cohesive vehicle left by
+    # 0.75m (not merely cab windows) so physical hull and body no longer
+    # intersect the partition. Preserve all door and window positions.
+    ambulance_meshes = 0
+    for obj in bpy.data.objects:
+        if obj.type == "MESH" and "ambulance" in obj.name.lower():
+            obj.location.x -= .75
+            ambulance_meshes += 1
+    if ambulance_meshes < 30:
+        raise RuntimeError("BLACK_PINES_AMBULANCE_RED partial vehicle move "+
+                           str(ambulance_meshes))
     pbr = forge_materials.apply(api)
     return {
         "forgeGuiBackend": True,
         "surfacePass": surface,
+        "ambulanceRepositionMeters":0.75,
+        "ambulanceMovedMeshes":ambulance_meshes,
         "originalHospitalKit": hero_props,
         "pbrSourceWear": pbr,
         "distinctRoomLandmarks": {k: len(v) for k, v in LANDMARKS.items()},
@@ -301,6 +315,14 @@ def fidelity_pass(api, layout):
                      "Forge_AmbulanceVisual_SideDoorSeam_"+side):
             if bpy.data.objects.get(name) is None:
                 issues.append("missing ambulatory-livery detail "+name)
+    # Prove the optimized original ambulance stays separated from the
+    # garage wall. The x=7 divider starts physically at x=6.825.
+    for obj in bpy.data.objects:
+        if obj.type != "MESH" or "ambulance" not in obj.name.lower():
+            continue
+        bounds=[obj.matrix_world @ Vector(p) for p in obj.bound_box]
+        if max(v.x for v in bounds)>6.66:
+            issues.append("ambulance penetrates garage divider: "+obj.name)
     for shell in ("RustyAmbulanceRear","RustyAmbulanceCab"):
         candidate=bpy.data.objects.get(shell)
         if candidate is None or candidate.type!="MESH" or len(candidate.data.polygons)<25:

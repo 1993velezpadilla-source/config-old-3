@@ -228,6 +228,8 @@ jobs:
           assert surface["facadeBranding"] is True
           assert surface["mobileBatchedFloorTiles"] is True
           assert all(v>=70 for v in surface["perRoomTileFaces"].values())
+          assert j["forge"]["ambulanceRepositionMeters"]==0.75
+          assert j["forge"]["ambulanceMovedMeshes"]>=30
           assert surface["ambulanceSignatureParts"]>=20
           assert surface["ambulanceSideLabels"]==2
           assert not surface["ambulanceProtectedEmblems"]

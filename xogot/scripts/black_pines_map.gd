@@ -562,9 +562,9 @@ func _build_original_props(render_native_proxies: bool) -> void:
         Vector3(2.35,0.18,1.1),"dark_metal")
     _box(_props_root,"NurseTriageDesk",Vector3(0,0.75,0),
         Vector3(4.1,1.45,0.78),"lobby")
-    _box(_props_root,"AmbulanceShell",Vector3(3.8,1.05,17.8),
+    _box(_props_root,"AmbulanceShell",Vector3(3.05,1.05,17.8),
         Vector3(3.6,2.1,1.7),"medical")
-    _box(_props_root,"AmbulanceCab",Vector3(6.25,0.90,17.8),
+    _box(_props_root,"AmbulanceCab",Vector3(5.50,0.90,17.8),
         Vector3(1.4,1.8,1.65),"rust")
     for i: int in range(12):
         var x: float=-16.1+float(i%4)*10.6

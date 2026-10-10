@@ -148,7 +148,7 @@ func _capture() -> void:
         {"id":"triage","eye":Vector3(3.5,1.6,5.8),"target":Vector3(-1,1.1,-0.5)},
         {"id":"cafeteria","eye":Vector3(9,1.6,5.4),"target":Vector3(13,1.2,1.5)},
         {"id":"security","eye":Vector3(-9,1.6,16.8),"target":Vector3(-15,1.2,12)},
-        {"id":"yard","eye":Vector3(6.15,1.78,11.55),"target":Vector3(4.8,1.49,17.80)},
+        {"id":"yard","eye":Vector3(5.95,1.78,11.55),"target":Vector3(4.05,1.49,17.80)},
         {"id":"garage","eye":Vector3(9,1.6,11.4),"target":Vector3(15,1.2,18)}
     ]
     if hud!=null:
@@ -184,8 +184,8 @@ func _capture() -> void:
     # Actual second view: camera stays in Ambulance Court, allowing visual
     # verification of profiled cab + sloped windscreen from frontal angle.
     # Separate filename from the nine-room image audit contract.
-    camera.global_position=Vector3(6.77,1.87,19.82)
-    camera.look_at(Vector3(5.80,1.46,17.80))
+    camera.global_position=Vector3(6.62,1.87,19.82)
+    camera.look_at(Vector3(5.15,1.46,17.80))
     for i in range(12):
         await process_frame
     var front: Image=root.get_texture().get_image()
