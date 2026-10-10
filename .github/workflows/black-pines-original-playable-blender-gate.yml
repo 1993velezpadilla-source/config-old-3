@@ -112,6 +112,21 @@ jobs:
             build/black-pines/godot/routing-and-zombie-crossings.log
           ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_ROUTING_RED' \
             build/black-pines/godot/routing-and-zombie-crossings.log
+      - name: Verify endless survival beyond round 20 through high-round one-million samples
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180 /tmp/Godot_v4.6.1-stable_linux.x86_64 --headless --path xogot \
+            --script res://ci/black_pines_endless_rounds_probe.gd \
+            2>&1 | tee build/black-pines/godot/endless-rounds.log
+          grep -q BLACK_PINES_ENDLESS_REAL_ROUND21_GREEN \
+            build/black-pines/godot/endless-rounds.log
+          grep -q BLACK_PINES_ENDLESS_SURVIVAL_GREEN \
+            build/black-pines/godot/endless-rounds.log
+          test "$(grep -c BLACK_PINES_ENDLESS_HIGH_ROUND_SAMPLE_GREEN \
+            build/black-pines/godot/endless-rounds.log)" -eq 7
+          ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_ENDLESS_RED' \
+            build/black-pines/godot/endless-rounds.log
       - name: Soak all 20 rounds with actual zombie actors and 24-alive hard cap
         shell: bash
         run: |
