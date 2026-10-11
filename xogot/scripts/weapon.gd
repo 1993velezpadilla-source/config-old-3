@@ -355,6 +355,30 @@ func _play_aux_animation(player: AnimationPlayer, role: String, blend: float = 0
 	player.play(animation_name, blend)
 	return true
 
+func _play_mp40_full_hands_reload(role: String, blend: float) -> bool:
+	# T4 source hands has MP40ReloadHands (2 frames / 0.042s), a STATIC
+	# placeholder which the old broad "reload" matcher always selected.
+	# The genuine articulated source-hands clip is the empty-magazine action.
+	# Reuse that authored hand motion for tactical and empty reloads: it includes
+	# grip-release, extraction, insertion and grip-return, with source keyframes.
+	if _hands_animation_player == null or not is_instance_valid(_hands_animation_player):
+		push_warning("XZOGOT_MP40_HANDS_RELOAD_ASSET_MISSING")
+		return false
+	for name: String in ["PSA_viewmodel_mp40_reload_empty", "PSA_viewmodel_mp40_reload_empty.001"]:
+		if not _hands_animation_player.has_animation(name):
+			continue
+		var clip: Animation = _hands_animation_player.get_animation(name)
+		if clip == null or clip.length < 1.0 or clip.get_track_count() < 10:
+			continue
+		_hands_animation_player.play(name, blend)
+		set_meta("mp40_hands_reload_clip", name)
+		set_meta("mp40_hands_reload_authored_length_s", clip.length)
+		set_meta("mp40_hands_reload_real_tracks", clip.get_track_count())
+		print("XZOGOT_MP40_REAL_HAND_RELOAD ", role, " clip=", name, " duration=", clip.length, " tracks=", clip.get_track_count())
+		return true
+	push_warning("XZOGOT_MP40_REAL_HAND_RELOAD_NOT_FOUND (reject 2-frame MP40ReloadHands)")
+	return false
+
 func _play_asset_animation(role: String, blend: float = 0.06) -> bool:
 	var played := false
 	if _asset_animation_player != null and is_instance_valid(_asset_animation_player):
@@ -363,7 +387,10 @@ func _play_asset_animation(role: String, blend: float = 0.06) -> bool:
 			_asset_animation_player.play(animation_name, blend)
 			played = true
 	if _hands_animation_player != null and is_instance_valid(_hands_animation_player):
-		played = _play_aux_animation(_hands_animation_player, role, blend) or played
+		if _weapon_id == "mp40" and role in ["reload", "reload_empty"]:
+			played = _play_mp40_full_hands_reload(role, blend) or played
+		else:
+			played = _play_aux_animation(_hands_animation_player, role, blend) or played
 	return played
 
 func _normalize_mp40_source_magazine_tracks() -> void:
@@ -1911,24 +1938,29 @@ func request_reload() -> void:
 	if not _play_asset_animation(reload_role, 0.06) and reload_role != "reload":
 		_play_asset_animation("reload", 0.06)
 	if _weapon_id == "mp40":
-		# Never terminate a 3.29s/4.21s real MP40 gun-magazine animation
-		# after the old 1.75s gameplay timer. Keep hands and gun in sync.
-		var authored_length: float = 0.0
+		# Source gun j_clip motion has 3.29s tactical / 4.21s empty reload;
+		# real T4 hand motion has a separate authored duration. Synchronize them
+		# by the gun timeline so j_clip and the grabbing hand finish together.
+		var gun_length: float = 0.0
+		var hands_length: float = 0.0
 		if _asset_animation_player != null:
 			var playing: String = str(_asset_animation_player.current_animation)
 			if not playing.is_empty():
-				authored_length = _asset_animation_player.current_animation_length
+				gun_length = _asset_animation_player.current_animation_length
 		if _hands_animation_player != null:
-			authored_length = maxf(authored_length, _hands_animation_player.current_animation_length)
-		if authored_length > 0.5:
-			_reload_timer = authored_length * speed_multiplier
+			var hands_playing: String = str(_hands_animation_player.current_animation)
+			if not hands_playing.is_empty():
+				hands_length = _hands_animation_player.current_animation_length
+		var full_cycle: float = gun_length if gun_length > 1.0 else maxf(hands_length, reload_time)
+		_reload_timer = full_cycle * speed_multiplier
 		if _asset_animation_player != null:
 			_asset_animation_player.speed_scale = 1.0 / speed_multiplier
-		if _hands_animation_player != null:
-			_hands_animation_player.speed_scale = 1.0 / speed_multiplier
-		set_meta("mp40_reload_authored_length_s", authored_length)
+		if _hands_animation_player != null and hands_length > 1.0:
+			_hands_animation_player.speed_scale = hands_length / full_cycle / speed_multiplier
+		set_meta("mp40_reload_authored_length_s", full_cycle)
 		set_meta("mp40_reload_source_clip", _asset_animation_player.current_animation if _asset_animation_player != null else "")
-		print("XZOGOT_MP40_MAGAZINE_RELOAD_TIMELINE ", authored_length, " scaled=", _reload_timer)
+		set_meta("mp40_reload_hand_playback_ratio", hands_length / full_cycle if full_cycle > 0.0 else 0.0)
+		print("XZOGOT_MP40_GUN_HANDS_SYNC gun=", gun_length, " hands=", hands_length, " scaled_total=", _reload_timer)
 	if _reload_audio != null and _reload_audio.stream != null:
 		_reload_audio.play()
 
