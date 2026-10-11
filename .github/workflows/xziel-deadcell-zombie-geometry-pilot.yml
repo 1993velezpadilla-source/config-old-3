@@ -10,6 +10,7 @@ on:
       - 'scripts/slim_v026_deadcell_only.py'
       - '.github/workflows/xziel-deadcell-zombie-geometry-pilot.yml'
       - 'tools/zombie_hd/subdivide_nzp_animated_mdl.py'
+      - 'scripts/patch_vril_alias_command_capacity.py'
       - 'scripts/patch_vril_zombie_hd_png.py'
       - 'tools/zombie_hd/generate_nzp_zombie_hd_skins.py'
   workflow_dispatch:
@@ -115,6 +116,7 @@ jobs:
             --pack build/downloads/pc-nzp-assets.zip \
             --out zombie-hd-stage
           python3 scripts/patch_vril_zombie_hd_png.py build/deps/vril
+          python3 scripts/patch_vril_alias_command_capacity.py build/deps/vril
           cp zombie-hd-stage/models/ai/xziel_zombie_hd_*.png build/nzp-data/nzp/models/ai/
           (
             cd build/nzp-data
@@ -123,6 +125,7 @@ jobs:
           sha256sum build/android-project/app/src/main/assets/nzp-data.zip | awk '{print $1}' > build/android-project/app/src/main/assets/nzp-data.version
           grep -F 'XZIEL_ZOMBIE_HD: skin=' build/deps/vril/source/platform/sdl/gl/gl_rmisc.c
           grep -F 'cvar_t r_zombie_hd' build/deps/vril/source/platform/sdl/gl/gl_rmain.c
+          grep -F 'XZIEL_ALIAS_COMMAND_CAPACITY 16384' build/deps/vril/source/platform/sdl/gl/gl_mesh.c
           grep -F 'GL_Bind(xziel_zombie_hd_skins[e->skinnum])' build/deps/vril/source/platform/sdl/gl/gl_rmain.c
           python3 - <<'PY'
           from zipfile import ZipFile
@@ -263,7 +266,7 @@ jobs:
           cp zombie-hd-stage/zombie-hd-texture-manifest.json dead-cell-dist/
           cp zombie-hd-stage/models/ai/xziel_zombie_hd_*.png dead-cell-dist/
           cp zombie-geo-stage/zombie-geo-manifest.json dead-cell-dist/
-          printf 'Experimental geometry: 10 original zombie+crawler MDLs subdivided 4x by faces, UV/frames preserved; four 1024 PNG skins. Dead Cell only. Original game/AI and 56 weapons. Still NOT concept-art mesh, check silhouettes, body attachments and animation at 1/5/10 zombies in Android.\n' > dead-cell-dist/README.txt
+          printf 'Crash fix: Vril gl_mesh command buffer 8192 -> 16384 with bounds. HD face split produced 8713 commands; old runtime could corrupt memory. Diagnostic UV atlas is only resampled stock; it IS NOT the generated photoreal concept art. Geometry frames unchanged. Verify on Pixel Fold; no claim of device-side green.\n' > dead-cell-dist/README.txt
           strings /tmp/xziel-deadcell.so | grep -F 'XZIEL_ZOMBIE_HD: skin='
 
 
