@@ -58,6 +58,14 @@ var _hands_model_root: Node3D
 var _source_hands_skeleton: Skeleton3D
 var _source_weapon_attachment: Node3D
 var _source_weapon_bone_idx: int = -1
+# MP40-specific authored-motion camera retargeting. "source" is preserved
+# until an actual rendered frame comparison proves the result. This operation
+# applies a rigid mirror of ANIMATED MOTION (not a negative mesh scale) to the
+# entire hand+gun assembly. Bones, finger poses and j_clip keys stay original.
+@export_enum("source", "mirror_reload_motion") var mp40_reload_rig_retarget_mode: String = "source"
+var _mp40_source_hands_root_local := Transform3D.IDENTITY
+var _mp40_source_baseline_gun_camera := Transform3D.IDENTITY
+var _mp40_source_baseline_ready: bool = false
 var _melee_animation_player: AnimationPlayer
 var _melee_model_root: Node3D
 var _melee_overlay_timer: float = 0.0
@@ -130,6 +138,8 @@ func _process(delta: float) -> void:
 		if _melee_overlay_timer <= 0.0:
 			_finish_melee_overlay()
 	_update_asset_animation_state()
+	if _weapon_id == "mp40" and mp40_reload_rig_retarget_mode == "mirror_reload_motion":
+		_mp40_retarget_motion_for_render()
 	_update_visual_recoil(delta)
 	_update_weapon_fx(delta)
 
@@ -565,6 +575,49 @@ func _sync_source_weapon_attachment() -> void:
 	set_meta("weapon_source_attachment_manual_pose_sync", true)
 	set_meta("weapon_source_attachment_pose", animated_pose)
 
+func _mp40_retarget_motion_for_render() -> void:
+	# Run only for MP40 while its source hand reload plays. This function may
+	# also be used by the true Godot screenshot experiment after manual seek.
+	if _weapon_id != "mp40" or _hands_model_root == null or _weapon_model_root == null or _camera == null:
+		return
+	if mp40_reload_rig_retarget_mode != "mirror_reload_motion" or not _reloading:
+		_hands_model_root.transform = _mp40_source_hands_root_local
+		_mp40_source_baseline_ready = false
+		_sync_source_weapon_attachment()
+		return
+	# Reset first so the calculation uses the UNMODIFIED source action rather
+	# than using the previously mirrored result as the next frame's source.
+	_hands_model_root.transform = _mp40_source_hands_root_local
+	_sync_source_weapon_attachment()
+	var camera_inv := _camera.global_transform.affine_inverse()
+	var source_gun_cam := camera_inv * _weapon_model_root.global_transform
+	var source_gun_basis := source_gun_cam.basis.orthonormalized()
+	if not _mp40_source_baseline_ready:
+		_mp40_source_baseline_gun_camera = Transform3D(source_gun_basis, source_gun_cam.origin)
+		_mp40_source_baseline_ready = true
+		set_meta("mp40_mirror_authored_source_baseline", _mp40_source_baseline_gun_camera)
+		return
+	# Mirror only the RELATIVE source motion around camera X, preserving
+	# right-handed transforms. Both hands and firearm undergo exactly the same
+	# rigid transform so magazine/finger relative skinning is not reauthored.
+	var reflection := Basis(Vector3(-1.0, 1.0, 1.0))
+	var base_basis := _mp40_source_baseline_gun_camera.basis
+	var source_delta_basis := source_gun_basis * base_basis.inverse()
+	var mirrored_delta_basis := reflection * source_delta_basis * reflection
+	var desired_gun_basis := (mirrored_delta_basis * base_basis).orthonormalized()
+	var desired_gun_pos := _mp40_source_baseline_gun_camera.origin + reflection * (
+		source_gun_cam.origin - _mp40_source_baseline_gun_camera.origin
+	)
+	var correcting_rotation := (desired_gun_basis * source_gun_basis.inverse()).orthonormalized()
+	var source_hands_cam := camera_inv * _hands_model_root.global_transform
+	var desired_hands_cam := Transform3D(
+		correcting_rotation * source_hands_cam.basis,
+		desired_gun_pos + correcting_rotation * (source_hands_cam.origin - source_gun_cam.origin)
+	)
+	_hands_model_root.global_transform = _camera.global_transform * desired_hands_cam
+	_sync_source_weapon_attachment()
+	set_meta("mp40_retarget_visual_review_required", true)
+
 func _on_source_hands_skeleton_updated() -> void:
 	_sync_source_weapon_attachment()
 
@@ -889,6 +942,8 @@ func _bind_weapon_to_source_hands() -> bool:
 	# for the 28-weapon forward-axis gate.
 	set_meta("weapon_model_yaw_correction_deg", 90.0)
 	set_meta("weapon_source_rig_mode", "legacy_hands_tag_weapon")
+	_mp40_source_hands_root_local = _hands_model_root.transform
+	_mp40_source_baseline_ready = false
 	set_meta("weapon_source_weapon_attachment_ready", true)
 	set_meta("weapon_source_weapon_attachment", "tag_weapon")
 	set_meta("weapon_viewmodel_scale_factor", 1.0)
@@ -1949,6 +2004,7 @@ func request_reload() -> void:
 	if not _play_asset_animation(reload_role, 0.06) and reload_role != "reload":
 		_play_asset_animation("reload", 0.06)
 	if _weapon_id == "mp40":
+		_mp40_source_baseline_ready = false
 		# Source gun j_clip motion has 3.29s tactical / 4.21s empty reload;
 		# real T4 hand motion has a separate authored duration. Synchronize them
 		# by the gun timeline so j_clip and the grabbing hand finish together.
@@ -1988,6 +2044,9 @@ func _finish_reload() -> void:
 	_reloading = false
 	_reload_timer = 0.0
 	if _weapon_id == "mp40":
+		if mp40_reload_rig_retarget_mode == "mirror_reload_motion":
+			_mp40_retarget_motion_for_render() # restores default assembly transform
+		_mp40_source_baseline_ready = false
 		if _asset_animation_player != null:
 			_asset_animation_player.speed_scale = 1.0
 		if _hands_animation_player != null:
