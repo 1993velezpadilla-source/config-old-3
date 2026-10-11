@@ -1,0 +1,122 @@
+name: BO1 Original Kino Fastfile Functions - Android ARM64 Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/bo1-original-engine-arm64-feasibility-v1
+    paths:
+      - tools/bo1_pc_engine/fastfile/**
+      - .github/workflows/bo1-original-kino-fastfile-arm64.yml
+
+permissions:
+  contents: read
+
+jobs:
+  original-fastfile-code-on-arm64:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout exact original Black Ops 1 PC engine source (transient, no redistribution)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/MisaDev4/bo1-zombies-decompiled.git "$RUNNER_TEMP/bo1"
+          test "$(git -C "$RUNNER_TEMP/bo1" rev-parse HEAD)" = 102f6992be332610aff587e681e3180b15f395bb
+          mkdir -p "$RUNNER_TEMP/bo1-ff/report" "$RUNNER_TEMP/bo1-ff/staged"
+          python3 tools/bo1_pc_engine/fastfile/stage_db_file_functions.py \
+            --upstream "$RUNNER_TEMP/bo1" --staged "$RUNNER_TEMP/bo1-ff/staged"
+          cp "$RUNNER_TEMP/bo1-ff/staged/manifest.json" "$RUNNER_TEMP/bo1-ff/report/extracted-functions-manifest.json"
+
+      - name: Execute exact original map file existence and file-size functions on synthetic fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          P="$RUNNER_TEMP/bo1-ff"
+          F="tools/bo1_pc_engine/fastfile"
+          g++ -std=c++20 -O2 -Wall -Wextra -Werror -pthread -I"$F" \
+            "$P/staged/original_bo1_db_file.cpp" "$F/bo1_ff_compat.cpp" "$F/fastfile_host_test.cpp" \
+            -o "$P/bo1-original-zone-preflight-test"
+          "$P/bo1-original-zone-preflight-test" | tee "$P/report/host-results.txt"
+          grep -q "EXACT_ORIGINAL_BO1_DB_FILEEXISTS_HOST_TEST=PASS" "$P/report/host-results.txt"
+
+      - name: Install official Android NDK ARM64 compiler
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          "$SDKMANAGER" 'ndk;27.2.12479018'
+
+      - name: Cross-compile and link exact BO1 original file discovery to a native arm64-v8a library
+        shell: bash
+        run: |
+          set -euo pipefail
+          P="$RUNNER_TEMP/bo1-ff"
+          F="tools/bo1_pc_engine/fastfile"
+          N="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          C="$N/aarch64-linux-android26-clang++"
+          "$C" -std=c++20 -O2 -DNDEBUG -fPIC -fvisibility=hidden -ffunction-sections -fdata-sections \
+            -I"$F" -c "$P/staged/original_bo1_db_file.cpp" -o "$P/original_zone_fns_arm64.o"
+          "$C" -std=c++20 -O2 -DNDEBUG -fPIC -fvisibility=hidden -ffunction-sections -fdata-sections \
+            -I"$F" -c "$F/bo1_ff_compat.cpp" -o "$P/posix_platform_arm64.o"
+          "$C" -shared -pthread -Wl,--gc-sections -Wl,--no-undefined \
+            "$P/original_zone_fns_arm64.o" "$P/posix_platform_arm64.o" \
+            -o "$P/libbo1_original_fastfile_preflight.so"
+          file "$P/libbo1_original_fastfile_preflight.so" | tee "$P/report/elf-abi.txt"
+          grep -qi 'ELF 64-bit' "$P/report/elf-abi.txt"
+          grep -Eqi '(ARM aarch64|ARM64)' "$P/report/elf-abi.txt"
+          "$N/llvm-nm" -D "$P/libbo1_original_fastfile_preflight.so" \
+            > "$P/symbols.txt"
+          for name in bo1_original_zone_exists bo1_original_zone_size bo1_ff_root_configure; do
+            grep -q "$name" "$P/symbols.txt"
+          done
+          sha256sum "$P/libbo1_original_fastfile_preflight.so" | \
+            sed 's/  .*$/  libbo1_original_fastfile_preflight.so/' \
+            > "$P/report/sha256.txt"
+          echo 'BO1_ORIGINAL_DB_FILEEXISTS_PLUS_FILESIZE_ARM64_LINK=PASS' | tee "$P/report/arm64-result.txt"
+          echo 'KINODERTOTEN_FF_CONTENT_DECODED=false' >> "$GITHUB_STEP_SUMMARY"
+          echo 'ORIGINAL_BO1_MAP_RUNNING=false' >> "$GITHUB_STEP_SUMMARY"
+          echo 'ORIGINAL_BO1_APK_READY=false' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish exact scope without uploading compiled original engine or retail assets
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          P="$RUNNER_TEMP/bo1-ff/report"
+          mkdir -p "$P"
+          {
+            echo "# Black Ops 1 Original Kino File Discovery — ARM64 Evidence"
+            echo
+            echo "Upstream: MisaDev4/bo1-zombies-decompiled @ 102f6992be332610aff587e681e3180b15f395bb"
+            echo "Authentic function bodies: DB_FileExists and DB_FileSize from src/database/db_registry.cpp."
+            echo "A POSIX adapter supplies Windows CreateFileA/GetFileSize/CloseHandle and zone path resolution on Android."
+            echo "Actual original BO1 file-format parsing is NOT present in this small library."
+            echo "No commercial BO1 .ff files were tested; synthetic files only."
+            echo
+            echo "## Host functional test"
+            cat "$P/host-results.txt" 2>/dev/null || true
+            echo
+            echo "## Android native ABI compilation and link"
+            cat "$P/arm64-result.txt" 2>/dev/null || true
+            cat "$P/elf-abi.txt" 2>/dev/null || true
+            cat "$P/sha256.txt" 2>/dev/null || true
+            echo
+            echo "## Actual original Kino engine path"
+            echo 'Com_LoadLevelFastFiles("zombie_theater") -> DB_LoadXAssets -> DB_LoadXZone -> DB_TryLoadXFileInternal -> DB_BuildOSPath -> CreateFileA.'
+            echo 'For the default zone path, original engine checks zone/Common/zombie_theater.ff first and falls back to zone/<language>/zombie_theater.ff.'
+            echo 'The Android POSIX bridge handles file discovery and file size only, NOT asset decoding, loading, graphics or map execution.'
+            echo 'This is a narrow engine dependency and not a playable APK.'
+          } > "$P/status.md"
+          cat "$P/status.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload only metadata & test reports (no original source/binary/assets)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BO1-ORIGINAL-KINO-FASTFILE-ARM64-AUDIT-NOT-APK
+          path: ${{ runner.temp }}/bo1-ff/report
+          retention-days: 21
+          if-no-files-found: warn
