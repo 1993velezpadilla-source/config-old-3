@@ -230,6 +230,25 @@ jobs:
                   echo "ADB_INPUT_FINAL_HASH=$ADHASH" >> "$OUT/status.txt"
                   if [ "$ADHASH" = "$STUCK_BEFORE" ]; then
                     echo "XCHURCH_ORIGINAL_GAMEPLAY_NOT_REACHED_REAL_RED" | tee -a "$OUT/status.txt"
+                    # Does BACK still work? Distinguishes bad selection from
+                    # native menu event-loop/UI lock. No engine/assets edits.
+                    "$ADB" shell input tap 540 995; sleep 8
+                    "$ADB" exec-out screencap -p > "$OUT/screens/diagnostic_back_touch.png"
+                    BACKHASH="$(sha256sum "$OUT/screens/diagnostic_back_touch.png" | cut -d " " -f1)"
+                    echo "MENU_BACK_TOUCH_HASH=$BACKHASH" | tee -a "$OUT/status.txt"
+                    if [ "$BACKHASH" = "$STUCK_BEFORE" ]; then
+                      "$ADB" shell input keyevent 4; sleep 8
+                      "$ADB" exec-out screencap -p > "$OUT/screens/diagnostic_back_key.png"
+                      KEYHASH="$(sha256sum "$OUT/screens/diagnostic_back_key.png" | cut -d " " -f1)"
+                      echo "MENU_ANDROID_BACK_KEY_HASH=$KEYHASH" | tee -a "$OUT/status.txt"
+                      if [ "$KEYHASH" = "$STUCK_BEFORE" ]; then
+                        echo "XCHURCH_UI_FROZEN_TOUCH_AND_HARDWARE_BACK_RED" | tee -a "$OUT/status.txt"
+                      else
+                        echo "XCHURCH_ANDROID_BACK_NAVIGATES_BUT_TOUCH_MISSING_RED" | tee -a "$OUT/status.txt"
+                      fi
+                    else
+                      echo "XCHURCH_UI_BACK_NAVIGATION_WORKS_SELECTION_INCOMPLETE_RED" | tee -a "$OUT/status.txt"
+                    fi
                     exit 68
                   fi
                 fi
