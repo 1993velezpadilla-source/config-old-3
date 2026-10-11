@@ -1,9 +1,9 @@
-name: Black Pines MP40 Actual Rendered Frame Audit
+name: MP40 Socket Roll 3-way Actual First-Person Render Comparison
 
 on:
   push:
     branches:
-      - audit/black-pines-mp40-runtime-frame-proof-20261011
+      - experiment/mp40-import-socket-roll-visual-20261011
     paths:
       - "xogot/ci/black_pines_mp40_real_frame_audit.gd"
       - "xogot/scripts/weapon.gd"
@@ -47,17 +47,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          timeout 220 xvfb-run -a -s '-screen 0 1360x900x24' \
-            /tmp/Godot_v4.6.1-stable_linux.x86_64 --path xogot \
-            --rendering-method gl_compatibility --resolution 1360x900 \
-            --script res://ci/black_pines_mp40_real_frame_audit.gd \
-            2>&1 | tee /tmp/mp40-real-camera-frames.log
-          grep -q 'MP40_RUNTIME_FRAMES_CAPTURED_12' /tmp/mp40-real-camera-frames.log
-          ! grep -E 'SCRIPT ERROR|Parse Error|MP40_REAL_FRAME_AUDIT_RED' /tmp/mp40-real-camera-frames.log
-          test "$(find xogot -maxdepth 1 -name 'mp40-real-*.png' | wc -l)" -eq 12
           mkdir -p build/mp40-frames
-          cp xogot/mp40-real-*.png build/mp40-frames/
-          cp /tmp/mp40-real-camera-frames.log build/mp40-frames/real-godot-runtime-camera-coordinates.log
+          for roll in +90 -90 180; do
+            mkdir -p "build/mp40-frames/roll-${roll}"
+            MP40_VIEW_ROLL_DEG="${roll}" timeout 160 xvfb-run -a -s '-screen 0 1360x900x24' \
+              /tmp/Godot_v4.6.1-stable_linux.x86_64 --path xogot \
+              --rendering-method gl_compatibility --resolution 1360x900 \
+              --script res://ci/black_pines_mp40_real_frame_audit.gd \
+              2>&1 | tee "build/mp40-frames/roll-${roll}/runtime.log"
+            grep -q 'MP40_RUNTIME_FRAMES_CAPTURED_12' "build/mp40-frames/roll-${roll}/runtime.log"
+            ! grep -E 'SCRIPT ERROR|Parse Error|MP40_REAL_FRAME_AUDIT_RED' "build/mp40-frames/roll-${roll}/runtime.log"
+            test "$(find xogot -maxdepth 1 -name 'mp40-real-*.png' | wc -l)" -eq 12
+            cp xogot/mp40-real-*.png "build/mp40-frames/roll-${roll}/"
+          done
           printf '%s\n' 'ACTUAL GODOT SCREENSHOTS - NOT VISUAL APPROVAL' \
             'Source game Black Pines Player/Head/Camera3D, HUD hidden for diagnostic clarity.' \
             'Frames: normal + empty at 2%, 18%, 34%, 50%, 68%, 88%.' \
@@ -69,7 +71,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: MP40-12-Actual-Godot-Camera-Reload-Frames-Review-Required
+          name: MP40-Socket-Roll-Three-Way-Original-Godot-12-Frames-Each
           path: |
             build/mp40-frames/
             /tmp/mp40-real-camera-frames.log
