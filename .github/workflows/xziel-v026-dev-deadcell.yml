@@ -114,7 +114,7 @@ jobs:
           from pathlib import Path
           from zipfile import ZipFile
           import json
-          report=json.loads(Path("build/prototype/xziel_proto_report.json").read_text())
+          report=json.loads(Path("proto-dist/xziel_proto_report.json").read_text())
           assert report["mode"]=="minimal-green-core"
           assert report["zombie_spawns"]==4 and report["barricades"]==0 and report["zones"]==1
           with ZipFile("build/android-project/app/src/main/assets/nzp-data.zip") as z:
