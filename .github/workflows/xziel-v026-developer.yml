@@ -45,7 +45,9 @@ jobs:
           grep -F 'Menu_DrawButton(6, 5, "DEVELOPER"' build/deps/vril/source/menu/menu_pause.c
           grep -F 'XZIEL WEAPON LAB' build/deps/vril/source/menu/menu_pause.c
           grep -F 'Menu_Resume();' build/deps/vril/source/menu/menu_pause.c
-          grep -F 'cmd xzdev %d' build/deps/vril/source/menu/menu_pause.c
+          grep -F 'impulse %d' build/deps/vril/source/menu/menu_pause.c
+          grep -F 'Command_XzielDev(ftos(action));' build/deps/quakec/source/server/weapons/weapon_core.qc
+          grep -F 'if (self.impulse >= 181 && self.impulse <= 245)' build/deps/quakec/source/server/weapons/weapon_core.qc
           grep -F 'Command_XzielDev' build/deps/quakec/source/server/utilities/command_parser.qc
           grep -F 'self.xziel_dev_infinite_reserve' build/deps/quakec/source/server/utilities/command_parser.qc
           grep -F 'centerprint(self, "DEV: +10000 POINTS")' build/deps/quakec/source/server/utilities/command_parser.qc
@@ -68,10 +70,12 @@ jobs:
               assert len(maps)>=1, "Lost original maps"
               print(f"PASS: all 12 official PNGs byte-for-byte original; {len(maps)} maps; QC compiled.")
           native=Path("build/deps/vril/source/menu/menu_pause.c").read_text()
-          assert native.index('Menu_Resume();\n    Cbuf_AddText(va("cmd xzdev')>0, "Dev command must resume before dispatch"
+          assert native.index('Menu_Resume();') < native.index('Cbuf_AddText(va("impulse %d'), "Dev must resume before sending usercmd"
+          core=Path("build/deps/quakec/source/server/weapons/weapon_core.qc").read_text()
+          assert 'Command_XzielDev(ftos(action));' in core, "Gameplay receiver missing"
           qc=Path("build/deps/quakec/source/server/utilities/command_parser.qc").read_text()
           assert 'server_commands[]' in qc and '{"xzdev", Command_XzielDev, true,' in qc
-          print("PASS: Developer actions wired from clickable native menu to registered QuakeC server command.")
+          print("PASS: Touch Developer callbacks -> native impulse -> player usercmd -> QuakeC gameplay action; custom cmd drop bypassed.")
           PY
       - name: Build native Android APK
         working-directory: build/android-project
