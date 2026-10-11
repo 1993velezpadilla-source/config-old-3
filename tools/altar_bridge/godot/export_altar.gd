@@ -49,6 +49,11 @@ func _export() -> void:
 		if clone == null:
 			_fail("cannot copy altar component: " + String(child.name))
 			return
+		var baked_mesh: Mesh = clone.mesh.duplicate() as Mesh
+		if baked_mesh is PrimitiveMesh:
+			(baked_mesh as PrimitiveMesh).material = (child as MeshInstance3D).material_override
+		clone.mesh = baked_mesh
+		clone.material_override = null
 		exported.add_child(clone)
 		clone.owner = exported
 		clone.position -= ORIGINAL_ALTAR_ORIGIN
