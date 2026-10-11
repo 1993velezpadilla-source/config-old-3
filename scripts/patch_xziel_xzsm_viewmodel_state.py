@@ -86,6 +86,6 @@ s=s.replace(before,after,1)
 assert 'glGetTexEnviv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE' in s
 assert 'glFrontFace((GLenum)prev_front_face);' in s
 assert 'glDepthMask(had_depth_writes);' in s
-assert 'R_DrawViewModel' not in s # render handoff is in gl_rmain
+assert 'void R_DrawViewModel(' not in s # no duplicate engine function definitions
 p.write_text(s,encoding="utf8")
 print("XZIEL_XZSM_VIEWMODEL_GL_STATE_GUARD_INSTALLED")
