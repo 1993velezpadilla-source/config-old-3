@@ -47,19 +47,29 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Save screenshots FIRST, even if genuine screen-space validation
+          # fails; a RED must retain its visual evidence for the next edit.
+          set +e
           timeout 220 xvfb-run -a -s '-screen 0 1360x900x24' \
             /tmp/Godot_v4.6.1-stable_linux.x86_64 --path xogot \
             --rendering-method gl_compatibility --resolution 1360x900 \
             --script res://ci/black_pines_mp40_real_frame_audit.gd \
             2>&1 | tee /tmp/mp40-real-camera-frames.log
-          grep -q 'MP40_SOURCE_CORRECT_PAIRED_RELOAD tactical' /tmp/mp40-real-camera-frames.log
-          grep -q 'MP40_SOURCE_CORRECT_PAIRED_RELOAD empty' /tmp/mp40-real-camera-frames.log
-          grep -q 'MP40_RUNTIME_FRAMES_CAPTURED_12' /tmp/mp40-real-camera-frames.log
-          ! grep -E 'SCRIPT ERROR|Parse Error|MP40_REAL_FRAME_AUDIT_RED' /tmp/mp40-real-camera-frames.log
-          test "$(find xogot -maxdepth 1 -name 'mp40-real-*.png' | wc -l)" -eq 12
+          camera_status=${PIPESTATUS[0]}
+          set -e
           mkdir -p build/mp40-frames
-          cp xogot/mp40-real-*.png build/mp40-frames/
+          find xogot -maxdepth 1 -name 'mp40-real-*.png' -exec cp {} build/mp40-frames/ \;
           cp /tmp/mp40-real-camera-frames.log build/mp40-frames/real-godot-runtime-camera-coordinates.log
+          echo "Camera diagnostic exit status: $camera_status"
+          grep -q 'MP40_SOURCE_CORRECT_PAIRED_RELOAD mode=tactical' /tmp/mp40-real-camera-frames.log
+          grep -q 'MP40_SOURCE_CORRECT_PAIRED_RELOAD mode=empty' /tmp/mp40-real-camera-frames.log
+          grep -q 'MP40_RUNTIME_FRAMES_CAPTURED_12' /tmp/mp40-real-camera-frames.log
+          test "$(find build/mp40-frames -maxdepth 1 -name 'mp40-real-*.png' | wc -l)" -eq 12
+          if (( camera_status != 0 )); then
+            echo "VISUAL RED: real camera gate rejected an off-screen magazine; frames retained."
+            exit "$camera_status"
+          fi
+          ! grep -E 'SCRIPT ERROR|Parse Error|MP40_REAL_FRAME_AUDIT_RED' /tmp/mp40-real-camera-frames.log
           printf '%s\n' 'ACTUAL GODOT SCREENSHOTS - NOT VISUAL APPROVAL' \
             'Source game Black Pines Player/Head/Camera3D, HUD hidden for diagnostic clarity.' \
             'Frames: normal + empty at 2%, 18%, 34%, 50%, 68%, 88%.' \
