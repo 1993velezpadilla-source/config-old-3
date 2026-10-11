@@ -156,7 +156,9 @@ jobs:
           assert textured==triangles,(textured,triangles,"unbaked original materials")
           print("SALVAGED_SOURCE_AUTHORED_COVERAGE_GREEN",textured,triangles)
           PY
-          GLB=sanctum-v2-baked/sanctum-v2-real-authored-materials.glb
+          GLB="$(find sanctum-v2-baked -type f -name sanctum-v2-real-authored-materials.glb -print -quit)"
+          echo "Recovered authored GLB path: $GLB"
+          test -n "$GLB"
           REPORT=original-sanctum-vertical/sanctum-vertical-probe/vertical-report.json
           test -s "$GLB"
           python3 tools/sanctum_vertical_bridge/build_vril_vertical_map.py \
