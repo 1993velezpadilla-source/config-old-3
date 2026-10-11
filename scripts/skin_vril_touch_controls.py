@@ -63,4 +63,5 @@ image("joystick_knob_active", """
   <circle cx="256" cy="256" r="186" fill="none" stroke="#F2CB3A" stroke-width="17" stroke-opacity=".9"/>
   <circle cx="256" cy="256" r="102" fill="#FADE7F" fill-opacity=".14"/>
 """)
+(out / "skin_native_dev.txt").write_text("XZIEL_NATIVE_TOUCH_YELLOW_SMOKE_V1\n", encoding="utf-8")
 print("Native single-map control skins: gold rim, dark smoky transparent fill, red pressed state.")
