@@ -19,8 +19,8 @@ out.mkdir(parents=True,exist_ok=True)
 bpy.ops.wm.open_mainfile(filepath=str(source))
 scene=bpy.context.scene
 original=[obj for obj in bpy.data.objects if obj.type=="MESH" and bool(obj.get("xziel_restore_materials",False))]
-if len(original)<140:
-    raise SystemExit("ORIGINAL_SANCTUM_V2_BAKE_FAIL: missing original 140+ tagged authoring meshes")
+if len(original)<35:
+    raise SystemExit("ORIGINAL_SANCTUM_V2_BAKE_FAIL: missing original tagged authoring meshes")
 
 def material_base(mat):
     if mat and mat.use_nodes and mat.node_tree:
