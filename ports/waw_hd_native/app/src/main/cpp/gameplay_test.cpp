@@ -1,11 +1,9 @@
 // Host-compiled invariant checks. Only original prototype game logic.
 #include "gameplay.h"
 #include <cassert>
-#include <cmath>
 #include <iostream>
 
 using native_demo::Game;
-static bool near(float a, float b) { return std::abs(a - b) < 0.01f; }
 
 int main() {
     Game g;
