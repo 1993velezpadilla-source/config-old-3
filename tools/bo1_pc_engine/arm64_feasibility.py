@@ -112,7 +112,10 @@ def main():
     for p in probes:
         lines.append(f"- {p['file']}: **{p['result']}**"
                      + (" — "+"; ".join(p["error_messages"]) if p["error_messages"] else ""))
-    lines+=["", "## NDK CMake configure diagnostics", ""]
+    lines+=["", "## Real Android NDK CMake stages", "",
+            f"- CMake configuration: **{configured}** (project files generated; NOT compiled).",
+            f"- Actual original engine C++ build: **{built}**.", "",
+            "## NDK CMake configure diagnostics", ""]
     lines += [f"- {line}" for line in cmake_errors] or ["- No direct diagnostic captured; check job state."]
     lines += ["", "## First real upstream Android compiler errors", ""]
     lines += [f"- {line}" for line in build_errors] or ["- None captured."]
