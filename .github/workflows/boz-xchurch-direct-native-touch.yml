@@ -295,6 +295,39 @@ jobs:
             # Keep a later frame as a stability check.
             sleep 30
             "$ADB" exec-out screencap -p > "$PROOF/screens/after_single_player_60s.png" 2>/dev/null || true
+
+            # Complete original BOZ UI with ACTUAL observed coordinates.
+            # Previous diagnostics reached only the BOZ main menu because
+            # title needed TWO touches before SINGLE PLAYER was available.
+            "$ADB" shell am start -W -n com.activision.boz/.Main --ez xzielDirectTap true --ei xzielX 570 --ei xzielY 165 > "$PROOF/single-player-real-tap.txt" 2>&1
+            sleep 10
+            "$ADB" exec-out screencap -p > "$PROOF/screens/native_before_new_game.png" 2>/dev/null
+            "$ADB" shell am start -W -n com.activision.boz/.Main --ez xzielDirectTap true --ei xzielX 690 --ei xzielY 530 > "$PROOF/new-game-card-real-tap.txt" 2>&1
+            sleep 12
+            "$ADB" exec-out screencap -p > "$PROOF/screens/native_before_select.png" 2>/dev/null
+            BEFORE="$(sha256sum "$PROOF/screens/native_before_select.png" | cut -d " " -f1)"
+            echo "BEFORE_NATIVE_MAP_SELECTOR_HASH=$BEFORE" | tee -a "$PROOF/status.txt"
+
+            # Route via original Marmalade JNI onMotionEvent(0,4/5,x,y).
+            # A "handled=true" Android View result is not proof of JNI delivery.
+            "$ADB" shell am start -W -n com.activision.boz/.Main --ez xzielNativeTap true --ei xzielX 1358 --ei xzielY 780 > "$PROOF/native-kino.txt" 2>&1
+            sleep 3
+            "$ADB" exec-out screencap -p > "$PROOF/screens/native_after_kino.png" 2>/dev/null
+            "$ADB" shell am start -W -n com.activision.boz/.Main --ez xzielNativeTap true --ei xzielX 1760 --ei xzielY 472 > "$PROOF/native-regular.txt" 2>&1
+            sleep 3
+            "$ADB" exec-out screencap -p > "$PROOF/screens/native_after_regular.png" 2>/dev/null
+            "$ADB" shell am start -W -n com.activision.boz/.Main --ez xzielNativeTap true --ei xzielX 1760 --ei xzielY 995 > "$PROOF/native-continue.txt" 2>&1
+            sleep 15
+            "$ADB" exec-out screencap -p > "$PROOF/screens/native_after_continue_15s.png" 2>/dev/null
+            sleep 20
+            "$ADB" exec-out screencap -p > "$PROOF/screens/native_after_continue_35s.png" 2>/dev/null
+            AFTER="$(sha256sum "$PROOF/screens/native_after_continue_35s.png" | cut -d " " -f1)"
+            echo "AFTER_NATIVE_CONTINUE_HASH=$AFTER" | tee -a "$PROOF/status.txt"
+            if [ "$BEFORE" = "$AFTER" ]; then
+              echo "XZIEL_NATIVE_JNI_TOUCH_SELECTOR_UNCHANGED_RED" | tee -a "$PROOF/status.txt"
+            else
+              echo "XZIEL_NATIVE_JNI_TOUCH_SCREEN_CHANGED_VISUAL_APPROVAL_PENDING" | tee -a "$PROOF/status.txt"
+            fi
           fi
 
           PID="$("$ADB" shell pidof com.activision.boz 2>/dev/null | tr -d '\r\n')"
