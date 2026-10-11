@@ -7,6 +7,7 @@ const WeaponSourceCombat = preload("res://scripts/weapon_source_combat.gd")
 const WeaponTextureRegistry = preload("res://scripts/weapon_texture_registry.gd")
 const WeaponViewmodelSourcePose = preload("res://scripts/weapon_viewmodel_source_pose.gd")
 const WeaponViewmodelSourcePresentation = preload("res://scripts/weapon_viewmodel_source_presentation.gd")
+const MobileFirePolicy = preload("res://scripts/mobile_fire_policy.gd")
 
 @export var damage: float = 24.0
 @export var range_m: float = 95.0
@@ -134,7 +135,14 @@ func _process(delta: float) -> void:
 	_update_weapon_fx(delta)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+	if (
+		event is InputEventMouseButton
+		and event.button_index == MOUSE_BUTTON_LEFT
+		and MobileFirePolicy.accepts_desktop_mouse_trigger(OS.has_feature("mobile"))
+	):
+		# Android translates screen taps to emulated mouse clicks for UI widgets.
+		# Never let those clicks fire a gun; only Player's actual touch FIRE
+		# and ADS+FIRE controls may drive the mobile trigger.
 		set_trigger_held(event.pressed)
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_R:
 		request_reload()
@@ -1781,7 +1789,11 @@ func request_fire() -> void:
 		else:
 			_cancel_source_burst()
 		return
-	_fire_single_round(fire_interval * _player_modifier("get_fire_interval_multiplier"))
+	_fire_single_round(MobileFirePolicy.effective_fire_interval(
+		fire_interval * _player_modifier("get_fire_interval_multiplier"),
+		_family,
+		_mobile_trigger_autofire
+	))
 
 func _fire_single_round(cooldown_seconds: float) -> bool:
 	if _reloading:
