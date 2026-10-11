@@ -23,10 +23,10 @@ jobs:
           set -euo pipefail
           mkdir -p /tmp/cod-waw-ios
           cd /tmp/cod-waw-ios
-          base='https://archive.org/download/call-of-duty-waw-blackops-zombies-stirketeam-ios'
+          base='https://ia601509.us.archive.org/32/items/call-of-duty-waw-blackops-zombies-stirketeam-ios'
           ipad="$base/Call%20of%20Duty%20World%20at%20War%20Zombies%20HD/Call%20of%20Duty%20WAW%20Zombies%20HD%20v1.5.0%20%28IOS%203.2%2B%20for%20iPads%20Only%29.ipa"
           iphone="$base/Call%20of%20Duty%20World%20at%20War%20Zombies/Call%20of%20Duty%20World%20at%20War%20Zombies%20v1.5.0%20%28IOS%203.0%2B%29.ipa"
-          curl --fail --location --retry 4 --retry-all-errors --retry-delay 8 --connect-timeout 30 --max-time 480 --user-agent 'Mozilla/5.0' -o 'COD_WAW_Zombies_HD_iPad_v1.5.0.ipa' "$ipad"
+          curl --fail --location --retry 2 --retry-all-errors --retry-delay 4 --connect-timeout 30 --max-time 450 --user-agent 'Mozilla/5.0' -o 'COD_WAW_Zombies_HD_iPad_v1.5.0.ipa' "$ipad"
           curl --fail --location --retry 4 --retry-all-errors --retry-delay 8 --connect-timeout 30 --max-time 480 --user-agent 'Mozilla/5.0' -o 'COD_WAW_Zombies_iPhone_v1.5.0.ipa' "$iphone"
           printf '%s  %s\n' '198399fe9da5e98218b909f938d2762127ffadc4' 'COD_WAW_Zombies_HD_iPad_v1.5.0.ipa' '7ff13c22c9e9fa4184515015108bd8bc834aca17' 'COD_WAW_Zombies_iPhone_v1.5.0.ipa' > SHA1SUMS
           sha1sum --check SHA1SUMS
