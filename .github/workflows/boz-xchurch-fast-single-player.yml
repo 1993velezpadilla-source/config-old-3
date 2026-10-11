@@ -231,10 +231,35 @@ jobs:
               exit 68
             fi
 
+            # The previous 3 selectors were NOT a valid input test:
+            # Nikolai, Tutorial and Regular appeared already selected.
+            # Choose TAKEO (distinct portrait) to distinguish dead native
+            # input from selecting the existing/default character.
+            "$ADB" shell am start -W -n com.activision.boz/.Main --ez xzielNativeTap true --ei xzielX 570 --ei xzielY 370 > "$OUT/native_takeo_tap.txt" 2>&1
+            sleep 6
+            "$ADB" exec-out screencap -p > "$OUT/screens/after_takeo_jni_06s.png"
+            TAKEO_HASH="$(sha256sum "$OUT/screens/after_takeo_jni_06s.png" | cut -d " " -f1)"
+            echo "TAKEO_JNI_HASH=$TAKEO_HASH" | tee -a "$OUT/status.txt"
+            if [ "$TAKEO_HASH" = "$SELECTOR_HASH" ]; then
+              echo "XCHURCH_TAKEO_NATIVE_JNI_NO_VISIBLE_CHANGE" | tee -a "$OUT/status.txt"
+              "$ADB" shell input tap 570 370
+              sleep 6
+              "$ADB" exec-out screencap -p > "$OUT/screens/after_takeo_adb_06s.png"
+              OS_TAKEO_HASH="$(sha256sum "$OUT/screens/after_takeo_adb_06s.png" | cut -d " " -f1)"
+              echo "TAKEO_ANDROID_INPUT_HASH=$OS_TAKEO_HASH" | tee -a "$OUT/status.txt"
+              if [ "$OS_TAKEO_HASH" = "$TAKEO_HASH" ]; then
+                echo "XCHURCH_TAKEO_TOUCH_ROUTE_STILL_UNRESPONSIVE_RED" | tee -a "$OUT/status.txt"
+              else
+                echo "XCHURCH_TAKEO_ANDROID_TOUCH_RESPONDS_JNI_BROKEN" | tee -a "$OUT/status.txt"
+              fi
+            else
+              echo "XCHURCH_TAKEO_NATIVE_JNI_INPUT_RESPONDS" | tee -a "$OUT/status.txt"
+            fi
+
             # The original BOZ controller adapter is already rebuilt into
             # the reused ARM64 APK. Send events through Marmalade JNI. Do
             # not patch any weapons, maps or art while resolving this gate.
-            for target in "480:180:character" "1010:790:tutorial" "1760:472:regular" "1760:995:continue"; do
+            for target in "1110:790:tutorial" "1760:472:regular" "1760:995:continue"; do
               IFS=: read -r TX TY LABEL <<< "$target"
               "$ADB" shell am start -W -n com.activision.boz/.Main --ez xzielNativeTap true --ei xzielX "$TX" --ei xzielY "$TY" > "$OUT/native_${LABEL}_tap.txt" 2>&1
               sleep 7
