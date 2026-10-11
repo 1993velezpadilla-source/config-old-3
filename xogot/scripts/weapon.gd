@@ -121,7 +121,7 @@ func _process(delta: float) -> void:
 		if (
 			not _source_burst_active
 			and _trigger_held
-			and (_automatic or (_mobile_trigger_autofire and _family == "pistol"))
+			and _automatic
 		):
 			request_fire()
 
@@ -134,7 +134,9 @@ func _process(delta: float) -> void:
 	_update_weapon_fx(delta)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+	# Android converts screen touches into synthetic mouse clicks by default.
+	# A look/joystick tap must never become a second, global FIRE button.
+	if not OS.has_feature("mobile") and event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		set_trigger_held(event.pressed)
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_R:
 		request_reload()
@@ -1745,7 +1747,10 @@ func set_trigger_held(held: bool) -> void:
 		request_fire()
 
 func set_mobile_trigger_held(held: bool) -> void:
-	_mobile_trigger_autofire = held
+	# Semi-auto weapons fire once per distinct mobile press, including ADS+FIRE.
+	# Only weapons whose real source fire type is automatic repeat when held.
+	# The old pistol override repeated the Colt at its source 0.05s (1200 RPM).
+	_mobile_trigger_autofire = false
 	set_trigger_held(held)
 
 func mobile_adsfire_release_mode() -> bool:
