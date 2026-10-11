@@ -1,0 +1,73 @@
+name: VRIL Modern MP40 Real Source Preflight (NOT APK)
+
+on:
+  push:
+    branches:
+      - experiment/vril-mp40-source-bridge-20261011
+    paths:
+      - "tools/weapons/vril_mp40_source_preflight.py"
+      - ".github/workflows/vril-mp40-source-preflight.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  original-source-format-compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout the actual modern MP40 and viewhands from user's project
+        uses: actions/checkout@v5
+
+      - name: Fetch pinned working NZ:P Android Vril MDL and exact renderer limits
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/vril-mp40-baseline
+          URL="https://raw.githubusercontent.com/zurdonman/nzp-android-zurdo/v2.3.14"
+          curl --fail --location --retry 3 --silent --show-error \
+            "$URL/android-app/app/src/main/assets/base/nzp/models/weapons/mp40/v_mp40.mdl" \
+            --output build/vril-mp40-baseline/v_mp40.mdl
+          curl --fail --location --retry 3 --silent --show-error \
+            "$URL/vril-engine/source/platform/android/gl/gl_model.h" \
+            --output build/vril-mp40-baseline/gl_model.h
+          test -s build/vril-mp40-baseline/v_mp40.mdl
+          test -s build/vril-mp40-baseline/gl_model.h
+          test -s xogot/assets/weapons/aether_waw_real/mp40/viewmodel.glb
+          test -s xogot/assets/weapons/aether_waw_hands/t4_marine/mp40/viewhands.glb
+
+      - name: Compare real binary assets and exact IDPO engine capacity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/weapons/vril_mp40_source_preflight.py \
+            --gun xogot/assets/weapons/aether_waw_real/mp40/viewmodel.glb \
+            --hands xogot/assets/weapons/aether_waw_hands/t4_marine/mp40/viewhands.glb \
+            --legacy-mdl build/vril-mp40-baseline/v_mp40.mdl \
+            --engine-header build/vril-mp40-baseline/gl_model.h \
+            --output build/vril-mp40-baseline/preflight.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("build/vril-mp40-baseline/preflight.json").read_text())
+          assert r["converted_mdl_created"] is False, "Must not mislabel source compatibility as conversion"
+          assert r["visual_approval"] == "RED_NOT_TESTED"
+          assert r["gun"]["total_triangles"] > r["vril_android_limits"]["MAXALIASTRIS"]
+          with open(Path(__import__("os").environ["GITHUB_STEP_SUMMARY"]), "a") as out:
+              print("## MP40 — source verified, port NOT done", file=out)
+              print("This diagnostic job does **not** generate or approve an APK.", file=out)
+              print(f"- Stock: {r['vril_stock_mp40']['vertices']} verts, {r['vril_stock_mp40']['triangles']} tris, {r['vril_stock_mp40']['frames']} frames.", file=out)
+              print(f"- Modern gun: {r['gun']['total_render_vertices']} render verts, {r['gun']['total_triangles']} tris.", file=out)
+              print(f"- Source hands: {r['hands']['total_render_vertices']} render verts, {r['hands']['total_triangles']} tris.", file=out)
+              print("- Blocking next gate: sampled gun+hand animation, MDL skin/geometry, real Android screenshot.", file=out)
+          PY
+
+      - name: Save exact source compatibility report; do NOT claim APK is ready
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: VRIL-MP40-SOURCE-PREFLIGHT-NOT-CONVERTED-NOT-APK
+          path: build/vril-mp40-baseline/preflight.json
+          retention-days: 14
+          if-no-files-found: warn
