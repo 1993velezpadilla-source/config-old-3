@@ -1,0 +1,99 @@
+name: WAW iPad HD - REA Ghidra Native ARMv6 Forensics NO Emulator
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/waw-ipad-hd-native-android-port-v1
+    paths:
+      - .github/workflows/waw-ipad-hd-rea-native-audit.yml
+      - tools/waw_ios/native_port_gate.py
+      - tools/waw_ios/inspect_and_extract_ipa.py
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  armv6-forensics:
+    name: Decompile original Mach-O with REA and Ghidra (NOT an Android build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.11.1'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Reuse previously verified original IPA without committing game files
+        uses: actions/download-artifact@v4
+        with:
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          run-id: 38110245544
+          name: COD-World-at-War-Zombies-iPhone-iPad-IPA-originals
+          path: ${{ runner.temp }}/waw-ipas
+
+      - name: Unpack iPad Mach-O and resource manifest LOCALLY
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/waw-ipas"
+          sha1sum --check SHA1SUMS
+          python3 "$GITHUB_WORKSPACE/tools/waw_ios/inspect_and_extract_ipa.py" \
+            "$RUNNER_TEMP/waw-ipas/COD_WAW_Zombies_HD_iPad_v1.5.0.ipa" \
+            "$RUNNER_TEMP/waw-native/ipad"
+          test -s "$RUNNER_TEMP/waw-native/ipad/native/kiwi.original.MachO.armv6"
+
+      - name: Install pinned official Ghidra 12.1.4 with SHA-256 verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 4 --retry-all-errors --connect-timeout 30 \
+            --max-time 700 --output ghidra.zip \
+            'https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.1.4_build/ghidra_12.1.4_PUBLIC_20260921.zip'
+          echo 'ddac49f903da9d5bac833e5cc79395098b9c33cfd3279be5f31bd00387d2d4db  ghidra.zip' | sha256sum -c -
+          unzip -q ghidra.zip
+          test -x "$RUNNER_TEMP/ghidra_12.1.4_PUBLIC/support/analyzeHeadless"
+          echo "GHIDRA_INSTALL_DIR=$RUNNER_TEMP/ghidra_12.1.4_PUBLIC" >> "$GITHUB_ENV"
+
+      - name: Verify REA can use original ARMv6 Mach-O through Ghidra
+        shell: bash
+        env:
+          REA_ANALYSIS_PROVIDER: ghidra
+          REA_GHIDRA_STARTUP_TIMEOUT_MS: '480000'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/waw-private-evidence" "$RUNNER_TEMP/waw-public-audit"
+          npx -y rea-agents@6.1.0 doctor --provider ghidra --json \
+            > "$RUNNER_TEMP/waw-private-evidence/rea-doctor.json"
+          timeout 720s npx -y rea-agents@6.1.0 analyze \
+            "$RUNNER_TEMP/waw-native/ipad/native/kiwi.original.MachO.armv6" \
+            --provider ghidra --json \
+            > "$RUNNER_TEMP/waw-private-evidence/rea-native-analysis.json"
+          # Never print or upload raw REA evidence: it can contain proprietary code.
+
+      - name: Validate native investigation; publish ONLY redacted metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/waw_ios/native_port_gate.py \
+            --manifest "$RUNNER_TEMP/waw-native/ipad/manifest.json" \
+            --macho "$RUNNER_TEMP/waw-native/ipad/native/kiwi.original.MachO.armv6" \
+            --rea-evidence "$RUNNER_TEMP/waw-private-evidence/rea-native-analysis.json" \
+            --output "$RUNNER_TEMP/waw-public-audit/status.json"
+          cat "$RUNNER_TEMP/waw-public-audit/status.json" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload METADATA ONLY (never IPAs, binaries, assets or pseudocode)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WAW-iPad-HD-REA-Native-Forensics-METADATA-ONLY
+          path: ${{ runner.temp }}/waw-public-audit/status.json
+          if-no-files-found: warn
+          retention-days: 7
