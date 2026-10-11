@@ -46,7 +46,8 @@ def bb(mn,mx,texture="null"):
         ((x2,y2,z2),(x2+1,y2,z2),(x2,y2,z2+1)),
         ((x2,y2,z2),(x2,y2,z2+1),(x2,y2+1,z2)),
     ]
-    axes=[('[ 0 -1 0 0 ]','[ 0 0 -1 0 ]'),('[ 1 0 0 0 ]','[ 0 0 -1 0 ]'),('[ -1 0 0 0 ]','[ 0 -1 0 0 ]'),('[ 1 0 0 0 ]','[ 0 -1 0 0 ]'),('[ -1 0 0 0 ]','[ 0 0 -1 0 ]'),('[ 0 1 0 0 ]','[ 0 0 -1 0 ]')]\n    return '{\n'+''.join('( %d %d %d ) ( %d %d %d ) ( %d %d %d ) %s %s %s 0 1 1\n'%(tuple(p[0])+tuple(p[1])+tuple(p[2])+(texture,*axes[i])) for i,p in enumerate(planes))+'}\n'
+    axes=[('[ 0 -1 0 0 ]','[ 0 0 -1 0 ]'),('[ 1 0 0 0 ]','[ 0 0 -1 0 ]'),('[ -1 0 0 0 ]','[ 0 -1 0 0 ]'),('[ 1 0 0 0 ]','[ 0 -1 0 0 ]'),('[ -1 0 0 0 ]','[ 0 0 -1 0 ]'),('[ 0 1 0 0 ]','[ 0 0 -1 0 ]')]
+    return '{\n'+''.join('( %d %d %d ) ( %d %d %d ) ( %d %d %d ) %s %s %s 0 1 1\n'%(tuple(p[0])+tuple(p[1])+tuple(p[2])+(texture,*axes[i])) for i,p in enumerate(planes))+'}\n'
 def point(cls,xyz,props=None):
     return '{\n'+kv('classname',cls)+kv('origin',' '.join(str(int(round(x))) for x in xyz))+''.join(kv(k,v) for k,v in (props or {}).items())+'}\n'
 def brush(cls,mn,mx,texture='trigger',props=None):
