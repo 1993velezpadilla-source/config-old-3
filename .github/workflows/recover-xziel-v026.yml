@@ -1,0 +1,84 @@
+name: Restore original Xziel NZP v0.26 APK
+
+on:
+  push:
+    branches: [recovery/xziel-nzp-v026-official-buttons-20261011]
+    paths: [".github/workflows/recover-xziel-v026.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  original-v026:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - name: Verify original v0.26 source and approved button artwork
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f scripts/patch_vril_official_touch_skins_v026.py
+          python3 -m py_compile scripts/patch_vril_official_touch_skins_v026.py
+          for name in fire aim aim_fire crouch prone slide knife grenade reload interact weapon_swap vault_jump; do
+            test -s "assets/xziel/official_touch_skins_v1/${name}.png"
+          done
+          test -s assets/xziel/official_touch_skins_v1/manifest.json
+          echo "v0.26 official art: PASS"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Android toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018"
+      - name: Reconstruct original NZP v0.26 native Android project
+        shell: bash
+        run: bash scripts/prepare_android.sh
+      - name: Check approved controls actually packed in v0.26
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'applicationId "com.xziel.nzp"' build/android-project/app/build.gradle
+          grep -F 'Applied Xziel v0.26' scripts/patch_vril_official_touch_skins_v026.py
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          path="build/android-project/app/src/main/assets/nzp-data.zip"
+          with ZipFile(path) as z:
+              names=set(z.namelist())
+              for name in ["fire.png", "ads.png", "adsfire.png", "reload.png", "use.png",
+                           "grenade.png", "jump.png", "slide.png", "knife.png"]:
+                  full="nzp/gfx/xziel/"+name
+                  assert full in names, full
+              assert any(x.startswith("nzp/maps/") and x.endswith(".bsp") for x in names)
+              print("Original official touch PNGs and playable map are packed")
+          PY
+      - name: Build original NZP Android ARM64 APK
+        working-directory: build/android-project
+        shell: bash
+        run: ./gradlew --no-daemon assembleDebug --stacktrace
+      - name: Package v0.26 APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=build/android-project/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          unzip -p "$APK" lib/arm64-v8a/libmain.so > /tmp/xziel-v026-libmain.so
+          test -s /tmp/xziel-v026-libmain.so
+          mkdir -p dist
+          cp "$APK" dist/Xziel-NZP-v0.26-Official-Buttons.apk
+          sha256sum dist/*.apk > dist/Xziel-NZP-v0.26-SHA256.txt
+          ls -lh dist/*
+      - name: Upload v0.26 APK for original Xziel
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xziel-NZP-v026-Official-Buttons
+          path: dist/*
+          retention-days: 14
+          if-no-files-found: error
