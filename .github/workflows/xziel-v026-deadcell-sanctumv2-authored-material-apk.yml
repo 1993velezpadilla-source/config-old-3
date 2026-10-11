@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/xziel-v026-deadcell-sanctumv2-authored-material-apk.yml
       - scripts/patch_xziel_xzsm_viewmodel_state.py
+      - tools/sanctum_vertical_bridge/build_vril_vertical_map.py
   workflow_dispatch:
 
 permissions:
