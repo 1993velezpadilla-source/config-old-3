@@ -11,6 +11,7 @@ on:
       - "scripts/prepare_android.sh"
       - "scripts/patch_vril_sanctum_staticmesh.py"
       - "scripts/patch_vril_native_single_map.py"
+      - "scripts/skin_vril_touch_controls.py"
       - ".github/workflows/vril-single-map-dev-apk.yml"
   workflow_dispatch:
 
@@ -37,7 +38,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile scripts/patch_vril_one_map_devmenu.py scripts/prune_nzp_single_map.py scripts/patch_vril_native_single_map.py
+          python3 -m py_compile scripts/patch_vril_one_map_devmenu.py scripts/prune_nzp_single_map.py scripts/patch_vril_native_single_map.py scripts/skin_vril_touch_controls.py
           python3 scripts/test_vril_single_map_profile.py
 
       - name: Set up Java
@@ -84,6 +85,7 @@ jobs:
               for key in ("nzp/models/weapons/mp40/v_mp40.mdl",
                           "nzp/models/weapons/mp40/g_mp40.mdl"):
                   assert key in entries, f"Missing original MP40 asset: {key}"
+              assert "nzp/gfx/xziel/skin_native_dev.txt" in entries, "Custom native mobile skin marker missing"
               print("PASS: sole map ndu and original MP40 view/world models preserved")
           PY
 
