@@ -1008,6 +1008,9 @@ func toggle_menu() -> void:
 	toggle_pause_menu()
 
 func open_pause_menu() -> void:
+	var player: Node = get_node_or_null("../../Player")
+	if player != null and player.has_method("cancel_mobile_inputs_for_menu"):
+		player.call("cancel_mobile_inputs_for_menu")
 	_show_page("pause")
 	visible = true
 	mouse_filter = Control.MOUSE_FILTER_STOP
