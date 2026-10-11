@@ -7,6 +7,8 @@ const BLACK_PINES := preload("res://black_pines.tscn")
 const FRACTIONS := [0.02, 0.18, 0.34, 0.50, 0.68, 0.88]
 var _positions: Dictionary = {"tactical": [], "empty": []}
 var _offscreen_critical: Dictionary = {"tactical": false, "empty": false}
+var _critical_screen: Dictionary = {"tactical": Vector2.ZERO, "empty": Vector2.ZERO}
+var _source_hand_contact: Dictionary = {"tactical": [], "empty": []}
 
 func _init() -> void:
     call_deferred("_run")
@@ -57,12 +59,29 @@ func _capture_frame(
     var clip_position_camera: Vector3 = camera.to_local(clip_position_world)
     (_positions[mode] as Array).append(clip_position_camera)
     var clip_screen: Vector2 = camera.unproject_position(clip_position_world)
+    # The 4-way Godot matrix showed the magazine begins and re-inserts near
+    # the source left fingers only with +90 local barrel roll. Check the actual
+    # left palm/thumb 3D separation before/after ejection, not just an axis.
+    var left_hand_dist := INF
+    var clip_tip_world: Vector3 = gun_skeleton.to_global(
+        gun_skeleton.get_bone_global_pose(index) * Vector3(0.0, -0.15, 0.0))
+    for bone_name: String in ["j_thumb_le_1", "j_ringpalm_le", "j_wrist_le"]:
+        var bone_index: int = hands_skeleton.find_bone(bone_name)
+        if bone_index >= 0:
+            var finger_position: Vector3 = hands_skeleton.to_global(
+                hands_skeleton.get_bone_global_pose(bone_index).origin)
+            left_hand_dist = minf(left_hand_dist, clip_tip_world.distance_to(finger_position))
+    print("MP40_SOURCE_LEFT_HAND_MAG_CONTACT mode=", mode,
+        " frame=", frame_idx, " distance_m=", left_hand_dist)
+    if frame_idx in [0, 1, 4]:
+        (_source_hand_contact[mode] as Array).append(left_hand_dist)
     var rect_size: Vector2 = camera.get_viewport().get_visible_rect().size
     if frame_idx == 2:
         var out_of_view := (clip_screen.x < 0.0 or clip_screen.x > rect_size.x
             or clip_screen.y < 0.0 or clip_screen.y > rect_size.y
             or camera.is_position_behind(clip_position_world))
         _offscreen_critical[mode] = out_of_view
+        _critical_screen[mode] = clip_screen
         print("MP40_CRITICAL_MAGAZINE_SCREEN mode=", mode, " frame=34%",
             " xy=", clip_screen, " window=", rect_size, " offscreen=", out_of_view)
     var gun_root: Node3D = weapon.get("_weapon_model_root") as Node3D
@@ -184,10 +203,33 @@ func _run() -> void:
             _fail(mode + " static magazine / false animation: camera motion only " + str(max_movement))
             return
     print("MP40_RUNTIME_FRAMES_CAPTURED_12 visual_approval=REQUIRED actual_godot=true new_apk=false")
-    if bool(_offscreen_critical["tactical"]) or bool(_offscreen_critical["empty"]):
-        _fail("real source animation still drops j_clip beyond camera viewport at 34%: tactical="
-            + str(_offscreen_critical["tactical"]) + " empty=" + str(_offscreen_critical["empty"]))
+    # Specific review mode: the NORMAL magazine must move into the LEFT
+    # screen and remain visible at peak. The EMPTY magazine may be thrown
+    # out to the LEFT by the original source animation, but NEVER down/right.
+    var frame_size: Vector2 = root.get_visible_rect().size
+    var tactical_screen: Vector2 = _critical_screen["tactical"] as Vector2
+    var empty_screen: Vector2 = _critical_screen["empty"] as Vector2
+    if bool(_offscreen_critical["tactical"]):
+        _fail("normal MP40 magazine left-screen peak must be visible: " + str(tactical_screen))
         return
+    if tactical_screen.x >= frame_size.x * 0.35:
+        _fail("normal MP40 magazine still ejects toward right: " + str(tactical_screen))
+        return
+    if empty_screen.x >= tactical_screen.x or empty_screen.y < 0.0 or empty_screen.y > frame_size.y:
+        _fail("empty MP40 source magazine must travel off to left, not down/right: " + str(empty_screen))
+        return
+    for mode: String in ["tactical", "empty"]:
+        var contacts: Array = _source_hand_contact[mode] as Array
+        if contacts.size() != 3:
+            _fail("left hand finger measurements absent " + mode)
+            return
+        for distance: float in contacts:
+            if distance > 0.165:
+                _fail("MP40 source thumb/magazine not registered near grip phase mode="
+                    + mode + " distance=" + str(distance))
+                return
+    print("MP40_BETA_CAMERA_DIRECTION_GREEN source_weapon_left=true both_hands_original=true")
+    print("MP40_VISUAL_FIDELITY_REQUIRES_ANDROID_REVIEW contact_between_peak_frames_unapproved=true")
     scene.queue_free()
     await process_frame
     quit(0)
