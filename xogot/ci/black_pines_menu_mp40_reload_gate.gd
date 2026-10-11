@@ -27,7 +27,7 @@ func _run() -> void:
     if not _check(menu != null and player != null and weapon != null, "gameplay/menu missing"):
         return
     menu.call("open_pause_menu")
-    if not _check(menu.visible and bool(get_tree().paused) and str(menu.get("_current_page")) == "pause", "PAUSE doesn't suspend gameplay"):
+    if not _check(menu.visible and bool(paused) and str(menu.get("_current_page")) == "pause", "PAUSE doesn't suspend gameplay"):
         return
     var pages: Control = menu.get_node("PausePanel/MenuColumn/Pages") as Control
     var nav: HBoxContainer = menu.get_node("PausePanel/MenuColumn/StickyNavigation") as HBoxContainer
@@ -56,7 +56,7 @@ func _run() -> void:
     if not _check(str(menu.get("_current_page")) == "pause", "network BACK did not return to PAUSE"):
         return
     menu.call("_back_navigation")
-    if not _check(not menu.visible and not get_tree().paused, "BACK did not resume gameplay"):
+    if not _check(not menu.visible and not paused, "BACK did not resume gameplay"):
         return
     # Previously an active fire finger stayed held through the pause menu.
     player.call("_set_mobile_trigger_held", true)
