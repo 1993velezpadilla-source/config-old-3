@@ -1,0 +1,132 @@
+name: BO1 REAL XFile Stream - Android ARM64 Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/bo1-original-engine-arm64-feasibility-v1
+    paths:
+      - tools/bo1_pc_engine/ff_payload/**
+      - .github/workflows/bo1-original-ff-stream-arm64.yml
+
+permissions:
+  contents: read
+
+jobs:
+  original-bo1-ff-stream-arm64:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage pinned real BO1 DB file discovery and ORIGINAL zlib 3-function decoder
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/MisaDev4/bo1-zombies-decompiled.git "$RUNNER_TEMP/upstream"
+          test "$(git -C "$RUNNER_TEMP/upstream" rev-parse HEAD)" = 102f6992be332610aff587e681e3180b15f395bb
+          mkdir -p "$RUNNER_TEMP/ff-stage" "$RUNNER_TEMP/ff-report"
+          python3 tools/bo1_pc_engine/fastfile/stage_db_file_functions.py \
+            --upstream "$RUNNER_TEMP/upstream" --staged "$RUNNER_TEMP/ff-stage"
+          python3 tools/bo1_pc_engine/ff_payload/stage_original_auth.py \
+            --upstream "$RUNNER_TEMP/upstream" --staged "$RUNNER_TEMP/ff-stage"
+          cp "$RUNNER_TEMP/ff-stage/manifest.json" "$RUNNER_TEMP/ff-report/original-database-functions.json"
+          cp "$RUNNER_TEMP/ff-stage/auth-extraction.json" "$RUNNER_TEMP/ff-report/original-zlib-functions.json"
+
+      - name: Host execution — original BO1 zlib functions stream an XFile payload prefix and reject damage
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=tools/bo1_pc_engine/fastfile
+          P=tools/bo1_pc_engine/ff_payload
+          S="$RUNNER_TEMP/ff-stage"
+          g++ -std=c++20 -O2 -DNDEBUG -Wall -Wextra \
+            -I"$F" -I"$P" \
+            "$S/original_bo1_db_file.cpp" "$S/original_bo1_db_auth_inflate.cpp" \
+            "$F/bo1_ff_compat.cpp" "$P/bo1_ff_header_probe.cpp" \
+            "$P/bo1_ff_stream_probe.cpp" "$P/ff_stream_host_test.cpp" \
+            -pthread -lz -o "$S/upstream_bo1_ff_stream_test"
+          "$S/upstream_bo1_ff_stream_test" | tee "$RUNNER_TEMP/ff-report/host-results.txt"
+          grep -q '^ORIGINAL_BO1_ZLIB_INIT_INFLATE_END_STREAMING=PASS$' "$RUNNER_TEMP/ff-report/host-results.txt"
+          grep -q '^ORIGINAL_BO1_DEFLATED_XFILE_PAYLOAD_PREFIX_128K_VERIFIED=PASS$' "$RUNNER_TEMP/ff-report/host-results.txt"
+
+      - name: Install official Android NDK for ARM64
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          "$SDKMANAGER" 'ndk;27.2.12479018'
+
+      - name: Build Android ARM64 .so with unmodified BO1 file and zlib functions
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=tools/bo1_pc_engine/fastfile
+          P=tools/bo1_pc_engine/ff_payload
+          S="$RUNNER_TEMP/ff-stage"
+          N="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          C="$N/aarch64-linux-android26-clang++"
+          COMMON="-std=c++20 -O2 -DNDEBUG -fPIC -fvisibility=hidden -ffunction-sections -fdata-sections"
+          "$C" $COMMON -I"$F" -I"$P" -c "$S/original_bo1_db_file.cpp" -o "$S/file.o"
+          "$C" $COMMON -I"$F" -I"$P" -c "$S/original_bo1_db_auth_inflate.cpp" -o "$S/auth.o"
+          "$C" $COMMON -I"$F" -I"$P" -c "$F/bo1_ff_compat.cpp" -o "$S/posix.o"
+          "$C" $COMMON -I"$F" -I"$P" -c "$P/bo1_ff_header_probe.cpp" -o "$S/header.o"
+          "$C" $COMMON -I"$F" -I"$P" -c "$P/bo1_ff_stream_probe.cpp" -o "$S/stream.o"
+          "$C" -shared -pthread -Wl,--gc-sections -Wl,--no-undefined \
+            "$S/file.o" "$S/auth.o" "$S/posix.o" "$S/header.o" "$S/stream.o" \
+            -lz -o "$S/libbo1_upstream_xfile_stream.so"
+          file "$S/libbo1_upstream_xfile_stream.so" | tee "$RUNNER_TEMP/ff-report/abi.txt"
+          grep -q 'ELF 64-bit' "$RUNNER_TEMP/ff-report/abi.txt"
+          grep -Eqi 'ARM aarch64|ARM64' "$RUNNER_TEMP/ff-report/abi.txt"
+          "$N/llvm-nm" -D "$S/libbo1_upstream_xfile_stream.so" \
+            > "$RUNNER_TEMP/ff-report/exports.txt"
+          for symbol in bo1_original_ff_payload_prefix_probe bo1_original_fastfile_header_probe \
+              bo1_original_zone_exists bo1_original_zone_size bo1_ff_root_configure; do
+            grep -q "$symbol" "$RUNNER_TEMP/ff-report/exports.txt"
+          done
+          sha256sum "$S/libbo1_upstream_xfile_stream.so" \
+            | sed 's/  .*$/  libbo1_upstream_xfile_stream.so/' \
+            > "$RUNNER_TEMP/ff-report/module-sha256.txt"
+          echo "ORIGINAL_BO1_XFILE_PREFIX_DEFLATE_AND_ARM64_NATIVE_LINK=PASS" \
+            | tee "$RUNNER_TEMP/ff-report/native-status.txt"
+
+      - name: Publish only precise test report with no game/engine source or compiled binaries
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          R="$RUNNER_TEMP/ff-report"
+          mkdir -p "$R"
+          {
+            echo '# Black Ops 1 original XFile streaming prefix - Native Android ARM64'
+            echo
+            echo 'Upstream pinned SHA: 102f6992be332610aff587e681e3180b15f395bb'
+            echo 'Original unchanged: DB_FileExists, DB_FileSize, DB_AuthLoad_InflateInit, DB_AuthLoad_Inflate, DB_AuthLoad_InflateEnd.'
+            echo 'Android POSIX bridge: path discovery and fd open; bounded zlib stream reader.'
+            echo
+            echo '## Runtime checks against synthetic XFile V473 payload >1 MiB'
+            cat "$R/host-results.txt" 2>/dev/null || true
+            echo
+            echo '## Android ARM64 ELF linked'
+            cat "$R/native-status.txt" 2>/dev/null || true
+            cat "$R/abi.txt" 2>/dev/null || true
+            cat "$R/module-sha256.txt" 2>/dev/null || true
+            echo
+            echo '## Important remaining blockers'
+            echo 'REAL BO1 archive XAsset allocator (DB_AllocXBlocks), Load_XAssetListCustom and Load_XAsset have NOT been ported.'
+            echo 'Recovered game scripts, renderer and win32->Android input/audio remain unported.'
+            echo 'No retail zombie_theater.ff has been parsed here; only format-consistent synthetic FF test bytes.'
+            echo 'Prefix byte hashing verifies decompression but does NOT prove Kino map compatibility.'
+            echo 'Secure IWff0100 archive variant remains unsupported.'
+            echo 'NO APK created; NO user-playable map; no game assets, engine binaries or original source redistributed.'
+          } > "$R/README.md"
+          cat "$R/README.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report (no game files, no C++ engine binaries)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BO1-REAL-XFILE-STREAM-ARM64-GATE-REPORT-NOT-APK
+          path: ${{ runner.temp }}/ff-report
+          retention-days: 21
+          if-no-files-found: warn
