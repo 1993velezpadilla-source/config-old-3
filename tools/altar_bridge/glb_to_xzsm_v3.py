@@ -92,6 +92,43 @@ def quake_xyz(v):
     return np.column_stack((v[:, 0], -v[:, 2], v[:, 1])) * SCALE
 
 
+def original_godot_materials(glb: Path):
+    """Read glTF JSON directly: trimesh may discard material-only Godot surface colors."""
+    blob = glb.read_bytes()
+    if blob[:4] != b"glTF":
+        raise RuntimeError("Godot export is not binary GLB")
+    length, typ = struct.unpack_from("<II", blob, 12)
+    if typ != 0x4e4f534a:
+        raise RuntimeError("GLB has no JSON chunk")
+    scene = json.loads(blob[20:20+length])
+    mats = scene.get("materials", [])
+    nodes = {}
+    for n in scene.get("nodes", []):
+        if "mesh" not in n:
+            continue
+        prims = scene["meshes"][n["mesh"]].get("primitives", [])
+        if len(prims) != 1 or "material" not in prims[0]:
+            raise RuntimeError("Original Godot altar has unexpected material/primitive layout")
+        mat_index = prims[0]["material"]
+        raw = mats[mat_index]
+        pbr = raw.get("pbrMetallicRoughness", {})
+        factor = np.array(pbr.get("baseColorFactor", [1, 1, 1, 1]), dtype=np.float64)
+        if factor.size != 4:
+            raise RuntimeError("Bad Godot material color factor")
+        name = n.get("name")
+        if not name:
+            raise RuntimeError("Godot altar GLB missing node names")
+        nodes[name] = (mat_index, factor, pbr)
+    if len(nodes) < 11 or len(mats) < 4:
+        raise RuntimeError(f"Lost Godot material identity: nodes={len(nodes)}, materials={len(mats)}")
+    return nodes
+
+
+def srgb_encode(x: float) -> float:
+    x = max(0.0, min(1.0, x))
+    return 12.92*x if x <= 0.0031308 else 1.055*x**(1.0/2.4)-0.055
+
+
 def write_xzsm(glb: Path, out: Path, texture_max=2048, require_components=11):
     if not glb.is_file():
         raise FileNotFoundError(glb)
@@ -99,6 +136,7 @@ def write_xzsm(glb: Path, out: Path, texture_max=2048, require_components=11):
     if not isinstance(obj, trimesh.Scene):
         raise RuntimeError("GLB is not a scene")
     instances = sorted(obj.graph.nodes_geometry)
+    source_materials = original_godot_materials(glb)
     if len(instances) < require_components:
         raise RuntimeError(f"altar incomplete: found {len(instances)} meshes, expected {require_components}+")
     tex_dir = out / "textures/xziel/godot_altar"
@@ -118,14 +156,24 @@ def write_xzsm(glb: Path, out: Path, texture_max=2048, require_components=11):
         if not isinstance(mesh, trimesh.Trimesh) or not len(mesh.faces):
             continue
         mat = getattr(mesh.visual, "material", None)
-        key = str(getattr(mat, "name", "mat") or "mat")
-        factor = rgba_factor(mat) if mat is not None else np.ones(4)
-        # Same material name can occur with differing Godot color factors;
-        # include factor so no mesh silently changes color.
-        mat_key = key + "_" + "_".join(str(int(round(v*255))) for v in factor)
+        if str(node) not in source_materials:
+            raise RuntimeError(f"Cannot associate Godot material with GLB node {node}")
+        mat_index, factor, pbr = source_materials[str(node)]
+        key = f"godot_material_{mat_index}"
+        mat_key = key
+        has_original_image = "baseColorTexture" in pbr
         if mat_key not in materials:
             path_stem = f"{len(materials):03d}_{slug(key)}"
-            image = material_image(mat, texture_max) if mat is not None else Image.new("RGBA",(4,4),(255,255,255,255))
+            if has_original_image:
+                if mat is None:
+                    raise RuntimeError(f"Textured Godot material {key} was discarded by importer")
+                image = material_image(mat, texture_max)
+            else:
+                # glTF baseColorFactor is linear. Quake's PNG texture sampler
+                # consumes sRGB bytes, so convert linear factor to display RGB.
+                pixel = tuple(int(round(srgb_encode(v)*255)) for v in factor[:3])
+                pixel += (int(round(float(factor[3])*255)),)
+                image = Image.new("RGBA", (4, 4), pixel)
             png = tex_dir / (path_stem + ".png")
             image.save(png, format="PNG", optimize=True)
             materials[mat_key] = {
@@ -139,7 +187,7 @@ def write_xzsm(glb: Path, out: Path, texture_max=2048, require_components=11):
         faces = np.array(mesh.faces, dtype=np.int64)
         normals = np.array(mesh.vertex_normals, dtype=np.float64)
         uv = getattr(mesh.visual, "uv", None)
-        has_image = mat is not None and (getattr(mat,"baseColorTexture",None) is not None or getattr(mat,"image",None) is not None)
+        has_image = has_original_image
         if uv is None or len(uv) != len(vertices):
             if has_image:
                 missing_uv.append(str(node))
