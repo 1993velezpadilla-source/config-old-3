@@ -3,9 +3,7 @@ extends SceneTree
 ## GLTFDocument, preserving original materials and coordinates. No fake GLB.
 ## Run: godot --headless --path tools/altar_bridge/godot --script res://export_altar.gd -- --output /abs/altar.glb
 
-const ALTAR_PREFIXES := PackedStringArray([
-	"ChancelStep", "Altar", "Reredos", "Cross"
-])
+const ALTAR_PREFIXES := ["ChancelStep", "Altar", "Reredos", "Cross"]
 const ORIGINAL_ALTAR_ORIGIN := Vector3(-17.81, 0.0, 15.82)
 
 func _initialize() -> void:
