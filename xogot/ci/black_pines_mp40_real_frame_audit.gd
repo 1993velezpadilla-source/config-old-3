@@ -43,6 +43,7 @@ func _capture_frame(
     hand_player.seek(hand_t, true)
     gun_player.advance(0.0)
     hand_player.advance(0.0)
+    weapon.call("_mp40_retarget_motion_for_render")
     if gun_player.current_animation != gun_clip_name or hand_player.current_animation != hand_clip_name:
         _fail("player not playing source clip at " + mode + str(frame_idx))
         return false
@@ -59,7 +60,7 @@ func _capture_frame(
     var gun_root: Node3D = weapon.get("_weapon_model_root") as Node3D
     var hand_root: Node3D = weapon.get("_hands_model_root") as Node3D
     var barrel_local_camera: Vector3 = camera.global_transform.basis.orthonormalized().inverse() * gun_root.global_transform.basis.orthonormalized() * Vector3.RIGHT
-    label.text = "MP40 • " + mode + " • " + str(frame_idx + 1) + "/6  (" + str(roundf(fraction * 100.0)) + "%)"
+    label.text = "MP40 EXPERIMENT MOTION-MIRROR • " + mode + " • " + str(frame_idx + 1) + "/6  (" + str(roundf(fraction * 100.0)) + "%)"
     print("MP40_ACTUAL_FRAME",
         " mode=", mode, " step=", frame_idx,
         " gun_time=", gun_t, " hands_time=", hand_t,
@@ -101,6 +102,7 @@ func _run() -> void:
     if weapon == null or camera == null:
         _fail("live Player/Weapon/Camera3D missing")
         return
+    weapon.set("mp40_reload_rig_retarget_mode", "mirror_reload_motion")
     if not bool(weapon.call("equip_weapon", "mp40", true)):
         _fail("real MP40 failed equip")
         return
@@ -163,7 +165,7 @@ func _run() -> void:
         if max_movement < 0.12:
             _fail(mode + " static magazine / false animation: camera motion only " + str(max_movement))
             return
-    print("MP40_RUNTIME_FRAMES_CAPTURED_12 visual_approval=REQUIRED actual_godot=true new_apk=false")
+    print("MP40_RUNTIME_FRAMES_CAPTURED_12 EXPERIMENT_MIRROR_RELOAD source_pose_preserved=true visual_approval=REQUIRED actual_godot=true new_apk=false")
     scene.queue_free()
     await process_frame
     quit(0)
