@@ -1,0 +1,308 @@
+name: XZIEL v0.26 - Dead Cell + ORIGINAL baked Sanctum V2 materials
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  native-two-map:
+    name: Native ARM64 Dead Cell plus repaired Sanctum V2
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      XZIEL_DEV_MENU_ONLY: "1"
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Regenerate ORIGINAL 4-spawn Dead Cell map
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/zombie_prototype/generate_graybox_map.py
+          git clone --depth 1 https://github.com/nzp-team/assets.git /tmp/nzp-assets
+          git clone --depth 1 --recursive https://github.com/nzp-team/spawn-zone-tool.git /tmp/spawn-zone-tool
+          python3 -m pip install --quiet -r /tmp/spawn-zone-tool/requirements.txt
+          (
+            cd /tmp/nzp-assets
+            bash tools/compile-wads.sh
+            mkdir -p source/maps/xziel_proto
+            cp "$GITHUB_WORKSPACE/build/prototype/xziel_proto.map" source/maps/xziel_proto/xziel_proto.map
+            bash tools/compile-maps.sh --map xziel_proto --zone-tool-path /tmp/spawn-zone-tool
+          )
+          mkdir -p deadcell-dist
+          cp /tmp/nzp-assets/common/maps/xziel_proto.bsp deadcell-dist/
+          cp /tmp/nzp-assets/common/maps/xziel_proto.nsz deadcell-dist/
+          cp build/prototype/xziel_proto_report.json deadcell-dist/
+          test -s deadcell-dist/xziel_proto.bsp
+          test -s deadcell-dist/xziel_proto.nsz
+
+      - name: Restore successful REAL Sanctum HQ runtime from Oct 2
+        uses: actions/download-artifact@v5
+        with:
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          run-id: 36950641069
+          name: XZIEL-Sanctum-HQ-Gauntlet
+          path: old-sanctum-hq
+
+      - name: Extract Sanctum HQ mesh, map, 4K textures from verified APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          from shutil import copyfileobj
+          import struct
+          apks=list(Path("old-sanctum-hq").rglob("*.apk"))
+          if len(apks)!=1:raise SystemExit("Need exactly one Sanctum HQ APK, found "+str(apks))
+          print("Reusing proven Sanctum APK:",apks[0],apks[0].stat().st_size)
+          with ZipFile(apks[0]) as outer, open("sanctum-source-data.zip","wb") as out:
+              with outer.open("assets/nzp-data.zip") as source:copyfileobj(source,out,1024*1024)
+          with ZipFile("sanctum-source-data.zip") as z:
+              names=set(z.namelist())
+              prefix="nzp/textures/xziel/sanctum/"
+              mesh="nzp/models/xziel/sanctum/sanctum.xzsm"
+              mapfiles=["nzp/maps/sanctum_harness."+s for s in ("bsp","nsz")]
+              pngs=[p for p in names if p.startswith(prefix) and p.lower().endswith(".png")]
+              assert all(p in names for p in mapfiles+[mesh]),"Sanctum payload incomplete"
+              assert len(pngs)>=11,"Lost HQ architectural textures"
+              xz=z.read(mesh)
+              hdr=struct.unpack("<4sIIII",xz[:20])
+              assert hdr[0:2]==(b"XZSM",2) and hdr[3]>=100000, hdr
+              assert hdr[2]<=512 and hdr[3]<=3000000 and hdr[4]<=3500000,hdr
+              wanted=mapfiles+[mesh]+pngs
+              for name in wanted:
+                  dest=Path("sanctum-overlay")/name.removeprefix("nzp/")
+                  dest.parent.mkdir(parents=True,exist_ok=True)
+                  with z.open(name) as source,dest.open("wb") as out:
+                      copyfileobj(source,out,1024*1024)
+              print("SANCTUM_REAL_HQ_GREEN","atlases",len(pngs),"XZSM",hdr,
+                    "bytes",sum((Path("sanctum-overlay")/n.removeprefix("nzp/")).stat().st_size for n in wanted))
+          meta=Path("sanctum-overlay/maps/sanctum_harness.txt")
+          # Explicit 12-line NZ:P user-map metadata to make the native selector
+          # recognize it, independent of optional legacy source APK metadata.
+          meta.write_text("\n".join([
+              "XZIEL: SANCTUM OF ASH",
+              "ST GILES HQ STONE CHURCH",
+              "Original scan + XZSM architecture",
+              "Native Vril + HQ materials",
+              "Play survival rounds",
+              "Developer weapons lab available",
+              "","","","XZIEL","0","1"
+          ])+"\n",encoding="utf-8")
+          assert len(meta.read_text().splitlines())==12
+          PY
+          mkdir -p sanctum-overlay/maps
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("sanctum-overlay/maps/xziel_proto.txt")
+          p.write_text("\n".join([
+              "XZIEL: DEAD CELL", "FAST SPAWN CORE TEST",
+              "4 DIRECT ZOMBIE SPAWNS", "SOLO SURVIVAL TEST",
+              "Full original weapons and reload", "Developer Menu 56",
+              "","","","XZIEL","0","1"
+          ])+"\n",encoding="utf8")
+          assert len(p.read_text().splitlines())==12
+          PY
+
+      - name: Retrieve actual Oct-02 SANCTUM V2 three-floor source (not old St Giles)
+        uses: actions/download-artifact@v5
+        with:
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          run-id: 36965470406
+          name: XZIEL-Sanctum-Vertical-Gameplay
+          path: original-sanctum-vertical
+
+      - name: Download rebuilt ORIGINAL Blender shader baked GLB
+        uses: actions/download-artifact@v5
+        with:
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          run-id: 38175917615
+          name: Sanctum-V2-REAL-ORIGINAL-Shader-Baked-GLB
+          path: sanctum-v2-baked
+
+      - name: Convert recovered three-floor GLB and matching collision proxies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'numpy>=1.26,<3' 'Pillow>=10,<13' 'trimesh>=4,<5'
+          GLB=sanctum-v2-baked/sanctum-v2-real-authored-materials.glb
+          REPORT=original-sanctum-vertical/sanctum-vertical-probe/vertical-report.json
+          test -s "$GLB"
+          python3 tools/sanctum_vertical_bridge/build_vril_vertical_map.py \
+            --glb "$GLB" \
+            --vertical-report "$REPORT" \
+            --out sanctum-vertical-addon \
+            --texture-max 1024
+          test -s sanctum-vertical-addon/nzp/models/xziel/sanctum_vertical/vertical.xzsm
+          test -s sanctum-vertical-addon/maps/sanctum_vertical.map
+          (
+            cd /tmp/nzp-assets
+            mkdir -p source/maps/sanctum_vertical
+            cp "$GITHUB_WORKSPACE/sanctum-vertical-addon/maps/sanctum_vertical.map" \
+              source/maps/sanctum_vertical/sanctum_vertical.map
+            bash tools/compile-maps.sh --map sanctum_vertical \
+              --zone-tool-path /tmp/spawn-zone-tool
+          )
+          mkdir -p sanctum-vertical-addon/nzp/maps
+          cp /tmp/nzp-assets/common/maps/sanctum_vertical.bsp \
+            sanctum-vertical-addon/nzp/maps/sanctum_vertical.bsp
+          cp /tmp/nzp-assets/common/maps/sanctum_vertical.nsz \
+            sanctum-vertical-addon/nzp/maps/sanctum_vertical.nsz
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,struct
+          root=Path("sanctum-vertical-addon")
+          data=json.loads((root/"sanctum_vertical_bridge_report.json").read_text())
+          head=struct.unpack("<4sIIII",(root/"nzp/models/xziel/sanctum_vertical/vertical.xzsm").read_bytes()[:20])
+          assert head[:2]==(b"XZSM",2) and head[2]>=40 and head[4]>300000,head
+          assert data["ramps"]==4 and data["floor_panels"]>=10,data
+          assert data["triangles"]>=360000
+          stats=data["visual_stats"]
+          ratio=stats["texture_triangles"]/data["triangles"]
+          assert ratio>.95,(stats,ratio)
+          print("ORIGINAL_BAKED_IMAGE_COVERAGE_GREEN",f"{ratio:.2%}")
+          assert len(list((root/"nzp/textures/xziel/sanctum_vertical").glob("*.png")))>=20
+          for ext in ("bsp","nsz","txt"):
+              assert (root/f"nzp/maps/sanctum_vertical.{ext}").stat().st_size>0
+          print("ORIGINAL_SANCTUM_V2_VERTICAL_BRIDGE_GREEN",head)
+          PY
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018"
+
+      - name: Prepare pinned v0.26 native engine with BOTH maps
+        shell: bash
+        env:
+          XZIEL_EXTRA_MAP_NAME: xziel_proto
+          XZIEL_EXTRA_MAP_BSP: ${{ github.workspace }}/deadcell-dist/xziel_proto.bsp
+          XZIEL_EXTRA_MAP_NSZ: ${{ github.workspace }}/deadcell-dist/xziel_proto.nsz
+          XZIEL_EXTRA_ASSET_DIR: ${{ github.workspace }}/sanctum-overlay
+        run: |
+          set -euo pipefail
+          bash scripts/prepare_android.sh
+          # Apply proven HQ renderer fixes: full texture paths, 4K sampler,
+          # XZSM v2 materials and Android diagnostics, no Godot V3 experiment.
+          python3 scripts/patch_vril_sanctum_hq_lighting.py build/deps/vril
+          python3 scripts/slim_v026_sanctum_deadcell.py build
+          python3 scripts/add_vertical_sanctum_v026.py build sanctum-vertical-addon
+          python3 scripts/finish_two_map_vertical.py build
+
+      - name: Gate two maps, original baked material coverage, PNG touch, DEV and weapons
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'PLAY: SANCTUM V2' build/deps/vril/source/menu/menu_main.c
+          grep -F 'PLAY: DEAD CELL' build/deps/vril/source/menu/menu_main.c
+          grep -F 'XZSM: Vertical V2 mesh loaded' build/deps/vril/source/platform/sdl/gl/gl_xziel_staticmesh.c
+          grep -F 'stock_maps[1].bsp_name = "xziel_proto"' build/deps/vril/source/menu/menu_helper.c
+          ! grep -F 'sanctum_harness' build/deps/vril/source/menu/menu_main.c
+          ! grep -F 'sanctum/sanctum.xzsm' build/deps/vril/source/platform/sdl/gl/gl_xziel_staticmesh.c
+          grep -F 'Preserve original Sanctum V2 GLB RGBA' build/deps/vril/source/platform/sdl/gl/gl_xziel_staticmesh.c
+          grep -F 'XZIEL DEVELOPER' build/deps/vril/source/menu/menu_pause.c
+          grep -F 'XZIEL WEAPON LAB' build/deps/vril/source/menu/menu_pause.c
+          grep -F 'XzielDev_DispatchPendingImpulse();' build/deps/vril/source/render/r_hud.c
+          grep -F 'Command_XzielDev(ftos(action));' build/deps/quakec/source/server/weapons/weapon_core.qc
+          grep -F 'XZIEL_XZSM' build/deps/vril/source/platform/sdl/gl/gl_xziel_staticmesh.c
+          grep -F 'glColorPointer' build/deps/vril/source/platform/sdl/gl/gl_xziel_staticmesh.c
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          from pathlib import Path
+          import re
+          with ZipFile("build/android-project/app/src/main/assets/nzp-data.zip") as z:
+              names=set(z.namelist())
+              maps=sorted(x for x in names if x.startswith("nzp/maps/") and x.endswith(".bsp"))
+              assert maps==["nzp/maps/sanctum_vertical.bsp","nzp/maps/xziel_proto.bsp"],maps
+              for m in ("sanctum_vertical","xziel_proto"):
+                  for ext in ("bsp","nsz","txt"):
+                      assert f"nzp/maps/{m}.{ext}" in names
+              for tex in Path("sanctum-vertical-addon/nzp/textures/xziel/sanctum_vertical").glob("*.png"):
+                  assert "nzp/textures/xziel/sanctum_vertical/"+tex.name in names
+              assert "nzp/models/xziel/sanctum_vertical/vertical.xzsm" in names
+              assert not any("sanctum_harness" in n or n.startswith("nzp/models/xziel/sanctum/") for n in names)
+              assert len(z.read("nzp/progs.dat"))>50000
+              controls={"fire":"fire","aim":"ads","aim_fire":"adsfire",
+                        "crouch":"crouch","prone":"prone","slide":"slide",
+                        "reload":"reload","knife":"knife","interact":"use",
+                        "grenade":"grenade","weapon_swap":"switch","vault_jump":"jump"}
+              for src,dst in controls.items():
+                  assert z.read(f"nzp/gfx/xziel/{dst}.png") == Path(f"assets/xziel/official_touch_skins_v1/{src}.png").read_bytes(),src
+              print("PASS: exactly 2 maps, original QuakeC, 12 official PNGs, Sanctum V2 mesh and textures, NO old church")
+          catalog=Path("scripts/patch_xziel_v026_devmenu.py").read_text()
+          assert "len(catalog) == 56" in catalog
+          for patch in ("patch_vril_mobile_v018.py","patch_vril_mobile_v021.py",
+                         "patch_vril_mobile_v022.py","patch_vril_mobile_v024.py",
+                         "patch_vril_modern_movement.py"):
+              assert Path("scripts/"+patch).is_file()
+          PY
+
+      - name: Keep two-map experimental build distinct from any earlier APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("build/android-project/app/build.gradle")
+          s=p.read_text()
+          old='applicationId "com.xziel.nzp"'
+          assert s.count(old)==1
+          p.write_text(s.replace(old,'applicationId "com.xziel.deadcellv2baked"',1))
+          p=Path("build/android-project/app/src/main/res/values/strings.xml")
+          s=p.read_text()
+          old='<string name="app_name">Xziel: NZP Native</string>'
+          assert s.count(old)==1
+          p.write_text(s.replace(old,'<string name="app_name">XZIEL: DEAD CELL + V2 PBR</string>',1))
+          PY
+
+      - name: Compile real Android ARM64 APK
+        working-directory: build/android-project
+        shell: bash
+        run: ./gradlew --no-daemon assembleDebug --stacktrace
+
+      - name: Verify native ARM64 two-map preview APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="build/android-project/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          unzip -p "$APK" lib/arm64-v8a/libmain.so > /tmp/xziel-dual.so
+          strings /tmp/xziel-dual.so | grep -F 'PLAY: SANCTUM V2'
+          strings /tmp/xziel-dual.so | grep -F 'PLAY: DEAD CELL'
+          strings /tmp/xziel-dual.so | grep -F 'XZIEL DEVELOPER'
+          strings /tmp/xziel-dual.so | grep -F 'XZIEL_XZSM'
+          unzip -p "$APK" assets/nzp-data.zip > /tmp/dual-payload.zip
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          z=ZipFile("/tmp/dual-payload.zip")
+          maps=sorted(n for n in z.namelist() if n.startswith("nzp/maps/") and n.endswith(".bsp"))
+          assert maps==["nzp/maps/sanctum_vertical.bsp","nzp/maps/xziel_proto.bsp"],maps
+          print("APK_TWOMAP_V2_ONLY_ARM64_PACKAGE_GREEN",maps)
+          PY
+          mkdir -p two-map-v2-baked-dist
+          cp "$APK" two-map-v2-baked-dist/XZIEL-v026-DeadCell-SanctumV2-ORIGINAL-BAKED-MATERIALS-ARM64.apk
+          sha256sum "$APK" > two-map-v2-baked-dist/APK-SHA256.txt
+          printf 'PREVIEW: Dead Cell and Sanctum V2. Original procedural Blender shader colors baked to 2K/1K images. No old St Giles. Ramps still approximate. Visual quality not proven on Android.\n' > two-map-v2-baked-dist/README.txt
+          ls -lh two-map-v2-baked-dist/*.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-v026-DeadCell-SanctumV2-Original-PBR-Baked-ARM64
+          path: two-map-v2-baked-dist/
+          if-no-files-found: error
+          retention-days: 14
