@@ -1,9 +1,9 @@
-name: Black Pines Android Menu MP40 Reload Fix
+name: Black Pines MP40 Animated Hands and Menus
 on:
   workflow_dispatch:
   push:
     branches:
-      - fix/black-pines-android-menu-mp40-reload-20261011
+      - fix/black-pines-mp40-hands-source-reload-20261011
     paths:
       - "xogot/scripts/round_manager.gd"
       - "xogot/ci/black_pines_original_zombies_apk_gate.gd"
@@ -109,8 +109,8 @@ jobs:
           txt=preset.read_text()
           old='package/unique_name="com.xziel.youwontwin"'
           assert txt.count(old)==1, "Refuse to change unknown export identity"
-          txt=txt.replace(old,'package/unique_name="com.xziel.blackpines.menump40"')
-          txt=txt.replace('package/name="YOU WON\'T WIN"','package/name="BLACK PINES MENU MP40"')
+          txt=txt.replace(old,'package/unique_name="com.xziel.blackpines.mp40hands"')
+          txt=txt.replace('package/name="YOU WON\'T WIN"','package/name="BLACK PINES MP40 HANDS"')
           preset.write_text(txt)
           print("BLACK_PINES_TOUCH_FIX_SIDE_BY_SIDE_PACKAGE_READY")
           PY
@@ -225,7 +225,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Black-Pines-Godot-Android-Menus-MP40-Magazine-Reload-APK
+          name: Black-Pines-Godot-MP40-Real-Animated-Hands-Reload-Android-APK
           path: |
             build/android/BLACK-PINES-ORIGINAL-ZOMBIES-test.apk
             build/android/BLACK-PINES-ORIGINAL-ZOMBIES-test.apk.sha256
