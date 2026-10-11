@@ -17,6 +17,7 @@ c_path.write_text(r'''// Xziel textured static-mesh bridge for Android/SDL.
 // by the headless Blender church pipeline. BSP remains gameplay/collision.
 
 #include "../../../nzportable_def.h"
+#include "../../../render/r_hyena.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -244,7 +245,7 @@ void Xziel_StaticMesh_Draw(void)
         if (R_CullBox(b->mins, b->maxs))
             continue;
         if (b->texture >= 0)
-            GL_Bind(b->texture);
+            Hyena_BindTexture(b->texture);
         glVertexPointer(3, GL_FLOAT, sizeof(xzsm_vertex_t), &b->vertices[0].x);
         glTexCoordPointer(2, GL_FLOAT, sizeof(xzsm_vertex_t), &b->vertices[0].u);
         glDrawElements(GL_TRIANGLES, b->index_count, GL_UNSIGNED_SHORT, b->indices);

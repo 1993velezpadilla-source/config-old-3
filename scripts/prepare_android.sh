@@ -7,6 +7,17 @@ DEPS="$BUILD/deps"
 PROJECT="$BUILD/android-project"
 APP="$PROJECT/app"
 
+# Optional new Vril prototype. Unset flags preserve the standard NZ:P build.
+XZIEL_SINGLE_MAP="$(printenv XZIEL_SINGLE_MAP || true)"
+XZIEL_DEV_BUILD="$(printenv XZIEL_DEV_BUILD || echo 0)"
+XZIEL_DEV_TOOLS="${XZIEL_DEV_TOOLS:-$XZIEL_DEV_BUILD}"
+if [[ -n "$XZIEL_SINGLE_MAP" && ! "$XZIEL_SINGLE_MAP" =~ ^[A-Za-z0-9_-]+$ ]]; then
+    echo "Invalid XZIEL_SINGLE_MAP" >&2; exit 1
+fi
+if [[ "$XZIEL_DEV_BUILD" == 1 && -z "$XZIEL_SINGLE_MAP" ]]; then
+    echo "Dev build requires an explicit map" >&2; exit 1
+fi
+
 # Nacht golden-reference stress builds are opt-in. Normal builds remain at the
 # classic 24-AI ceiling and do not enable benchmark gameplay controls.
 if [[ "${XZIEL_NACHT_BENCHMARK:-0}" == "1" ]]; then
@@ -15,6 +26,15 @@ else
     XZIEL_MAX_AI_COUNT="${XZIEL_MAX_AI_COUNT:-24}"
 fi
 export XZIEL_MAX_AI_COUNT
+
+# Opt-in one-map Vril prototype; leave the normal Android distribution intact.
+if [[ -n "${XZIEL_SINGLE_MAP:-}" ]]; then
+    [[ "$XZIEL_SINGLE_MAP" =~ ^[A-Za-z0-9_-]+$ ]] || { echo "Unsafe single-map id" >&2; exit 1; }
+    [[ "${XZIEL_DEV_TOOLS:-0}" =~ ^[01]$ ]] || { echo "XZIEL_DEV_TOOLS must be 0 or 1" >&2; exit 1; }
+elif [[ "${XZIEL_DEV_TOOLS:-0}" == 1 ]]; then
+    echo "XZIEL_DEV_TOOLS requires XZIEL_SINGLE_MAP" >&2
+    exit 1
+fi
 
 rm -rf "$BUILD"
 mkdir -p "$DEPS"
@@ -52,6 +72,10 @@ python3 "$ROOT/scripts/patch_vril_mobile_v021.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_mobile_v022.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_mobile_v024.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_sanctum_staticmesh.py" "$DEPS/vril"
+if [[ -n "$XZIEL_SINGLE_MAP" ]]; then
+    echo "==> Installing native C single-map menu and developer controls"
+    python3 "$ROOT/scripts/patch_vril_native_single_map.py" "$DEPS/vril" "$XZIEL_SINGLE_MAP"
+fi
 
 echo "==> Patching and compiling Xziel mobile QuakeC"
 python3 -m pip install --quiet colorama==0.4.6 fastcrc==0.3.0 pandas==2.1.4 cairosvg==2.8.2
@@ -64,6 +88,10 @@ python3 "$ROOT/scripts/patch_quakec_mobile_v024.py" "$DEPS/quakec"
 if [[ "${XZIEL_NACHT_BENCHMARK:-0}" == "1" ]]; then
     echo "==> Enabling Nacht golden-reference stress controls"
     python3 "$ROOT/scripts/patch_quakec_nacht_benchmark.py" "$DEPS/quakec"
+fi
+if [[ -n "$XZIEL_SINGLE_MAP" ]]; then
+    echo "==> Installing one-map menu overlay (developer=$XZIEL_DEV_TOOLS)"
+    python3 "$ROOT/scripts/patch_vril_one_map_devmenu.py" "$DEPS/quakec" "$XZIEL_SINGLE_MAP" "$XZIEL_DEV_TOOLS"
 fi
 chmod +x "$DEPS/quakec/bin/fteqcc-cli-lin" "$DEPS/quakec/tools/qc-compiler-gnu.sh"
 (
@@ -119,6 +147,23 @@ cp "$ROOT/android/AndroidManifest.xml" "$APP/src/main/AndroidManifest.xml"
 cp "$ROOT/android/strings.xml" "$APP/src/main/res/values/strings.xml"
 cp "$ROOT/android/NZPActivity.java"    "$APP/src/main/java/org/libsdl/app/NZPActivity.java"
 
+# Install alongside, never overwrite the existing Xziel/NZ:P test APK.
+if [[ -n "$XZIEL_SINGLE_MAP" ]]; then
+    python3 - "$APP/build.gradle" "$APP/src/main/res/values/strings.xml" <<'PY_APP_ID'
+from pathlib import Path
+import sys
+gradle = Path(sys.argv[1])
+strings = Path(sys.argv[2])
+s = gradle.read_text(encoding="utf-8")
+old = 'applicationId "com.xziel.nzp"'
+if s.count(old) != 1:
+    raise SystemExit("Unexpected Gradle applicationId; cannot isolate prototype")
+gradle.write_text(s.replace(old, 'applicationId "com.xziel.vrilzombies"', 1), encoding="utf-8")
+s = strings.read_text(encoding="utf-8")
+strings.write_text(s.replace("Xziel: NZP Native", "ZOMBIES NATIVE DEV v2"), encoding="utf-8")
+PY_APP_ID
+fi
+
 echo "==> Assembling official NZ:P game data for the APK"
 ASSET_WORK="$BUILD/nzp-data"
 DOWNLOADS="$BUILD/downloads"
@@ -136,6 +181,9 @@ unzip -q "$DOWNLOADS/standard-nzp-qc.zip" -d "$ASSET_WORK/nzp"
 # build time. This keeps the repository text-only while packaging professional
 # touch-control art into the APK.
 python3 "$ROOT/scripts/build_xziel_icons.py" "$ASSET_WORK/nzp/gfx/xziel"
+if [[ -n "$XZIEL_SINGLE_MAP" ]]; then
+    python3 "$ROOT/scripts/skin_vril_touch_controls.py" "$ASSET_WORK/nzp/gfx/xziel"
+fi
 
 # Replace the stock gameplay bytecode with our GPL QuakeC build. All other
 # release-side data stays from the official NZ:P package.
@@ -168,6 +216,13 @@ if [[ -n "${XZIEL_EXTRA_ASSET_DIR:-}" ]]; then
     test -d "$XZIEL_EXTRA_ASSET_DIR"
     cp -a "$XZIEL_EXTRA_ASSET_DIR"/. "$ASSET_WORK/nzp/"
     echo "==> Bundled development asset overlay: $XZIEL_EXTRA_ASSET_DIR"
+fi
+
+# Guarded single-map extraction: retains shared weapon models/audio and
+# performs a fatal check if the selected BSP or protected MP40 assets are missing.
+if [[ -n "${XZIEL_SINGLE_MAP:-}" ]]; then
+    echo "==> Packaging exactly one map while preserving every shared weapon model"
+    python3 "$ROOT/scripts/prune_nzp_single_map.py" "$ASSET_WORK/nzp" "$XZIEL_SINGLE_MAP"
 fi
 
 (
