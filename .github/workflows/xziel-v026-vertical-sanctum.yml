@@ -120,8 +120,8 @@ jobs:
       - name: Retrieve actual Oct-02 SANCTUM V2 three-floor source (not old St Giles)
         uses: actions/download-artifact@v5
         with:
-          repository: \${{ github.repository }}
-          github-token: \${{ github.token }}
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
           run-id: 36965470406
           name: XZIEL-Sanctum-Vertical-Gameplay
           path: original-sanctum-vertical
