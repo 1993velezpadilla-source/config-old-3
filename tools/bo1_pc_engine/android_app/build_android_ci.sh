@@ -52,9 +52,17 @@ cp -a tools/bo1_pc_engine/android_app/. "$APP/"
 JAR="$APP/app/src/main/jniLibs/arm64-v8a"
 mkdir -p "$JAR"
 cp "$LIB" "$JAR/"
-if readelf -d "$LIB" | grep -Fq 'libc++_shared.so'; then
- RUNTIME="$NDK/sources/cxx-stl/llvm-libc++/libs/arm64-v8a/libc++_shared.so"
- test -r "$RUNTIME"
+readelf -d "$LIB" > "$REPORT/arm64-dynamic-libs.txt"
+if grep -Fq 'libc++_shared.so' "$REPORT/arm64-dynamic-libs.txt"; then
+ RUNTIME="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so"
+ if [ ! -r "$RUNTIME" ]; then
+   RUNTIME="$NDK/sources/cxx-stl/llvm-libc++/libs/arm64-v8a/libc++_shared.so"
+ fi
+ if [ ! -r "$RUNTIME" ]; then
+   echo "ERROR: libc++_shared.so required by BO1 .so but absent in NDK" >&2
+   find "$NDK" -name libc++_shared.so | head -n 12 || true
+   exit 10
+ fi
  cp "$RUNTIME" "$JAR/"
  echo 'C++ shared runtime copied' >> "$REPORT/arm64-abi.txt"
 fi
