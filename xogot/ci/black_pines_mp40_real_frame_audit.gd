@@ -166,7 +166,7 @@ func _run() -> void:
         if int(weapon.get_meta("mp40_hands_reload_tag_weapon_keys", -1)) < 50:
             _fail(mode + " source tag_weapon keys missing")
             return
-        print("MP40_SOURCE_CORRECT_PAIRED_RELOAD", mode,
+        print("MP40_SOURCE_CORRECT_PAIRED_RELOAD mode=", mode,
             " gun_duration=", gun_player.current_animation_length,
             " hands_duration=", hand_player.current_animation_length,
             " keys=", weapon.get_meta("mp40_hands_reload_tag_weapon_keys", 0))
