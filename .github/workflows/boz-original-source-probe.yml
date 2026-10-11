@@ -1,0 +1,73 @@
+name: BOZ Original APK + OBB - Source Availability / ZIP Safety Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/boz-original-apk-obb-unify
+    paths:
+      - .github/workflows/boz-original-source-probe.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-original-downloads:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - name: Check alternate original BOZ APK and separate OBB file from archive
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p "$RUNNER_TEMP/boz-private"
+          cd "$RUNNER_TEMP/boz-private"
+          echo '## BOZ original Android APK + OBB source probe' >> "$GITHUB_STEP_SUMMARY"
+          echo 'This workflow does NOT create a new game, does NOT use an emulator, and does NOT publish any game data.' >> "$GITHUB_STEP_SUMMARY"
+
+          fetch_file() {
+            local label="$1" source="$2" file="$3"
+            echo "SOURCE_CHECK=$label"
+            if curl --fail --location --retry 2 --retry-delay 2 --connect-timeout 25 --max-time 300 --user-agent 'Mozilla/5.0' --output "$file" "$source"; then
+              echo "$label: DOWNLOADED bytes=$(stat -c %s "$file")"
+              sha256sum "$file"
+              if unzip -tqq "$file" >/dev/null 2>&1; then
+                echo "$label: ZIP_VALID=true"
+                echo "$label VALID ZIP; sha256=$(sha256sum "$file" | cut -d' ' -f1); bytes=$(stat -c %s "$file")" >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "$label: ZIP_VALID=false"
+                echo "$label downloaded but ZIP INVALID" >> "$GITHUB_STEP_SUMMARY"
+              fi
+            else
+              echo "$label: DOWNLOAD_FAILED"
+              echo "$label download failed" >> "$GITHUB_STEP_SUMMARY"
+              rm -f "$file"
+            fi
+          }
+
+          fetch_file APK_ORIGINAL_CANDIDATE \
+            'https://dl.apkvision.org/call-of-duty-black-ops-zombies/call-of-duty-black-ops-zombies-v1-0-111.apk' \
+            "$RUNNER_TEMP/boz-private/boz-original.apk"
+          fetch_file OBB_ARCHIVE_CANDIDATE \
+            'https://dl.apkvision.org/call-of-duty-black-ops-zombies/00924-Call-of-Duty-BOZ-v1-0-11-cache1.zip' \
+            "$RUNNER_TEMP/boz-private/boz-cache.zip"
+          fetch_file BOZ_ANDROID_PORT_RELEASE \
+            'https://github.com/eugene373/COD-BOZ-Partially-Decompiled/releases/download/v0.5-s3e-tools/app-release.apk' \
+            "$RUNNER_TEMP/boz-private/boz-updated-port.apk"
+
+          python3 - <<'PY'
+          import glob, hashlib, os, zipfile
+          root=os.environ["RUNNER_TEMP"] + "/boz-private/"
+          for item in sorted(glob.glob(root+"*")):
+              print("FILE", os.path.basename(item), "bytes", os.stat(item).st_size)
+              if not zipfile.is_zipfile(item):
+                  continue
+              with zipfile.ZipFile(item) as z:
+                  names=z.namelist()
+              libabis=sorted({p.split('/')[1] for p in names if p.startswith('lib/') and p.count('/')>=2})
+              obb=[p for p in names if p.lower().endswith('.obb')]
+              dz=[p for p in names if p.lower().endswith('.dz')]
+              print("ZIP_AUDIT",os.path.basename(item),"entries",len(names),"abis",','.join(libabis),"obb",len(obb),"dz",len(dz))
+              print("OBB_ENTRIES",obb[:10])
+          PY
+          echo 'Probe complete. All downloaded binaries were ephemeral and are not uploaded to GitHub artifacts.' >> "$GITHUB_STEP_SUMMARY"
