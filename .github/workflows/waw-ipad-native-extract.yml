@@ -1,0 +1,66 @@
+name: WAW iPad HD Native Port Phase 1 - Unpack and Validate
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/waw-ipad-hd-native-android-port-v1
+    paths:
+      - tools/waw_ios/**
+      - .github/workflows/waw-ipad-native-extract.yml
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  actual-source-extraction:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v5
+      - name: Reuse verified original iOS IPAs, no redownload
+        uses: actions/download-artifact@v4
+        with:
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          run-id: 38110245544
+          name: COD-World-at-War-Zombies-iPhone-iPad-IPA-originals
+          path: /tmp/waw-ipas
+      - name: Extract ACTUAL ARMv6 code and original Marmalade DTRZ resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/waw-ipas
+          sha1sum --check SHA1SUMS
+          cd "$GITHUB_WORKSPACE"
+          python3 tools/waw_ios/inspect_and_extract_ipa.py /tmp/waw-ipas/COD_WAW_Zombies_HD_iPad_v1.5.0.ipa /tmp/waw-unpacked/ipad
+          python3 tools/waw_ios/inspect_and_extract_ipa.py /tmp/waw-ipas/COD_WAW_Zombies_iPhone_v1.5.0.ipa /tmp/waw-unpacked/iphone
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          base=Path('/tmp/waw-unpacked')
+          ipad=json.loads((base/'ipad/manifest.json').read_text())
+          iphone=json.loads((base/'iphone/manifest.json').read_text())
+          assert ipad['binary']['cpu']=='ARMv6 32-bit'
+          assert ipad['binary']['encryption_id']==0
+          assert ipad['bundle_id']=='com.activision.kiwipad'
+          assert len(ipad['archives'])==5
+          assert sum(len(a['entries']) for a in ipad['archives'])==45
+          assert {x['name'] for x in ipad['binary']['sections']}=={'s3e_code','s3e_data'}
+          assert next(x['length'] for x in ipad['binary']['sections'] if x['name']=='s3e_code')==2391896
+          assert len(iphone['archives'])==9
+          assert any('derriese' in x['archive'] for x in iphone['archives'])
+          assert not any('derriese' in x['archive'] for x in ipad['archives'])
+          print("GREEN: iPad 45 verified DTRZ resources; ARMv6 S3E native sections extracted")
+          print("GREEN: iPhone 4-map source comparison; iPad IPA provides only Nacht and Verruckt")
+          print("NO APK GENERATED. Native Android ARM64 game port still required.")
+          PY
+      - name: Publish manifest only, do not redistribute game files
+        uses: actions/upload-artifact@v4
+        with:
+          name: WAW-iPad-HD-Port-Phase1-Audit-Only
+          path: |
+            /tmp/waw-unpacked/ipad/manifest.json
+            /tmp/waw-unpacked/iphone/manifest.json
+          if-no-files-found: error
+          retention-days: 14
