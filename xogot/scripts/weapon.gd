@@ -366,6 +366,57 @@ func _play_asset_animation(role: String, blend: float = 0.06) -> bool:
 		played = _play_aux_animation(_hands_animation_player, role, blend) or played
 	return played
 
+func _normalize_mp40_source_magazine_tracks() -> void:
+	# WaW/Aether MP40 GLB contains real 80-frame (3.29s) / 102-frame
+	# (4.21s) magazine motion. Its original ActorX PSA translations landed in
+	# the GLB as centimeters although the skinned mesh bind pose is in meters.
+	# Translate the authored *delta*, not a fabricated eject offset, from
+	# centimeters into meters and anchor it to the GLB's actual j_clip bind.
+	if _weapon_id != "mp40" or _weapon_model_root == null or _asset_animation_player == null:
+		return
+	var skeleton: Skeleton3D = null
+	var stack: Array[Node] = [_weapon_model_root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		if n is Skeleton3D and (n as Skeleton3D).find_bone("j_clip") >= 0:
+			skeleton = n as Skeleton3D
+			break
+		for c: Node in n.get_children():
+			stack.append(c)
+	if skeleton == null:
+		push_warning("XZOGOT_MP40_RELOAD_CLIP_BONE_MISSING")
+		return
+	var bind: Vector3 = skeleton.get_bone_rest(skeleton.find_bone("j_clip")).origin
+	var prepared: int = 0
+	for name: String in ["PSA_viewmodel_mp40_reload", "PSA_viewmodel_mp40_reload_empty"]:
+		if not _asset_animation_player.has_animation(name):
+			continue
+		var anim: Animation = _asset_animation_player.get_animation(name)
+		if anim == null or anim.has_meta("xz_mp40_magazine_bind_fixed"):
+			continue
+		for track: int in range(anim.get_track_count()):
+			if anim.track_get_type(track) != Animation.TYPE_POSITION_3D:
+				continue
+			if not str(anim.track_get_path(track)).to_lower().contains("j_clip"):
+				continue
+			var keys: int = anim.track_get_key_count(track)
+			if keys < 3:
+				continue
+			var first: Vector3 = anim.track_get_key_value(track, 0) as Vector3
+			# Never rescale an already meter-space import.
+			if first.length() < 2.0:
+				continue
+			for key: int in range(keys):
+				var authored: Vector3 = anim.track_get_key_value(track, key) as Vector3
+				anim.track_set_key_value(track, key, bind + (authored - first) * 0.01)
+			anim.set_meta("xz_mp40_magazine_bind_fixed", true)
+			prepared += 1
+			set_meta("mp40_magazine_authored_motion_ready", true)
+			set_meta("mp40_magazine_keyframes_" + name, keys)
+			print("XZOGOT_MP40_MAGAZINE_SOURCE_DELTA_METERS ", name, " frames=", keys, " length=", anim.length)
+	if prepared == 0 and not bool(get_meta("mp40_magazine_authored_motion_ready", false)):
+		push_warning("XZOGOT_MP40_MAGAZINE_MOTION_NOT_PREPARED")
+
 func _ensure_asset_idle() -> void:
 	# Keep gun and source hands idle independently. The old implementation
 	# watched only the gun AnimationPlayer and then called _play_asset_animation,
@@ -1299,6 +1350,9 @@ func _refresh_view_assets(def: Dictionary) -> void:
 			set_meta("weapon_asset_lane", "missing_real_asset")
 			push_warning("XZOGOT_REAL_WEAPON_ASSET_REQUIRED " + _weapon_id + " " + model_path)
 
+	# Imported original gun clip and its skeletal magazine must be normalized
+	# before any authored gun animation is played.
+	_normalize_mp40_source_magazine_tracks()
 	var hands_path := WeaponAssetRegistry.preferred_hands_path(_weapon_id)
 	var hands_res: Resource = _load_optional_asset(hands_path)
 	if hands_res is PackedScene and _view_root != null:
@@ -1851,10 +1905,30 @@ func request_reload() -> void:
 		return
 	_reloading = true
 	_trigger_held = false
-	_reload_timer = reload_time * _player_modifier("get_reload_multiplier")
+	var speed_multiplier: float = maxf(0.10, _player_modifier("get_reload_multiplier"))
+	_reload_timer = reload_time * speed_multiplier
 	var reload_role: String = "reload_empty" if _magazine <= 0 else "reload"
 	if not _play_asset_animation(reload_role, 0.06) and reload_role != "reload":
 		_play_asset_animation("reload", 0.06)
+	if _weapon_id == "mp40":
+		# Never terminate a 3.29s/4.21s real MP40 gun-magazine animation
+		# after the old 1.75s gameplay timer. Keep hands and gun in sync.
+		var authored_length: float = 0.0
+		if _asset_animation_player != null:
+			var playing: String = str(_asset_animation_player.current_animation)
+			if not playing.is_empty():
+				authored_length = _asset_animation_player.current_animation_length
+		if _hands_animation_player != null:
+			authored_length = maxf(authored_length, _hands_animation_player.current_animation_length)
+		if authored_length > 0.5:
+			_reload_timer = authored_length * speed_multiplier
+		if _asset_animation_player != null:
+			_asset_animation_player.speed_scale = 1.0 / speed_multiplier
+		if _hands_animation_player != null:
+			_hands_animation_player.speed_scale = 1.0 / speed_multiplier
+		set_meta("mp40_reload_authored_length_s", authored_length)
+		set_meta("mp40_reload_source_clip", _asset_animation_player.current_animation if _asset_animation_player != null else "")
+		print("XZOGOT_MP40_MAGAZINE_RELOAD_TIMELINE ", authored_length, " scaled=", _reload_timer)
 	if _reload_audio != null and _reload_audio.stream != null:
 		_reload_audio.play()
 
@@ -1870,6 +1944,11 @@ func _finish_reload() -> void:
 	reserve_ammo -= loaded
 	_reloading = false
 	_reload_timer = 0.0
+	if _weapon_id == "mp40":
+		if _asset_animation_player != null:
+			_asset_animation_player.speed_scale = 1.0
+		if _hands_animation_player != null:
+			_hands_animation_player.speed_scale = 1.0
 
 func is_ads_active() -> bool:
 	if _body != null and _body.has_method("is_ads_active"):
