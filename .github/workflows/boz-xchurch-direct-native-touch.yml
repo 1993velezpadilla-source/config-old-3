@@ -132,6 +132,11 @@ jobs:
             | tee /tmp/xchurch-direct/proof/direct-touch-patch.txt
           grep -q "XZIEL_DIRECT_NATIVE_TAP_PATCH_OK" \
             /tmp/xchurch-direct/proof/direct-touch-patch.txt
+          python3 tools/boz_mod/patch_native_broadcast_touch.py \
+            /tmp/boz-direct/app/src/main/java/com/ideaworks3d/studio/IsDeviceActivity.kt \
+            | tee /tmp/xchurch-direct/proof/broadcast-touch-patch.txt
+          grep -q "XZIEL_BROADCAST_NATIVE_TOUCH_PATCH_GREEN" \
+            /tmp/xchurch-direct/proof/broadcast-touch-patch.txt
 
       - name: Build diagnostic ARM64 APK
         shell: bash
@@ -323,6 +328,26 @@ jobs:
             "$ADB" exec-out screencap -p > "$PROOF/screens/native_after_continue_35s.png" 2>/dev/null
             AFTER="$(sha256sum "$PROOF/screens/native_after_continue_35s.png" | cut -d " " -f1)"
             echo "AFTER_NATIVE_CONTINUE_HASH=$AFTER" | tee -a "$PROOF/status.txt"
+            # A/B of the SAME native input without Android Activity pause or
+            # resume. Every prior am start produced a spurious lifecycle
+            # transition; this registration is INTERNAL/QA, not for release.
+            for target in "570:370:takeo" "1100:790:tutorial" "1760:472:regular" "1760:995:continue"; do
+              IFS=: read -r TX TY LABEL <<< "$target"
+              "$ADB" shell am broadcast -a com.activision.boz.XZIEL_NATIVE_TOUCH -p com.activision.boz --ei xzielX "$TX" --ei xzielY "$TY" > "$PROOF/broadcast_${LABEL}.txt" 2>&1
+              sleep 7
+              "$ADB" exec-out screencap -p > "$PROOF/screens/broadcast_${LABEL}_07s.png" 2>/dev/null || true
+              echo "XZIEL_NATIVE_NO_LIFECYCLE_${LABEL}_SENT" | tee -a "$PROOF/status.txt"
+            done
+            sleep 25
+            "$ADB" exec-out screencap -p > "$PROOF/screens/broadcast_after_continue_32s.png" 2>/dev/null || true
+            BROADCAST_AFTER="$(sha256sum "$PROOF/screens/broadcast_after_continue_32s.png" | cut -d " " -f1)"
+            echo "BROADCAST_NATIVE_FINAL_HASH=$BROADCAST_AFTER" | tee -a "$PROOF/status.txt"
+            if [ "$BROADCAST_AFTER" = "$BEFORE" ]; then
+              echo "XZIEL_BROADCAST_JNI_SELECTOR_NOT_MOVED_RED" | tee -a "$PROOF/status.txt"
+            else
+              echo "XZIEL_BROADCAST_JNI_SELECTOR_MOVED_VISUAL_QA_REQUIRED" | tee -a "$PROOF/status.txt"
+            fi
+
             if [ "$BEFORE" = "$AFTER" ]; then
               echo "XZIEL_NATIVE_JNI_TOUCH_SELECTOR_UNCHANGED_RED" | tee -a "$PROOF/status.txt"
             else
