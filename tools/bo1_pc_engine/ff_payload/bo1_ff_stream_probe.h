@@ -13,6 +13,14 @@ struct BO1FFPrefixReport {
     std::uint32_t deflated_input_bytes_consumed;
     std::uint32_t first_stream_finished;
     std::uint64_t payload_prefix_fnv1a64;
+    // On-disk XAssetList starts immediately after the 36-byte XFile header.
+    // The source layout is 16 bytes with 32-bit serialized fields;
+    // never reinterpret these as 64-bit native pointers.
+    std::uint32_t asset_list_header_plausible;
+    std::uint32_t script_string_count;
+    std::uint32_t serialized_script_string_pointer;
+    std::uint32_t asset_count;
+    std::uint32_t serialized_asset_pointer;
 };
 // Test at most 131072 bytes of decompressed payload, never emit game data.
 // Returns BO1_FF_HEADER_OK or a BO1FastfileProbeResult error code.
