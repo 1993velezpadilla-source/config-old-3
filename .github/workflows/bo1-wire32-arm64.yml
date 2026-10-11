@@ -1,0 +1,36 @@
+name: BO1 Wire32 ARM64 XBlock Offset Safety (NOT GAMEPLAY)
+on:
+  push:
+    branches:
+      - feature/bo1-original-engine-arm64-feasibility-v1
+    paths:
+      - tools/bo1_pc_engine/ff_payload/bo1_wire32_relocation.h
+      - tools/bo1_pc_engine/ff_payload/bo1_wire32_relocation_test.cpp
+      - .github/workflows/bo1-wire32-arm64.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-wire32-boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run synthetic wire32 offset tests with sanitizers
+        run: |
+          set -euo pipefail
+          P=tools/bo1_pc_engine/ff_payload
+          g++ -std=c++20 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer "$P/bo1_wire32_relocation_test.cpp" -o /tmp/bo1_wire32_test
+          /tmp/bo1_wire32_test
+      - name: Cross compile wire32 test for Android ARM64
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          "$SDKMANAGER" 'ndk;27.2.12479018'
+          C="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++"
+          "$C" -std=c++20 -Wall -Wextra -Werror -fsyntax-only tools/bo1_pc_engine/ff_payload/bo1_wire32_relocation_test.cpp
+          echo 'BO1_WIRE32_ANDROID_ARM64_SYNTAX=PASS'
+      - name: Explicit runtime status
+        run: |
+          echo 'Synthetic wire32 packed offset validation only.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'NO XAsset loading, NO retail Kino test, NO gameplay APK.' >> "$GITHUB_STEP_SUMMARY"
