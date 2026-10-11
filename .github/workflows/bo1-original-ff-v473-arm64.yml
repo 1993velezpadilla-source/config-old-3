@@ -1,0 +1,141 @@
+name: BO1 Original Fastfile V473 Decode Preflight - ARM64
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/bo1-original-engine-arm64-feasibility-v1
+    paths:
+      - tools/bo1_pc_engine/ff_payload/**
+      - .github/workflows/bo1-original-ff-v473-arm64.yml
+
+permissions:
+  contents: read
+
+jobs:
+  original-ff-preload-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get pinned real BO1 PC engine (no file redistribution)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/MisaDev4/bo1-zombies-decompiled.git "$RUNNER_TEMP/upstream"
+          test "$(git -C "$RUNNER_TEMP/upstream" rev-parse HEAD)" = "102f6992be332610aff587e681e3180b15f395bb"
+          mkdir -p "$RUNNER_TEMP/ff-stage" "$RUNNER_TEMP/ff-report"
+          python3 tools/bo1_pc_engine/fastfile/stage_db_file_functions.py \
+            --upstream "$RUNNER_TEMP/upstream" --staged "$RUNNER_TEMP/ff-stage"
+          python3 tools/bo1_pc_engine/ff_payload/stage_original_auth.py \
+            --upstream "$RUNNER_TEMP/upstream" --staged "$RUNNER_TEMP/ff-stage"
+          cp "$RUNNER_TEMP/ff-stage/manifest.json" "$RUNNER_TEMP/ff-report/file-functions-manifest.json"
+          cp "$RUNNER_TEMP/ff-stage/auth-extraction.json" "$RUNNER_TEMP/ff-report/auth-init-manifest.json"
+
+      - name: Host test — read version 473 authentic BO1 header using its real zlib initializer
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=tools/bo1_pc_engine/fastfile
+          P=tools/bo1_pc_engine/ff_payload
+          S="$RUNNER_TEMP/ff-stage"
+          g++ -std=c++20 -O2 -DNDEBUG -Wall -Wextra \
+            -I"$F" -I"$P" \
+            "$S/original_bo1_db_file.cpp" "$S/original_bo1_db_auth_inflate.cpp" \
+            "$F/bo1_ff_compat.cpp" "$P/bo1_ff_header_probe.cpp" \
+            "$P/ff_header_host_test.cpp" -pthread -lz \
+            -o "$S/ff_v473_host_test"
+          "$S/ff_v473_host_test" | tee "$RUNNER_TEMP/ff-report/host-results.txt"
+          grep -q '^ORIGINAL_BO1_IWffu100_V473_DEFLATED_XFILE_HEADER_READ=PASS$' \
+            "$RUNNER_TEMP/ff-report/host-results.txt"
+
+      - name: Install official Android NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          "$SDKMANAGER" 'ndk;27.2.12479018'
+
+      - name: Compile and link exact BO1 functions plus FF v473 preflight to Android ARM64
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=tools/bo1_pc_engine/fastfile
+          P=tools/bo1_pc_engine/ff_payload
+          S="$RUNNER_TEMP/ff-stage"
+          N="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          C="$N/aarch64-linux-android26-clang++"
+          COMMON="-std=c++20 -O2 -DNDEBUG -fPIC -fvisibility=hidden -ffunction-sections -fdata-sections"
+          "$C" $COMMON -I"$F" -I"$P" -c "$S/original_bo1_db_file.cpp" -o "$S/bo1_original_file.o"
+          "$C" $COMMON -I"$F" -I"$P" -c "$S/original_bo1_db_auth_inflate.cpp" -o "$S/bo1_original_auth.o"
+          "$C" $COMMON -I"$F" -I"$P" -c "$F/bo1_ff_compat.cpp" -o "$S/posix_bridge.o"
+          "$C" $COMMON -I"$F" -I"$P" -c "$P/bo1_ff_header_probe.cpp" -o "$S/ff_v473_header.o"
+          "$C" -shared -pthread -Wl,--gc-sections -Wl,--no-undefined \
+            "$S/bo1_original_file.o" "$S/bo1_original_auth.o" \
+            "$S/posix_bridge.o" "$S/ff_v473_header.o" -lz \
+            -o "$S/libbo1_original_ff_v473_preflight.so"
+          file "$S/libbo1_original_ff_v473_preflight.so" \
+            | tee "$RUNNER_TEMP/ff-report/abi.txt"
+          grep -q 'ELF 64-bit' "$RUNNER_TEMP/ff-report/abi.txt"
+          grep -Eqi 'ARM aarch64|ARM64' "$RUNNER_TEMP/ff-report/abi.txt"
+          "$N/llvm-nm" -D "$S/libbo1_original_ff_v473_preflight.so" \
+            > "$RUNNER_TEMP/ff-report/exports.txt"
+          for symbol in bo1_original_fastfile_header_probe \
+              bo1_original_zone_exists bo1_original_zone_size \
+              bo1_ff_root_configure; do
+            grep -q "$symbol" "$RUNNER_TEMP/ff-report/exports.txt"
+          done
+          sha256sum "$S/libbo1_original_ff_v473_preflight.so" \
+            | sed 's/  .*$/  libbo1_original_ff_v473_preflight.so/' \
+            > "$RUNNER_TEMP/ff-report/sha256.txt"
+          echo 'UPSTREAM_BO1_REAL_AUTH_INFLATE_AND_V473_HEADER_ARM64=PASS' \
+            | tee "$RUNNER_TEMP/ff-report/arm64-result.txt"
+          echo 'FULL_ORIGINAL_BO1_MAP_LOADER_ARM64=NOT_PORTED' >> "$GITHUB_STEP_SUMMARY"
+          echo 'KINO_DER_TOTEN_PLAYABLE=false' >> "$GITHUB_STEP_SUMMARY"
+          echo 'ANDROID_APK_BUILT=false' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish truthful scope and exact next bottleneck
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          R="$RUNNER_TEMP/ff-report"
+          mkdir -p "$R"
+          {
+            echo '# Black Ops 1 Original FF V473 Header ARM64 Gate'
+            echo
+            echo 'Pinned upstream: MisaDev4/bo1-zombies-decompiled@102f6992be332610aff587e681e3180b15f395bb'
+            echo
+            echo 'Original upstream functions, preserved byte-for-byte:'
+            echo '- DB_FileExists() / DB_FileSize() in src/database/db_registry.cpp'
+            echo '- DB_AuthLoad_InflateInit() in src/database/db_auth.cpp'
+            echo
+            echo 'New platform bridge: bounded POSIX file read and an implementation of the FF header contract shown by DB_LoadXFileInternal().'
+            echo 'Checks exact IWffu100 magic, version 473, inflates 36-byte XFile header using original init.'
+            echo 'Explicitly rejects secure IWff0100, malformed zlib, wrong version, traversal and truncated files.'
+            echo
+            echo '## Host runtime tests (synthetic data, NOT Kino)'
+            cat "$R/host-results.txt" 2>/dev/null || true
+            echo
+            echo '## Android ARM64 compile+link'
+            cat "$R/arm64-result.txt" 2>/dev/null || true
+            cat "$R/abi.txt" 2>/dev/null || true
+            cat "$R/sha256.txt" 2>/dev/null || true
+            echo
+            echo '## Actual blocker to full map loading'
+            echo 'DB_LoadXFileInternal -> DB_LoadXFileSetSize(file.size) -> DB_AllocXBlocks -> Load_XAssetListCustom -> Load_XAsset.'
+            echo 'Assets/memory formats are recovered from PC x86 and not yet adapted for Android ARM64.'
+            echo 'No genuine BO1 .ff file was supplied to this test; this does NOT prove Kino loading.'
+            echo 'Not an APK. No copyrighted BO1 game assets/source or compiled engine are distributed.'
+          } > "$R/status.md"
+          cat "$R/status.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report only; never upload games/assets/binaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BO1-ORIGINAL-V473-XFILE-HEADER-ARM64-REPORT-NO-APK
+          path: ${{ runner.temp }}/ff-report
+          retention-days: 21
+          if-no-files-found: warn
