@@ -6,6 +6,7 @@ extends SceneTree
 const BLACK_PINES := preload("res://black_pines.tscn")
 const FRACTIONS := [0.02, 0.18, 0.34, 0.50, 0.68, 0.88]
 var _positions: Dictionary = {"tactical": [], "empty": []}
+var _offscreen_critical: Dictionary = {"tactical": false, "empty": false}
 
 func _init() -> void:
     call_deferred("_run")
@@ -56,6 +57,14 @@ func _capture_frame(
     var clip_position_camera: Vector3 = camera.to_local(clip_position_world)
     (_positions[mode] as Array).append(clip_position_camera)
     var clip_screen: Vector2 = camera.unproject_position(clip_position_world)
+    var rect_size: Vector2 = camera.get_viewport().get_visible_rect().size
+    if frame_idx == 2:
+        var out_of_view := (clip_screen.x < 0.0 or clip_screen.x > rect_size.x
+            or clip_screen.y < 0.0 or clip_screen.y > rect_size.y
+            or camera.is_position_behind(clip_position_world))
+        _offscreen_critical[mode] = out_of_view
+        print("MP40_CRITICAL_MAGAZINE_SCREEN mode=", mode, " frame=34%",
+            " xy=", clip_screen, " window=", rect_size, " offscreen=", out_of_view)
     var gun_root: Node3D = weapon.get("_weapon_model_root") as Node3D
     var hand_root: Node3D = weapon.get("_hands_model_root") as Node3D
     var barrel_local_camera: Vector3 = camera.global_transform.basis.orthonormalized().inverse() * gun_root.global_transform.basis.orthonormalized() * Vector3.RIGHT
@@ -175,6 +184,10 @@ func _run() -> void:
             _fail(mode + " static magazine / false animation: camera motion only " + str(max_movement))
             return
     print("MP40_RUNTIME_FRAMES_CAPTURED_12 visual_approval=REQUIRED actual_godot=true new_apk=false")
+    if bool(_offscreen_critical["tactical"]) or bool(_offscreen_critical["empty"]):
+        _fail("real source animation still drops j_clip beyond camera viewport at 34%: tactical="
+            + str(_offscreen_critical["tactical"]) + " empty=" + str(_offscreen_critical["empty"]))
+        return
     scene.queue_free()
     await process_frame
     quit(0)
