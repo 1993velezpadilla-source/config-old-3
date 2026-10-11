@@ -1,0 +1,118 @@
+name: XChurch Android 16 Real Loading Crash Repro
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/boz-mod-runtime
+    paths:
+      - ".github/workflows/boz-xchurch-android16-crash-repro.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  api36-real-crash:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v5
+      - name: Enable emulator hardware acceleration
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/xchurch-api36/screens
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          test -e /dev/kvm
+
+      - name: Restore already-built original ARM64 BOZ APK; no new assets
+        uses: actions/download-artifact@v4
+        with:
+          name: XChurch-Diagnostic-Touch-APK
+          repository: ${{ github.repository }}
+          run-id: 38107522847
+          github-token: ${{ github.token }}
+          path: /tmp/xchurch-android16/apk
+
+      - name: Install Android 16 original gameplay emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          SM="$(find "$SDK/cmdline-tools" -name sdkmanager -type f | sort -V | tail -n1)"
+          AM="$(find "$SDK/cmdline-tools" -name avdmanager -type f | sort -V | tail -n1)"
+          yes | "$SM" --licenses >/dev/null || true
+          "$SM" "platform-tools" "emulator" "system-images;android-36;google_apis;x86_64" > /tmp/xchurch-api36/sdk-install.log 2>&1
+          export ANDROID_AVD_HOME=/tmp/xchurch-api36/avd
+          mkdir -p "$ANDROID_AVD_HOME"
+          printf 'no\n' | "$AM" create avd --force --name boz-api36 --package "system-images;android-36;google_apis;x86_64" --device "pixel_4" > /tmp/xchurch-api36/avd-create.txt 2>&1
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+          "$SDK/platform-tools/adb" start-server
+          nohup "$SDK/emulator/emulator" @boz-api36 -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -no-metrics > /tmp/xchurch-api36/emulator.log 2>&1 &
+          echo "EMU_PID=$!" >> /tmp/xchurch-api36/status.txt
+          for t in $(seq 1 180); do
+            [[ "$("$SDK/platform-tools/adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]] && break
+            sleep 2
+          done
+          "$SDK/platform-tools/adb" shell getprop ro.product.cpu.abilist | tee /tmp/xchurch-api36/device-abi.txt
+          "$SDK/platform-tools/adb" shell getprop ro.build.version.release | tee /tmp/xchurch-api36/os-release.txt
+          "$SDK/platform-tools/adb" shell wm size 2280x1080
+          "$SDK/platform-tools/adb" shell wm density 440
+          echo "API36_BOOT_FINISHED" >> /tmp/xchurch-api36/status.txt
+
+      - name: Install and reproduce real original Black Ops Android map crash
+        shell: bash
+        run: |
+          set +e
+          OUT=/tmp/xchurch-api36
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          APK="$(find /tmp/xchurch-android16/apk -type f -name '*.apk' | head -n1)"
+          test -s "$APK" || exit 1
+          "$ADB" install --abi arm64-v8a -r "$APK" > "$OUT/install.txt" 2>&1
+          RC=$?
+          echo "INSTALL_RC=$RC" >> "$OUT/status.txt"
+          if [ "$RC" -ne 0 ]; then
+            echo "API36_ARM64_ABI_NOT_SUPPORTED_OR_INSTALL_FAILED" >> "$OUT/status.txt"
+          else
+            "$ADB" shell pm grant com.activision.boz android.permission.READ_EXTERNAL_STORAGE 2>/dev/null || true
+            "$ADB" shell pm grant com.activision.boz android.permission.WRITE_EXTERNAL_STORAGE 2>/dev/null || true
+            "$ADB" shell appops set com.activision.boz MANAGE_EXTERNAL_STORAGE allow 2>/dev/null || true
+            "$ADB" shell mkdir -p /sdcard/Android/obb/com.activision.boz || true
+            "$ADB" logcat -c
+            "$ADB" shell am force-stop com.activision.boz
+            "$ADB" shell am start -W -n com.activision.boz/.Main > "$OUT/launch.txt" 2>&1
+            for sec in 30 60 90 120; do
+              sleep 30
+              "$ADB" exec-out screencap -p > "$OUT/screens/boot_${sec}.png" || true
+              echo "BOZ_PID_BOOT_${sec}=$("$ADB" shell pidof com.activision.boz | tr -d '\r')" >> "$OUT/status.txt"
+            done
+            # Route actual touchscreen via in-process Marmalade JNI receiver.
+            for target in "1140:540:title" "570:165:single" "570:165:single_again" "690:530:newgame" "570:370:takeo" "1100:790:tutorial" "1760:472:regular" "1760:995:continue"; do
+              IFS=: read -r X Y LABEL <<< "$target"
+              "$ADB" shell am broadcast -a com.activision.boz.XZIEL_NATIVE_TOUCH -p com.activision.boz --ei xzielX "$X" --ei xzielY "$Y" > "$OUT/broadcast_${LABEL}.txt" 2>&1
+              sleep 10
+              "$ADB" exec-out screencap -p > "$OUT/screens/after_${LABEL}.png" || true
+              echo "BOZ_PID_AFTER_${LABEL}=$("$ADB" shell pidof com.activision.boz | tr -d '\r')" >> "$OUT/status.txt"
+            done
+            sleep 40
+            "$ADB" exec-out screencap -p > "$OUT/screens/after_continue_40s.png" || true
+            echo "BOZ_PID_AFTER_LOADING=$("$ADB" shell pidof com.activision.boz | tr -d '\r')" >> "$OUT/status.txt"
+          fi
+          "$ADB" logcat -d -v threadtime > "$OUT/logcat.txt" 2>&1 || true
+          "$ADB" logcat -b crash -d -v threadtime > "$OUT/logcat-crash-only.txt" 2>&1 || true
+          "$ADB" shell dumpsys dropbox --print data_app_crash > "$OUT/dropbox-crash.txt" 2>&1 || true
+          grep -Eai 'com.activision.boz|FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|AndroidRuntime|CANNOT LINK|dlopen|library|ANR|Resource|blackops|xz[iI]el' "$OUT/logcat.txt" | tail -1800 > "$OUT/logcat-focus.txt" || true
+          echo "XZIEL_API36_ORIGINAL_BOZ_CRASH_EVIDENCE_COLLECTED" >> "$OUT/status.txt"
+          cat "$OUT/status.txt"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: XChurch-Android16-Real-Crash-Proof
+          path: |
+            /tmp/xchurch-api36/
+          if-no-files-found: error
+          retention-days: 7
