@@ -1,0 +1,82 @@
+name: WAW iPad HD - TRUE Native Android ARM64 Bootstrap (NO Emulator)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/waw-ipad-hd-native-android-port-v1
+    paths:
+      - ports/waw_hd_native/**
+      - .github/workflows/waw-ipad-hd-native-arm64-bootstrap.yml
+
+permissions:
+  contents: read
+
+jobs:
+  native-arm64-bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ports/waw_hd_native
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Install pinned Android toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018' 'cmake;3.22.1'
+
+      - name: Build ORIGINAL native Android C++ ARM64 rendering library + APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace :app:assembleDebug
+
+      - name: Assert AArch64 native ELF only, no emulation and no original assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK='app/build/outputs/apk/debug/app-debug.apk'
+          test -s "$APK"
+          unzip -Z1 "$APK" > /tmp/apk-file-list.txt
+          grep -qx 'lib/arm64-v8a/libwaw_hd_port.so' /tmp/apk-file-list.txt
+          if grep -Eiq '(touchhle|\.ipa$|\.dz$|kiwi\.original|lib/armeabi|lib/x86|\.obb$)' /tmp/apk-file-list.txt; then
+            echo 'FAIL: unexpected compatibility runtime, iOS game file or ABI present'
+            exit 1
+          fi
+          unzip -p "$APK" lib/arm64-v8a/libwaw_hd_port.so > /tmp/waw_hd_port.so
+          file /tmp/waw_hd_port.so | tee /tmp/native-abi.txt
+          grep -q 'ELF 64-bit' /tmp/native-abi.txt
+          grep -q 'ARM aarch64' /tmp/native-abi.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" > /tmp/native-badging.txt
+          grep -q "package: name='org.zombies.wawhd.nativeport'" /tmp/native-badging.txt
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          echo "ARM64_BOOTSTRAP_BUILD_GREEN=true" > /tmp/native-status.txt
+          echo "PIXEL_FOLD_GAMEPLAY_GREEN=false" >> /tmp/native-status.txt
+          echo "ACTUAL_GAME_RESOURCES_INCLUDED=false" >> /tmp/native-status.txt
+          echo "EMULATOR_OR_IOS_RUNTIME_INCLUDED=false" >> /tmp/native-status.txt
+          echo "Original Android-only C++ renderer compiled, signed, and statically validated." >> /tmp/native-status.txt
+          cat /tmp/native-status.txt >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WAW-HD-NATIVE-ARM64-BOOTSTRAP-NOT-GAMEPLAY
+          path: |
+            ports/waw_hd_native/app/build/outputs/apk/debug/app-debug.apk
+            /tmp/native-status.txt
+            /tmp/native-abi.txt
+            /tmp/native-badging.txt
+          if-no-files-found: warn
+          retention-days: 14

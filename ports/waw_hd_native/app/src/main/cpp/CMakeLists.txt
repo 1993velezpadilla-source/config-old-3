@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(waw_hd_native_bootstrap LANGUAGES CXX)
+add_library(waw_hd_port SHARED native_scene.cpp)
+target_compile_features(waw_hd_port PRIVATE cxx_std_17)
+target_compile_options(waw_hd_port PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(waw_hd_port PRIVATE GLESv2 log)
