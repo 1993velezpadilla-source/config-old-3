@@ -857,10 +857,20 @@ func _bind_weapon_to_source_hands() -> bool:
 		var view_basis := _view_root.global_transform.basis.orthonormalized()
 		var source_forward_to_camera := Basis(Vector3.UP, deg_to_rad(90.0))
 		var mount_basis := attachment_basis.inverse() * view_basis * source_forward_to_camera
-		_weapon_model_root.quaternion = mount_basis.orthonormalized().get_rotation_quaternion()
-		set_meta("weapon_source_mp40_mount_mode", "socket_relative_source_axes")
-		set_meta("weapon_source_gun_roll_correction_deg", 0.0)
-		print("XZOGOT_MP40_SOURCE_AXES_SOCKET_MOUNT left_extraction=true magazine_down=true")
+		# Actual first-person Godot render of the 0/+90/-90/180 matrix:
+		# +90 LOCAL BARREL roll is the only candidate retaining a forward
+		# muzzle and bringing the magazine to the LEFT, beside the original
+		# T4 Marine thumb. This roll must be composed AFTER the bind-time
+		# socket conversion. The old camera-only +90 roll is NOT equivalent.
+		# Original source clip rotations/keyframes remain untouched.
+		var source_mount := mount_basis.orthonormalized().get_rotation_quaternion()
+		_weapon_model_root.quaternion = (
+			source_mount * Quaternion(Vector3.RIGHT, deg_to_rad(90.0))
+		).normalized()
+		set_meta("weapon_source_mp40_mount_mode", "original_t4_hands_left_roll_90_beta")
+		set_meta("weapon_source_gun_roll_correction_deg", 90.0)
+		set_meta("mp40_reloading_visual_validation", "BETA_GODOT_CAMERA_PROVEN_ANDROID_PENDING")
+		print("XZOGOT_MP40_SOURCE_LEFT_MOUNT +90_barrel_axis=true source_normal_empty_hands=true")
 
 	if WeaponViewmodelSourcePresentation.has_source_presentation(_weapon_id):
 		_hip_pose_position = WeaponViewmodelSourcePresentation.hip_position(_weapon_id)
