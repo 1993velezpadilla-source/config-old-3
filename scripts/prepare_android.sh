@@ -133,6 +133,23 @@ cp "$ROOT/android/AndroidManifest.xml" "$APP/src/main/AndroidManifest.xml"
 cp "$ROOT/android/strings.xml" "$APP/src/main/res/values/strings.xml"
 cp "$ROOT/android/NZPActivity.java"    "$APP/src/main/java/org/libsdl/app/NZPActivity.java"
 
+# Install alongside, never overwrite the existing Xziel/NZ:P test APK.
+if [[ -n "$XZIEL_SINGLE_MAP" ]]; then
+    python3 - "$APP/build.gradle" "$APP/src/main/res/values/strings.xml" <<'PY_APP_ID'
+from pathlib import Path
+import sys
+gradle = Path(sys.argv[1])
+strings = Path(sys.argv[2])
+s = gradle.read_text(encoding="utf-8")
+old = 'applicationId "com.xziel.nzp"'
+if s.count(old) != 1:
+    raise SystemExit("Unexpected Gradle applicationId; cannot isolate prototype")
+gradle.write_text(s.replace(old, 'applicationId "com.xziel.vrilzombies"', 1), encoding="utf-8")
+s = strings.read_text(encoding="utf-8")
+strings.write_text(s.replace("Xziel: NZP Native", "ZOMBIES - Vril Prototype"), encoding="utf-8")
+PY_APP_ID
+fi
+
 echo "==> Assembling official NZ:P game data for the APK"
 ASSET_WORK="$BUILD/nzp-data"
 DOWNLOADS="$BUILD/downloads"
