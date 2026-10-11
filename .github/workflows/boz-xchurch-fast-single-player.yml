@@ -213,6 +213,26 @@ jobs:
                 "$ADB" exec-out screencap -p > "$OUT/screens/after_continue_30s.png"
                 sleep 30
                 "$ADB" exec-out screencap -p > "$OUT/screens/after_continue_60s.png"
+                # Exact previous run: all three Android MotionEvents returned
+                # handled=true but EVERY screen remained byte-identical to
+                # the original character/map menu. Try OS input directly.
+                STUCK_BEFORE="$(sha256sum "$OUT/screens/after_new_game_card_15s.png" | cut -d " " -f1)"
+                STUCK_AFTER="$(sha256sum "$OUT/screens/after_continue_60s.png" | cut -d " " -f1)"
+                if [ "$STUCK_BEFORE" = "$STUCK_AFTER" ]; then
+                  echo "XCHURCH_NATIVE_TOUCH_HANDLED_BUT_GAME_MENU_FROZEN_RETEST_ADB_INPUT" | tee -a "$OUT/status.txt"
+                  "$ADB" shell input tap 425 220; sleep 2
+                  "$ADB" shell input tap 1700 460; sleep 2
+                  "$ADB" shell input tap 1380 770; sleep 2
+                  "$ADB" exec-out screencap -p > "$OUT/screens/adb_pre_continue.png"
+                  "$ADB" shell input tap 1730 995; sleep 15
+                  "$ADB" exec-out screencap -p > "$OUT/screens/adb_after_continue_15s.png"
+                  ADHASH="$(sha256sum "$OUT/screens/adb_after_continue_15s.png" | cut -d " " -f1)"
+                  echo "ADB_INPUT_FINAL_HASH=$ADHASH" >> "$OUT/status.txt"
+                  if [ "$ADHASH" = "$STUCK_BEFORE" ]; then
+                    echo "XCHURCH_ORIGINAL_GAMEPLAY_NOT_REACHED_REAL_RED" | tee -a "$OUT/status.txt"
+                    exit 68
+                  fi
+                fi
                 echo "XZIEL_REAL_BOZ_START_GAME_CAPTURED_NEEDS_VISUAL_QA" | tee -a "$OUT/status.txt"
               fi
             else
