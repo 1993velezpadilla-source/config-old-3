@@ -106,6 +106,12 @@ func _draw_latest_control(
 	var alpha: float = (PRESSED_ALPHA if pressed else IDLE_ALPHA) * _hud_opacity
 	_draw_tex_center(texture, center, diameter, alpha)
 
+# Readable mobile status labels: the prior APK only drew thin anonymous bars.
+func _draw_status_text(value: String, at: Vector2, font_size: int) -> void:
+	var font: Font = ThemeDB.fallback_font
+	draw_string(font, at + Vector2(1.5, 1.5), value, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(0.0, 0.0, 0.0, 0.94))
+	draw_string(font, at, value, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(0.97, 0.95, 0.90, 0.94))
+
 func _draw_joystick() -> void:
 	var center: Vector2 = _screen(MobileLayout.JOY_CENTER)
 	var ring_radius: float = MobileLayout.JOY_VISUAL_RADIUS * size.y
@@ -161,6 +167,7 @@ func _draw_round_counter() -> void:
 		pulse = 0.48 + absf(sin(remaining * 5.0)) * 0.52
 
 	var origin := Vector2(size.x * 0.048, size.y * 0.79)
+	_draw_status_text("ROUND %d" % round_number, origin + Vector2(0.0, -17.0), maxi(19, int(size.y * 0.026)))
 	if round_number <= 5:
 		_draw_round_tally(origin, round_number, 0.92 * pulse)
 	else:
@@ -363,6 +370,8 @@ func _draw() -> void:
 		var ratio: float = float(magazine) / maxf(float(capacity), 1.0)
 		var bar_size := Vector2(s.x * 0.14, 7.0)
 		var bar_pos := Vector2(s.x * 0.79, s.y * 0.50)
+		var reserve: int = int(_weapon.get("reserve_ammo"))
+		_draw_status_text("AMMO  %d / %d" % [magazine, reserve], bar_pos + Vector2(0.0, -13.0), maxi(18, int(s.y * 0.027)))
 		draw_rect(Rect2(bar_pos, bar_size), Color(1.0, 1.0, 1.0, 0.10), true)
 		draw_rect(Rect2(bar_pos, Vector2(bar_size.x * ratio, bar_size.y)), white, true)
 
@@ -372,6 +381,7 @@ func _draw() -> void:
 		var point_ratio: float = clampf(float(points) / 5000.0, 0.0, 1.0)
 		var points_size := Vector2(s.x * 0.16, 6.0)
 		var points_pos := Vector2(s.x * 0.05, s.y * 0.92)
+		_draw_status_text("POINTS  %d" % points, points_pos + Vector2(0.0, -13.0), maxi(18, int(s.y * 0.026)))
 		draw_rect(Rect2(points_pos, points_size), Color(1.0, 1.0, 1.0, 0.10), true)
 		draw_rect(Rect2(points_pos, Vector2(points_size.x * point_ratio, points_size.y)), warm, true)
 
@@ -381,6 +391,7 @@ func _draw() -> void:
 		var health_ratio: float = clampf(health / maxf(max_health, 1.0), 0.0, 1.0)
 		var health_size := Vector2(s.x * 0.16, 6.0)
 		var health_pos := Vector2(s.x * 0.05, s.y * 0.89)
+		_draw_status_text("HP  %d" % int(ceil(health)), health_pos + Vector2(0.0, -13.0), maxi(18, int(s.y * 0.026)))
 		draw_rect(Rect2(health_pos, health_size), Color(1.0, 1.0, 1.0, 0.10), true)
 		draw_rect(Rect2(health_pos, Vector2(health_size.x * health_ratio, health_size.y)), combat, true)
 
