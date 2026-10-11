@@ -252,6 +252,7 @@ jobs:
             # Frame change alone does not imply a game world/zombies loaded.
             echo "XCHURCH_SCREEN_CHANGED_BUT_NO_GAMEPLAY_CERTIFICATION_PENDING_VISUAL_QA" | tee -a "$OUT/status.txt"
             exit 69
+          fi
 
           "$ADB" logcat -d -v threadtime > "$OUT/logcat.txt"
           grep -Eai 'XZIEL_DIRECT_NATIVE_TAP|STARTGAME|single|menu|map|kino|xchurch|FATAL|SIGSEGV|SIGABRT'             "$OUT/logcat.txt" | tail -500 > "$OUT/logcat-focus.txt" || true
