@@ -59,7 +59,7 @@ func _capture_frame(
     var gun_root: Node3D = weapon.get("_weapon_model_root") as Node3D
     var hand_root: Node3D = weapon.get("_hands_model_root") as Node3D
     var barrel_local_camera: Vector3 = camera.global_transform.basis.orthonormalized().inverse() * gun_root.global_transform.basis.orthonormalized() * Vector3.RIGHT
-    label.text = "MP40 • " + mode + " • " + str(frame_idx + 1) + "/6  (" + str(roundf(fraction * 100.0)) + "%)"
+    label.text = "MP40 ROTATE SOCKET " + str(OS.get_environment("MP40_VIEW_ROLL_DEG")) + " DEG • " + mode + " • " + str(frame_idx + 1) + "/6  (" + str(roundf(fraction * 100.0)) + "%)"
     print("MP40_ACTUAL_FRAME",
         " mode=", mode, " step=", frame_idx,
         " gun_time=", gun_t, " hands_time=", hand_t,
@@ -109,6 +109,11 @@ func _run() -> void:
     var hand_player: AnimationPlayer = weapon.get("_hands_animation_player") as AnimationPlayer
     var gun_root: Node3D = weapon.get("_weapon_model_root") as Node3D
     var hands_skeleton: Skeleton3D = weapon.get("_source_hands_skeleton") as Skeleton3D
+    # Diagnostic ONLY: test the socket's local source +X roll without changing
+    # ANY production weapon/hands scene, skin, keys or animations.
+    var roll_deg: float = float(OS.get_environment("MP40_VIEW_ROLL_DEG"))
+    gun_root.quaternion = gun_root.quaternion * Quaternion(Vector3.RIGHT, deg_to_rad(roll_deg))
+    print("MP40_IMPORT_SOCKET_ROLL_CANDIDATE ", roll_deg, " original_source_model=true")
     if gun_player == null or hand_player == null or gun_root == null or hands_skeleton == null:
         _fail("source gun / hands / animation players missing")
         return
