@@ -1,0 +1,56 @@
+name: NZP / XZIEL Zombie Graphics — FULL READ-ONLY AUDIT
+on:
+  push:
+    branches: [audit/xziel-nzp-zombie-graphics-20261011]
+    paths:
+      - tools/zombie_audit/audit_nzp_zombie_graphics.py
+      - .github/workflows/xziel-zombie-graphics-audit.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - name: Obtain the EXACT QuakeC revision used by XZIEL 0.26
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/nzp-team/quakec.git /tmp/nzp-qc
+          git -C /tmp/nzp-qc fetch --depth 1 origin 8a77f1ce45f1a2b9aa0afb301446954fda40e696
+          git -C /tmp/nzp-qc checkout --detach 8a77f1ce45f1a2b9aa0afb301446954fda40e696
+          test "$(git -C /tmp/nzp-qc rev-parse HEAD)" = 8a77f1ce45f1a2b9aa0afb301446954fda40e696
+          echo PINNED_GAMEPLAY_CODE_GREEN
+      - name: Download the exact NZP PC asset release named in prepare_android.sh
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 6 --retry-all-errors --retry-delay 2 \
+            https://github.com/nzp-team/assets/releases/download/newest/pc-nzp-assets.zip \
+            -o /tmp/pc-nzp-assets.zip
+          sha256sum /tmp/pc-nzp-assets.zip
+          test "$(stat -c%s /tmp/pc-nzp-assets.zip)" -gt 10000000
+          unzip -tq /tmp/pc-nzp-assets.zip | tail -1
+      - name: Audit ALL enemy MDL headers, skin textures, QuakeC animation indices and sounds
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/zombie_audit/audit_nzp_zombie_graphics.py \
+            --pack /tmp/pc-nzp-assets.zip --quakec /tmp/nzp-qc --out audit
+          python3 - <<'PY'
+          import json
+          d=json.load(open('audit/nzp-zombie-graphics.json'))
+          assert d['summary']['models_found']>=10,d['summary']
+          assert d['summary']['zombie_sounds']>0,d['sounds']
+          print("NZP_ZOMBIE_ASSET_AUDIT_GATE_GREEN",d['summary'])
+          PY
+      - name: Publish human report and machine-readable evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: XZIEL-NZP-Zombie-Visual-Audit-MDL-Skins-Frames-Sounds
+          path: audit/
+          if-no-files-found: warn
+          retention-days: 28
