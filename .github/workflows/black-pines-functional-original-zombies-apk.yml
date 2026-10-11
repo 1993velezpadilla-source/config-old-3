@@ -1,9 +1,9 @@
-name: Black Pines Android Touch Fire Fix
+name: Black Pines Android Menu MP40 Reload Fix
 on:
   workflow_dispatch:
   push:
     branches:
-      - fix/black-pines-godot-touch-fire-hud-20261011
+      - fix/black-pines-android-menu-mp40-reload-20261011
     paths:
       - "xogot/scripts/round_manager.gd"
       - "xogot/ci/black_pines_original_zombies_apk_gate.gd"
@@ -12,6 +12,9 @@ on:
       - "xogot/scripts/player.gd"
       - "xogot/scripts/mobile_hud.gd"
       - "xogot/scripts/black_pines_map.gd"
+      - "xogot/scripts/mobile_settings.gd"
+      - "xogot/scripts/weapon_asset_registry.gd"
+      - "xogot/ci/black_pines_menu_mp40_reload_gate.gd"
       - "xogot/ci/black_pines_touch_fire_regression.gd"
       - ".github/workflows/black-pines-functional-original-zombies-apk.yml"
 
@@ -106,8 +109,8 @@ jobs:
           txt=preset.read_text()
           old='package/unique_name="com.xziel.youwontwin"'
           assert txt.count(old)==1, "Refuse to change unknown export identity"
-          txt=txt.replace(old,'package/unique_name="com.xziel.blackpines.touchfix"')
-          txt=txt.replace('package/name="YOU WON\'T WIN"','package/name="BLACK PINES TOUCH FIX"')
+          txt=txt.replace(old,'package/unique_name="com.xziel.blackpines.menump40"')
+          txt=txt.replace('package/name="YOU WON\'T WIN"','package/name="BLACK PINES MENU MP40"')
           preset.write_text(txt)
           print("BLACK_PINES_TOUCH_FIX_SIDE_BY_SIDE_PACKAGE_READY")
           PY
@@ -190,6 +193,17 @@ jobs:
           grep -q 'BLACK_PINES_HUD_LABEL_GREEN' /tmp/black-pines-touch-fire-gate.log
           ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_TOUCH_FIRE_RED' /tmp/black-pines-touch-fire-gate.log
 
+      - name: Verify responsive mobile menus, Android BACK and authored MP40 magazine extraction/return
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 150 /tmp/black-pines-godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/black_pines_menu_mp40_reload_gate.gd \
+            2>&1 | tee /tmp/black-pines-menu-mp40-gate.log
+          grep -q 'BLACK_PINES_MENU_ANDROID_BACK_GREEN' /tmp/black-pines-menu-mp40-gate.log
+          grep -q 'BLACK_PINES_MP40_FULL_RELOAD_GREEN' /tmp/black-pines-menu-mp40-gate.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_MENU_MP40_RED' /tmp/black-pines-menu-mp40-gate.log
+
       - name: Export installable Android ARM64 functional test APK
         shell: bash
         run: |
@@ -211,7 +225,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Black-Pines-Godot-Touch-Fire-HUD-Fix-Android-APK
+          name: Black-Pines-Godot-Android-Menus-MP40-Magazine-Reload-APK
           path: |
             build/android/BLACK-PINES-ORIGINAL-ZOMBIES-test.apk
             build/android/BLACK-PINES-ORIGINAL-ZOMBIES-test.apk.sha256
@@ -220,5 +234,6 @@ jobs:
             /tmp/black-pines-gameplay.log
             /tmp/black-pines-import.log
             /tmp/black-pines-touch-fire-gate.log
+            /tmp/black-pines-menu-mp40-gate.log
           if-no-files-found: warn
           retention-days: 7
