@@ -91,6 +91,12 @@ Java_com_bubblegum_bo1native_MainActivity_nativeProbeFile(
         out<<"Decoded prefix bytes: "<<metrics.payload_bytes_tested<<"\n";
         out<<"Deflated bytes consumed: "<<metrics.deflated_input_bytes_consumed<<"\n";
         out<<"Prefix hash FNV-1a: "<<std::hex<<metrics.payload_prefix_fnv1a64<<std::dec<<"\n";
+        out<<"Original XAssetList 32-bit metadata: "<<(metrics.asset_list_header_plausible?"PLAUSIBLE":"NOT PARSED")<<"\n";
+        if(metrics.asset_list_header_plausible) {
+            out<<"Script string count (wire): "<<metrics.script_string_count<<"\n";
+            out<<"Asset count (wire): "<<metrics.asset_count<<"\n";
+            out<<"No asset objects or models loaded.\n";
+        }
         out<<"Data decoded only; XAssets NOT LOADED.\n";
     } else if(result==BO1_FF_SECURE_NOT_SUPPORTED) {
         out<<"The recovered upstream loader rejects this authenticated FF variant.\n";
