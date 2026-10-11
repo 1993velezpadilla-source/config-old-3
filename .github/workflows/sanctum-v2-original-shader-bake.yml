@@ -1,0 +1,144 @@
+name: Sanctum V2 Original Blender PBR Shader Bake (authoring proof)
+on:
+  push:
+    branches: [fix/xziel-sanctum-v2-authored-materials-bake-20261011]
+    paths:
+      - tools/sanctum_vertical_bridge/bake_original_blender_materials.py
+      - .github/workflows/sanctum-v2-original-shader-bake.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  material-authority:
+    runs-on: ubuntu-latest
+    timeout-minutes: 95
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check out EXACT proven Oct-02 Sanctum 3-level authoring scripts
+        uses: actions/checkout@v5
+        with:
+          ref: 34ce2a2936fff70c09a1c7b3936ba6140205809d
+          path: vertical-authoring
+          persist-credentials: false
+      - name: Install Blender build deps
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq git-lfs curl xz-utils xvfb unzip bzip2 libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libglu1-mesa libegl1
+          git lfs install
+      - name: Retrieve the SAME original CC0 source blend files
+        shell: bash
+        working-directory: vertical-authoring
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/IRCSS/Blender-Geometry-Node-French-Houses.git external-french-houses
+          (cd external-french-houses && git lfs pull || true)
+          grep -q "MIT License" external-french-houses/LICENSE
+          test -s external-french-houses/GeometryNodesFrenchHous.blend
+          mkdir -p external-cc0-church external-ruins external-sanctum-props
+          curl -L --fail --retry 3 https://opengameart.org/content/medieval-church-interior -o external-cc0-church/page.html
+          grep -qi CC0 external-cc0-church/page.html
+          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/church.blend -o external-cc0-church/church.blend
+          curl -L --fail --retry 3 https://opengameart.org/content/3td-fantasy-ruins-pack-for-blender -o external-ruins/page.html
+          grep -qi CC0 external-ruins/page.html
+          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/fantasy_ruins_pack_for_blender.blend -o external-ruins/fantasy_ruins_pack_for_blender.blend
+          curl -L --fail --retry 3 https://opengameart.org/content/medieval-benches -o external-sanctum-props/benches.html
+          grep -qi CC0 external-sanctum-props/benches.html
+          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/medievalbenchesexport.blend -o external-sanctum-props/medievalbenchesexport.blend
+          curl -L --fail --retry 3 https://opengameart.org/content/medieval-candles -o external-sanctum-props/candles.html
+          grep -qi CC0 external-sanctum-props/candles.html
+          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/medievalcandles.blend -o external-sanctum-props/medievalcandles.blend
+          sha256sum external-ruins/fantasy_ruins_pack_for_blender.blend | tee /tmp/ruins.sha256
+          sha256sum external-sanctum-props/medievalbenchesexport.blend | tee /tmp/bench.sha256
+          sha256sum external-sanctum-props/medievalcandles.blend | tee /tmp/candle.sha256
+      - name: Install original Blender 5.2.2
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 6 --retry-all-errors --retry-delay 2 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+          /tmp/blender-5.2.2-linux-x64/blender --version
+      - name: Preserve ORIGINAL authoring .blend with full shader nodes
+        shell: bash
+        working-directory: vertical-authoring
+        env:
+          SANCTUM_COMPOSITE_OUT: ${{ github.workspace }}/sanctum-authority/composite
+          SANCTUM_DRESS_OUT: ${{ github.workspace }}/sanctum-authority/dressed
+          SANCTUM_ENRICH_OUT: ${{ github.workspace }}/sanctum-authority/enriched
+          SANCTUM_VERTICAL_OUT: ${{ github.workspace }}/sanctum-authority/vertical
+          SANCTUM_CC0_BLEND: external-cc0-church/church.blend
+          SANCTUM_RUINS_BLEND: external-ruins/fantasy_ruins_pack_for_blender.blend
+          SANCTUM_BENCH_BLEND: external-sanctum-props/medievalbenchesexport.blend
+          SANCTUM_CANDLE_BLEND: external-sanctum-props/medievalcandles.blend
+          SANCTUM_VERTICAL_LAYOUT: docs/sanctum-vertical-layout.v1.json
+          XZIEL_MAP_AGENT_PLAN: tools/sanctum_v2/map_builder_plan.json
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/sanctum-authority/vertical"
+          export SANCTUM_RUINS_SHA256="$(cut -d' ' -f1 /tmp/ruins.sha256)"
+          export SANCTUM_BENCH_SHA256="$(cut -d' ' -f1 /tmp/bench.sha256)"
+          export SANCTUM_CANDLE_SHA256="$(cut -d' ' -f1 /tmp/candle.sha256)"
+          python3 - <<'PY'
+          from pathlib import Path
+          path=Path("tools/sanctum_v2/build_sanctum_vertical_blockout.py")
+          s=path.read_text()
+          old='glb=VERT_OUT/"sanctum-vertical-blockout.glb"'
+          assert s.count(old)==1
+          replacement=(
+            'for obj in export_objects:\n'
+            '    if obj.type=="MESH":obj["xziel_restore_materials"]=True\n'
+            'bpy.ops.wm.save_as_mainfile(filepath=str(VERT_OUT/"sanctum-v2-procedural-authority.blend"))\n'
+            +old)
+          path.write_text(s.replace(old,replacement,1))
+          print("PROCEDURAL_SHADER_AUTHORITY_CAPTURE_PATCH_GREEN")
+          PY
+          xvfb-run -a -s "-screen 0 1600x1000x24" \
+            /tmp/blender-5.2.2-linux-x64/blender \
+            -b external-french-houses/GeometryNodesFrenchHous.blend \
+            --python tools/sanctum_v2/build_sanctum_vertical_blockout.py \
+            2>&1 | tee "$GITHUB_WORKSPACE/sanctum-authority/vertical/build.log"
+          grep -q SANCTUM_VERTICAL_BLOCKOUT_PASS "$GITHUB_WORKSPACE/sanctum-authority/vertical/build.log"
+          test -s "$GITHUB_WORKSPACE/sanctum-authority/vertical/sanctum-v2-procedural-authority.blend"
+      - name: Bake the actual ORIGINAL Blender material nodes to images
+        shell: bash
+        working-directory: vertical-authoring
+        env:
+          XZIEL_V2_SOURCE_BLEND: ${{ github.workspace }}/sanctum-authority/vertical/sanctum-v2-procedural-authority.blend
+          XZIEL_V2_BAKED_OUT: ${{ github.workspace }}/sanctum-v2-baked
+        run: |
+          set -euo pipefail
+          xvfb-run -a -s "-screen 0 1600x1000x24" \
+            /tmp/blender-5.2.2-linux-x64/blender -b \
+            --python "$GITHUB_WORKSPACE/tools/sanctum_vertical_bridge/bake_original_blender_materials.py" \
+            2>&1 | tee "$GITHUB_WORKSPACE/sanctum-v2-baked.log"
+          grep -q 'SANCTUM_V2_REAL_AUTHORED_MATERIALS_BAKED' "$GITHUB_WORKSPACE/sanctum-v2-baked.log"
+      - name: Independent GLB material coverage and geometry gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'trimesh>=4,<5' 'numpy>=1.26,<3' 'Pillow>=10,<13'
+          python3 tools/sanctum_vertical_bridge/audit_gltf_material_sources.py \
+            sanctum-v2-baked/sanctum-v2-real-authored-materials.glb \
+            --out sanctum-v2-baked/final-baked-material-coverage.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          src=json.loads((Path("sanctum-v2-baked")/"final-baked-material-coverage.json").read_text())
+          total=src["totals"]["triangles"]
+          textured=sum(x["triangles"] for x in src["materials"].values() if x["images_nodes"]>0)
+          assert total>=360000,(total,"lost original geometry")
+          assert textured/total > 0.95,(textured,total,"source material baking incomplete")
+          report=json.loads((Path("sanctum-v2-baked")/"sanctum-v2-real-material-bake-report.json").read_text())
+          assert report["totals"]["procedural_meshes_baked"]>4,report["totals"]
+          print("SANCTUM_V2_AUTHORED_TEXTURE_COVERAGE_GREEN",textured,total,f"{textured/total:.2%}")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Sanctum-V2-REAL-ORIGINAL-Shader-Baked-GLB
+          path: |
+            sanctum-v2-baked/sanctum-v2-real-authored-materials.glb
+            sanctum-v2-baked/sanctum-v2-real-material-bake-report.json
+            sanctum-v2-baked/final-baked-material-coverage.json
+            sanctum-v2-baked.log
+          if-no-files-found: warn
+          retention-days: 14
