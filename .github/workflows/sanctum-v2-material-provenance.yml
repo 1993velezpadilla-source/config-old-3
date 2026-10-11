@@ -1,0 +1,35 @@
+name: Sanctum V2 Source Material Provenance (diagnostic)
+on:
+  push:
+    branches: [fix/xziel-sanctum-v2-authored-materials-bake-20261011]
+    paths:
+      - tools/sanctum_vertical_bridge/audit_gltf_material_sources.py
+      - .github/workflows/sanctum-v2-material-provenance.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit-original:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          run-id: 36965470406
+          name: XZIEL-Sanctum-Vertical-Gameplay
+          path: original-oct02
+      - name: Trace original GLB per-material triangles, images, UVs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'numpy>=1.26,<3' 'trimesh>=4,<5' 'Pillow>=10,<13'
+          python3 tools/sanctum_vertical_bridge/audit_gltf_material_sources.py             original-oct02/sanctum-vertical-probe/sanctum-vertical-blockout.glb             --out sanctum-v2-original-materials.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sanctum-V2-Original-Material-Provenance
+          path: sanctum-v2-original-materials.json
+          retention-days: 14
