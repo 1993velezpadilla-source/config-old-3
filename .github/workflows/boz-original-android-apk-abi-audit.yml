@@ -1,0 +1,94 @@
+name: BOZ ORIGINAL Android APK ARM64 Compatibility Audit (NOT GAMEPLAY)
+on:
+  push:
+    branches:
+      - feature/boz-android-original-arm64-audit-v1
+    paths:
+      - tools/boz_android_original/**
+      - .github/workflows/boz-original-android-apk-abi-audit.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit-original-android-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download exact public Eugene373 BOZ v0.5 release to ephemeral runner only
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --retry-delay 3 \
+            -o "$RUNNER_TEMP/boz-upstream-v0.5.apk" \
+            "https://github.com/eugene373/COD-BOZ-Partially-Decompiled/releases/download/v0.5-s3e-tools/app-release.apk"
+          echo "6d2f13fae7f39eb64471c44c272240291bd86ba1ab8a0200083773f0c8af9c22  $RUNNER_TEMP/boz-upstream-v0.5.apk" | sha256sum -c -
+          echo "PUBLISHED_BOZ_APK_SHA256_VERIFIED=PASS"
+      - name: Inspect binary ABI and packed original Marmalade payload (no asset extraction)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/boz-text-only
+          python3 tools/boz_android_original/audit_apk_abi.py \
+            "$RUNNER_TEMP/boz-upstream-v0.5.apk" \
+            --out /tmp/boz-text-only/audit.json \
+            | tee /tmp/boz-text-only/audit-summary.txt
+          python3 - /tmp/boz-text-only/audit.json <<'PY'
+          import json,sys
+          d=json.load(open(sys.argv[1]))
+          assert d["native_libraries"],"published APK has no native .so"
+          assert any(x.endswith("boz.s3e") for x in d["other_files"]),"original BOZ .s3e missing"
+          assert not d["can_assert_original_game_playable"],"test must not claim game works"
+          print("BOZ_APK_BINARY_METADATA_GAUNTLET=PASS")
+          PY
+      - name: Read original application's shipping architecture filter
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --retry-delay 2 \
+            -o "$RUNNER_TEMP/boz-upstream-build.gradle.kts" \
+            "https://raw.githubusercontent.com/eugene373/COD-BOZ-Partially-Decompiled/master/app/build.gradle.kts"
+          python3 - "$RUNNER_TEMP/boz-upstream-build.gradle.kts" /tmp/boz-text-only/gradle-abi-report.txt <<'PY'
+          import sys,re,pathlib
+          s=pathlib.Path(sys.argv[1]).read_text()
+          matches=re.findall(r'abiFilters\s*\+=\s*listOf\(([^\n]+)',s)
+          result={
+            "UPSTREAM_ABIFILTER_LINES":str(matches),
+            "SHIPPING_RELEASE_ARM64_ENABLED":str(any('arm64-v8a' in m.split('//')[0] for m in matches)),
+            "SOURCE_NOTE":"Current source filter, not proof of old release APK ABI",
+          }
+          pathlib.Path(sys.argv[2]).write_text('\n'.join(k+'='+v for k,v in result.items())+'\n')
+          print(pathlib.Path(sys.argv[2]).read_text())
+          PY
+      - name: Read actual Android package manifest and signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOOL="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -1)"
+          SIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -1)"
+          if [ -x "$TOOL" ]; then
+            "$TOOL" dump badging "$RUNNER_TEMP/boz-upstream-v0.5.apk" \
+              | grep -E "^(package:|sdkVersion:|targetSdkVersion:|native-code:|application-label:)" \
+              > /tmp/boz-text-only/manifest-summary.txt
+            cat /tmp/boz-text-only/manifest-summary.txt
+          else
+            echo 'AAPT_NOT_AVAILABLE=SKIPPED' > /tmp/boz-text-only/manifest-summary.txt
+          fi
+          if [ -x "$SIGNER" ]; then
+            "$SIGNER" verify --verbose "$RUNNER_TEMP/boz-upstream-v0.5.apk" \
+              > /tmp/boz-text-only/signature-summary.txt 2>&1 || true
+            cat /tmp/boz-text-only/signature-summary.txt
+          fi
+      - name: Disclose exactly what is and is not tested
+        shell: bash
+        run: |
+          echo '### Actual original Android BOZ APK ABI audit' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Analysis only; original commercial APK kept ephemeral and not re-uploaded.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Checks published release actual ELF wrappers, package ABI, Marmalade .s3e presence, Gradle ABI filter.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'No Android phone installed, no original BOZ gameplay tested, no 64-bit S3E game executable demonstrated.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload metadata only (NO APK, NO proprietary game data)
+        uses: actions/upload-artifact@v4
+        with:
+          name: BOZ-Original-Android-APK-Actual-ABI-Audit-Text-Only
+          path: /tmp/boz-text-only/
+          retention-days: 14
