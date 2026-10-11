@@ -8,6 +8,7 @@
 #include <string>
 #include "bo1_ff_stream_probe.h"
 #include "bo1_ff_compat.h"
+#include "bo1_alloc_compat.h"
 
 extern "C" void bo1_original_angle_vectors(
     const float angles[3], float forward[3], float right[3], float up[3]);
@@ -51,10 +52,12 @@ Java_com_bubblegum_bo1native_MainActivity_nativeSelfTest(
         approximately(decoded[1],0.f) &&
         approximately(decoded[2],128.f/255.f) &&
         approximately(decoded[3],1.f);
+    const bool original_memory = bo1_original_xblock_allocation_smoke()==0;
     std::ostringstream out;
     out<<"NATIVE BO1 C++ RUNTIME / ARM64\n";
     out<<"ORIGINAL CAMERA ANGLE: "<<(original_camera?"PASS":"FAIL")<<"\n";
     out<<"ORIGINAL TEXTURE COLOR: "<<(original_material?"PASS":"FAIL")<<"\n";
+    out<<"ORIGINAL 7-ZONE BLOCK MEMORY: "<<(original_memory?"PASS":"FAIL")<<"\n";
     out<<"Native library loaded: YES\n";
     out<<"Original full game engine: NOT PORTED\n";
     out<<"Kino map executable: NO\n";
