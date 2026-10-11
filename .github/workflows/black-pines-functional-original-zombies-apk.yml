@@ -1,9 +1,9 @@
-name: Black Pines MP40 Animated Hands and Menus
+name: Black Pines MP40 Left Reload and Menus
 on:
   workflow_dispatch:
   push:
     branches:
-      - fix/black-pines-mp40-hands-source-reload-20261011
+      - fix/black-pines-mp40-source-left-reload-20261011
     paths:
       - "xogot/scripts/round_manager.gd"
       - "xogot/ci/black_pines_original_zombies_apk_gate.gd"
