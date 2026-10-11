@@ -99,7 +99,24 @@ int main() {
     corrupt[12]=0; // invalid deflate header
     put(p,corrupt);
     if(bo1_original_ff_payload_prefix_probe("zombie_theater",128,&out)!=BO1_FF_DEFLATE_ERROR) return 21;
+    // Check original 32-bit serialized XAssetList layout without dereferencing pointers.
+    auto metadata=make_payload(1024);
+    auto le32=[&](std::size_t offset,std::uint32_t value) {
+        for(unsigned b=0;b<4;++b) metadata[offset+b]=(unsigned char)(value>>(b*8u));
+    };
+    le32(0,185); le32(4,0xffffffffu);
+    le32(8,1485); le32(12,0xfffffffeu);
+    put(p,archive(metadata));
+    if(bo1_original_ff_payload_prefix_probe("zombie_theater",128,&out)!=BO1_FF_HEADER_OK) return 22;
+    if(out.asset_list_header_plausible!=1 || out.script_string_count!=185 ||
+       out.serialized_script_string_pointer!=0xffffffffu ||
+       out.asset_count!=1485 ||
+       out.serialized_asset_pointer!=0xfffffffeu) return 23;
+    // First 8 bytes cannot be mistaken for complete 16-byte XAssetList.
+    if(bo1_original_ff_payload_prefix_probe("zombie_theater",8,&out)!=BO1_FF_HEADER_OK ||
+       out.asset_list_header_plausible!=0) return 24;
     fs::remove_all(root);
+    std::puts("ORIGINAL_BO1_XASSETLIST_WIRE32_METADATA_PARSE=PASS");
     std::puts("ORIGINAL_BO1_ZLIB_INIT_INFLATE_END_STREAMING=PASS");
     std::puts("ORIGINAL_BO1_DEFLATED_XFILE_PAYLOAD_PREFIX_128K_VERIFIED=PASS");
     std::puts("ORIGINAL_BO1_FF_STREAM_ERRORS_AND_OUTPUT_CAP_GUARDS=PASS");
