@@ -55,6 +55,22 @@ func _capture_frame(
     var index: int = gun_skeleton.find_bone("j_clip")
     var clip_position_world: Vector3 = gun_skeleton.to_global(gun_skeleton.get_bone_global_pose(index).origin)
     var clip_position_camera: Vector3 = camera.to_local(clip_position_world)
+    var clip_tip_world: Vector3 = gun_skeleton.to_global(
+        gun_skeleton.get_bone_global_pose(index) * Vector3(0.0, -0.15, 0.0))
+    # Real source-skin finger distances, not per-frame screenshot guesses.
+    for hand_bone: String in ["j_wrist_le", "j_ringpalm_le", "j_thumb_le_1",
+                            "j_wrist_ri", "j_ringpalm_ri"]:
+        var hand_bone_id: int = hands_skeleton.find_bone(hand_bone)
+        if hand_bone_id < 0:
+            _fail("source hands joint missing " + hand_bone)
+            return false
+        var point_world: Vector3 = hands_skeleton.to_global(
+            hands_skeleton.get_bone_global_pose(hand_bone_id).origin)
+        print("MP40_CLIP_HAND_DISTANCE mode=", mode, " step=", frame_idx,
+            " joint=", hand_bone,
+            " root_distance_m=", snappedf(point_world.distance_to(clip_position_world), 0.0001),
+            " clip_tip_distance_m=", snappedf(point_world.distance_to(clip_tip_world), 0.0001),
+            " hand_screen=", camera.unproject_position(point_world))
     (_positions[mode] as Array).append(clip_position_camera)
     var clip_screen: Vector2 = camera.unproject_position(clip_position_world)
     var rect_size: Vector2 = camera.get_viewport().get_visible_rect().size
