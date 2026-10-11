@@ -1,0 +1,107 @@
+name: BO1 Original Engine - LZO Asset Compression ARM64 Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/bo1-original-engine-arm64-feasibility-v1
+    paths:
+      - tools/bo1_pc_engine/compat/lzo_*
+      - .github/workflows/bo1-original-lzo-arm64.yml
+
+permissions:
+  contents: read
+
+jobs:
+  original-bo1-asset-code-arm64:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch pinned actual Black Ops 1 engine source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/MisaDev4/bo1-zombies-decompiled.git "$RUNNER_TEMP/bo1"
+          test "$(git -C "$RUNNER_TEMP/bo1" rev-parse HEAD)" = "102f6992be332610aff587e681e3180b15f395bb"
+          echo "UPSTREAM_SHA_PINNED=102f6992be332610aff587e681e3180b15f395bb" >> "$GITHUB_STEP_SUMMARY"
+          mkdir -p "$RUNNER_TEMP/lzo-probe/report"
+
+      - name: Compile ORIGINAL BO1-bundled miniLZO code and execute host tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          D="$RUNNER_TEMP/bo1"
+          P="$RUNNER_TEMP/lzo-probe"
+          g++ -std=c++17 -O2 -Wall -Wextra -Wno-unused-function -I"$D/src" \
+            "$D/src/minilzo/minilzo.cpp" tools/bo1_pc_engine/compat/lzo_host_test.cpp \
+            -o "$P/bo1_original_minilzo_test"
+          "$P/bo1_original_minilzo_test" | tee "$P/host-results.txt"
+          grep -q 'GAUNTLET=PASS' "$P/host-results.txt"
+
+      - name: Install official Android ARM64 NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          "$SDKMANAGER" 'ndk;27.2.12479018'
+
+      - name: Cross-compile and link ACTUAL BO1-bundled decompressor to ARM64
+        shell: bash
+        run: |
+          set -euo pipefail
+          D="$RUNNER_TEMP/bo1"
+          P="$RUNNER_TEMP/lzo-probe"
+          C="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++"
+          NM="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm"
+          "$C" -std=c++17 -O2 -fPIC -ffunction-sections -fdata-sections \
+            -I"$D/src" -c "$D/src/minilzo/minilzo.cpp" -o "$P/original_lzo_arm64.o"
+          "$C" -std=c++17 -O2 -fPIC -ffunction-sections -fdata-sections \
+            -I"$D/src" -c tools/bo1_pc_engine/compat/lzo_arm64_wrapper.cpp -o "$P/lzo_wrapper_arm64.o"
+          "$C" -shared -Wl,--gc-sections -Wl,--no-undefined \
+            "$P/original_lzo_arm64.o" "$P/lzo_wrapper_arm64.o" \
+            -o "$P/libbo1_upstream_minilzo.so"
+          file "$P/libbo1_upstream_minilzo.so" | tee "$P/elf-abi.txt"
+          grep -qi 'ELF 64-bit' "$P/elf-abi.txt"
+          grep -Eqi '(ARM aarch64|ARM64)' "$P/elf-abi.txt"
+          "$NM" -D "$P/libbo1_upstream_minilzo.so" | tee "$P/dynamic-symbols.txt"
+          grep -q 'bo1_upstream_lzo_decompress_safe' "$P/dynamic-symbols.txt"
+          echo "BO1_ENGINE_BUNDLED_LZO_ARM64_NATIVE_LINK=PASS" | tee "$P/link-results.txt"
+          sha256sum "$P/libbo1_upstream_minilzo.so" > "$P/sha256.txt"
+
+      - name: Publish only reports; no binary data or BO1 game resources
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          P="$RUNNER_TEMP/lzo-probe"
+          test -d "$P/report" || mkdir -p "$P/report"
+          {
+            echo '# BO1 engine-bundled compression code - ARM64 validation'
+            echo
+            echo 'Upstream: MisaDev4/bo1-zombies-decompiled, SHA 102f6992be332610aff587e681e3180b15f395bb'
+            echo 'Original file tested: src/minilzo/minilzo.cpp (third-party GPL miniLZO bundled by upstream).'
+            echo 'No upstream function bodies altered. Portable test and Android ABI shim live in OUR repository.'
+            echo
+            echo '## Evidence'
+            cat "$P/host-results.txt" 2>/dev/null || true
+            cat "$P/link-results.txt" 2>/dev/null || true
+            cat "$P/elf-abi.txt" 2>/dev/null || true
+            cat "$P/sha256.txt" 2>/dev/null || true
+            echo
+            echo '## Limits'
+            echo 'LZO roundtrip on Linux host does not prove BO1 asset formats or Android device gameplay.'
+            echo 'This library has no game loop, renderer, map loader, control input, or APK.'
+            echo 'Do not infer BO1 Zombies or Kino der Toten now runs.'
+          } > "$P/report/status.md"
+          cat "$P/report/status.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report ONLY
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: BO1-ORIGINAL-ASSET-LZO-ARM64-NO-APK
+          path: ${{ runner.temp }}/lzo-probe/report
+          retention-days: 21
+          if-no-files-found: warn
