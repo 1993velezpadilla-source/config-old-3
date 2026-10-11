@@ -54,11 +54,11 @@ jobs:
           set -euo pipefail
           g++ -std=c++20 -O2 -DNDEBUG -ffunction-sections -fdata-sections \
             -include tools/bo1_pc_engine/compat/bo1_arm64_math_compat.h \
-            -I"$RUNNER_TEMP/bo1/src" -c "$RUNNER_TEMP/bo1-ported/com_math_anglevectors.cpp" \
+            -I"$RUNNER_TEMP/bo1/src" -I"$RUNNER_TEMP/bo1/src/universal" -c "$RUNNER_TEMP/bo1-ported/com_math_anglevectors.cpp" \
             -o "$RUNNER_TEMP/bo1-ported/orientation_host.o"
           g++ -std=c++20 -O2 -DNDEBUG -ffunction-sections -fdata-sections \
             -include tools/bo1_pc_engine/compat/bo1_arm64_math_compat.h \
-            -I"$RUNNER_TEMP/bo1/src" -Wl,--gc-sections \
+            -I"$RUNNER_TEMP/bo1/src" -I"$RUNNER_TEMP/bo1/src/universal" -Wl,--gc-sections \
             tools/bo1_pc_engine/compat/orientation_host_test.cpp \
             "$RUNNER_TEMP/bo1-ported/orientation_host.o" -o "$RUNNER_TEMP/bo1-ported/bo1_math_host_test"
           "$RUNNER_TEMP/bo1-ported/bo1_math_host_test" | tee "$RUNNER_TEMP/bo1-ported/host-results.txt"
@@ -80,10 +80,10 @@ jobs:
           C="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++"
           HDR="tools/bo1_pc_engine/compat/bo1_arm64_math_compat.h"
           "$C" -std=c++20 -O2 -DNDEBUG -fPIC -fvisibility=hidden -ffunction-sections -fdata-sections \
-            -include "$HDR" -I"$D/src" -c "$P/com_math_anglevectors.cpp" \
+            -include "$HDR" -I"$D/src" -I"$D/src/universal" -c "$P/com_math_anglevectors.cpp" \
             -o "$P/original_bo1_orientation_arm64.o"
           "$C" -std=c++20 -O2 -DNDEBUG -fPIC -ffunction-sections -fdata-sections \
-            -include "$HDR" -I"$D/src" -c tools/bo1_pc_engine/compat/orientation_arm64_wrapper.cpp \
+            -include "$HDR" -I"$D/src" -I"$D/src/universal" -c tools/bo1_pc_engine/compat/orientation_arm64_wrapper.cpp \
             -o "$P/orientation_export_arm64.o"
           "$C" -shared -Wl,--gc-sections -Wl,--no-undefined \
             "$P/original_bo1_orientation_arm64.o" "$P/orientation_export_arm64.o" \
