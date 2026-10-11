@@ -1,0 +1,276 @@
+name: XZIEL Zombie HD Geometry — Dead Cell 10 Animated MDL Pilot
+
+on:
+  push:
+    branches: [feature/xziel-deadcell-zombie-geo-subdivision-20261011]
+    paths:
+      - 'tools/zombie_prototype/generate_graybox_map.py'
+      - '.github/workflows/xziel-v026-dev-deadcell.yml'
+      - 'scripts/patch_xziel_v026_devmenu.py'
+      - 'scripts/slim_v026_deadcell_only.py'
+      - '.github/workflows/xziel-deadcell-zombie-geometry-pilot.yml'
+      - 'tools/zombie_hd/subdivide_nzp_animated_mdl.py'
+      - 'scripts/patch_vril_zombie_hd_png.py'
+      - 'tools/zombie_hd/generate_nzp_zombie_hd_skins.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-prototype:
+    name: Build Dead Cell original AI with 10 animated refined Quake MDL and four HD PNGs
+    runs-on: ubuntu-latest
+    env:
+      XZIEL_DEV_MENU_ONLY: '1'
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Restore original compact 4-spawn Dead Cell CORE
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/zombie_prototype/generate_graybox_map.py
+          test -s build/prototype/xziel_proto.map
+          cat build/prototype/xziel_proto_report.json
+
+      - name: Compile map and spawn zones with NZP tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/nzp-assets /tmp/spawn-zone-tool
+          git clone --depth 1 https://github.com/nzp-team/assets.git /tmp/nzp-assets
+          git clone --depth 1 --recursive https://github.com/nzp-team/spawn-zone-tool.git /tmp/spawn-zone-tool
+          python3 -m pip install --quiet -r /tmp/spawn-zone-tool/requirements.txt
+
+          (
+            cd /tmp/nzp-assets
+            bash tools/compile-wads.sh
+            mkdir -p source/maps/xziel_proto
+            cp "$GITHUB_WORKSPACE/build/prototype/xziel_proto.map" source/maps/xziel_proto/xziel_proto.map
+            bash tools/compile-maps.sh --map xziel_proto --zone-tool-path /tmp/spawn-zone-tool
+          ) 2>&1 | tee /tmp/xziel-proto-map-compile.log
+
+          mkdir -p proto-dist
+          cp /tmp/nzp-assets/common/maps/xziel_proto.bsp proto-dist/
+          test -s /tmp/nzp-assets/common/maps/xziel_proto.nsz
+          cp /tmp/nzp-assets/common/maps/xziel_proto.nsz proto-dist/
+          cp build/prototype/xziel_proto.map proto-dist/
+          cp build/prototype/xziel_proto_report.json proto-dist/
+          cp /tmp/xziel-proto-map-compile.log proto-dist/
+          ls -lh proto-dist/
+
+      - name: Add Dead Cell custom-map display name only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dead-cell-overlay/maps
+          python3 - <<'PY'
+          from pathlib import Path
+          rows=["XZIEL: DEAD CELL", "ORIGINAL FAST-SPAWN CORE ARENA",
+                "4 INSIDE ZOMBIE SPAWNS", "NO WAITING ON WINDOWS",
+                "SOLO ZOMBIES TEST", "DEVELOPER MENU SUPPORTED",
+                "", "", "", "XZIEL", "0", "1"]
+          assert len(rows)==12
+          Path("dead-cell-overlay/maps/xziel_proto.txt").write_text("\n".join(rows)+"\n")
+          PY
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK and NDK only
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER"             "platform-tools"             "platforms;android-35"             "build-tools;35.0.0"             "ndk;27.2.12479018"
+
+      - name: Prepare source-pinned Xziel v0.26 DEV and add only Dead Cell
+        shell: bash
+        env:
+          XZIEL_EXTRA_MAP_NAME: xziel_proto
+          XZIEL_EXTRA_MAP_BSP: ${{ github.workspace }}/proto-dist/xziel_proto.bsp
+          XZIEL_EXTRA_MAP_NSZ: ${{ github.workspace }}/proto-dist/xziel_proto.nsz
+          XZIEL_EXTRA_ASSET_DIR: ${{ github.workspace }}/dead-cell-overlay
+        run: |
+          set -euo pipefail
+          bash scripts/prepare_android.sh
+          unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/maps/xziel_proto.bsp'
+          unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/maps/xziel_proto.nsz'
+
+      - name: Generate original UV registered HD skins and PNG-capable zombie renderer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'Pillow>=10,<13' 'numpy>=1.26,<3'
+          python3 tools/zombie_hd/generate_nzp_zombie_hd_skins.py \
+            --pack build/downloads/pc-nzp-assets.zip \
+            --out zombie-hd-stage
+          python3 scripts/patch_vril_zombie_hd_png.py build/deps/vril
+          cp zombie-hd-stage/models/ai/xziel_zombie_hd_*.png build/nzp-data/nzp/models/ai/
+          (
+            cd build/nzp-data
+            zip -q -r ../android-project/app/src/main/assets/nzp-data.zip nzp/models/ai/xziel_zombie_hd_*.png
+          )
+          sha256sum build/android-project/app/src/main/assets/nzp-data.zip | awk '{print $1}' > build/android-project/app/src/main/assets/nzp-data.version
+          grep -F 'XZIEL_ZOMBIE_HD: skin=' build/deps/vril/source/platform/sdl/gl/gl_rmisc.c
+          grep -F 'cvar_t r_zombie_hd' build/deps/vril/source/platform/sdl/gl/gl_rmain.c
+          grep -F 'GL_Bind(xziel_zombie_hd_skins[e->skinnum])' build/deps/vril/source/platform/sdl/gl/gl_rmain.c
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          from PIL import Image
+          from io import BytesIO
+          from pathlib import Path
+          import json
+          m=json.loads(Path('zombie-hd-stage/zombie-hd-texture-manifest.json').read_text())
+          assert len(m['textures'])==4
+          with ZipFile('build/android-project/app/src/main/assets/nzp-data.zip') as z:
+              paths=set(z.namelist())
+              for k in range(4):
+                  old=f'nzp/models/ai/zfull.mdl_{k}.pcx'
+                  hd=f'nzp/models/ai/xziel_zombie_hd_{k}.png'
+                  assert old in paths and hd in paths,(old,hd)
+                  assert Image.open(BytesIO(z.read(hd))).size==(1024,1024)
+          print('XZIEL_ZOMBIE_HD_4_PNG_ORIGINAL_UV_PACKAGE_GREEN')
+          PY
+
+      - name: Refine all ten zombie/crawler animated MDL meshes without changing QC
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/zombie_hd/subdivide_nzp_animated_mdl.py \
+            --pack build/downloads/pc-nzp-assets.zip \
+            --anorms build/deps/vril/source/anorms.h \
+            --out zombie-geo-stage/models/ai
+          cp zombie-geo-stage/models/ai/*.mdl build/nzp-data/nzp/models/ai/
+          (
+            cd build/nzp-data
+            zip -q -r ../android-project/app/src/main/assets/nzp-data.zip nzp/models/ai/z*.mdl
+          )
+          sha256sum build/android-project/app/src/main/assets/nzp-data.zip | awk '{print $1}' > build/android-project/app/src/main/assets/nzp-data.version
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          from pathlib import Path
+          import json,struct,hashlib
+          manifest=json.loads(Path('zombie-geo-stage/zombie-geo-manifest.json').read_text())
+          assert len(manifest['models'])==10
+          with ZipFile('build/android-project/app/src/main/assets/nzp-data.zip') as z:
+              names=z.namelist()
+              for model,info in manifest['models'].items():
+                  p='nzp/models/ai/'+model
+                  assert names.count(p)==1,(p,names.count(p))
+                  blob=z.read(p)
+                  assert hashlib.sha256(blob).hexdigest()==info['sha256'],p
+                  verts,tris,frames=struct.unpack_from('<3i',blob,60)
+                  assert (verts,tris,frames)==(info['new_vertices'],info['new_triangles'],info['frames']),p
+                  assert verts<=2048 and tris<=2048 and frames<=256,p
+                  assert tris==4*info['old_triangles']
+                  print('XZIEL_ZOMBIE_MODEL_VERIFIED',model,verts,tris,frames)
+          print('XZIEL_DEADCELL_ALL_10_ANIMATED_REFINED_ZOMBIES_GREEN')
+          PY
+
+      - name: Isolate Dead Cell, preserve v0.26 DEV and all 56 weapon assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/slim_v026_deadcell_only.py build
+          grep -F 'stock_maps[0].bsp_name = "xziel_proto"' build/deps/vril/source/menu/menu_helper.c
+          grep -F 'SELECT MAP: SOLO' build/deps/vril/source/menu/menu_stockmaps.c
+
+      - name: Install alongside previous prototypes without replacing them
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          gradle=Path("build/android-project/app/build.gradle")
+          source=gradle.read_text()
+          old='applicationId "com.xziel.nzp"'
+          assert source.count(old)==1
+          gradle.write_text(source.replace(old, 'applicationId "com.xziel.deadcell.zombiehdgeo"', 1))
+          strings=Path("build/android-project/app/src/main/res/values/strings.xml")
+          txt=strings.read_text()
+          old='<string name="app_name">Xziel: NZP Native</string>'
+          assert txt.count(old)==1
+          strings.write_text(txt.replace(old, '<string name="app_name">XZIEL: DEAD CELL ZOMBIE GEO</string>', 1))
+          PY
+
+      - name: Prove original v0.26 gameplay, 56 weapons and Dead Cell only
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'applicationId "com.xziel.deadcell.zombiehdgeo"' build/android-project/app/build.gradle
+          grep -F '<string name="app_name">XZIEL: DEAD CELL ZOMBIE GEO</string>' build/android-project/app/src/main/res/values/strings.xml
+          grep -F 'XZIEL DEVELOPER' build/deps/vril/source/menu/menu_pause.c
+          grep -F 'XzielDev_DispatchPendingImpulse();' build/deps/vril/source/render/r_hud.c
+          grep -F 'Command_XzielDev(ftos(action));' build/deps/quakec/source/server/weapons/weapon_core.qc
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          import json
+          report=json.loads(Path("proto-dist/xziel_proto_report.json").read_text())
+          assert report["mode"]=="minimal-green-core"
+          assert report["zombie_spawns"]==4 and report["barricades"]==0 and report["zones"]==1
+          with ZipFile("build/android-project/app/src/main/assets/nzp-data.zip") as z:
+              names=set(z.namelist())
+              for ext in ("bsp","nsz","txt"):
+                  assert f"nzp/maps/xziel_proto.{ext}" in names, ext
+              assert z.read("nzp/maps/xziel_proto.bsp")==Path("proto-dist/xziel_proto.bsp").read_bytes()
+              assert z.read("nzp/maps/xziel_proto.nsz")==Path("proto-dist/xziel_proto.nsz").read_bytes()
+              assert z.read("nzp/maps/xziel_proto.txt").startswith(b"XZIEL: DEAD CELL")
+              packaged_maps=sorted(n for n in names if n.startswith("nzp/maps/") and n.lower().endswith(".bsp"))
+              assert packaged_maps==["nzp/maps/xziel_proto.bsp"], packaged_maps
+              level_resources=sorted(n for n in names if n.startswith("nzp/maps/") and not n.endswith("/"))
+              assert all(n.startswith("nzp/maps/xziel_proto.") for n in level_resources), level_resources
+              controls={"fire":"fire", "aim":"ads", "aim_fire":"adsfire",
+                        "crouch":"crouch", "prone":"prone", "slide":"slide",
+                        "reload":"reload", "knife":"knife", "interact":"use",
+                        "grenade":"grenade", "weapon_swap":"switch",
+                        "vault_jump":"jump"}
+              for a,b in controls.items():
+                  source=Path(f"assets/xziel/official_touch_skins_v1/{a}.png").read_bytes()
+                  assert z.read(f"nzp/gfx/xziel/{b}.png")==source, f"Changed original button: {a}"
+              assert len(z.read("nzp/progs.dat"))>50000, "No compiled gameplay logic"
+              print("PASS: original DEV+56 weapon controls; all 12 official PNGs exact; Dead Cell ONLY BSP+NSZ+metadata.")
+          PY
+      - name: Build source-pinned Xziel v0.26 Android-native APK
+        working-directory: build/android-project
+        shell: bash
+        run: ./gradlew --no-daemon assembleDebug --stacktrace
+
+      - name: Verify ARM64 game and collect original + Dead Cell APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=build/android-project/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          unzip -p "$APK" lib/arm64-v8a/libmain.so > /tmp/xziel-deadcell.so
+          strings /tmp/xziel-deadcell.so | grep -F 'XZIEL DEVELOPER'
+          strings /tmp/xziel-deadcell.so | grep -F 'XZIEL WEAPON LAB'
+          mkdir -p dead-cell-dist
+          cp "$APK" dead-cell-dist/XZIEL-v026-DeadCell-Zombie-HD-GEOMETRY-PILOT-ARM64.apk
+          cp proto-dist/xziel_proto.bsp proto-dist/xziel_proto.nsz proto-dist/xziel_proto.map proto-dist/xziel_proto_report.json dead-cell-dist/
+          sha256sum "$APK" > dead-cell-dist/APK-SHA256.txt
+          cp zombie-hd-stage/XZIEL-Zombie-UV-Atlas-Original-vs-HD.png dead-cell-dist/
+          cp zombie-hd-stage/zombie-hd-texture-manifest.json dead-cell-dist/
+          cp zombie-hd-stage/models/ai/xziel_zombie_hd_*.png dead-cell-dist/
+          cp zombie-geo-stage/zombie-geo-manifest.json dead-cell-dist/
+          printf 'Experimental geometry: 10 original zombie+crawler MDLs subdivided 4x by faces, UV/frames preserved; four 1024 PNG skins. Dead Cell only. Original game/AI and 56 weapons. Still NOT concept-art mesh, check silhouettes, body attachments and animation at 1/5/10 zombies in Android.\n' > dead-cell-dist/README.txt
+          strings /tmp/xziel-deadcell.so | grep -F 'XZIEL_ZOMBIE_HD: skin='
+
+
+      - name: Upload SMALL one-map developer APK and original Dead Cell BSP/NSZ
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-v026-DeadCell-Zombie-HD-Geometry-ARM64
+          path: dead-cell-dist/
+          if-no-files-found: error
+          retention-days: 14
