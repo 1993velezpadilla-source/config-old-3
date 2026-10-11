@@ -192,6 +192,28 @@ jobs:
                 echo "XCHURCH_NEW_GAME_CARD_BODY_STILL_NO_TRANSITION_RED" | tee -a "$OUT/status.txt"
               else
                 echo "XCHURCH_NEW_GAME_CARD_SCREEN_CHANGED_VISUAL_REVIEW_REQUIRED" | tee -a "$OUT/status.txt"
+                # Actual inspected original BOZ frame is the SELECT CHARACTER /
+                # DIFFICULTY / SELECT MAP menu. Coordinates use native 2280x1080.
+                # Select Kino, Regular and Continue. NO asset or gameplay edits.
+                "$ADB" shell am start -W -n com.activision.boz/.Main --ez xzielDirectTap true --ei xzielX 1358 --ei xzielY 780 > "$OUT/kino-map-tap.txt" 2>&1
+                echo "REAL_KINO_MAP_TILE_TAP_SENT=1358,780" | tee -a "$OUT/status.txt"
+                sleep 3
+                "$ADB" exec-out screencap -p > "$OUT/screens/after_kino_map_tap.png"
+                "$ADB" shell am start -W -n com.activision.boz/.Main --ez xzielDirectTap true --ei xzielX 1760 --ei xzielY 472 > "$OUT/regular-difficulty-tap.txt" 2>&1
+                echo "REAL_REGULAR_DIFFICULTY_TAP_SENT=1760,472" | tee -a "$OUT/status.txt"
+                sleep 2
+                "$ADB" exec-out screencap -p > "$OUT/screens/after_regular_difficulty_tap.png"
+                "$ADB" shell am start -W -n com.activision.boz/.Main --ez xzielDirectTap true --ei xzielX 1760 --ei xzielY 995 > "$OUT/continue-start-game-tap.txt" 2>&1
+                echo "REAL_CONTINUE_TO_GAME_TAP_SENT=1760,995" | tee -a "$OUT/status.txt"
+                sleep 5
+                "$ADB" exec-out screencap -p > "$OUT/screens/after_continue_05s.png"
+                sleep 10
+                "$ADB" exec-out screencap -p > "$OUT/screens/after_continue_15s.png"
+                sleep 15
+                "$ADB" exec-out screencap -p > "$OUT/screens/after_continue_30s.png"
+                sleep 30
+                "$ADB" exec-out screencap -p > "$OUT/screens/after_continue_60s.png"
+                echo "XZIEL_REAL_BOZ_START_GAME_CAPTURED_NEEDS_VISUAL_QA" | tee -a "$OUT/status.txt"
               fi
             else
               echo "XCHURCH_NEW_GAME_SCREEN_CHANGED_VISUAL_REVIEW_REQUIRED" | tee -a "$OUT/status.txt"
