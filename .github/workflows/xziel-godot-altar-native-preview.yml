@@ -1,0 +1,129 @@
+name: Xziel v0.26 Native Godot Altar XZSM V3 Preview
+
+on:
+  push:
+    branches: [feature/xziel-v026-godot-altar-native-v3-preview-20261011]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  godot-altar-arm64:
+    name: Godot altar inside native Dead Cell APK (opt-in)
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    env:
+      XZIEL_DEV_MENU_ONLY: "1"
+    steps:
+      - uses: actions/checkout@v5
+      - name: Generate original Dead Cell BSP and spawn-zone data
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/zombie_prototype/generate_graybox_map.py
+          git clone --depth 1 https://github.com/nzp-team/assets.git /tmp/nzp-assets
+          git clone --depth 1 --recursive https://github.com/nzp-team/spawn-zone-tool.git /tmp/spawn-zone-tool
+          python3 -m pip install --quiet -r /tmp/spawn-zone-tool/requirements.txt
+          (
+            cd /tmp/nzp-assets
+            bash tools/compile-wads.sh
+            mkdir -p source/maps/xziel_proto
+            cp "$GITHUB_WORKSPACE/build/prototype/xziel_proto.map" source/maps/xziel_proto/xziel_proto.map
+            bash tools/compile-maps.sh --map xziel_proto --zone-tool-path /tmp/spawn-zone-tool
+          )
+          mkdir -p proto-dist
+          cp /tmp/nzp-assets/common/maps/xziel_proto.bsp proto-dist/
+          cp /tmp/nzp-assets/common/maps/xziel_proto.nsz proto-dist/
+          test -s proto-dist/xziel_proto.bsp
+          test -s proto-dist/xziel_proto.nsz
+      - name: Export real Godot church altar and convert to XZSM V3
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 4 --retry-delay 2 https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip -o /tmp/godot.zip
+          mkdir -p /tmp/godot out-godot-altar
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+          /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 --headless --path tools/altar_bridge/godot --script res://export_altar.gd -- --output "$GITHUB_WORKSPACE/out-godot-altar/altar_from_godot.glb" 2>&1 | tee out-godot-altar/godot-export.log
+          grep -F XZIEL_GODOT_ALTAR_EXPORT_GREEN out-godot-altar/godot-export.log
+          python3 -m pip install --quiet 'numpy>=1.26,<3' 'pillow>=10,<13' 'trimesh>=4,<5'
+          python3 tools/altar_bridge/glb_to_xzsm_v3.py --glb out-godot-altar/altar_from_godot.glb --out out-godot-altar/nzp --texture-max 2048
+          python3 - <<'PY'
+          import json,struct
+          from pathlib import Path
+          root=Path('out-godot-altar/nzp')
+          report=json.loads((root/'godot_altar_bridge_report.json').read_text())
+          p=root/'models/xziel/godot_altar/altar.xzsm'
+          magic,version,batches,vertices,indices=struct.unpack('<4sIIII',p.read_bytes()[:20])
+          assert (magic,version)==(b'XZSM',3)
+          assert report['source_mesh_nodes']==11 and report['triangles']==564, report
+          assert batches>=11 and vertices>100 and indices==564*3
+          assert len(list((root/'textures/xziel/godot_altar').glob('*.png')))==5
+          print('GREEN: actual 11 Godot altar pieces, five materials, 564 triangles')
+          PY
+      - name: Prepare native v0.26 with isolated overlay
+        shell: bash
+        env:
+          XZIEL_EXTRA_MAP_NAME: xziel_proto
+          XZIEL_EXTRA_MAP_BSP: ${{ github.workspace }}/proto-dist/xziel_proto.bsp
+          XZIEL_EXTRA_MAP_NSZ: ${{ github.workspace }}/proto-dist/xziel_proto.nsz
+          XZIEL_EXTRA_ASSET_DIR: ${{ github.workspace }}/out-godot-altar/nzp
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/patch_xziel_godot_altar_preview.py
+          bash scripts/prepare_android.sh
+          python3 scripts/patch_xziel_godot_altar_preview.py build/deps/vril
+          grep -F 'XZSM: Godot altar V3 overlay active' build/deps/vril/source/platform/sdl/gl/gl_xziel_staticmesh.c
+          grep -F 'glEnableClientState(GL_COLOR_ARRAY)' build/deps/vril/source/platform/sdl/gl/gl_xziel_staticmesh.c
+          grep -F 'Xziel_StaticMesh_Exclusive()' build/deps/vril/source/platform/sdl/gl/gl_rmain.c
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          from pathlib import Path
+          z=ZipFile('build/android-project/app/src/main/assets/nzp-data.zip')
+          names=set(z.namelist())
+          for item in ('nzp/maps/xziel_proto.bsp','nzp/maps/xziel_proto.nsz',
+            'nzp/models/xziel/godot_altar/altar.xzsm',
+            'nzp/maps/ndu.bsp','nzp/gfx/xziel/fire.png','nzp/progs.dat'):
+              assert item in names,item
+          for file in Path('out-godot-altar/nzp/textures/xziel/godot_altar').glob('*.png'):
+              assert 'nzp/textures/xziel/godot_altar/'+file.name in names
+          assert z.read('nzp/models/xziel/godot_altar/altar.xzsm') == Path('out-godot-altar/nzp/models/xziel/godot_altar/altar.xzsm').read_bytes()
+          print('GREEN: v0.26 + Dead Cell + Godot altar XZSM V3 safely packaged')
+          PY
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Android packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018"
+      - name: Compile real native ARM64 renderer
+        working-directory: build/android-project
+        shell: bash
+        run: ./gradlew --no-daemon assembleDebug --stacktrace
+      - name: Verify compiled renderer and publish preview APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=build/android-project/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          unzip -p "$APK" lib/arm64-v8a/libmain.so > /tmp/xziel-altar-v3-arm64.so
+          strings /tmp/xziel-altar-v3-arm64.so | grep -F 'XZSM: Godot altar V3 overlay active'
+          strings /tmp/xziel-altar-v3-arm64.so | grep -F 'XZSM: Godot altar V3 loaded'
+          mkdir -p altar-native-preview-dist
+          cp "$APK" altar-native-preview-dist/Xziel-v026-DEV-DeadCell-GodotAltar-XZSMV3-PREVIEW.apk
+          cp out-godot-altar/altar_from_godot.glb altar-native-preview-dist/
+          cp out-godot-altar/nzp/godot_altar_bridge_report.json altar-native-preview-dist/
+          sha256sum "$APK" > altar-native-preview-dist/APK-SHA256.txt
+          echo 'Compilation alone is NOT an in-game screenshot or runtime proof.' > altar-native-preview-dist/READ_ME_FIRST.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Xziel-Native-DeadCell-Godot-Altar-V3-PREVIEW
+          path: altar-native-preview-dist/
+          if-no-files-found: error
+          retention-days: 14
