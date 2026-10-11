@@ -138,6 +138,35 @@ s = once(s, '    {"addmoney", Command_addmoney,',
     "QC table registration")
 write(path, s)
 
+# Native Vril does not whitelist "xzdev" string commands in sv_user.c.
+# The existing v0.26 input engine DOES send 'impulse N' as a usercmd byte.
+# Intercept reserved developer impulses BEFORE the stock weapon-core switch.
+# This is the actual touch->client usercmd->server QuakeC action authority.
+path = qc / "server/weapons/weapon_core.qc"
+s = rw(path)
+hook = r"""
+float(string params) Command_XzielDev; // server authoritative action handler
+void () Impulse_Functions =
+{
+    if (!self.impulse) return;
+
+    if (self.impulse >= 181 && self.impulse <= 245) {
+        float impulse = self.impulse;
+        self.impulse = 0;
+        float action;
+        if (impulse >= 242)
+            action = impulse - 241; // 1=god, 2=ammo, 3=refill, 4=points
+        else
+            action = impulse - 80;  // 101..161: weapon ID 1..61
+        Command_XzielDev(ftos(action));
+        return;
+    }
+"""
+# Keep all stock player impulse cases untouched and reachable afterward.
+s = once(s, "void () Impulse_Functions =\n{\n\tif (!self.impulse)\n\t\treturn;\n",
+         hook, "wire touch input to true server-side gameplay impulse")
+write(path, s)
+
 # Infinite reserve: changed only when dev toggle enabled and only *after*
 # resuming gameplay; keep the original reload magazine callbacks intact.
 path = qc / "server/main.qc"
@@ -200,8 +229,14 @@ static void XzielDev_Send(int action)
     // submitted server commands while the game was frozen, so the server
     // never processed the action. Resume first; send on next frame.
     Menu_Resume();
-    Cbuf_AddText(va("cmd xzdev %d\n", action));
-    Con_Printf("XZIEL DEV: queued action %d after game resumed\n", action);
+    // Vril's server command whitelist silently rejects custom stringcmd
+    // commands (cmd xzdev). Use the *already working* engine 'impulse'
+    // pipeline instead, just like CROUCH / PRONE / SLIDE in v0.26.
+    // 181..241 => 56 weapon IDs, 242..245 => God/Ammo/Refill/Points.
+    int impulse = action >= 101 ? action + 80 : action + 241;
+    Cbuf_AddText(va("impulse %d\n", impulse));
+    Con_Printf("XZIEL DEV: sent gameplay impulse %d for action %d\n",
+               impulse, action);
 }
 static void XzielDev_God(void) { XzielDev_Send(1); }
 static void XzielDev_Ammo(void) { XzielDev_Send(2); }
