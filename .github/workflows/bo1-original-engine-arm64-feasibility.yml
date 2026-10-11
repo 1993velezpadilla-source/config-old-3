@@ -1,0 +1,92 @@
+name: BO1 Original PC Engine - REAL Android ARM64 Audit (NO APK)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/bo1-original-engine-arm64-feasibility-v1
+    paths:
+      - tools/bo1_pc_engine/**
+      - .github/workflows/bo1-original-engine-arm64-feasibility.yml
+
+permissions:
+  contents: read
+
+jobs:
+  genuine-engine-port-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch original recovered BO1 PC engine at verified exact commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/MisaDev4/bo1-zombies-decompiled.git "$RUNNER_TEMP/bo1-original"
+          test "$(git -C "$RUNNER_TEMP/bo1-original" rev-parse HEAD)" = "102f6992be332610aff587e681e3180b15f395bb"
+          echo 'UPSTREAM_ORIGINAL_SOURCE_SHA=102f6992be332610aff587e681e3180b15f395bb' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install official Android ARM64 NDK toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -x "$SDKMANAGER"
+          "$SDKMANAGER" 'ndk;27.2.12479018'
+          test -x "$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++"
+
+      - name: Probe upstream engine itself with Android ARM64 CMake configure
+        shell: bash
+        run: |
+          set -euo pipefail
+          D="$RUNNER_TEMP/bo1-original"
+          N="$ANDROID_HOME/ndk/27.2.12479018"
+          mkdir -p "$RUNNER_TEMP/bo1-audit/probes"
+          if timeout 120 cmake -S "$D" -B "$RUNNER_TEMP/bo1-android" -G Ninja \
+             -DCMAKE_TOOLCHAIN_FILE="$N/build/cmake/android.toolchain.cmake" \
+             -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26 \
+             >"$RUNNER_TEMP/bo1-audit/cmake.log" 2>&1; then
+            echo 'ANDROID_ARM64_CONFIGURE=PASS'
+          else
+            echo 'ANDROID_ARM64_CONFIGURE=BLOCKED'
+          fi
+          grep -E 'CMake Error|platform|support' "$RUNNER_TEMP/bo1-audit/cmake.log" | head -n 12 || true
+
+      - name: Cross-compile check of four ACTUAL decompiled engine modules
+        shell: bash
+        run: |
+          set -euo pipefail
+          D="$RUNNER_TEMP/bo1-original"
+          P="$RUNNER_TEMP/bo1-audit/probes"
+          C="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++"
+          for src in src/game/actor_navigation.cpp src/bgame/bg_misc.cpp src/physics/phys_collision.cpp src/gfx_d3d/r_bsp.cpp; do
+            outfile="$P/$(echo "$src" | tr / _ | sed 's/\.cpp$/.txt/')"
+            if timeout 75 "$C" -std=c++20 -fsyntax-only -ferror-limit=3 -Wno-everything -I"$D/src" -I"$D" "$D/$src" > "$outfile" 2>&1; then
+              echo "$src: ARM64_SYNTAX_PASS"
+              echo 'PROBE_COMPLETE_NO_ERROR' > "$outfile"
+            else
+              echo "$src: ARM64_SYNTAX_BLOCKED"
+              grep -m2 'error:' "$outfile" | cut -c1-160 || true
+            fi
+          done
+
+      - name: Generate sanitized report only (no original C++ or game assets)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d "$RUNNER_TEMP/bo1-original"
+          mkdir -p "$RUNNER_TEMP/bo1-audit/public"
+          python3 tools/bo1_pc_engine/arm64_feasibility.py --source "$RUNNER_TEMP/bo1-original" --output "$RUNNER_TEMP/bo1-audit/public" --cmake-log "$RUNNER_TEMP/bo1-audit/cmake.log" --probe-dir "$RUNNER_TEMP/bo1-audit/probes"
+          cat "$RUNNER_TEMP/bo1-audit/public/report.md" >> "$GITHUB_STEP_SUMMARY"
+          echo "NO_APK_BUILT=true; AUDIT_ONLY=true" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload only audit metadata (no decompiled copyrighted source)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BO1-ORIGINAL-ENGINE-ARM64-AUDIT-NOT-APK
+          path: ${{ runner.temp }}/bo1-audit/public
+          retention-days: 21
+          if-no-files-found: warn
