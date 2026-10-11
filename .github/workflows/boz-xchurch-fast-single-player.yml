@@ -215,111 +215,43 @@ jobs:
             "$ADB" exec-out screencap -p > "$OUT/screens/after_new_game_30s.png"
             AFTER_NEW_GAME_HASH="$(sha256sum "$OUT/screens/after_new_game_30s.png" | awk '{print $1}')"
             echo "AFTER_NEW_GAME_HASH=$AFTER_NEW_GAME_HASH" >> "$OUT/status.txt"
-            if [ "$AFTER_NEW_GAME_HASH" = "$AFTER_HASH" ]; then
-              # Tapping the NEW GAME caption was delivered by native touch,
-              # but the screenshot was unchanged. Try the original illustrated
-              # card's BODY instead; this changes no game engine code/assets.
-              echo "XCHURCH_NEW_GAME_LABEL_TAP_UNCHANGED_RETRY_CARD_BODY" | tee -a "$OUT/status.txt"
-              "$ADB" shell am start -W -n com.activision.boz/.Main \
-                --ez xzielDirectTap true --ei xzielX 690 --ei xzielY 530 \
-                > "$OUT/new-game-card-tap.txt" 2>&1
-              sleep 15
-              "$ADB" exec-out screencap -p > "$OUT/screens/after_new_game_card_15s.png"
-              RETRY_HASH="$(sha256sum "$OUT/screens/after_new_game_card_15s.png" | awk '{print $1}')"
-              if [ "$RETRY_HASH" = "$AFTER_HASH" ]; then
-                echo "XCHURCH_NEW_GAME_CARD_BODY_STILL_NO_TRANSITION_RED" | tee -a "$OUT/status.txt"
-              else
-                echo "XCHURCH_NEW_GAME_CARD_SCREEN_CHANGED_VISUAL_REVIEW_REQUIRED" | tee -a "$OUT/status.txt"
-                # Original BOZ selector has TUTORIAL already white-bordered;
-                # KINO is grey/red, potentially unavailable until first game.
-                # First explicitly select character + unlocked tutorial.
-                # Probe direct JNI instead of Activity handled flags.
-                "$ADB" shell am start -W -n com.activision.boz/.Main --ez xzielNativeTap true --ei xzielX 480 --ei xzielY 180 > "$OUT/native-nikolai-tap.txt" 2>&1
-                echo "REAL_NATIVE_NIKOLAI_SELECTION_SENT" | tee -a "$OUT/status.txt"
-                sleep 7
-                "$ADB" exec-out screencap -p > "$OUT/screens/after_character_select.png"
-                "$ADB" shell am start -W -n com.activision.boz/.Main --ez xzielNativeTap true --ei xzielX 1010 --ei xzielY 790 > "$OUT/native-tutorial-map-tap.txt" 2>&1
-                echo "REAL_NATIVE_ORIGINAL_TUTORIAL_TILE_SENT" | tee -a "$OUT/status.txt"
-                sleep 7
-                "$ADB" exec-out screencap -p > "$OUT/screens/after_tutorial_select.png"
-                "$ADB" shell am start -W -n com.activision.boz/.Main --ez xzielNativeTap true --ei xzielX 1760 --ei xzielY 472 > "$OUT/regular-difficulty-tap.txt" 2>&1
-                echo "REAL_NATIVE_REGULAR_DIFFICULTY_SENT" | tee -a "$OUT/status.txt"
-                sleep 7
-                "$ADB" exec-out screencap -p > "$OUT/screens/after_regular_difficulty_tap.png"
-                "$ADB" shell am start -W -n com.activision.boz/.Main --ez xzielNativeTap true --ei xzielX 1760 --ei xzielY 995 > "$OUT/continue-start-game-tap.txt" 2>&1
-                echo "REAL_CONTINUE_TO_GAME_TAP_SENT=1760,995" | tee -a "$OUT/status.txt"
-                sleep 5
-                "$ADB" exec-out screencap -p > "$OUT/screens/after_continue_05s.png"
-                sleep 10
-                "$ADB" exec-out screencap -p > "$OUT/screens/after_continue_15s.png"
-                sleep 15
-                "$ADB" exec-out screencap -p > "$OUT/screens/after_continue_30s.png"
-                sleep 30
-                "$ADB" exec-out screencap -p > "$OUT/screens/after_continue_60s.png"
-                # Exact previous run: all three Android MotionEvents returned
-                # handled=true but EVERY screen remained byte-identical to
-                # the original character/map menu. Try OS input directly.
-                STUCK_BEFORE="$(sha256sum "$OUT/screens/after_new_game_card_15s.png" | cut -d " " -f1)"
-                STUCK_AFTER="$(sha256sum "$OUT/screens/after_continue_60s.png" | cut -d " " -f1)"
-                if [ "$STUCK_BEFORE" = "$STUCK_AFTER" ]; then
-                  echo "XCHURCH_NATIVE_TOUCH_HANDLED_BUT_GAME_MENU_FROZEN_RETEST_ADB_INPUT" | tee -a "$OUT/status.txt"
-                  "$ADB" shell input tap 425 220; sleep 2
-                  "$ADB" shell input tap 1700 460; sleep 2
-                  "$ADB" shell input tap 1380 770; sleep 2
-                  "$ADB" exec-out screencap -p > "$OUT/screens/adb_pre_continue.png"
-                  "$ADB" shell input tap 1730 995; sleep 15
-                  "$ADB" exec-out screencap -p > "$OUT/screens/adb_after_continue_15s.png"
-                  ADHASH="$(sha256sum "$OUT/screens/adb_after_continue_15s.png" | cut -d " " -f1)"
-                  echo "ADB_INPUT_FINAL_HASH=$ADHASH" >> "$OUT/status.txt"
-                  if [ "$ADHASH" = "$STUCK_BEFORE" ]; then
-                    echo "XCHURCH_ORIGINAL_GAMEPLAY_NOT_REACHED_REAL_RED" | tee -a "$OUT/status.txt"
-                    # Does BACK still work? Distinguishes bad selection from
-                    # native menu event-loop/UI lock. No engine/assets edits.
-                    "$ADB" shell input tap 540 995; sleep 8
-                    "$ADB" exec-out screencap -p > "$OUT/screens/diagnostic_back_touch.png"
-                    BACKHASH="$(sha256sum "$OUT/screens/diagnostic_back_touch.png" | cut -d " " -f1)"
-                    echo "MENU_BACK_TOUCH_HASH=$BACKHASH" | tee -a "$OUT/status.txt"
-                    if [ "$BACKHASH" = "$STUCK_BEFORE" ]; then
-                      # Native game currently ignores touch at character/map
-                      # selector; OS hardware BACK works. Test Xperia Play /
-                      # Android D-pad input path the ORIGINAL engine supports.
-                      MENUHASH="$STUCK_BEFORE"
-                      for k in 23 66 22 23 20 23; do
-                        "$ADB" shell input keyevent "$k"
-                        sleep 4
-                        "$ADB" exec-out screencap -p > "$OUT/screens/keycode_${k}_$(date +%s).png"
-                        LASTKEYHASH="$(sha256sum "$(find "$OUT/screens" -type f -name "keycode_${k}_*.png" | sort | tail -n1)" | cut -d " " -f1)"
-                        if [ "$LASTKEYHASH" != "$MENUHASH" ]; then
-                          echo "XCHURCH_NATIVE_GAME_DPAD_CHANGED_FRAME_KEYCODE=$k" | tee -a "$OUT/status.txt"
-                          sleep 8
-                          "$ADB" exec-out screencap -p > "$OUT/screens/dpad_changed_after_8s.png"
-                          break
-                        fi
-                      done
-                      if [ "${LASTKEYHASH:-}" = "$MENUHASH" ]; then
-                        echo "XCHURCH_GAMEPAD_KEYS_ALSO_NO_SCREEN_CHANGE_RED" | tee -a "$OUT/status.txt"
-                      fi
-                      "$ADB" shell input keyevent 4; sleep 8
-                      "$ADB" exec-out screencap -p > "$OUT/screens/diagnostic_back_key.png"
-                      KEYHASH="$(sha256sum "$OUT/screens/diagnostic_back_key.png" | cut -d " " -f1)"
-                      echo "MENU_ANDROID_BACK_KEY_HASH=$KEYHASH" | tee -a "$OUT/status.txt"
-                      if [ "$KEYHASH" = "$STUCK_BEFORE" ]; then
-                        echo "XCHURCH_UI_FROZEN_TOUCH_AND_HARDWARE_BACK_RED" | tee -a "$OUT/status.txt"
-                      else
-                        echo "XCHURCH_ANDROID_BACK_NAVIGATES_BUT_TOUCH_MISSING_RED" | tee -a "$OUT/status.txt"
-                      fi
-                    else
-                      echo "XCHURCH_UI_BACK_NAVIGATION_WORKS_SELECTION_INCOMPLETE_RED" | tee -a "$OUT/status.txt"
-                    fi
-                    exit 68
-                  fi
-                fi
-                echo "XZIEL_REAL_BOZ_START_GAME_CAPTURED_NEEDS_VISUAL_QA" | tee -a "$OUT/status.txt"
-              fi
-            else
-              echo "XCHURCH_NEW_GAME_SCREEN_CHANGED_VISUAL_REVIEW_REQUIRED" | tee -a "$OUT/status.txt"
+            # Never accept a changed screen between Main Menu and Single
+            # Player as proof that NEW GAME was tapped. Prior GREEN run did
+            # exactly that and stopped before character/map selection.
+            if [ "$AFTER_NEW_GAME_HASH" != "$AFTER_HASH" ]; then
+              echo "XCHURCH_DELAYED_MENU_TRANSITION_DETECTED_PRESS_NEW_GAME_CARD_ANYWAY" | tee -a "$OUT/status.txt"
             fi
-          fi
+            "$ADB" shell am start -W -n com.activision.boz/.Main --ez xzielDirectTap true --ei xzielX 690 --ei xzielY 530 > "$OUT/real-new-game-card-tap.txt" 2>&1
+            sleep 18
+            "$ADB" exec-out screencap -p > "$OUT/screens/real_new_game_card_18s.png"
+            SELECTOR_HASH="$(sha256sum "$OUT/screens/real_new_game_card_18s.png" | cut -d " " -f1)"
+            echo "AFTER_NEW_GAME_CARD_HASH=$SELECTOR_HASH" | tee -a "$OUT/status.txt"
+            if [ "$SELECTOR_HASH" = "$AFTER_NEW_GAME_HASH" ]; then
+              echo "XCHURCH_FAILED_TO_OPEN_REAL_MAP_SELECTOR_RED" | tee -a "$OUT/status.txt"
+              exit 68
+            fi
+
+            # The original BOZ controller adapter is already rebuilt into
+            # the reused ARM64 APK. Send events through Marmalade JNI. Do
+            # not patch any weapons, maps or art while resolving this gate.
+            for target in "480:180:character" "1010:790:tutorial" "1760:472:regular" "1760:995:continue"; do
+              IFS=: read -r TX TY LABEL <<< "$target"
+              "$ADB" shell am start -W -n com.activision.boz/.Main --ez xzielNativeTap true --ei xzielX "$TX" --ei xzielY "$TY" > "$OUT/native_${LABEL}_tap.txt" 2>&1
+              sleep 7
+              "$ADB" exec-out screencap -p > "$OUT/screens/native_${LABEL}_07s.png"
+              echo "XCHURCH_JNI_${LABEL}_EVENT_SENT_${TX}_${TY}" | tee -a "$OUT/status.txt"
+            done
+            sleep 25
+            "$ADB" exec-out screencap -p > "$OUT/screens/after_start_attempt_32s.png"
+            END_HASH="$(sha256sum "$OUT/screens/after_start_attempt_32s.png" | cut -d " " -f1)"
+            echo "AFTER_NATIVE_START_HASH=$END_HASH" | tee -a "$OUT/status.txt"
+            if [ "$SELECTOR_HASH" = "$END_HASH" ]; then
+              echo "XCHURCH_NATIVE_SELECTOR_UNCHANGED_NO_GAMEPLAY_RED" | tee -a "$OUT/status.txt"
+              exit 68
+            fi
+            # Frame change alone does not imply a game world/zombies loaded.
+            echo "XCHURCH_SCREEN_CHANGED_BUT_NO_GAMEPLAY_CERTIFICATION_PENDING_VISUAL_QA" | tee -a "$OUT/status.txt"
+            exit 69
 
           "$ADB" logcat -d -v threadtime > "$OUT/logcat.txt"
           grep -Eai 'XZIEL_DIRECT_NATIVE_TAP|STARTGAME|single|menu|map|kino|xchurch|FATAL|SIGSEGV|SIGABRT'             "$OUT/logcat.txt" | tail -500 > "$OUT/logcat-focus.txt" || true
