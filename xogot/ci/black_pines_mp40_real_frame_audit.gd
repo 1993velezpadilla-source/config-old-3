@@ -140,11 +140,13 @@ func _run() -> void:
     if experimental_gun_root == null:
         _fail("missing gun root for roll matrix")
         return
-    experimental_gun_root.quaternion = (
-        experimental_gun_root.quaternion * Quaternion(Vector3.RIGHT, deg_to_rad(roll_arg))
-    ).normalized()
-    weapon.set_meta("mp40_experiment_roll_deg", roll_arg)
-    print("MP40_SOURCE_MESH_ROLL_EXPERIMENT_DEGREES=", roll_arg)
+    # Most faithful possible candidate: weapon GLB's true local source
+    # coordinates parented directly under animated T4 Marine tag_weapon.
+    # Both source assets use the same Unreal/ActorX coordinate conventions;
+    # only the *whole hand rig* receives UE +X to camera -Z conversion.
+    experimental_gun_root.quaternion = Quaternion.IDENTITY
+    weapon.set_meta("mp40_experiment_mount_mode", "original_tag_weapon_local_identity")
+    print("MP40_ORIGINAL_SOCKET_IDENTITY_CANDIDATE true_source_axes_no_child_roll=true")
 
     var gun_player: AnimationPlayer = weapon.get("_asset_animation_player") as AnimationPlayer
     var hand_player: AnimationPlayer = weapon.get("_hands_animation_player") as AnimationPlayer
