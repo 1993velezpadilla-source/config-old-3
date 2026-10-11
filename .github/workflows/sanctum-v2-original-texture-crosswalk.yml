@@ -1,0 +1,72 @@
+name: Sanctum V2 - Recover Proven Exact Texture Crosswalk
+on:
+  push:
+    branches: [fix/xziel-sanctum-v2-authored-materials-bake-20261011]
+    paths:
+      - .github/workflows/sanctum-v2-original-texture-crosswalk.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  crosswalk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - name: Recover Oct-02 exact material snapshot (full 4K textures)
+        uses: actions/download-artifact@v5
+        with:
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          run-id: 37012873623
+          name: XZIEL-Church-ExactTextures-InfinitePistol
+          path: exact-oct02
+      - name: Recover source V2 GLB provenance
+        uses: actions/download-artifact@v5
+        with:
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          run-id: 38175479193
+          name: Sanctum-V2-Original-Material-Provenance
+          path: audit
+      - name: Build exact material name-to-texture evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          from collections import Counter
+          original=json.loads(next(Path('audit').rglob('sanctum-v2-original-materials.json')).read_text())
+          print('FILES_FROM_GOOD_APK')
+          for p in Path('exact-oct02').rglob('*'):
+              if p.is_file():print(p,p.stat().st_size)
+          report=next(Path('exact-oct02').rglob('vril_static_mesh_report.json'),None)
+          assert report is not None,'proven exact-material texture report not found'
+          old=json.loads(report.read_text())
+          mats=old.get('textures',{})
+          lines={}
+          total=original['totals']['triangles'];covered=0
+          for key,val in original['materials'].items():
+              entry=mats.get(key)
+              if entry is not None:
+                  covered+=val['triangles']
+              lines[key]={'triangles':val['triangles'],'matched_exact_old':entry is not None,
+                          'old_path':entry.get('path') if entry else None,
+                          'old_source':entry.get('source') if entry else None}
+              print('CROSSWALK',key,'triangles',val['triangles'],
+                    'old_png',entry.get('path') if entry else 'MISSING',
+                    'source',entry.get('source') if entry else 'MISSING')
+          print('OLD_REPORT',json.dumps({k:v for k,v in old.items() if k not in ('textures','objects','batches')})[:2500])
+          print('MATCHED_EXACT_TRIANGLES',covered,'/',total,f'{covered/total:.3%}')
+          Path('sanctum-material-crosswalk.json').write_text(json.dumps({
+              'triangles':total,'matched':covered,
+              'ratio':covered/total,'entries':lines},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sanctum-V2-Proven-Hero-Texture-Crosswalk
+          path: sanctum-material-crosswalk.json
+          if-no-files-found: error
+          retention-days: 14
