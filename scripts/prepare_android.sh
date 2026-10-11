@@ -26,6 +26,15 @@ else
 fi
 export XZIEL_MAX_AI_COUNT
 
+# Opt-in one-map Vril prototype; leave the normal Android distribution intact.
+if [[ -n "${XZIEL_SINGLE_MAP:-}" ]]; then
+    [[ "$XZIEL_SINGLE_MAP" =~ ^[A-Za-z0-9_-]+$ ]] || { echo "Unsafe single-map id" >&2; exit 1; }
+    [[ "${XZIEL_DEV_TOOLS:-0}" =~ ^[01]$ ]] || { echo "XZIEL_DEV_TOOLS must be 0 or 1" >&2; exit 1; }
+elif [[ "${XZIEL_DEV_TOOLS:-0}" == 1 ]]; then
+    echo "XZIEL_DEV_TOOLS requires XZIEL_SINGLE_MAP" >&2
+    exit 1
+fi
+
 rm -rf "$BUILD"
 mkdir -p "$DEPS"
 
@@ -71,6 +80,10 @@ python3 "$ROOT/scripts/patch_quakec_modern_movement.py" "$DEPS/quakec"
 python3 "$ROOT/scripts/patch_quakec_mobile_v021.py" "$DEPS/quakec"
 python3 "$ROOT/scripts/patch_quakec_mobile_v022.py" "$DEPS/quakec"
 python3 "$ROOT/scripts/patch_quakec_mobile_v024.py" "$DEPS/quakec"
+if [[ -n "${XZIEL_SINGLE_MAP:-}" ]]; then
+    echo "==> Installing single-map Vril menu / developer profile"
+    python3 "$ROOT/scripts/patch_vril_one_map_devmenu.py" "$DEPS/quakec" "$XZIEL_SINGLE_MAP" "${XZIEL_DEV_TOOLS:-0}"
+fi
 if [[ "${XZIEL_NACHT_BENCHMARK:-0}" == "1" ]]; then
     echo "==> Enabling Nacht golden-reference stress controls"
     python3 "$ROOT/scripts/patch_quakec_nacht_benchmark.py" "$DEPS/quakec"
@@ -221,6 +234,11 @@ if len(remaining) != 1 or remaining[0].stem != keep:
     raise SystemExit("Single-map packaging invariant failed: " + str(remaining))
 print("==> Playable BSP:", keep, "| other BSP/NSZ removed:", len(removed))
 PY_SINGLE_MAP
+fi
+
+if [[ -n "${XZIEL_SINGLE_MAP:-}" ]]; then
+    echo "==> Packaging exactly one map while preserving every shared weapon model"
+    python3 "$ROOT/scripts/prune_nzp_single_map.py" "$ASSET_WORK/nzp" "$XZIEL_SINGLE_MAP"
 fi
 
 (
