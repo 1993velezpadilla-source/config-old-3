@@ -151,13 +151,13 @@ void () Impulse_Functions =
     if (!self.impulse) return;
 
     if (self.impulse >= 181 && self.impulse <= 245) {
-        float impulse = self.impulse;
+        float dev_impulse = self.impulse;
         self.impulse = 0;
         float action;
-        if (impulse >= 242)
-            action = impulse - 241; // 1=god, 2=ammo, 3=refill, 4=points
+        if (dev_impulse >= 242)
+            action = dev_impulse - 241; // 1=god, 2=ammo, 3=refill, 4=points
         else
-            action = impulse - 80;  // 101..161: weapon ID 1..61
+            action = dev_impulse - 80;  // 101..161: weapon ID 1..61
         Command_XzielDev(ftos(action));
         return;
     }
