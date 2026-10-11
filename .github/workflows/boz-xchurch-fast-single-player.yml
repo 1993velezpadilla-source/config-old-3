@@ -34,7 +34,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: XChurch-Diagnostic-Touch-APK
-          run-id: 36783515318
+          run-id: 38101261014
           github-token: ${{ github.token }}
           path: /tmp/xchurch-diag
 
@@ -216,18 +216,23 @@ jobs:
                 echo "XCHURCH_NEW_GAME_CARD_BODY_STILL_NO_TRANSITION_RED" | tee -a "$OUT/status.txt"
               else
                 echo "XCHURCH_NEW_GAME_CARD_SCREEN_CHANGED_VISUAL_REVIEW_REQUIRED" | tee -a "$OUT/status.txt"
-                # Actual inspected original BOZ frame is the SELECT CHARACTER /
-                # DIFFICULTY / SELECT MAP menu. Coordinates use native 2280x1080.
-                # Select Kino, Regular and Continue. NO asset or gameplay edits.
-                "$ADB" shell am start -W -n com.activision.boz/.Main --ez xzielDirectTap true --ei xzielX 1358 --ei xzielY 780 > "$OUT/kino-map-tap.txt" 2>&1
-                echo "REAL_KINO_MAP_TILE_TAP_SENT=1358,780" | tee -a "$OUT/status.txt"
-                sleep 3
-                "$ADB" exec-out screencap -p > "$OUT/screens/after_kino_map_tap.png"
-                "$ADB" shell am start -W -n com.activision.boz/.Main --ez xzielDirectTap true --ei xzielX 1760 --ei xzielY 472 > "$OUT/regular-difficulty-tap.txt" 2>&1
-                echo "REAL_REGULAR_DIFFICULTY_TAP_SENT=1760,472" | tee -a "$OUT/status.txt"
-                sleep 2
+                # Original BOZ selector has TUTORIAL already white-bordered;
+                # KINO is grey/red, potentially unavailable until first game.
+                # First explicitly select character + unlocked tutorial.
+                # Probe direct JNI instead of Activity handled flags.
+                "$ADB" shell am start -W -n com.activision.boz/.Main --ez xzielNativeTap true --ei xzielX 480 --ei xzielY 180 > "$OUT/native-nikolai-tap.txt" 2>&1
+                echo "REAL_NATIVE_NIKOLAI_SELECTION_SENT" | tee -a "$OUT/status.txt"
+                sleep 7
+                "$ADB" exec-out screencap -p > "$OUT/screens/after_character_select.png"
+                "$ADB" shell am start -W -n com.activision.boz/.Main --ez xzielNativeTap true --ei xzielX 1010 --ei xzielY 790 > "$OUT/native-tutorial-map-tap.txt" 2>&1
+                echo "REAL_NATIVE_ORIGINAL_TUTORIAL_TILE_SENT" | tee -a "$OUT/status.txt"
+                sleep 7
+                "$ADB" exec-out screencap -p > "$OUT/screens/after_tutorial_select.png"
+                "$ADB" shell am start -W -n com.activision.boz/.Main --ez xzielNativeTap true --ei xzielX 1760 --ei xzielY 472 > "$OUT/regular-difficulty-tap.txt" 2>&1
+                echo "REAL_NATIVE_REGULAR_DIFFICULTY_SENT" | tee -a "$OUT/status.txt"
+                sleep 7
                 "$ADB" exec-out screencap -p > "$OUT/screens/after_regular_difficulty_tap.png"
-                "$ADB" shell am start -W -n com.activision.boz/.Main --ez xzielDirectTap true --ei xzielX 1760 --ei xzielY 995 > "$OUT/continue-start-game-tap.txt" 2>&1
+                "$ADB" shell am start -W -n com.activision.boz/.Main --ez xzielNativeTap true --ei xzielX 1760 --ei xzielY 995 > "$OUT/continue-start-game-tap.txt" 2>&1
                 echo "REAL_CONTINUE_TO_GAME_TAP_SENT=1760,995" | tee -a "$OUT/status.txt"
                 sleep 5
                 "$ADB" exec-out screencap -p > "$OUT/screens/after_continue_05s.png"
