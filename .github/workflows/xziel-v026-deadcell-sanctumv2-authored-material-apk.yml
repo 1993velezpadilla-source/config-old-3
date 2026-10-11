@@ -1,6 +1,11 @@
 name: XZIEL v0.26 - Dead Cell + ORIGINAL baked Sanctum V2 materials
 
 on:
+  push:
+    branches: [fix/xziel-sanctum-v2-authored-materials-bake-20261011]
+    paths:
+      - .github/workflows/xziel-v026-deadcell-sanctumv2-authored-material-apk.yml
+      - scripts/patch_xziel_xzsm_viewmodel_state.py
   workflow_dispatch:
 
 permissions:
@@ -118,6 +123,15 @@ jobs:
           name: XZIEL-Sanctum-Vertical-Gameplay
           path: original-sanctum-vertical
 
+      - name: Restore independently validated 100% original material coverage
+        uses: actions/download-artifact@v5
+        with:
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          run-id: 38177291809
+          name: Sanctum-V2-Salvaged-Source-Coverage-Report
+          path: checked-v2
+
       - name: Download rebuilt ORIGINAL Blender shader baked GLB
         uses: actions/download-artifact@v5
         with:
@@ -132,6 +146,16 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m pip install --quiet 'numpy>=1.26,<3' 'Pillow>=10,<13' 'trimesh>=4,<5'
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report=json.loads(Path("checked-v2/salvaged-material-report.json").read_text())
+          triangles=report["totals"]["triangles"]
+          textured=sum(mat["triangles"] for mat in report["materials"].values() if mat["images_nodes"])
+          assert triangles==366065,(triangles,"unexpected source mesh")
+          assert textured==triangles,(textured,triangles,"unbaked original materials")
+          print("SALVAGED_SOURCE_AUTHORED_COVERAGE_GREEN",textured,triangles)
+          PY
           GLB=sanctum-v2-baked/sanctum-v2-real-authored-materials.glb
           REPORT=original-sanctum-vertical/sanctum-vertical-probe/vertical-report.json
           test -s "$GLB"
@@ -203,6 +227,7 @@ jobs:
           python3 scripts/slim_v026_sanctum_deadcell.py build
           python3 scripts/add_vertical_sanctum_v026.py build sanctum-vertical-addon
           python3 scripts/finish_two_map_vertical.py build
+          python3 scripts/patch_xziel_xzsm_viewmodel_state.py build/deps/vril
 
       - name: Gate two maps, original baked material coverage, PNG touch, DEV and weapons
         shell: bash
@@ -215,6 +240,8 @@ jobs:
           ! grep -F 'sanctum_harness' build/deps/vril/source/menu/menu_main.c
           ! grep -F 'sanctum/sanctum.xzsm' build/deps/vril/source/platform/sdl/gl/gl_xziel_staticmesh.c
           grep -F 'Preserve original Sanctum V2 GLB RGBA' build/deps/vril/source/platform/sdl/gl/gl_xziel_staticmesh.c
+          grep -F 'glDepthMask(had_depth_writes)' build/deps/vril/source/platform/sdl/gl/gl_xziel_staticmesh.c
+          grep -F 'glFrontFace((GLenum)prev_front_face)' build/deps/vril/source/platform/sdl/gl/gl_xziel_staticmesh.c
           grep -F 'XZIEL DEVELOPER' build/deps/vril/source/menu/menu_pause.c
           grep -F 'XZIEL WEAPON LAB' build/deps/vril/source/menu/menu_pause.c
           grep -F 'XzielDev_DispatchPendingImpulse();' build/deps/vril/source/render/r_hud.c
@@ -297,7 +324,7 @@ jobs:
           mkdir -p two-map-v2-baked-dist
           cp "$APK" two-map-v2-baked-dist/XZIEL-v026-DeadCell-SanctumV2-ORIGINAL-BAKED-MATERIALS-ARM64.apk
           sha256sum "$APK" > two-map-v2-baked-dist/APK-SHA256.txt
-          printf 'PREVIEW: Dead Cell and Sanctum V2. Original procedural Blender shader colors baked to 2K/1K images. No old St Giles. Ramps still approximate. Visual quality not proven on Android.\n' > two-map-v2-baked-dist/README.txt
+          printf 'PREVIEW: Dead Cell and Sanctum V2. Independent 100pct image coverage confirmed on original 366065 triangles. Source authored Blender materials baked. Vril GL state guard added for viewmodel. Ramp collision approximated. Android first-person gun and visual screenshots NOT YET verified.\n' > two-map-v2-baked-dist/README.txt
           ls -lh two-map-v2-baked-dist/*.apk
 
       - uses: actions/upload-artifact@v4
