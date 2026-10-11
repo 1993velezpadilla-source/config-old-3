@@ -1,0 +1,52 @@
+name: Sanctum V2 - Verify Salvaged Original Shader GLB
+on:
+  push:
+    branches: [fix/xziel-sanctum-v2-authored-materials-bake-20261011]
+    paths:
+      - '.github/workflows/sanctum-v2-salvaged-bake-preflight.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          run-id: 38175917615
+          name: Sanctum-V2-REAL-ORIGINAL-Shader-Baked-GLB
+          path: recovered
+      - name: Validate original textures from recovered GLB despite faulty face-count gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'numpy>=1.26,<3' 'trimesh>=4,<5' 'Pillow>=10,<13'
+          test -s recovered/sanctum-v2-baked/sanctum-v2-real-authored-materials.glb
+          python3 tools/sanctum_vertical_bridge/audit_gltf_material_sources.py \
+            recovered/sanctum-v2-baked/sanctum-v2-real-authored-materials.glb \
+            --out salvaged-material-report.json
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          source=json.loads(Path("salvaged-material-report.json").read_text())
+          t=source["totals"]["triangles"]
+          baked=sum(x["triangles"] for x in source["materials"].values() if x["images_nodes"]>0)
+          coverage=baked/max(1,t)
+          print(f"SANCTUM_V2_SALVAGED_MATERIAL_COVERAGE {coverage:.3%} ({baked} of {t} triangles)")
+          print("TOTAL_MATERIALS",source["totals"]["materials"])
+          assert t >= 350000,("Missing original authored geometry",t)
+          assert coverage > .95,("Source Blender shader bake incomplete",coverage)
+          print("SALVAGED_ORIGINAL_SHADER_BAKE_PASSED")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Sanctum-V2-Salvaged-Source-Coverage-Report
+          path: salvaged-material-report.json
+          if-no-files-found: warn
+          retention-days: 14
