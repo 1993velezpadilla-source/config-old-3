@@ -63,6 +63,20 @@ jobs:
           cmp -s "$OUT/app-original.icf" "$OUT/stage/assets/app.icf" && { echo "patch ineffective"; exit 1; } || true
           grep -q "^EnableOF=0$" "$OUT/stage/assets/app.icf"
           grep -q "^ResourceDownloader=0$" "$OUT/stage/assets/app.icf"
+
+          # Capture native reasons instead of guessing at additional buttons.
+          # Enable only in CI's temporary app.icf: real game data unchanged.
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("/tmp/xchurch-fast-offline/stage/assets/app.icf")
+          text=p.read_text("latin1")
+          for key in ("STARTGAME","GUI_EVENT","RESMANAGER","RESMANAGER_MOUNT","FILE","RESDOWNLOADER","TRANSITION","GAME","GUI","LOADER"):
+              needle=key+"=0"
+              if needle in text:
+                  text=text.replace(needle,key+"=1",1)
+          p.write_text(text,encoding="latin1")
+          print("XZIEL_NATIVE_LOADING_TRACE_ENABLED_FOR_TEST_ONLY")
+          PY
           cp "$SRC" "$OUT/unsigned.apk"
           zip -qd "$OUT/unsigned.apk" assets/app.icf || true
           zip -qd "$OUT/unsigned.apk" 'META-INF/*.RSA' 'META-INF/*.DSA' 'META-INF/*.EC' 'META-INF/*.SF' 'META-INF/MANIFEST.MF' || true
@@ -312,6 +326,19 @@ jobs:
           sha256sum "$OUT"/screens/*.png > "$OUT/screen-hashes.txt" 2>/dev/null || true
           exit 0
 
+      - name: Collect native game startup and resource-mount evidence even on RED
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          OUT=/tmp/xchurch-fast
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          mkdir -p "$OUT"
+          "$ADB" logcat -d -v threadtime > "$OUT/logcat-postmortem.txt" 2>&1
+          grep -Eai "STARTGAME|GUI_EVENT|RESMANAGER|ResourceManager|mount|loading|missing|failed|error|assets|OBB|zombie|map|xziel|s3e|trace" "$OUT/logcat-postmortem.txt" | tail -1500 > "$OUT/native-resource-focus.txt" || true
+          "$ADB" shell ls -lah /sdcard/Android/obb/com.activision.boz > "$OUT/obb-directory.txt" 2>&1 || true
+          "$ADB" shell dumpsys activity activities > "$OUT/activities-final.txt" 2>&1 || true
+          echo "XCHURCH_NATIVE_POSTMORTEM_CAPTURED_ON_BOTH_GREEN_AND_RED"
       - name: Summarize
         if: always()
         shell: bash
