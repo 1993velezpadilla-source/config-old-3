@@ -45,7 +45,7 @@ jobs:
             "$S/com_pack.cpp" "$H/asset_unpack_host_test.cpp" \
             -Wl,--gc-sections -o "$S/test_unpack"
           "$S/test_unpack" | tee "$RUNNER_TEMP/bo1-public/asset_host.txt"
-          g++ $CXXFLAGS -I"$SRC" "$S/minilzo.cpp" "$H/lzo_host_test.cpp" \
+          g++ $CXXFLAGS -I"$SRC" -I"$SRC/minilzo" "$S/minilzo.cpp" "$H/lzo_host_test.cpp" \
             -o "$S/test_lzo"
           "$S/test_lzo" | tee "$RUNNER_TEMP/bo1-public/compression_host.txt"
 
@@ -70,7 +70,7 @@ jobs:
             -c "$S/com_math_anglevectors.cpp" -o "$S/orientation.o"
           "$C" $COMMON -include "$H/bo1_asset_unpack_compat.h" -I"$SRC" -I"$SRC/universal" \
             -c "$S/com_pack.cpp" -o "$S/asset_unpack.o"
-          "$C" $COMMON -I"$SRC" -c "$S/minilzo.cpp" -o "$S/minilzo.o"
+          "$C" $COMMON -I"$SRC" -I"$SRC/minilzo" -c "$S/minilzo.cpp" -o "$S/minilzo.o"
           "$C" $COMMON -include "$H/bo1_arm64_math_compat.h" -I"$SRC" -I"$SRC/universal" \
             -c "$H/orientation_arm64_wrapper.cpp" -o "$S/wrapper_orientation.o"
           "$C" $COMMON -include "$H/bo1_asset_unpack_compat.h" -I"$SRC" -I"$SRC/universal" \
