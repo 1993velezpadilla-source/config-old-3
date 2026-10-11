@@ -815,17 +815,28 @@ func _bind_weapon_to_source_hands() -> bool:
 	# tag_weapon bone supplies the authored per-weapon HIP placement.
 	_weapon_model_root.reparent(attachment, false)
 	_weapon_model_root.transform = Transform3D.IDENTITY
-	# Source Aether weapon GLBs are rolled 90 degrees around their local +X
-	# forward axis relative to the authored tag_weapon hand socket. The real
-	# MP40 8-frame HIP/ADS gauntlet proved +90 degrees is the unique candidate
-	# with camera-up ~= +Y, gravity-down magazine orientation and upright ADS.
-	# Keep this as an import-axis conversion only; do not alter hand PSA motion
-	# or the per-weapon source HIP/ADS transforms.
+	# Older Aether assets use a fixed +90 X roll in the tag_weapon socket.
+	# Keep that legacy conversion unchanged for the other weapons.
 	var gun_roll_deg := 90.0 if bool(get_meta("weapon_source_imported_aether", false)) else 0.0
 	_weapon_model_root.quaternion = Quaternion(Vector3.RIGHT, deg_to_rad(gun_roll_deg))
 	set_meta("weapon_source_gun_roll_correction_deg", gun_roll_deg)
 	_weapon_model_root.scale = Vector3.ONE
 	_sync_source_weapon_attachment()
+	if _weapon_id == "mp40" and bool(get_meta("weapon_source_imported_aether", false)):
+		# Verified against the MP40 source GLB: +X is barrel-forward; its
+		# magazine extends along -Y; j_clip extraction moves mostly along -Z.
+		# Camera -Z is forward and -X is LEFT. A hard-coded +90 X roll
+		# incorrectly converts that sideways magazine movement into vertical
+		# movement. Derive the local mount from the *actual* tag_weapon socket
+		# basis at bind time, retaining every source hand/weapon keyframe.
+		var attachment_basis := _source_weapon_attachment.global_transform.basis.orthonormalized()
+		var view_basis := _view_root.global_transform.basis.orthonormalized()
+		var source_forward_to_camera := Basis(Vector3.UP, deg_to_rad(90.0))
+		var mount_basis := attachment_basis.inverse() * view_basis * source_forward_to_camera
+		_weapon_model_root.quaternion = mount_basis.orthonormalized().get_rotation_quaternion()
+		set_meta("weapon_source_mp40_mount_mode", "socket_relative_source_axes")
+		set_meta("weapon_source_gun_roll_correction_deg", 0.0)
+		print("XZOGOT_MP40_SOURCE_AXES_SOCKET_MOUNT left_extraction=true magazine_down=true")
 
 	if WeaponViewmodelSourcePresentation.has_source_presentation(_weapon_id):
 		_hip_pose_position = WeaponViewmodelSourcePresentation.hip_position(_weapon_id)
