@@ -12,7 +12,8 @@ FILES = [
 ]
 PHASES = (0.0, 0.18, 0.34, 0.5, 0.68, 0.88, 1.0)
 NAMES = ("tag_weapon", "tag_view", "tag_ads", "tag_torso",
-         "l_hand", "r_hand", "j_clip", "j_gun", "j_bolt")
+         "l_hand", "r_hand", "wrist", "finger", "thumb", "palm",
+         "elbow", "j_clip", "j_gun", "j_bolt")
 def load(path):
     data = path.read_bytes()
     assert data[:4] == b"glTF"
