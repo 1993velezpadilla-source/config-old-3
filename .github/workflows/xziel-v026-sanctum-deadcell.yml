@@ -5,6 +5,7 @@ on:
     branches: [feature/xziel-v026-sanctum-deadcell-dualmap-20261011]
     paths:
       - 'scripts/slim_v026_sanctum_deadcell.py'
+      - 'scripts/patch_vril_sanctum_hq_lighting.py'
       - '.github/workflows/xziel-v026-sanctum-deadcell.yml'
   workflow_dispatch:
 
