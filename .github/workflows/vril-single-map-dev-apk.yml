@@ -9,6 +9,7 @@ on:
       - "scripts/prune_nzp_single_map.py"
       - "scripts/test_vril_single_map_profile.py"
       - "scripts/prepare_android.sh"
+      - "scripts/patch_vril_sanctum_staticmesh.py"
       - ".github/workflows/vril-single-map-dev-apk.yml"
   workflow_dispatch:
 
