@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <limits>
 #include <mutex>
+#include <new>
 #include <string>
 #include <sys/stat.h>
 #include <unistd.h>
