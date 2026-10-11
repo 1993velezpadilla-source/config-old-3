@@ -47,11 +47,31 @@ jobs:
              -DCMAKE_TOOLCHAIN_FILE="$N/build/cmake/android.toolchain.cmake" \
              -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26 \
              >"$RUNNER_TEMP/bo1-audit/cmake.log" 2>&1; then
+            echo 'PASS' > "$RUNNER_TEMP/bo1-audit/configure.status"
             echo 'ANDROID_ARM64_CONFIGURE=PASS'
           else
+            echo 'FAIL' > "$RUNNER_TEMP/bo1-audit/configure.status"
             echo 'ANDROID_ARM64_CONFIGURE=BLOCKED'
           fi
           grep -E 'CMake Error|platform|support' "$RUNNER_TEMP/bo1-audit/cmake.log" | head -n 12 || true
+
+      - name: Try REAL Android ARM64 build of original CMake engine target
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/bo1-audit"
+          if [ "$(cat "$OUT/configure.status")" = PASS ]; then
+            if timeout 100 cmake --build "$RUNNER_TEMP/bo1-android" --parallel 2 > "$OUT/build.log" 2>&1; then
+              echo "PASS" > "$OUT/build.status"
+              echo 'ORIGINAL_BO1_ENGINE_ANDROID_BUILD=PASS'
+            else
+              echo "FAIL" > "$OUT/build.status"
+              echo 'ORIGINAL_BO1_ENGINE_ANDROID_BUILD=BLOCKED'
+            fi
+          else
+            echo "NOT_RUN" > "$OUT/build.status"
+          fi
+          grep -m5 'error:' "$OUT/build.log" | cut -c1-200 || true
 
       - name: Cross-compile check of four ACTUAL decompiled engine modules
         shell: bash
@@ -78,7 +98,7 @@ jobs:
           set -euo pipefail
           test -d "$RUNNER_TEMP/bo1-original"
           mkdir -p "$RUNNER_TEMP/bo1-audit/public"
-          python3 tools/bo1_pc_engine/arm64_feasibility.py --source "$RUNNER_TEMP/bo1-original" --output "$RUNNER_TEMP/bo1-audit/public" --cmake-log "$RUNNER_TEMP/bo1-audit/cmake.log" --probe-dir "$RUNNER_TEMP/bo1-audit/probes"
+          python3 tools/bo1_pc_engine/arm64_feasibility.py --source "$RUNNER_TEMP/bo1-original" --output "$RUNNER_TEMP/bo1-audit/public" --cmake-log "$RUNNER_TEMP/bo1-audit/cmake.log" --probe-dir "$RUNNER_TEMP/bo1-audit/probes" --configure-status "$RUNNER_TEMP/bo1-audit/configure.status" --build-status "$RUNNER_TEMP/bo1-audit/build.status" --build-log "$RUNNER_TEMP/bo1-audit/build.log"
           cat "$RUNNER_TEMP/bo1-audit/public/report.md" >> "$GITHUB_STEP_SUMMARY"
           echo "NO_APK_BUILT=true; AUDIT_ONLY=true" >> "$GITHUB_STEP_SUMMARY"
 
