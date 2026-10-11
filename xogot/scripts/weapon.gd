@@ -600,7 +600,7 @@ func _mp40_retarget_motion_for_render() -> void:
 	# Mirror only the RELATIVE source motion around camera X, preserving
 	# right-handed transforms. Both hands and firearm undergo exactly the same
 	# rigid transform so magazine/finger relative skinning is not reauthored.
-	var reflection := Basis(Vector3(-1.0, 1.0, 1.0))
+	var reflection := Basis(Vector3(-1.0, 0.0, 0.0), Vector3.UP, Vector3.BACK)
 	var base_basis := _mp40_source_baseline_gun_camera.basis
 	var source_delta_basis := source_gun_basis * base_basis.inverse()
 	var mirrored_delta_basis := reflection * source_delta_basis * reflection
