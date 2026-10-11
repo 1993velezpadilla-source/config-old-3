@@ -1,0 +1,80 @@
+name: MP40 Authored Tactical And Empty Reload Camera Proof
+
+on:
+  push:
+    branches:
+      - fix/mp40-authored-bone-retarget-fidelity-20261011
+    paths:
+      - "xogot/ci/black_pines_mp40_real_frame_audit.gd"
+      - "xogot/scripts/weapon.gd"
+      - ".github/workflows/mp40-original-hand-paired-render.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-first-person-camera-frames:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install free Godot 4.6.1 and Mesa screen renderer
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libegl1 libgl1 libglu1-mesa
+          curl --fail -L --retry 3 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot-mp40.zip
+          unzip -q /tmp/godot-mp40.zip -d /tmp
+          chmod +x /tmp/Godot_v4.6.1-stable_linux.x86_64
+
+      - name: Import genuine existing MP40 GLBs and source skinning
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s xogot/assets/weapons/aether_waw_real/mp40/viewmodel.glb
+          test -s xogot/assets/weapons/aether_waw_hands/t4_marine/mp40/viewhands.glb
+          timeout 320 /tmp/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit \
+            2>&1 | tee /tmp/mp40-real-frame-import.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|ERROR: Failed to load script' /tmp/mp40-real-frame-import.log
+
+      - name: Render normal and empty reloads, 12 ACTUAL Godot first-person camera images
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 220 xvfb-run -a -s '-screen 0 1360x900x24' \
+            /tmp/Godot_v4.6.1-stable_linux.x86_64 --path xogot \
+            --rendering-method gl_compatibility --resolution 1360x900 \
+            --script res://ci/black_pines_mp40_real_frame_audit.gd \
+            2>&1 | tee /tmp/mp40-real-camera-frames.log
+          grep -q 'MP40_SOURCE_CORRECT_PAIRED_RELOAD tactical' /tmp/mp40-real-camera-frames.log
+          grep -q 'MP40_SOURCE_CORRECT_PAIRED_RELOAD empty' /tmp/mp40-real-camera-frames.log
+          grep -q 'MP40_RUNTIME_FRAMES_CAPTURED_12' /tmp/mp40-real-camera-frames.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|MP40_REAL_FRAME_AUDIT_RED' /tmp/mp40-real-camera-frames.log
+          test "$(find xogot -maxdepth 1 -name 'mp40-real-*.png' | wc -l)" -eq 12
+          mkdir -p build/mp40-frames
+          cp xogot/mp40-real-*.png build/mp40-frames/
+          cp /tmp/mp40-real-camera-frames.log build/mp40-frames/real-godot-runtime-camera-coordinates.log
+          printf '%s\n' 'ACTUAL GODOT SCREENSHOTS - NOT VISUAL APPROVAL' \
+            'Source game Black Pines Player/Head/Camera3D, HUD hidden for diagnostic clarity.' \
+            'Frames: normal + empty at 2%, 18%, 34%, 50%, 68%, 88%.' \
+            'Prior left-extraction gate checked only coordinate axes and gave false confidence.' \
+            'Do NOT ship APK until human confirms gun and hands visually match.' \
+            > build/mp40-frames/README.txt
+
+      - name: Retain all screenshots and exact RED evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MP40-Original-Tactical-And-Empty-Real-Camera-Frames
+          path: |
+            build/mp40-frames/
+            /tmp/mp40-real-camera-frames.log
+            /tmp/mp40-real-frame-import.log
+          retention-days: 14
+          if-no-files-found: warn
