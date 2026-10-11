@@ -1,0 +1,54 @@
+name: XChurch Android16 Native Crash Trace Extract
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/boz-mod-runtime
+    paths:
+      - ".github/workflows/boz-xchurch-api36-extract-crash.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  postmortem:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Reuse existing Android16 crash run, NO recompilation
+        uses: actions/download-artifact@v4
+        with:
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          run-id: 38108323989
+          name: XChurch-Android16-Real-Crash-Proof
+          path: /tmp/api36-existing
+      - name: Extract exact game crash and native logs only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/api36-curated
+          find /tmp/api36-existing -maxdepth 3 -type f | sed 's|.*/||' | head -80
+          for name in status.txt device-abi.txt os-release.txt install.txt launch.txt logcat-crash-only.txt dropbox-crash.txt logcat-focus.txt; do
+            find /tmp/api36-existing -type f -name "$name" -exec cp {} /tmp/api36-curated/ \;
+          done
+          find /tmp/api36-existing -type f -name 'logcat.txt' -print -quit | while read -r log; do
+            grep -Eai -C 16 'FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|ANR in com.activision.boz|Process: com.activision.boz|pid: [0-9]+, tid:|backtrace:|tombstone|AndroidRuntime|am_crash|Force finishing activity com.activision.boz|has died|Killing [0-9]+:com.activision.boz' "$log" > /tmp/api36-curated/native-crash-context.txt || true
+            grep -Eai 'com.activision.boz|XZIEL_BROADCAST_NATIVE_TOUCH|IsDeviceActivity|libc.*Fatal|AndroidRuntime' "$log" | tail -550 > /tmp/api36-curated/game-specific-logcat.txt || true
+          done
+          find /tmp/api36-existing -type f -name 'after_title.png' -exec cp {} /tmp/api36-curated/ \; || true
+          find /tmp/api36-existing -type f -name 'after_continue_40s.png' -exec cp {} /tmp/api36-curated/ \; || true
+          test -s /tmp/api36-curated/status.txt
+          echo "==== API36 ORIGINAL BOZ APP PID STATUS ===="
+          cat /tmp/api36-curated/status.txt
+          echo "==== NATIVE CRASH CONTEXT ===="
+          head -90 /tmp/api36-curated/native-crash-context.txt || true
+          echo "XZIEL_API36_CRASH_TRACE_EXTRACTED_FROM_EXISTING_RUN"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: XChurch-Android16-Crash-Logs-Only
+          path: /tmp/api36-curated/
+          if-no-files-found: error
+          retention-days: 7
