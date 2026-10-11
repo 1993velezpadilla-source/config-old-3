@@ -138,35 +138,44 @@ func _run() -> void:
         return
 
     var hands_player: AnimationPlayer = weapon.get("_hands_animation_player") as AnimationPlayer
-    if not _check(hands_player != null and hands_player.has_animation("PSA_viewmodel_mp40_reload_empty"), "MP40 full articulated source-hands reload missing"):
+    if not _check(hands_player != null, "MP40 real hands animation player missing"):
         return
-    var hand_action: Animation = hands_player.get_animation("PSA_viewmodel_mp40_reload_empty")
-    if not _check(hand_action.length > 1.0 and hand_action.get_track_count() >= 10, "real hands clip is a static 2-frame placeholder"):
+    if not _check(hands_player.has_animation("PSA_MP40ReloadHands") and hands_player.has_animation("PSA_viewmodel_mp40_reload_empty"), "source normal AND empty hands clip missing"):
         return
-    print("BLACK_PINES_MP40_HANDS_SOURCE_FOUND length=", hand_action.length, " tracks=", hand_action.get_track_count())
-
+    var tactical_hands: Animation = hands_player.get_animation("PSA_MP40ReloadHands")
+    var empty_hands: Animation = hands_player.get_animation("PSA_viewmodel_mp40_reload_empty")
+    if not _check(tactical_hands.length > 3.0 and tactical_hands.length < 3.5 and tactical_hands.get_track_count() > 50, "true source normal MP40ReloadHands is not full 3.25s"):
+        return
+    if not _check(empty_hands.length > 4.0 and empty_hands.length < 4.5 and empty_hands.get_track_count() > 50, "true source empty MP40 hands reload not found"):
+        return
+    print("BLACK_PINES_MP40_ORIGINAL_TACTICAL_HANDS length=", tactical_hands.length, " tracks=", tactical_hands.get_track_count())
+    print("BLACK_PINES_MP40_ORIGINAL_EMPTY_HANDS length=", empty_hands.length, " tracks=", empty_hands.get_track_count())
     weapon.set("_magazine", 10)
     weapon.call("request_reload")
-    if not _check(str(animation_player.current_animation) == "PSA_viewmodel_mp40_reload", "wrong gun reload clip selected (hands placeholder)"):
+    if not _check(str(animation_player.current_animation) == "PSA_viewmodel_mp40_reload", "wrong gun tactical reload"):
         return
-    if not _check(str(hands_player.current_animation).begins_with("PSA_viewmodel_mp40_reload_empty"), "tactical reload still selects 0.04s static hands"):
+    if not _check(str(hands_player.current_animation) == "PSA_MP40ReloadHands", "NORMAL reload incorrectly borrowed EMPTY source hands"):
         return
-    if not _check(absf(hands_player.speed_scale * float(weapon.get("_reload_timer")) - hand_action.length) < 0.10, "tactical gun-hands reload are out of sync"):
+    if not _check(int(weapon.get_meta("mp40_hands_reload_tag_weapon_keys", 0)) > 50, "normal source tag_weapon motion is STATIC"):
         return
-    if not _check(float(weapon.get("_reload_timer")) >= anim.length - 0.1, "gameplay timer ends before magazine returns"):
+    if not _check(absf(hands_player.speed_scale * float(weapon.get("_reload_timer")) - tactical_hands.length) < 0.10, "tactical source gun/hands are out of sync"):
+        return
+    if not _check(float(weapon.get("_reload_timer")) >= anim.length - 0.1, "gameplay timer ends before normal magazine returns"):
         return
     weapon.call("_finish_reload")
     weapon.set("_magazine", 0)
     weapon.call("request_reload")
-    if not _check(str(animation_player.current_animation) == "PSA_viewmodel_mp40_reload_empty", "wrong empty-mag reload clip selected"):
+    if not _check(str(animation_player.current_animation) == "PSA_viewmodel_mp40_reload_empty", "wrong empty gun clip"):
         return
-    if not _check(str(hands_player.current_animation).begins_with("PSA_viewmodel_mp40_reload_empty"), "empty reload failed to animate source hands"):
+    if not _check(str(hands_player.current_animation) == "PSA_viewmodel_mp40_reload_empty", "empty reload chose wrong original hands"):
         return
-    if not _check(absf(hands_player.speed_scale * float(weapon.get("_reload_timer")) - hand_action.length) < 0.10, "empty-mag gun-hands playback out of sync"):
+    if not _check(int(weapon.get_meta("mp40_hands_reload_tag_weapon_keys", 0)) > 50, "empty source tag_weapon motion is STATIC"):
         return
-    if not _check(float(weapon.get("_reload_timer")) >= last.length - 0.1, "empty-magazine reload cut short"):
+    if not _check(absf(hands_player.speed_scale * float(weapon.get("_reload_timer")) - empty_hands.length) < 0.10, "empty source gun/hands playback out of sync"):
         return
-    print("BLACK_PINES_MP40_FULL_RELOAD_GREEN gun_reinsert=true authored_mag_motion=true mag_empty=true reload_time_synced=true real_hands_clip=true gun_hands_sync=true")
+    if not _check(float(weapon.get("_reload_timer")) >= last.length - 0.1, "empty gun reload ends too early"):
+        return
+    print("BLACK_PINES_MP40_FULL_RELOAD_GREEN both_original_hands=true normal=3.25s empty=4.21s visual_fidelity_still_unverified=true")
     weapon.call("_finish_reload")
     scene.queue_free()
     await process_frame
