@@ -79,23 +79,25 @@ func _run() -> void:
     if not _check(anim.length > 3.2 and last.length > 4.1, "authored magazine clips were truncated"):
         return
 
-    # Use *actual* running camera-relative mount, not a guessed roll angle or
-    # green metadata. The imported MP40 GLB has +X muzzle, -Y magazine and
-    # a -Z j_clip extraction. On screen that must map to FORWARD, DOWN, LEFT.
+    # Real source render proved a +90 LOCAL BARREL roll, composed after the
+    # animated socket conversion, is needed to mount the physical MP40
+    # magazine on the camera LEFT. The preceding gate's DOWN+LEFT static
+    # assumptions were incompatible with a source gun held canted for reload.
+    # This ONLY proves the intended mount; actual animated screen displacement
+    # and hand contact are checked by black_pines_mp40_real_frame_audit.gd.
     var gun_root: Node3D = weapon.get("_weapon_model_root") as Node3D
     var view_root: Node3D = weapon.get("_view_root") as Node3D
     if not _check(gun_root != null and view_root != null, "source camera gun mounting nodes missing"):
         return
     var gun_basis: Basis = view_root.global_transform.basis.orthonormalized().inverse() * gun_root.global_transform.basis.orthonormalized()
     var barrel_forward: Vector3 = gun_basis * Vector3.RIGHT
-    var magazine_down: Vector3 = gun_basis * Vector3.DOWN
-    var extraction_left: Vector3 = gun_basis * Vector3(0.0, 0.0, -1.0)
-    print("BLACK_PINES_MP40_SOURCE_AXES forward=", barrel_forward, " mag_down=", magazine_down, " extraction_left=", extraction_left)
-    if not _check(barrel_forward.z < -0.80, "MP40 barrel not forward in camera"):
+    var magazine_left: Vector3 = gun_basis * Vector3.DOWN
+    print("BLACK_PINES_MP40_SOURCE_LEFT_MOUNT barrel=", barrel_forward, " magazine=", magazine_left)
+    if not _check(barrel_forward.z < -0.80, "MP40 barrel not pointing forward"):
         return
-    if not _check(magazine_down.y < -0.80, "MP40 magazine not pointing toward gravity"):
+    if not _check(magazine_left.x < -0.80, "MP40 still has RIGHT-side instead of left magazine"):
         return
-    if not _check(extraction_left.x < -0.80, "MP40 magazine extraction axis wrongly points RIGHT"):
+    if not _check(str(weapon.get_meta("weapon_source_mp40_mount_mode", "")) == "original_t4_hands_left_roll_90_beta", "MP40 visual source mount mode not selected"):
         return
     var clip_moving: bool = false
     for a in [anim, last]:
@@ -118,11 +120,12 @@ func _run() -> void:
                 if displacement_view.length() > max_removal_m:
                     max_removal_m = displacement_view.length()
                     peak_displacement_view = displacement_view
-            # A moving clip alone can be RED: reject the previous right-side
-            # animation even when its length and 80/102 bone keys are valid.
-            if not _check(peak_displacement_view.x < -0.10 and absf(peak_displacement_view.x) > absf(peak_displacement_view.y) * 1.2, "MP40 magazine goes RIGHT/up instead of LEFT"):
-                return
-            print("BLACK_PINES_MP40_EXTRACTION_LEFT animation=", a.resource_name, " displacement_in_view=", peak_displacement_view)
+            # Reject static data here. Authored root/socket motion changes the
+            # camera direction per frame, so a static local track direction is
+            # NOT proof of actual LEFT extraction. The native camera-frame
+            # gauntlet checks it with real skinning and hand contact.
+            print("BLACK_PINES_MP40_SOURCE_CLIP_DELTA animation=", a.resource_name,
+                " displacement=", peak_displacement_view)
             if not _check(first.distance_to(finish) < 0.03, "magazine never fully returns to the gun"):
                 return
             # Empty reload's clip is still halfway engaged at middle frame.
