@@ -160,7 +160,7 @@ if s.count(old) != 1:
     raise SystemExit("Unexpected Gradle applicationId; cannot isolate prototype")
 gradle.write_text(s.replace(old, 'applicationId "com.xziel.vrilzombies"', 1), encoding="utf-8")
 s = strings.read_text(encoding="utf-8")
-strings.write_text(s.replace("Xziel: NZP Native", "ZOMBIES - Vril Prototype"), encoding="utf-8")
+strings.write_text(s.replace("Xziel: NZP Native", "ZOMBIES NATIVE DEV v2"), encoding="utf-8")
 PY_APP_ID
 fi
 
