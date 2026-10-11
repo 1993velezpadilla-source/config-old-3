@@ -32,7 +32,7 @@ jobs:
         with:
           name: XChurch-Diagnostic-Touch-APK
           repository: ${{ github.repository }}
-          run-id: 38107522847
+          run-id: 38108913962
           github-token: ${{ github.token }}
           path: /tmp/xchurch-android16/apk
 
@@ -111,8 +111,16 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: XChurch-Android16-Real-Crash-Proof
+          name: XChurch-Android16-AudioGuard-Retest-Proof
           path: |
-            /tmp/xchurch-api36/
+            /tmp/xchurch-api36/status.txt
+            /tmp/xchurch-api36/install.txt
+            /tmp/xchurch-api36/launch.txt
+            /tmp/xchurch-api36/device-abi.txt
+            /tmp/xchurch-api36/os-release.txt
+            /tmp/xchurch-api36/logcat-crash-only.txt
+            /tmp/xchurch-api36/dropbox-crash.txt
+            /tmp/xchurch-api36/logcat-focus.txt
+            /tmp/xchurch-api36/screens/*.png
           if-no-files-found: error
           retention-days: 7
