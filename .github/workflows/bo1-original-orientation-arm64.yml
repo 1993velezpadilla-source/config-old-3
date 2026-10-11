@@ -1,0 +1,129 @@
+name: BO1 Original View Orientation - ARM64 Native Module Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/bo1-original-engine-arm64-feasibility-v1
+    paths:
+      - tools/bo1_pc_engine/compat/**
+      - .github/workflows/bo1-original-orientation-arm64.yml
+
+permissions:
+  contents: read
+
+jobs:
+  original-bo1-math-on-arm64:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch pinned upstream decompiled engine WITHOUT redistributing it
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/MisaDev4/bo1-zombies-decompiled.git "$RUNNER_TEMP/bo1"
+          test "$(git -C "$RUNNER_TEMP/bo1" rev-parse HEAD)" = "102f6992be332610aff587e681e3180b15f395bb"
+          echo 'BO1_ORIGINAL_UPSTREAM_PINNED=true' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Stage exact original orientation math logic using Android-specific header only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bo1-ported"
+          SRC="$RUNNER_TEMP/bo1/src/universal/com_math_anglevectors.cpp"
+          DST="$RUNNER_TEMP/bo1-ported/com_math_anglevectors.cpp"
+          cp "$SRC" "$DST"
+          python3 - "$SRC" "$DST" <<'PY'
+          import sys
+          from pathlib import Path
+          original=Path(sys.argv[1]).read_text()
+          expected='#include "q_shared.h"'
+          assert original.count(expected)==1, "Upstream translation unit has changed"
+          staged=original.replace(expected, "// BO1 ARM64: q_shared.h's Windows-specific transitive dependency omitted in isolated module")
+          assert staged.replace("// BO1 ARM64: q_shared.h's Windows-specific transitive dependency omitted in isolated module",expected)==original
+          Path(sys.argv[2]).write_text(staged)
+          print("UPSTREAM_GAMEPLAY_FUNCTION_BODIES_UNCHANGED=true")
+          PY
+          echo 'BO1_ORIGINAL_FUNCTION_BODIES_UNCHANGED=true' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Execute ORIGINAL BO1 math behavior tests on CI host
+        shell: bash
+        run: |
+          set -euo pipefail
+          g++ -std=c++20 -O2 -DNDEBUG -ffunction-sections -fdata-sections \
+            -include tools/bo1_pc_engine/compat/bo1_arm64_math_compat.h \
+            -I"$RUNNER_TEMP/bo1/src" -c "$RUNNER_TEMP/bo1-ported/com_math_anglevectors.cpp" \
+            -o "$RUNNER_TEMP/bo1-ported/orientation_host.o"
+          g++ -std=c++20 -O2 -DNDEBUG -ffunction-sections -fdata-sections \
+            -include tools/bo1_pc_engine/compat/bo1_arm64_math_compat.h \
+            -I"$RUNNER_TEMP/bo1/src" -Wl,--gc-sections \
+            tools/bo1_pc_engine/compat/orientation_host_test.cpp \
+            "$RUNNER_TEMP/bo1-ported/orientation_host.o" -o "$RUNNER_TEMP/bo1-ported/bo1_math_host_test"
+          "$RUNNER_TEMP/bo1-ported/bo1_math_host_test" | tee "$RUNNER_TEMP/bo1-ported/host-results.txt"
+          cat "$RUNNER_TEMP/bo1-ported/host-results.txt" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install official Android NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          "$SDKMANAGER" 'ndk;27.2.12479018'
+
+      - name: Cross-compile and LINK real BO1 orientation module for Android ARM64
+        shell: bash
+        run: |
+          set -euo pipefail
+          D="$RUNNER_TEMP/bo1"
+          P="$RUNNER_TEMP/bo1-ported"
+          C="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++"
+          HDR="tools/bo1_pc_engine/compat/bo1_arm64_math_compat.h"
+          "$C" -std=c++20 -O2 -DNDEBUG -fPIC -fvisibility=hidden -ffunction-sections -fdata-sections \
+            -include "$HDR" -I"$D/src" -c "$P/com_math_anglevectors.cpp" \
+            -o "$P/original_bo1_orientation_arm64.o"
+          "$C" -std=c++20 -O2 -DNDEBUG -fPIC -ffunction-sections -fdata-sections \
+            -include "$HDR" -I"$D/src" -c tools/bo1_pc_engine/compat/orientation_arm64_wrapper.cpp \
+            -o "$P/orientation_export_arm64.o"
+          "$C" -shared -Wl,--gc-sections -Wl,--no-undefined \
+            "$P/original_bo1_orientation_arm64.o" "$P/orientation_export_arm64.o" \
+            -o "$P/libbo1_original_orientation.so"
+          file "$P/libbo1_original_orientation.so" | tee "$P/elf-abi.txt"
+          grep -Eqi '(ARM aarch64|ARM64)' "$P/elf-abi.txt"
+          grep -qi 'ELF 64-bit' "$P/elf-abi.txt"
+          "$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm" -D \
+            "$P/libbo1_original_orientation.so" | grep -q 'bo1_original_angle_vectors'
+          sha256sum "$P/libbo1_original_orientation.so" | tee "$P/native-module-sha256.txt"
+          echo 'REAL_BO1_ORIENTATION_MODULE_ANDROID_ARM64_LINKED=true' >> "$GITHUB_STEP_SUMMARY"
+          echo 'ORIGINAL_BO1_ENGINE_ANDROID_APK_READY=false' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report exact scope without shipping original compiled engine binaries
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          P="$RUNNER_TEMP/bo1-ported"
+          mkdir -p "$P/public"
+          {
+            echo '# BO1 C++ original orientation code — Android ARM64 gauntlet'
+            echo
+            echo 'Upstream SHA: 102f6992be332610aff587e681e3180b15f395bb'
+            echo 'Module: src/universal/com_math_anglevectors.cpp'
+            echo 'Source: direct original C++ with only q_shared.h replaced by minimal platform declarations; ALL mathematical function bodies unchanged.'
+            echo 'No replacement FPS, no assets redistributed.'
+            echo
+            echo '## Host execution and ARM64 linker evidence'
+            cat "$P/host-results.txt" 2>/dev/null || true
+            cat "$P/elf-abi.txt" 2>/dev/null || true
+            cat "$P/native-module-sha256.txt" 2>/dev/null || true
+            echo
+            echo 'NOTE: one engine subsystem compiling does NOT mean BO1 game, renderer, maps, or Kino works.'
+          } > "$P/public/real-bo1-arm64-orientation-report.txt"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: BO1-REAL-ARM64-ORIENTATION-RESULTS-NOT-APK
+          path: ${{ runner.temp }}/bo1-ported/public
+          retention-days: 21
+          if-no-files-found: warn
