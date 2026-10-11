@@ -69,7 +69,25 @@ int main() {
        ||out.deflated_input_bytes_consumed<=65536
        ||out.payload_prefix_fnv1a64!=fnv(data,65536)) return 6;
     if(bo1_original_ff_payload_prefix_probe("zombie_theater",131072,&out)!=BO1_FF_HEADER_OK) return 7;
-    if(out.payload_prefix_fnv1a64!=fnv(data,131072)) return 8;
+    if(out.payload_prefix_fnv1a64!=fnv(data,131072) || out.first_stream_finished!=0) return 8;
+    if(bo1_original_ff_full_stream_integrity_probe("zombie_theater",2097152,&out)!=BO1_FF_HEADER_OK) return 25;
+    if(out.first_stream_finished!=1 || out.payload_bytes_tested!=data.size() ||
+       out.payload_prefix_fnv1a64!=fnv(data,data.size())) return 26;
+    if(bo1_original_ff_full_stream_integrity_probe("zombie_theater",131072,&out)!=BO1_FF_FULL_STREAM_LIMIT) return 27;
+    if(bo1_original_ff_full_stream_integrity_probe("zombie_theater",536870913u,&out)!=BO1_FF_IO_ERROR) return 28;
+    auto damaged=archive(data);
+    damaged.push_back(0x7f);
+    put(p,damaged);
+    if(bo1_original_ff_full_stream_integrity_probe("zombie_theater",2097152,&out)!=BO1_FF_DEFLATE_ERROR) return 29;
+    damaged=archive(data);
+    damaged.resize(damaged.size()-2); // missing Adler32 checksum
+    put(p,damaged);
+    if(bo1_original_ff_payload_prefix_probe("zombie_theater",131072,&out)!=BO1_FF_HEADER_OK) return 30;
+    if(bo1_original_ff_full_stream_integrity_probe("zombie_theater",2097152,&out)!=BO1_FF_DEFLATE_ERROR) return 31;
+    damaged=archive(data,"IWffu100",473,static_cast<std::uint32_t>(data.size()-1));
+    put(p,damaged);
+    if(bo1_original_ff_full_stream_integrity_probe("zombie_theater",2097152,&out)!=BO1_FF_DEFLATE_ERROR) return 32;
+    put(p,archive(data));
     if(bo1_original_ff_payload_prefix_probe("zombie_theater",131073,&out)!=BO1_FF_IO_ERROR) return 9;
     if(bo1_original_ff_payload_prefix_probe("zombie_theater",0,&out)!=BO1_FF_IO_ERROR) return 10;
     if(bo1_original_ff_payload_prefix_probe("../escape",128,&out)!=BO1_FF_MISSING) return 11;
@@ -116,6 +134,8 @@ int main() {
     if(bo1_original_ff_payload_prefix_probe("zombie_theater",8,&out)!=BO1_FF_HEADER_OK ||
        out.asset_list_header_plausible!=0) return 24;
     fs::remove_all(root);
+    std::puts("ORIGINAL_BO1_FULL_XFILE_ZLIB_ADLER32_AND_EXACT_EOF=PASS");
+    std::puts("ORIGINAL_BO1_FULL_STREAM_BUDGET_TRUNCATION_TRAILING_GUARDS=PASS");
     std::puts("ORIGINAL_BO1_XASSETLIST_WIRE32_METADATA_PARSE=PASS");
     std::puts("ORIGINAL_BO1_ZLIB_INIT_INFLATE_END_STREAMING=PASS");
     std::puts("ORIGINAL_BO1_DEFLATED_XFILE_PAYLOAD_PREFIX_128K_VERIFIED=PASS");

@@ -22,7 +22,8 @@ enum BO1FastfileProbeResult {
     BO1_FF_BAD_VERSION=4,
     BO1_FF_SECURE_NOT_SUPPORTED=5,
     BO1_FF_DEFLATE_ERROR=6,
-    BO1_FF_INVALID_XFILE_LAYOUT=7
+    BO1_FF_INVALID_XFILE_LAYOUT=7,
+    BO1_FF_FULL_STREAM_LIMIT=8
 };
 // Returns the preflight result. A successful preflight does NOT load
 // textures, meshes, collision, audio, or any original zombie map.

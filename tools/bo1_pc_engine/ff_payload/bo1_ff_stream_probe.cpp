@@ -38,6 +38,7 @@ class Stream {
     int fd_=-1;
     z_stream_s zip_{};
     bool zinit_=false;
+    bool ended_=false;
     std::uint64_t offset_=12;
     std::array<unsigned char,4096> in_{};
 public:
@@ -56,7 +57,7 @@ public:
     // Consume exactly n bytes of decompressed stream; with bounded input reads.
     // Reject premature EOF, zlib errors and attempts to advance past stream end.
     bool take(unsigned char* data,std::size_t n) {
-        if(!data) return false;
+        if(!data || ended_) return false;
         while(n) {
             if(zip_.avail_in==0) {
                 ssize_t count;
@@ -72,6 +73,7 @@ public:
             zip_.avail_out=static_cast<uInt>(chunk);
             const auto before_in=zip_.avail_in;
             int result=DB_AuthLoad_Inflate(&zip_,Z_NO_FLUSH);
+            if(result==Z_STREAM_END) ended_=true;
             const auto produced=chunk-zip_.avail_out;
             if(result!=Z_OK && result!=Z_STREAM_END) return false;
             if(!produced) {
@@ -86,7 +88,36 @@ public:
     }
     std::uint32_t consumed() const { return static_cast<std::uint32_t>(
         std::min<std::uint64_t>(zip_.total_in,std::numeric_limits<std::uint32_t>::max())); }
-    bool stream_finished() const { return zip_.avail_out>0 && zip_.total_in>0; }
+    // A partial prefix never proves zlib checksum or archive EOF.
+    bool end_exact() {
+        if(!zinit_) return false;
+        while(!ended_) {
+            if(zip_.avail_in==0) {
+                ssize_t count;
+                do { count=::pread(fd_,in_.data(),in_.size(),static_cast<off_t>(offset_)); }
+                while(count<0 && errno==EINTR);
+                if(count<=0) return false;
+                offset_+=static_cast<std::uint64_t>(count);
+                zip_.next_in=in_.data();
+                zip_.avail_in=static_cast<uInt>(count);
+            }
+            unsigned char extra{};
+            zip_.next_out=&extra;
+            zip_.avail_out=1;
+            const auto before_in=zip_.avail_in;
+            const int result=DB_AuthLoad_Inflate(&zip_,Z_NO_FLUSH);
+            if(result!=Z_OK && result!=Z_STREAM_END) return false;
+            if(zip_.avail_out!=1) return false; // extra decoded byte
+            if(result==Z_STREAM_END) { ended_=true; break; }
+            if(before_in==zip_.avail_in) return false;
+        }
+        if(zip_.avail_in!=0) return false; // trailing compressed bytes
+        unsigned char trailing{};
+        ssize_t count;
+        do { count=::pread(fd_,&trailing,1,static_cast<off_t>(offset_)); }
+        while(count<0 && errno==EINTR);
+        return count==0; // no trailing data or second stream
+    }
 };
 bool valid_header(const BO1XFileHeaderInfo &header) {
     std::uint64_t blocks=0;
@@ -97,11 +128,13 @@ bool valid_header(const BO1XFileHeaderInfo &header) {
 }
 }
 
-extern "C" int bo1_original_ff_payload_prefix_probe(
-        const char* zone_name,std::uint32_t max_payload_bytes,BO1FFPrefixReport* out) {
+static int probe_impl(
+        const char* zone_name,std::uint32_t max_payload_bytes,
+        BO1FFPrefixReport* out,bool require_complete) {
     if(!out || !zone_name) return BO1_FF_IO_ERROR;
     std::memset(out,0,sizeof *out);
-    if(max_payload_bytes==0 || max_payload_bytes>131072) return BO1_FF_IO_ERROR;
+    if(max_payload_bytes==0 || max_payload_bytes>(require_complete?536870912u:131072u))
+        return BO1_FF_IO_ERROR;
     // Call unchanged upstream Black Ops zone lookup before opening.
     if(!bo1_original_zone_exists(zone_name)) return BO1_FF_MISSING;
     if(bo1_original_zone_size(zone_name)<14) return BO1_FF_IO_ERROR;
@@ -130,7 +163,8 @@ extern "C" int bo1_original_ff_payload_prefix_probe(
     x.external_size=read_u32(raw.data()+4);
     for(unsigned i=0;i<7;++i)x.block_size[i]=read_u32(raw.data()+8+4*i);
     if(!valid_header(x)) return BO1_FF_INVALID_XFILE_LAYOUT;
-    std::uint32_t want=std::min(max_payload_bytes,x.size);
+    if(require_complete && x.size>max_payload_bytes) return BO1_FF_FULL_STREAM_LIMIT;
+    std::uint32_t want=require_complete?x.size:std::min(max_payload_bytes,x.size);
     std::uint64_t digest=kFnvInitial;
     std::array<unsigned char,4096> buffer{};
     std::uint32_t got=0;
@@ -148,10 +182,12 @@ extern "C" int bo1_original_ff_payload_prefix_probe(
         }
         got+=static_cast<std::uint32_t>(batch);
     }
+    const bool complete=(want==x.size);
+    if(complete && !stream.end_exact()) return BO1_FF_DEFLATE_ERROR;
     out->file=x;
     out->payload_bytes_tested=got;
     out->deflated_input_bytes_consumed=stream.consumed();
-    out->first_stream_finished=0; // deliberately do not assert full stream consumed
+    out->first_stream_finished=complete?1u:0u; // checksum + exact EOF
     out->payload_prefix_fnv1a64=digest;
     if(got>=16) {
         // Original src/database/db_registry.h:
@@ -171,4 +207,14 @@ extern "C" int bo1_original_ff_payload_prefix_probe(
         }
     }
     return BO1_FF_HEADER_OK;
+}
+
+extern "C" int bo1_original_ff_payload_prefix_probe(
+        const char* zone_name,std::uint32_t max_payload_bytes,BO1FFPrefixReport* out) {
+    return probe_impl(zone_name,max_payload_bytes,out,false);
+}
+extern "C" int bo1_original_ff_full_stream_integrity_probe(
+        const char* zone_name,std::uint32_t max_payload_bytes,BO1FFPrefixReport* out) {
+    // Caller budgets the full read; no XAsset data is retained.
+    return probe_impl(zone_name,max_payload_bytes,out,true);
 }

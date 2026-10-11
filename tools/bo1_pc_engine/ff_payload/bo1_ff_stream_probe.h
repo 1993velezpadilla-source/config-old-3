@@ -11,7 +11,7 @@ struct BO1FFPrefixReport {
     BO1XFileHeaderInfo file;
     std::uint32_t payload_bytes_tested;
     std::uint32_t deflated_input_bytes_consumed;
-    std::uint32_t first_stream_finished;
+    std::uint32_t first_stream_finished; // 1 only after zlib checksum and exact EOF
     std::uint64_t payload_prefix_fnv1a64;
     // On-disk XAssetList starts immediately after the 36-byte XFile header.
     // The source layout is 16 bytes with 32-bit serialized fields;
@@ -27,6 +27,13 @@ struct BO1FFPrefixReport {
 // This does not parse XAssets, authentication, models, scripts or map geometry.
 __attribute__((visibility("default")))
 int bo1_original_ff_payload_prefix_probe(
+        const char* zone_name, std::uint32_t max_payload_bytes, BO1FFPrefixReport* output);
+
+// Full unsecure XFile integrity: original BO1 zlib decoder, 4 KiB chunks,
+// Adler32 + declared byte count + exact EOF, no retained asset bytes.
+// Caller must supply a budget <=512 MiB. NOT an XAsset or map loader.
+__attribute__((visibility("default")))
+int bo1_original_ff_full_stream_integrity_probe(
         const char* zone_name, std::uint32_t max_payload_bytes, BO1FFPrefixReport* output);
 
 #ifdef __cplusplus
