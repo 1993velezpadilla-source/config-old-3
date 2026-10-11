@@ -181,6 +181,9 @@ unzip -q "$DOWNLOADS/standard-nzp-qc.zip" -d "$ASSET_WORK/nzp"
 # build time. This keeps the repository text-only while packaging professional
 # touch-control art into the APK.
 python3 "$ROOT/scripts/build_xziel_icons.py" "$ASSET_WORK/nzp/gfx/xziel"
+if [[ -n "$XZIEL_SINGLE_MAP" ]]; then
+    python3 "$ROOT/scripts/skin_vril_touch_controls.py" "$ASSET_WORK/nzp/gfx/xziel"
+fi
 
 # Replace the stock gameplay bytecode with our GPL QuakeC build. All other
 # release-side data stays from the official NZ:P package.
