@@ -356,27 +356,47 @@ func _play_aux_animation(player: AnimationPlayer, role: String, blend: float = 0
 	return true
 
 func _play_mp40_full_hands_reload(role: String, blend: float) -> bool:
-	# T4 source hands has MP40ReloadHands (2 frames / 0.042s), a STATIC
-	# placeholder which the old broad "reload" matcher always selected.
-	# The genuine articulated source-hands clip is the empty-magazine action.
-	# Reuse that authored hand motion for tactical and empty reloads: it includes
-	# grip-release, extraction, insertion and grip-return, with source keyframes.
+	# T4 Marine authored per-weapon GLB has TWO different full-length reloads.
+	# Original source MP40ReloadHands = 79 frames / 3.25s. This is the missing
+	# tactical-hands companion to viewmodel_mp40_reload = 80 frames / 3.29s.
+	# Original viewmodel_mp40_reload_empty = 102 frames / 4.21s.
+	# Previous code erroneously reused the EMPTY hand motion for both cases,
+	# causing the animated tag_weapon and j_clip to follow different timelines.
+	# Check actual imported clip LENGTH and animated socket keys, not the name.
 	if _hands_animation_player == null or not is_instance_valid(_hands_animation_player):
 		push_warning("XZOGOT_MP40_HANDS_RELOAD_ASSET_MISSING")
 		return false
-	for name: String in ["PSA_viewmodel_mp40_reload_empty", "PSA_viewmodel_mp40_reload_empty.001"]:
+	var candidates: Array[String] = (
+		["PSA_MP40ReloadHands", "PSA_MP40ReloadHands.001"]
+		if role == "reload"
+		else ["PSA_viewmodel_mp40_reload_empty", "PSA_viewmodel_mp40_reload_empty.001"]
+	)
+	for name: String in candidates:
 		if not _hands_animation_player.has_animation(name):
 			continue
 		var clip: Animation = _hands_animation_player.get_animation(name)
-		if clip == null or clip.length < 1.0 or clip.get_track_count() < 10:
+		if clip == null or clip.length < 3.0 or clip.get_track_count() < 50:
+			continue
+		var socket_keys := 0
+		for track_idx in range(clip.get_track_count()):
+			var track_path: String = str(clip.track_get_path(track_idx))
+			if not track_path.contains("tag_weapon:"):
+				continue
+			if clip.track_get_type(track_idx) in [Animation.TYPE_POSITION_3D, Animation.TYPE_ROTATION_3D]:
+				socket_keys = maxi(socket_keys, clip.track_get_key_count(track_idx))
+		if socket_keys < 50:
+			push_warning("XZOGOT_MP40_HANDS_SOURCE_SOCKET_STATIC " + name + " keys=" + str(socket_keys))
 			continue
 		_hands_animation_player.play(name, blend)
 		set_meta("mp40_hands_reload_clip", name)
 		set_meta("mp40_hands_reload_authored_length_s", clip.length)
 		set_meta("mp40_hands_reload_real_tracks", clip.get_track_count())
-		print("XZOGOT_MP40_REAL_HAND_RELOAD ", role, " clip=", name, " duration=", clip.length, " tracks=", clip.get_track_count())
+		set_meta("mp40_hands_reload_tag_weapon_keys", socket_keys)
+		print("XZOGOT_MP40_AUTHORED_HAND_RELOAD ", role, " clip=", name,
+			" duration=", clip.length, " tracks=", clip.get_track_count(),
+			" tag_weapon_keys=", socket_keys)
 		return true
-	push_warning("XZOGOT_MP40_REAL_HAND_RELOAD_NOT_FOUND (reject 2-frame MP40ReloadHands)")
+	push_warning("XZOGOT_MP40_SOURCE_HANDS_RELOAD_NOT_READY role=" + role)
 	return false
 
 func _play_asset_animation(role: String, blend: float = 0.06) -> bool:
