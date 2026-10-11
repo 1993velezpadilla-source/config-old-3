@@ -21,6 +21,9 @@ def main():
     parser.add_argument("--output",required=True)
     parser.add_argument("--cmake-log",default="")
     parser.add_argument("--probe-dir",default="")
+    parser.add_argument("--configure-status",default="")
+    parser.add_argument("--build-status",default="")
+    parser.add_argument("--build-log",default="")
     args=parser.parse_args()
     src=Path(args.source)
     cmake=(src/"CMakeLists.txt").read_text(errors="replace")
@@ -50,6 +53,10 @@ def main():
                 "CMakeLists.txt","Requires compiler portability changes"),
     ]
     cmake_log=Path(args.cmake_log).read_text(errors="replace") if args.cmake_log and Path(args.cmake_log).exists() else ""
+    configured = Path(args.configure_status).read_text().strip() if args.configure_status and Path(args.configure_status).exists() else "UNTESTED"
+    built = Path(args.build_status).read_text().strip() if args.build_status and Path(args.build_status).exists() else "UNTESTED"
+    build_log = Path(args.build_log).read_text(errors="replace") if args.build_log and Path(args.build_log).exists() else ""
+    build_errors = [line.split("error:",1)[-1].strip()[:190] for line in build_log.splitlines() if "error:" in line][:8]
     probes=[]
     for srcfile in ["src/game/actor_navigation.cpp","src/bgame/bg_misc.cpp",
                     "src/physics/phys_collision.cpp","src/gfx_d3d/r_bsp.cpp"]:
@@ -73,8 +80,10 @@ def main():
                             "gsc_scripts":len(gsc),"csc_scripts":len(csfiles),
                             "windows_entries":len(windowsfiles),"directx_cpp_files":len(dxfiles)},
         "build_system":{"generator":"Windows/MSVC x86","linked_windows_libraries":sorted(set(liblinks)),
-                        "android_cmake_configure":"FAILED" if cmake_errors else "CHECK_RAW_RUN_LOG",
-                        "cmake_errors":cmake_errors},
+                        "android_cmake_configure":configured,
+                        "android_cmake_full_build":built,
+                        "cmake_errors":cmake_errors,
+                        "build_errors":build_errors},
         "blockers":blocking,
         "android_ndk_cpp_probes":probes,
         "verdict":"NOT_DIRECTLY_ANDROID_ARM64_BUILDABLE",
@@ -105,9 +114,12 @@ def main():
                      + (" — "+"; ".join(p["error_messages"]) if p["error_messages"] else ""))
     lines+=["", "## NDK CMake configure diagnostics", ""]
     lines += [f"- {line}" for line in cmake_errors] or ["- No direct diagnostic captured; check job state."]
+    lines += ["", "## First real upstream Android compiler errors", ""]
+    lines += [f"- {line}" for line in build_errors] or ["- None captured."]
     lines += ["", "**GREEN here means only that the audit completed. Game APK is NOT ready.**",""]
     (output/"report.md").write_text("\n".join(lines))
     print(json.dumps({"verdict":report["verdict"],"counts":report["source_inventory"],
+                      "configure":configured,"build":built,"build_errors":build_errors,
                       "cmake_errors":cmake_errors,"probes":probes},indent=2))
 if __name__=="__main__":
     main()
