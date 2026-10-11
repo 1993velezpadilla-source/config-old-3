@@ -1,9 +1,9 @@
-name: Black Pines MP40 Actual Rendered Frame Audit
+name: Black Pines MP40 Experimental Full Rig Retarget Visual Audit
 
 on:
   push:
     branches:
-      - audit/black-pines-mp40-runtime-frame-proof-20261011
+      - experiment/mp40-left-reload-source-rig-retarget-20261011
     paths:
       - "xogot/ci/black_pines_mp40_real_frame_audit.gd"
       - "xogot/scripts/weapon.gd"
@@ -58,7 +58,7 @@ jobs:
           mkdir -p build/mp40-frames
           cp xogot/mp40-real-*.png build/mp40-frames/
           cp /tmp/mp40-real-camera-frames.log build/mp40-frames/real-godot-runtime-camera-coordinates.log
-          printf '%s\n' 'ACTUAL GODOT SCREENSHOTS - NOT VISUAL APPROVAL' \
+          printf '%s\n' 'EXPERIMENTAL MIRRORED SOURCE MOTION - NOT VISUAL APPROVAL' \
             'Source game Black Pines Player/Head/Camera3D, HUD hidden for diagnostic clarity.' \
             'Frames: normal + empty at 2%, 18%, 34%, 50%, 68%, 88%.' \
             'Prior left-extraction gate checked only coordinate axes and gave false confidence.' \
@@ -69,7 +69,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: MP40-12-Actual-Godot-Camera-Reload-Frames-Review-Required
+          name: MP40-Experimental-Mirrored-Rig-12-Godot-Frames-Review-Required
           path: |
             build/mp40-frames/
             /tmp/mp40-real-camera-frames.log
