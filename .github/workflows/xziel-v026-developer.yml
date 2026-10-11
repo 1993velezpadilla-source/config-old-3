@@ -46,6 +46,7 @@ jobs:
           grep -F 'XZIEL WEAPON LAB' build/deps/vril/source/menu/menu_pause.c
           grep -F 'Menu_Resume();' build/deps/vril/source/menu/menu_pause.c
           grep -F 'impulse %d' build/deps/vril/source/menu/menu_pause.c
+          grep -F 'XzielDev_DispatchPendingImpulse();' build/deps/vril/source/render/r_hud.c
           grep -F 'Command_XzielDev(ftos(action));' build/deps/quakec/source/server/weapons/weapon_core.qc
           grep -F 'if (self.impulse >= 181 && self.impulse <= 245)' build/deps/quakec/source/server/weapons/weapon_core.qc
           grep -F 'Command_XzielDev' build/deps/quakec/source/server/utilities/command_parser.qc
@@ -70,7 +71,9 @@ jobs:
               assert len(maps)>=1, "Lost original maps"
               print(f"PASS: all 12 official PNGs byte-for-byte original; {len(maps)} maps; QC compiled.")
           native=Path("build/deps/vril/source/menu/menu_pause.c").read_text()
-          assert native.index('Menu_Resume();') < native.index('Cbuf_AddText(va("impulse %d'), "Dev must resume before sending usercmd"
+          assert 'xziel_dev_pending_impulse = impulse;\n    Menu_Resume();' in native, "Dev impulse must wait for resume"
+          hud=Path("build/deps/vril/source/render/r_hud.c").read_text()
+          assert 'sv.paused = false;\n\t\tMusic_Resume();\n\t\tXzielDev_DispatchPendingImpulse();' in hud, "Dev impulse would be lost during 3-2-1 countdown"
           core=Path("build/deps/quakec/source/server/weapons/weapon_core.qc").read_text()
           assert 'Command_XzielDev(ftos(action));' in core, "Gameplay receiver missing"
           qc=Path("build/deps/quakec/source/server/utilities/command_parser.qc").read_text()
