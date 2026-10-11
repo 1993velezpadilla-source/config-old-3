@@ -366,11 +366,15 @@ func _play_mp40_full_hands_reload(role: String, blend: float) -> bool:
 	if _hands_animation_player == null or not is_instance_valid(_hands_animation_player):
 		push_warning("XZOGOT_MP40_HANDS_RELOAD_ASSET_MISSING")
 		return false
-	var candidates: Array[String] = (
-		["PSA_MP40ReloadHands", "PSA_MP40ReloadHands.001"]
-		if role == "reload"
-		else ["PSA_viewmodel_mp40_reload_empty", "PSA_viewmodel_mp40_reload_empty.001"]
-	)
+	# Runtime typed arrays do NOT accept the generic Array created by a
+	# conditional array literal (the previous attempt threw before play()).
+	var candidates: Array[String] = []
+	if role == "reload":
+		candidates.append("PSA_MP40ReloadHands")
+		candidates.append("PSA_MP40ReloadHands.001")
+	else:
+		candidates.append("PSA_viewmodel_mp40_reload_empty")
+		candidates.append("PSA_viewmodel_mp40_reload_empty.001")
 	for name: String in candidates:
 		if not _hands_animation_player.has_animation(name):
 			continue
