@@ -88,8 +88,9 @@ extern "C" int bo1_original_fastfile_header_probe(
     const bool complete=stream.avail_out==0;
     inflateEnd(&stream);
     if(!complete || (rc!=Z_OK&&rc!=Z_STREAM_END)) return BO1_FF_DEFLATE_ERROR;
-    // Original recovered XFile layout is 9 little-endian uint32 values.
-    static_assert(sizeof(BO1XFileHeaderInfo)==36,
+    // Original XFile on-disk layout is 9 little-endian uint32 values (36 bytes).
+    // The external reporting struct has one extra 4-byte version field (40 bytes).
+    static_assert(sizeof(BO1XFileHeaderInfo)==40,
                   "Expected original BO1 XFile metadata layout");
     out->version=473;
     out->size=get_le32(raw.data());
