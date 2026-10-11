@@ -40,6 +40,20 @@ jobs:
             2>&1 | tee out-godot-altar/godot-export.log
           test -s out-godot-altar/altar_from_godot.glb
           grep -F 'XZIEL_GODOT_ALTAR_EXPORT_GREEN' out-godot-altar/godot-export.log
+      - name: Inspect original Godot GLB material references
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,struct
+          b=Path('out-godot-altar/altar_from_godot.glb').read_bytes()
+          n,kind=struct.unpack_from('<II',b,12)
+          assert kind==0x4e4f534a
+          j=json.loads(b[20:20+n])
+          print('GODOT GLB material count:',len(j.get('materials',[])))
+          print('GODOT GLB materials:', [(i,x.get('name'),x.get('pbrMetallicRoughness',{}).get('baseColorFactor')) for i,x in enumerate(j.get('materials',[]))])
+          print('GODOT GLB mesh/primitive materials:',[(m.get('name'),[p.get('material') for p in m.get('primitives',[])]) for m in j.get('meshes',[])])
+          PY
       - name: Convert GLB to XZSM v3 with original materials
         shell: bash
         run: |
