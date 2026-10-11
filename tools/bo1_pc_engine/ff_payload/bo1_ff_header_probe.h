@@ -26,6 +26,7 @@ enum BO1FastfileProbeResult {
 };
 // Returns the preflight result. A successful preflight does NOT load
 // textures, meshes, collision, audio, or any original zombie map.
+__attribute__((visibility("default")))
 int bo1_original_fastfile_header_probe(const char *zoneName, BO1XFileHeaderInfo *header);
 
 #ifdef __cplusplus
