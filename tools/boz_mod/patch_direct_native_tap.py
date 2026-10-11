@@ -14,6 +14,30 @@ INSERTION = r'''
         super.onNewIntent(intent)
         setIntent(intent)
 
+        // Diagnostic native lane: when the normal Android dispatch returned
+        // true but the BOZ map selector did not change, invoke the same
+        // Marmalade JNI onMotionEvent method used by MultiTouch directly.
+        // Native event ids 4=down, 5=up are from the upstream source.
+        if (intent.getBooleanExtra("xzielNativeTap", false)) {
+            val nx = intent.getIntExtra("xzielX", 1140)
+            val ny = intent.getIntExtra("xzielY", 540)
+            window.decorView.post {
+                try {
+                    val nativeThread = LoaderThread()
+                    nativeThread.onMotionEvent(0, 4, nx, ny)
+                    window.decorView.postDelayed({
+                        try {
+                            nativeThread.onMotionEvent(0, 5, nx, ny)
+                            Log.i(TAG, "XZIEL_DIRECT_NATIVE_TAP JNI_ROUTE x=$nx y=$ny down=4 up=5")
+                        } catch (t: Throwable) {
+                            Log.e(TAG, "XZIEL_DIRECT_NATIVE_TAP JNI_UP_FAILED", t)
+                        }
+                    }, 140L)
+                } catch (t: Throwable) {
+                    Log.e(TAG, "XZIEL_DIRECT_NATIVE_TAP JNI_DOWN_FAILED", t)
+                }
+            }
+        }
         if (intent.getBooleanExtra("xzielDirectTap", false)) {
             val x = intent.getIntExtra("xzielX", 1140).toFloat()
             val y = intent.getIntExtra("xzielY", 540).toFloat()
@@ -102,6 +126,8 @@ def main() -> int:
     assert "InputDevice.SOURCE_TOUCHSCREEN" in verify
     assert "dispatchTouchEvent(down)" in verify
     assert "dispatchTouchEvent(up)" in verify
+    assert "nativeThread.onMotionEvent(0, 4, nx, ny)" in verify
+    assert "nativeThread.onMotionEvent(0, 5, nx, ny)" in verify
     assert MARKER in verify
     print("XZIEL_DIRECT_NATIVE_TAP_PATCH_OK")
     print("XZIEL_REAL_MOTION_EVENT_ROUTE_OK")
