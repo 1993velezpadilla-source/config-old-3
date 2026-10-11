@@ -215,6 +215,19 @@ ui = r'''
 static const int xziel_dev_weapon_ids[56] = {IDS};
 static const char *xziel_dev_weapon_names[56] = {NAMES};
 static int xziel_dev_weapon_page;
+// The original v0.26 pause resume countdown freezes the server for 3s.
+// Deliver a developer impulse only AFTER that countdown unpauses the world.
+static int xziel_dev_pending_impulse;
+void XzielDev_DispatchPendingImpulse(void)
+{
+    int impulse = xziel_dev_pending_impulse;
+    if (!impulse) return;
+    xziel_dev_pending_impulse = 0;
+    if (sv.active && svs.maxclients == 1 && !sv.paused) {
+        Cbuf_AddText(va("impulse %d\n", impulse));
+        Con_Printf("XZIEL DEV: gameplay impulse %d after countdown\n", impulse);
+    }
+}
 
 static void XzielDev_Menu(int target)
 {
@@ -225,18 +238,13 @@ static void XzielDev_Menu(int target)
 static void XzielDev_Send(int action)
 {
     if (!sv.active || svs.maxclients != 1) return;
-    // CRITICAL: Xziel's Android Pause_Set sets sv.paused. Old Dev menus
-    // submitted server commands while the game was frozen, so the server
-    // never processed the action. Resume first; send on next frame.
-    Menu_Resume();
-    // Vril's server command whitelist silently rejects custom stringcmd
-    // commands (cmd xzdev). Use the *already working* engine 'impulse'
-    // pipeline instead, just like CROUCH / PRONE / SLIDE in v0.26.
-    // 181..241 => 56 weapon IDs, 242..245 => God/Ammo/Refill/Points.
+    // Vril silently rejects unknown string commands; use its already
+    // working impulse pipeline (identical to the v0.26 stance buttons).
+    // Preserve v0.26's three-second resume countdown: sending immediately
+    // would lose the one-shot impulse while sv.paused is still true.
     int impulse = action >= 101 ? action + 80 : action + 241;
-    Cbuf_AddText(va("impulse %d\n", impulse));
-    Con_Printf("XZIEL DEV: sent gameplay impulse %d for action %d\n",
-               impulse, action);
+    xziel_dev_pending_impulse = impulse;
+    Menu_Resume();
 }
 static void XzielDev_God(void) { XzielDev_Send(1); }
 static void XzielDev_Ammo(void) { XzielDev_Send(2); }
@@ -328,4 +336,19 @@ s = once(s,
     "\t\tif (m_state == m_pause && menu_paus_submenu == 0)",
     "Android back interception")
 write(path, s)
-print("PASS: original Xziel NZP v0.26 intact; real server xzdev command + resume-before-dispatch; native solo Developer menu.")
+
+# The original v0.26 Android resume overlay unpauses after the HUD's 3-2-1
+# countdown. Dispatch the one-shot dev impulse at THAT boundary, not on the
+# paused frame (where Quake's usercmd is routinely overwritten).
+path = deps / "vril/source/render/r_hud.c"
+s = rw(path)
+s = once(s,
+    "extern qboolean xziel_mobile_resume_countdown;\nextern double xziel_mobile_resume_countdown_end;",
+    "extern qboolean xziel_mobile_resume_countdown;\nextern double xziel_mobile_resume_countdown_end;\nvoid XzielDev_DispatchPendingImpulse(void);",
+    "countdown resume declaration")
+s = once(s,
+    "sv.paused = false;\n\t\tMusic_Resume();\n\t\treturn;",
+    "sv.paused = false;\n\t\tMusic_Resume();\n\t\tXzielDev_DispatchPendingImpulse();\n\t\treturn;",
+    "dispatch dev impulse after countdown")
+write(path, s)
+print("PASS: pinned Xziel v0.26 untouched; Developer input is deferred until solo resume countdown has ended.")
