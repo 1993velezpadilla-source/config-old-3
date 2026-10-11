@@ -231,11 +231,11 @@ s = exact(s, """void Menu_Pause_Draw (void)
     }
 """, "C pause draw guard")
 s = exact(s,
-    'Menu_DrawButton (4, 3, "END GAME", "Return to Main Menu.", Menu_Pause_EnterSubMenu);',
-    'Menu_DrawButton (4, 3, "END GAME", "Return to Main Menu.", Menu_Pause_EnterSubMenu);\n'
+    'Menu_DrawButton (5, 4, "EXIT TO MENU", "Return to Main Menu without saving.", Menu_Pause_EnterSubMenu);',
+    'Menu_DrawButton (5, 4, "EXIT TO MENU", "Return to Main Menu without saving.", Menu_Pause_EnterSubMenu);\n'
     '        if (sv.active && svs.maxclients == 1)\n'
-    '            Menu_DrawButton(5, 4, "DEVELOPER", "Solo testing tools.", XzDev_Open);',
-    "C pause developer button")
+    '            Menu_DrawButton(6, 5, "DEVELOPER", "Solo testing tools.", XzDev_Open);',
+    "ANDROID native pause developer button (not the desktop #else)")
 save(path, s)
 
 # Android hardware Back / Escape unwinds ONLY developer submenus.
@@ -248,5 +248,17 @@ s = exact(s, "if (m_state == m_pause && menu_paus_submenu == 0)",
           "if (m_state == m_pause && XzDev_PauseHandleBack()) return;\n"
           "        if (m_state == m_pause && menu_paus_submenu == 0)",
           "C native back route")
+save(path, s)
+
+# Fix a pre-existing compile blocker in the current main build of Xziel.
+# This is a renderer API migration only; no visuals, UI, assets, or input change.
+# Without this, the original current source fails Android NDK on GL_Bind.
+path = deps / "vril/source/platform/sdl/gl/gl_xziel_staticmesh.c"
+s = read(path)
+s = exact(s, '#include "../../../nzportable_def.h"\n#include <stdint.h>',
+          '#include "../../../nzportable_def.h"\n#include "../../../render/r_hyena.h"\n#include <stdint.h>',
+          "existing native renderer include")
+s = exact(s, "GL_Bind(b->texture);", "Hyena_BindTexture(b->texture);",
+          "existing renderer texture binding API")
 save(path, s)
 print("PASS: Xziel original Android menus/HUD/maps preserved; only pause developer + server commands patched")
