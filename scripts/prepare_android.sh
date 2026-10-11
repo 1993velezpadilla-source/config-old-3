@@ -72,6 +72,10 @@ python3 "$ROOT/scripts/patch_vril_mobile_v021.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_mobile_v022.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_mobile_v024.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_sanctum_staticmesh.py" "$DEPS/vril"
+if [[ -n "$XZIEL_SINGLE_MAP" ]]; then
+    echo "==> Installing native C single-map menu and developer controls"
+    python3 "$ROOT/scripts/patch_vril_native_single_map.py" "$DEPS/vril" "$XZIEL_SINGLE_MAP"
+fi
 
 echo "==> Patching and compiling Xziel mobile QuakeC"
 python3 -m pip install --quiet colorama==0.4.6 fastcrc==0.3.0 pandas==2.1.4 cairosvg==2.8.2
