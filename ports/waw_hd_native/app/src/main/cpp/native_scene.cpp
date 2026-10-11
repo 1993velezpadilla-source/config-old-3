@@ -289,6 +289,7 @@ void hud() {
     char line[128];
     std::snprintf(line,sizeof(line),"WAVE %d  HP %d  KILLS %d",game.wave,game.health,game.kills);
     text(18,15,line,size);
+    text(.45f*screenW,15,"V03 NATIVE FPS TEST",size*.92f,{.25f,.91f,.38f});
     std::snprintf(line,sizeof(line),"AMMO %d/%d",game.ammo,game.reserve);
     text(18,26+8*size,line,size,{.91f,.78f,.40f});
     if(game.reloading) text(18,38+16*size,"RELOADING",size,{1,.62f,.32f});
