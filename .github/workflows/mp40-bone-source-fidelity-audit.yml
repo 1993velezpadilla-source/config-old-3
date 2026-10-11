@@ -1,0 +1,31 @@
+name: MP40 original skeleton source inspection
+on:
+  push:
+    branches: [fix/mp40-authored-bone-retarget-fidelity-20261011]
+    paths:
+      - xogot/tools/mp40_source_rig_inspection.py
+      - xogot/ci/black_pines_mp40_real_frame_audit.gd
+      - xogot/scripts/weapon.gd
+      - .github/workflows/mp40-bone-source-fidelity-audit.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect-source-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v5
+      - name: Prove actual T4 Marine and original MP40 bone hierarchy
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 xogot/tools/mp40_source_rig_inspection.py 2>&1 | tee mp40-original-rig-audit.txt
+          grep -q MP40_SOURCE_RIG_AUDIT_FINISHED mp40-original-rig-audit.txt
+      - name: Preserve actual bone tracks for diagnosis
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MP40-Original-Skeleton-Bone-Track-Inspection
+          path: mp40-original-rig-audit.txt
+          retention-days: 14
