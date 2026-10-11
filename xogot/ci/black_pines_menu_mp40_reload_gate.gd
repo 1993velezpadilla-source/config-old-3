@@ -109,9 +109,21 @@ func _run() -> void:
     if not _check(clip_moving, "magazine has no moving track"):
         return
 
+    var hands_player: AnimationPlayer = weapon.get("_hands_animation_player") as AnimationPlayer
+    if not _check(hands_player != null and hands_player.has_animation("PSA_viewmodel_mp40_reload_empty"), "MP40 full articulated source-hands reload missing"):
+        return
+    var hand_action: Animation = hands_player.get_animation("PSA_viewmodel_mp40_reload_empty")
+    if not _check(hand_action.length > 1.0 and hand_action.get_track_count() >= 10, "real hands clip is a static 2-frame placeholder"):
+        return
+    print("BLACK_PINES_MP40_HANDS_SOURCE_FOUND length=", hand_action.length, " tracks=", hand_action.get_track_count())
+
     weapon.set("_magazine", 10)
     weapon.call("request_reload")
     if not _check(str(animation_player.current_animation) == "PSA_viewmodel_mp40_reload", "wrong gun reload clip selected (hands placeholder)"):
+        return
+    if not _check(str(hands_player.current_animation).begins_with("PSA_viewmodel_mp40_reload_empty"), "tactical reload still selects 0.04s static hands"):
+        return
+    if not _check(absf(hands_player.speed_scale * float(weapon.get("_reload_timer")) - hand_action.length) < 0.10, "tactical gun-hands reload are out of sync"):
         return
     if not _check(float(weapon.get("_reload_timer")) >= anim.length - 0.1, "gameplay timer ends before magazine returns"):
         return
@@ -120,9 +132,13 @@ func _run() -> void:
     weapon.call("request_reload")
     if not _check(str(animation_player.current_animation) == "PSA_viewmodel_mp40_reload_empty", "wrong empty-mag reload clip selected"):
         return
+    if not _check(str(hands_player.current_animation).begins_with("PSA_viewmodel_mp40_reload_empty"), "empty reload failed to animate source hands"):
+        return
+    if not _check(absf(hands_player.speed_scale * float(weapon.get("_reload_timer")) - hand_action.length) < 0.10, "empty-mag gun-hands playback out of sync"):
+        return
     if not _check(float(weapon.get("_reload_timer")) >= last.length - 0.1, "empty-magazine reload cut short"):
         return
-    print("BLACK_PINES_MP40_FULL_RELOAD_GREEN gun_reinsert=true authored_mag_motion=true mag_empty=true reload_time_synced=true")
+    print("BLACK_PINES_MP40_FULL_RELOAD_GREEN gun_reinsert=true authored_mag_motion=true mag_empty=true reload_time_synced=true real_hands_clip=true gun_hands_sync=true")
     weapon.call("_finish_reload")
     scene.queue_free()
     await process_frame
