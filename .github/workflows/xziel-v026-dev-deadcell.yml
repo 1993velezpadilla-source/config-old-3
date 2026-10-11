@@ -79,14 +79,14 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Install Android SDK, NDK and emulator
+      - name: Install Android SDK and NDK only
         shell: bash
         run: |
           set -euo pipefail
           SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
           test -n "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER"             "platform-tools"             "platforms;android-35"             "build-tools;35.0.0"             "ndk;27.2.12479018"             "emulator"             "system-images;android-35;google_apis;x86_64"
+          "$SDKMANAGER"             "platform-tools"             "platforms;android-35"             "build-tools;35.0.0"             "ndk;27.2.12479018"
 
       - name: Prepare source-pinned Xziel v0.26 DEV and add only Dead Cell
         shell: bash
