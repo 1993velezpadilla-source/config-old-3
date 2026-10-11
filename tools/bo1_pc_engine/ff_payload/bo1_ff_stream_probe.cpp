@@ -134,9 +134,14 @@ extern "C" int bo1_original_ff_payload_prefix_probe(
     std::uint64_t digest=kFnvInitial;
     std::array<unsigned char,4096> buffer{};
     std::uint32_t got=0;
+    std::array<unsigned char,16> serialized_asset_list{};
     while(got<want) {
         const std::size_t batch=std::min<std::size_t>(buffer.size(),want-got);
         if(!stream.take(buffer.data(),batch)) return BO1_FF_DEFLATE_ERROR;
+        if(got<serialized_asset_list.size()) {
+            const auto copied=std::min<std::size_t>(batch,serialized_asset_list.size()-got);
+            std::memcpy(serialized_asset_list.data()+got,buffer.data(),copied);
+        }
         for(std::size_t i=0;i<batch;++i) {
             digest^=buffer[i];
             digest*=kFnvPrime;
@@ -148,5 +153,22 @@ extern "C" int bo1_original_ff_payload_prefix_probe(
     out->deflated_input_bytes_consumed=stream.consumed();
     out->first_stream_finished=0; // deliberately do not assert full stream consumed
     out->payload_prefix_fnv1a64=digest;
+    if(got>=16) {
+        // Original src/database/db_registry.h:
+        // ScriptStringList: count (int32), strings (ptr32)
+        // XAssetList: stringList, assetCount (int32), assets (ptr32)
+        // Load_XAssetListCustom() reads 16 bytes from the decompressed stream.
+        const auto scripts=read_u32(serialized_asset_list.data());
+        const auto script_ptr=read_u32(serialized_asset_list.data()+4);
+        const auto assets=read_u32(serialized_asset_list.data()+8);
+        const auto asset_ptr=read_u32(serialized_asset_list.data()+12);
+        if(scripts<=1000000u && assets<=2000000u) {
+            out->asset_list_header_plausible=1;
+            out->script_string_count=scripts;
+            out->serialized_script_string_pointer=script_ptr;
+            out->asset_count=assets;
+            out->serialized_asset_pointer=asset_ptr;
+        }
+    }
     return BO1_FF_HEADER_OK;
 }
