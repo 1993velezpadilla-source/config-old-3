@@ -58,7 +58,7 @@ jobs:
           test "$(unzip -Z1 build/android-project/app/src/main/assets/nzp-data.zip | grep -E '^nzp/maps/[^/]+\.bsp$' | wc -l)" -eq 1
           unzip -Z1 build/android-project/app/src/main/assets/nzp-data.zip | grep -F 'nzp/maps/ndu.bsp'
           grep -F 'com.xziel.vrilzombies' build/android-project/app/build.gradle
-          grep -F 'ZOMBIES - Vril Prototype' build/android-project/app/src/main/res/values/strings.xml
+          grep -F 'ZOMBIES NATIVE DEV v2' build/android-project/app/src/main/res/values/strings.xml
           test -s build/deps/quakec/build/standard/progs.dat
       - name: Compile Android native APK
         working-directory: build/android-project
