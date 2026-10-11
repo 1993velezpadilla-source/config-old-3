@@ -5,6 +5,7 @@ extends SceneTree
 ## independent review before a new APK is approved.
 const BLACK_PINES := preload("res://black_pines.tscn")
 const FRACTIONS := [0.02, 0.18, 0.34, 0.50, 0.68, 0.88]
+var _positions: Dictionary = {"tactical": [], "empty": []}
 
 func _init() -> void:
     call_deferred("_run")
@@ -32,8 +33,19 @@ func _capture_frame(
     var hand_t: float = minf(hand_player.current_animation_length - 0.005, hand_player.current_animation_length * fraction)
     # Set both authored clips to the exact same normalized reload phase;
     # Godot runtime is paused so _process does not spuriously change state.
+    # Pause() made current_animation empty on the first attempt. Explicitly
+    # play, seek, and advance both mixers in MANUAL callback mode.
+    var gun_clip_name := "PSA_viewmodel_mp40_reload" if mode == "tactical" else "PSA_viewmodel_mp40_reload_empty"
+    var hand_clip_name := "PSA_viewmodel_mp40_reload_empty"
+    gun_player.play(gun_clip_name, 0.0)
+    hand_player.play(hand_clip_name, 0.0)
     gun_player.seek(gun_t, true)
     hand_player.seek(hand_t, true)
+    gun_player.advance(0.0)
+    hand_player.advance(0.0)
+    if gun_player.current_animation != gun_clip_name or hand_player.current_animation != hand_clip_name:
+        _fail("player not playing source clip at " + mode + str(frame_idx))
+        return false
     hands_skeleton.force_update_all_bone_transforms()
     gun_skeleton.force_update_all_bone_transforms()
     weapon.call("_sync_source_weapon_attachment")
@@ -42,6 +54,7 @@ func _capture_frame(
     var index: int = gun_skeleton.find_bone("j_clip")
     var clip_position_world: Vector3 = gun_skeleton.to_global(gun_skeleton.get_bone_global_pose(index).origin)
     var clip_position_camera: Vector3 = camera.to_local(clip_position_world)
+    (_positions[mode] as Array).append(clip_position_camera)
     var clip_screen: Vector2 = camera.unproject_position(clip_position_world)
     var gun_root: Node3D = weapon.get("_weapon_model_root") as Node3D
     var hand_root: Node3D = weapon.get("_hands_model_root") as Node3D
@@ -118,8 +131,10 @@ func _run() -> void:
     label.position = Vector2(30.0, 24.0)
     overlay.add_child(label)
 
-    # Stop the gameplay clocks to capture exact animation timestamps. This is
-    # STILL live Godot skinning/rendering, rather than a mathematical diagram.
+    # Render in live Godot while sample time is manually driven; never
+    # pause() a player whose current_animation must remain selected.
+    gun_player.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
+    hand_player.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
     weapon.set_process(false)
     var player: Node = scene.get_node_or_null("Player")
     if player != null:
@@ -135,12 +150,19 @@ func _run() -> void:
         if gun_player.current_animation != ("PSA_viewmodel_mp40_reload" if mode == "tactical" else "PSA_viewmodel_mp40_reload_empty"):
             _fail(mode + " chose wrong gun animation")
             return
-        gun_player.pause()
-        hand_player.pause()
         print("MP40_REAL_FRAME_CASE mode=", mode, " gun=", gun_player.current_animation, " hands=", hand_player.current_animation)
         for idx in range(FRACTIONS.size()):
             if not await _capture_frame(gun_player, hand_player, hands_skeleton, gun_skeleton, weapon, camera, label, mode, idx, float(FRACTIONS[idx])):
                 return
+        var positions: Array = _positions[mode] as Array
+        var first: Vector3 = positions[0] as Vector3
+        var max_movement := 0.0
+        for point: Vector3 in positions:
+            max_movement = maxf(max_movement, first.distance_to(point))
+        print("MP40_RENDERED_MAGAZINE_CAMERA_MOVEMENT mode=", mode, " max_m=", max_movement)
+        if max_movement < 0.12:
+            _fail(mode + " static magazine / false animation: camera motion only " + str(max_movement))
+            return
     print("MP40_RUNTIME_FRAMES_CAPTURED_12 visual_approval=REQUIRED actual_godot=true new_apk=false")
     scene.queue_free()
     await process_frame
