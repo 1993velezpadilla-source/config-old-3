@@ -1,0 +1,38 @@
+name: Vril MP40 Modern Model Compatibility Audit
+
+on:
+  push:
+    branches:
+      - experiment/vril-mp40-modern-swap-v1
+    paths:
+      - "tools/weapons/audit_vril_mp40_modern_swap.py"
+      - ".github/workflows/vril-mp40-modern-swap-audit.yml"
+      - "xogot/assets/weapons/aether_waw_real/mp40/viewmodel.glb"
+      - "xogot/assets/weapons/aether_waw_hands/t4_marine/mp40/viewhands.glb"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-geometry-and-animation-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect actual recovered MP40 gun plus T4 hands GLB
+        run: |
+          set -euo pipefail
+          python3 tools/weapons/audit_vril_mp40_modern_swap.py \
+            --output build/vril-mp40-feasibility.json | tee /tmp/vril-mp40-audit.log
+          test -s build/vril-mp40-feasibility.json
+      - name: Preserve audited limits and timings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vril-MP40-Modern-Swap-Source-Audit-Not-APK
+          path: |
+            build/vril-mp40-feasibility.json
+            /tmp/vril-mp40-audit.log
+          retention-days: 14
+          if-no-files-found: warn
