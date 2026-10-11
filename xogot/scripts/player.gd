@@ -160,6 +160,11 @@ func _place_at_spawn() -> void:
 		global_position = _b2g(nav["spawn"]) + Vector3(0.0, 0.18, 0.0)
 
 func _unhandled_input(event: InputEvent) -> void:
+	# DEV/Settings/Network stay open during co-op; prevent every menu gesture
+	# from leaking into gameplay (fire, ADS, stick, camera, knife).
+	var menu: Control = get_node_or_null("../HUD/MobileSettings") as Control
+	if menu != null and menu.visible:
+		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		_apply_look(Vector2(event.relative.x, event.relative.y) * mouse_sensitivity)
 	elif event is InputEventKey and event.pressed and (event.keycode == KEY_E or event.keycode == KEY_F):
@@ -178,6 +183,22 @@ func _unhandled_input(event: InputEvent) -> void:
 		_handle_touch(event)
 	elif event is InputEventScreenDrag:
 		_handle_drag(event)
+
+func cancel_mobile_inputs_for_menu() -> void:
+	# A held fire finger must not remain armed after Android Back/Resume.
+	_set_mobile_trigger_held(false)
+	_fire_touch = -1
+	_adsfire_touch = -1
+	_adsfire_trigger_engaged = false
+	_ads_touch = -1
+	_move_touch = -1
+	_look_touch = -1
+	_crouch_touch = -1
+	_knife_touch = -1
+	_use_touch = -1
+	_move_vector = Vector2.ZERO
+	_move_raw_vector = Vector2.ZERO
+	_sprint_suppressed = false
 
 func _set_mobile_trigger_held(held: bool) -> void:
 	if _weapon == null:
