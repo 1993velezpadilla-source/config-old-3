@@ -75,7 +75,9 @@ def main():
     batches=[]
     collision={}
     total_triangles=0
-    all_q_bounds=[]
+    visual_stats={'vertex_rgba_nodes':0,'vertex_rgba_triangles':0,
+                  'texture_nodes':0,'texture_triangles':0,'solid_nodes':0,
+                  'solid_triangles':0,'white_fallback_triangles':0}
     for node in sorted(nodes):
         tf,key=scene.graph[node]
         mesh=scene.geometry[key]
@@ -85,11 +87,28 @@ def main():
         if node.startswith(('SANCTUM_MAIN_FLOOR_','SANCTUM_UPPER_','SANCTUM_UNDERCROFT_FLOOR','SANCTUM_UNDERCROFT_RAMP')):
             if 'GUARD' not in node:
                 collision[node]=(q.min(axis=0),q.max(axis=0),q,xyz)
+        # Original Blender/GLB often stores flat procedural architecture as
+        # glTF COLOR_0 (per-vertex RGBA) rather than a baseColorTexture.
+        # The former exporter dropped COLOR_0 entirely, turning those faces
+        # opaque WHITE. Retain it in XZSM's existing 4-byte RGBA field.
+        color_kind=getattr(mesh.visual,'kind',None)
+        vertex_colors=None
+        if color_kind in ('vertex','face'):
+            raw=np.asarray(mesh.visual.vertex_colors)
+            if raw.ndim==2 and raw.shape==(len(mesh.vertices),4):
+                vertex_colors=np.asarray(raw,dtype=np.uint8)
         mat=getattr(mesh.visual,'material',None)
         if mat is None:
             key_name="untextured"
         else:
             key_name=str(getattr(mat,'name', 'material'))
+        has_image = (mat is not None and
+                     (getattr(mat,'baseColorTexture',None) is not None or
+                      getattr(mat,'image',None) is not None))
+        material_kind=('texture' if has_image else
+                       'vertex_rgba' if vertex_colors is not None else 'solid')
+        visual_stats[material_kind+'_nodes'] += 1
+        visual_stats[material_kind+'_triangles'] += len(mesh.faces)
         tex_name=texture_map.get(key_name)
         if tex_name is None:
             idx=len(texture_map)
@@ -121,7 +140,11 @@ def main():
             vertices=q[indices]
             coords=np.asarray(uv)[indices]
             # Trimesh glTF importer UV is flipped relative to OpenGL.
-            rgb=np.full((len(vertices),4),255,dtype=np.uint8)
+            # GL_MODULATE + GL_COLOR_ARRAY in native renderer combines
+            # authored COLOR_0 with the material image. For solid-white
+            # fallbacks, GL_MODULATE renders the original vertex colors.
+            rgb=(vertex_colors[indices].copy() if vertex_colors is not None
+                 else np.full((len(vertices),4),255,dtype=np.uint8))
             mn=vertices.min(axis=0);mx=vertices.max(axis=0)
             data=bytearray()
             for v,t,c in zip(vertices,coords,rgb):
@@ -132,6 +155,11 @@ def main():
             batches.append((tex_name,len(indices),len(inverse),mn,mx,bytes(data),idx))
             total_triangles+=len(inverse)//3
     assert len(batches)<512 and total_triangles>130000 and len(texture_map)>=20,(len(batches),total_triangles,len(texture_map))
+    # No silent GREEN when the art has no COLOR_0 and no PNG images.
+    if visual_stats['texture_triangles']+visual_stats['vertex_rgba_triangles']<int(total_triangles*.35):
+        raise RuntimeError('Too little authored material coverage: '+json.dumps(visual_stats))
+    print('SANCTUM_V2_GLTF_VISUAL_STATS',json.dumps(visual_stats,sort_keys=True))
+
     with model.open('wb') as f:
         f.write(struct.pack('<4sIIII',b'XZSM',VER,len(batches),sum(b[1] for b in batches),sum(b[2] for b in batches)))
         for tex,nv,ni,mn,mx,data,idx in batches:
@@ -205,6 +233,7 @@ def main():
     result={'status':'CONVERTED_NOT_DEVICE_PROVEN','name':MAP,
       'source_sha256':hashlib.sha256(a.glb.read_bytes()).hexdigest(),
       'mesh_nodes':len(nodes),'batches':len(batches),'triangles':total_triangles,
+      'visual_stats':visual_stats,
       'textures':len(texture_map),'floor_panels':len(floor_names),'ramps':len(ramp_names),
       'height_m':report['vertical_span_m'],'xzsm':str(model),'quake_map':str(source),
       'collision':'authored floor AABB + 28-step ramp approximations (NOT original Vulkan hulls)',
