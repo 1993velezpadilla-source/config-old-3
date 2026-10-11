@@ -1,0 +1,86 @@
+name: MP40 Source Barrel Roll Four Way Actual Godot Frames
+
+on:
+  push:
+    branches:
+      - experiment/mp40-original-hands-gun-roll-matrix-20261011
+    paths:
+      - "xogot/ci/black_pines_mp40_real_frame_audit.gd"
+      - "xogot/scripts/weapon.gd"
+      - ".github/workflows/mp40-real-gun-roll-matrix.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-first-person-camera-frames:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install free Godot 4.6.1 and Mesa screen renderer
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libegl1 libgl1 libglu1-mesa
+          curl --fail -L --retry 3 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot-mp40.zip
+          unzip -q /tmp/godot-mp40.zip -d /tmp
+          chmod +x /tmp/Godot_v4.6.1-stable_linux.x86_64
+
+      - name: Import genuine existing MP40 GLBs and source skinning
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s xogot/assets/weapons/aether_waw_real/mp40/viewmodel.glb
+          test -s xogot/assets/weapons/aether_waw_hands/t4_marine/mp40/viewhands.glb
+          timeout 320 /tmp/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit \
+            2>&1 | tee /tmp/mp40-real-frame-import.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|ERROR: Failed to load script' /tmp/mp40-real-frame-import.log
+
+      - name: Source MP40 forward-axis roll matrix, 48 real camera frames
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/mp40-roll-matrix
+          for roll in 0 90 -90 180; do
+            echo "MP40_MATRIX_START roll=$roll"
+            mkdir -p "build/mp40-roll-matrix/roll-$roll"
+            timeout 160 xvfb-run -a -s '-screen 0 1360x900x24' \
+              /tmp/Godot_v4.6.1-stable_linux.x86_64 --path xogot \
+              --rendering-method gl_compatibility --resolution 1360x900 \
+              --script res://ci/black_pines_mp40_real_frame_audit.gd \
+              -- "--mp40-source-roll=$roll" \
+              2>&1 | tee "build/mp40-roll-matrix/roll-$roll/godot.txt"
+            grep -q "MP40_SOURCE_MESH_ROLL_EXPERIMENT_DEGREES=$roll" "build/mp40-roll-matrix/roll-$roll/godot.txt"
+            grep -q 'MP40_SOURCE_CORRECT_PAIRED_RELOAD mode=tactical' "build/mp40-roll-matrix/roll-$roll/godot.txt"
+            grep -q 'MP40_SOURCE_CORRECT_PAIRED_RELOAD mode=empty' "build/mp40-roll-matrix/roll-$roll/godot.txt"
+            grep -q 'MP40_RUNTIME_FRAMES_CAPTURED_12' "build/mp40-roll-matrix/roll-$roll/godot.txt"
+            ! grep -q 'SCRIPT ERROR\|Parse Error\|MP40_REAL_FRAME_AUDIT_RED' "build/mp40-roll-matrix/roll-$roll/godot.txt"
+            test "$(find xogot -maxdepth 1 -name 'mp40-real-*.png' | wc -l)" -eq 12
+            cp xogot/mp40-real-*.png "build/mp40-roll-matrix/roll-$roll/"
+            rm xogot/mp40-real-*.png
+          done
+          printf '%s\n' \
+            "This is a controlled ROTATION EXPERIMENT, not a shippable fix." \
+            "All runs use the same authored MP40 GLB and genuine T4 hands." \
+            "Only the source weapon's local +X barrel-axis roll varies." \
+            "48 images / four rolls / two reload states / six timestamps." \
+            "Review magazine side, left-hand grip and j_clip visibility." \
+            > build/mp40-roll-matrix/README.txt
+
+      - name: Retain all screenshots and exact RED evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MP40-Original-Handedness-Four-Rolls-48-Frames
+          path: |
+            build/mp40-roll-matrix/
+            /tmp/mp40-real-frame-import.log
+          retention-days: 14
+          if-no-files-found: warn
