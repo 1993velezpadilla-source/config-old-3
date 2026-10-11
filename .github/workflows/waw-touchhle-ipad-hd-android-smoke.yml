@@ -1,0 +1,140 @@
+name: WAW iPad HD - Original Game Runtime on Android ARM64
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/waw-ipad-hd-native-android-port-v1
+    paths:
+      - .github/workflows/waw-touchhle-ipad-hd-android-smoke.yml
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-ipad-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v5
+      - name: Enable KVM
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/waw-touchhle/screens
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          test -e /dev/kvm
+      - name: Retrieve EXISTING original iPad HD and iPhone iOS binaries
+        uses: actions/download-artifact@v4
+        with:
+          repository: ${{ github.repository }}
+          run-id: 38110245544
+          github-token: ${{ github.token }}
+          name: COD-World-at-War-Zombies-iPhone-iPad-IPA-originals
+          path: /tmp/waw-touchhle/ipas
+      - name: Acquire official touchHLE 0.3.0 ARM64 emulator; verify upstream SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/waw-touchhle
+          printf '%s  %s\n' '0e0e699f89c49b65ccdad020145d6fa34e431ab2bd5737d34a77e03b6a0cc60d' 'touchHLE_v0.3.0_Android_AArch64.zip' > RELEASE.SHA256
+          curl -fL --retry 3 --connect-timeout 30 --max-time 240 -o touchHLE_v0.3.0_Android_AArch64.zip 'https://github.com/touchHLE/touchHLE/releases/download/v0.3.0/touchHLE_v0.3.0_Android_AArch64.zip'
+          sha256sum -c RELEASE.SHA256
+          mkdir -p extracted
+          unzip -q touchHLE_v0.3.0_Android_AArch64.zip -d extracted
+          find extracted -type f | sed -n '1,70p' | tee release-file-list.txt
+          APK="$(find extracted -type f -iname '*.apk' | head -n 1)"
+          test -s "$APK"
+          cp "$APK" /tmp/waw-touchhle/TouchHLE-0.3.0-Android-ARM64.apk
+          cd ipas
+          sha1sum -c SHA1SUMS
+          python3 - <<'PY'
+          import zipfile,plistlib
+          from pathlib import Path
+          p=Path("COD_WAW_Zombies_HD_iPad_v1.5.0.ipa")
+          with zipfile.ZipFile(p) as z:
+            i=plistlib.loads(z.read("Payload/kiwi.app/Info.plist"))
+            print("ORIGINAL_IPAD_HD_BUNDLE",i["CFBundleIdentifier"])
+            print("MINIMUM_IOS",i.get("MinimumOSVersion"))
+            assert i["CFBundleIdentifier"] == "com.activision.kiwipad"
+          PY
+          echo 'UPSTREAM_EMULATOR_VERIFIED=1' >> /tmp/waw-touchhle/status.txt
+          echo 'ORIGINAL_IPAD_HD_IPA_VERIFIED=1' >> /tmp/waw-touchhle/status.txt
+          echo 'ORIGINAL_GAME_RUNNING=NOT_YET_VERIFIED' >> /tmp/waw-touchhle/status.txt
+      - name: Install Android 11 x86_64 emulator with ARM native translation
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          SM="$(find "$SDK/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          AM="$(find "$SDK/cmdline-tools" -type f -name avdmanager | sort -V | tail -n 1)"
+          yes | "$SM" --licenses >/dev/null || true
+          "$SM" 'platform-tools' 'emulator' 'build-tools;36.0.0' 'system-images;android-30;google_apis;x86_64' > /tmp/waw-touchhle/sdk-install.log 2>&1
+          export ANDROID_AVD_HOME=/tmp/waw-touchhle/avd
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+          mkdir -p "$ANDROID_AVD_HOME"
+          printf 'no\n' | "$AM" create avd --force --name waw-hd-android --package 'system-images;android-30;google_apis;x86_64' --device 'pixel_4' >/tmp/waw-touchhle/avd-create.log 2>&1
+          "$SDK/platform-tools/adb" start-server >/dev/null
+          nohup "$SDK/emulator/emulator" @waw-hd-android -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -no-metrics > /tmp/waw-touchhle/emulator.log 2>&1 &
+          for i in $(seq 1 150); do
+            if [ "$("$SDK/platform-tools/adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]; then break; fi
+            sleep 2
+          done
+          test "$("$SDK/platform-tools/adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1
+          "$SDK/platform-tools/adb" shell wm size 2280x1080
+          "$SDK/platform-tools/adb" shell wm density 440
+          echo 'ANDROID_EMULATOR_BOOT_GREEN=1' >> /tmp/waw-touchhle/status.txt
+      - name: Real ARM64 APK installation and original iPad IPA discovery
+        shell: bash
+        run: |
+          set +e
+          OUT=/tmp/waw-touchhle
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          APK="$OUT/TouchHLE-0.3.0-Android-ARM64.apk"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" > "$OUT/app-badging.txt" 2>&1
+          "$ADB" install --abi arm64-v8a -r "$APK" > "$OUT/install.log" 2>&1
+          RC=$?
+          echo "INSTALL_RC=$RC" | tee -a "$OUT/status.txt"
+          if [ "$RC" -eq 0 ]; then
+            "$ADB" logcat -c
+            "$ADB" shell monkey -p org.touchhle.android 1 > "$OUT/first-launch.log" 2>&1
+            sleep 12
+            "$ADB" exec-out screencap -p > "$OUT/screens/touchhle_first_run.png"
+            "$ADB" shell mkdir -p /sdcard/Android/data/org.touchhle.android/files/touchHLE_apps > "$OUT/create-apps-dir.log" 2>&1
+            "$ADB" push "$OUT/ipas/COD_WAW_Zombies_HD_iPad_v1.5.0.ipa" /sdcard/Android/data/org.touchhle.android/files/touchHLE_apps/ > "$OUT/push-ipad.log" 2>&1
+            echo "PUSH_IPAD_RC=$?" | tee -a "$OUT/status.txt"
+            "$ADB" shell am force-stop org.touchhle.android
+            "$ADB" shell monkey -p org.touchhle.android 1 > "$OUT/second-launch.log" 2>&1
+            sleep 23
+            "$ADB" exec-out screencap -p > "$OUT/screens/original_ipad_hd_discovery.png"
+            "$ADB" shell pidof org.touchhle.android > "$OUT/pid.txt" 2>&1
+            echo "TOUCHHLE_PID=$(cat "$OUT/pid.txt")" >> "$OUT/status.txt"
+            "$ADB" shell input tap 1130 550
+            sleep 45
+            "$ADB" exec-out screencap -p > "$OUT/screens/tap_center_after_45s.png"
+            "$ADB" shell pidof org.touchhle.android > "$OUT/pid-after-tap.txt" 2>&1
+            echo "TOUCHHLE_PID_AFTER_TAP=$(cat "$OUT/pid-after-tap.txt")" >> "$OUT/status.txt"
+          fi
+          "$ADB" logcat -d -v threadtime > "$OUT/logcat-full.txt" 2>&1
+          grep -Eai -C 5 'touchhle|kiwipad|marmalade|arm|dynarmic|ios|crash|fatal signal|failed|panic|exception|com.activision' "$OUT/logcat-full.txt" | tail -800 > "$OUT/logcat-focus.txt" || true
+          echo 'PLAYABLE_ROUNDS_NOT_YET_VERIFIED=1' >> "$OUT/status.txt"
+          cat "$OUT/status.txt"
+          exit 0
+      - name: Upload only open-source emulator and technical evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WAW-iPad-HD-touchHLE-Android-ARM64-APK-and-smoke
+          path: |
+            /tmp/waw-touchhle/TouchHLE-0.3.0-Android-ARM64.apk
+            /tmp/waw-touchhle/status.txt
+            /tmp/waw-touchhle/app-badging.txt
+            /tmp/waw-touchhle/install.log
+            /tmp/waw-touchhle/first-launch.log
+            /tmp/waw-touchhle/second-launch.log
+            /tmp/waw-touchhle/push-ipad.log
+            /tmp/waw-touchhle/logcat-focus.txt
+            /tmp/waw-touchhle/screens/*.png
+            /tmp/waw-touchhle/RELEASE.SHA256
+          if-no-files-found: warn
+          retention-days: 14
