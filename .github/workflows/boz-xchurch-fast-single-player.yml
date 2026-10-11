@@ -261,6 +261,25 @@ jobs:
                     BACKHASH="$(sha256sum "$OUT/screens/diagnostic_back_touch.png" | cut -d " " -f1)"
                     echo "MENU_BACK_TOUCH_HASH=$BACKHASH" | tee -a "$OUT/status.txt"
                     if [ "$BACKHASH" = "$STUCK_BEFORE" ]; then
+                      # Native game currently ignores touch at character/map
+                      # selector; OS hardware BACK works. Test Xperia Play /
+                      # Android D-pad input path the ORIGINAL engine supports.
+                      MENUHASH="$STUCK_BEFORE"
+                      for k in 23 66 22 23 20 23; do
+                        "$ADB" shell input keyevent "$k"
+                        sleep 4
+                        "$ADB" exec-out screencap -p > "$OUT/screens/keycode_${k}_$(date +%s).png"
+                        LASTKEYHASH="$(sha256sum "$(find "$OUT/screens" -type f -name "keycode_${k}_*.png" | sort | tail -n1)" | cut -d " " -f1)"
+                        if [ "$LASTKEYHASH" != "$MENUHASH" ]; then
+                          echo "XCHURCH_NATIVE_GAME_DPAD_CHANGED_FRAME_KEYCODE=$k" | tee -a "$OUT/status.txt"
+                          sleep 8
+                          "$ADB" exec-out screencap -p > "$OUT/screens/dpad_changed_after_8s.png"
+                          break
+                        fi
+                      done
+                      if [ "${LASTKEYHASH:-}" = "$MENUHASH" ]; then
+                        echo "XCHURCH_GAMEPAD_KEYS_ALSO_NO_SCREEN_CHANGE_RED" | tee -a "$OUT/status.txt"
+                      fi
                       "$ADB" shell input keyevent 4; sleep 8
                       "$ADB" exec-out screencap -p > "$OUT/screens/diagnostic_back_key.png"
                       KEYHASH="$(sha256sum "$OUT/screens/diagnostic_back_key.png" | cut -d " " -f1)"
