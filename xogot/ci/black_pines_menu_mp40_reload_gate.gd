@@ -90,15 +90,20 @@ func _run() -> void:
             if not _check(count > 20, "j_clip has only a static 2-frame placeholder"):
                 return
             var first: Vector3 = a.track_get_key_value(track, 0)
-            var middle: Vector3 = a.track_get_key_value(track, count / 2)
-            var finish: Vector3 = a.track_get_key_value(track, count-1)
+            var finish: Vector3 = a.track_get_key_value(track, count - 1)
+            var max_removal_m: float = 0.0
+            for frame in range(count):
+                var sample: Vector3 = a.track_get_key_value(track, frame)
+                max_removal_m = maxf(max_removal_m, first.distance_to(sample))
             if not _check(first.distance_to(finish) < 0.03, "magazine never fully returns to the gun"):
                 return
-            if not _check(first.distance_to(middle) > 0.10 and first.length() < 2.0, "magazine has no realistic authored removal in meters"):
+            # Empty reload's clip is still halfway engaged at middle frame.
+            # Check the whole animation, not just its temporal midpoint.
+            if not _check(max_removal_m > 0.10 and first.length() < 2.0, "magazine has no realistic authored removal in meters"):
                 return
             present = true
             clip_moving = true
-            print("BLACK_PINES_MP40_MAGAZINE_TRACK_GREEN animation=", a.resource_name, " frames=", count, " delta_m=", first.distance_to(middle))
+            print("BLACK_PINES_MP40_MAGAZINE_TRACK_GREEN animation=", a.resource_name, " frames=", count, " max_removal_m=", max_removal_m)
         if not _check(present, "real MP40 reload clip has no j_clip positional track"):
             return
     if not _check(clip_moving, "magazine has no moving track"):
