@@ -1,0 +1,138 @@
+name: BO1 REAL ORIGINAL Engine Core - Combined Android ARM64 Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/bo1-original-engine-arm64-feasibility-v1
+    paths:
+      - tools/bo1_pc_engine/compat/**
+      - .github/workflows/bo1-original-real-core-arm64.yml
+
+permissions:
+  contents: read
+
+jobs:
+  combined-upstream-engine-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone EXACT original BO1 recovered PC source revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/MisaDev4/bo1-zombies-decompiled.git "$RUNNER_TEMP/bo1"
+          test "$(git -C "$RUNNER_TEMP/bo1" rev-parse HEAD)" = "102f6992be332610aff587e681e3180b15f395bb"
+          python3 tools/bo1_pc_engine/compat/stage_real_modules.py \
+            --upstream "$RUNNER_TEMP/bo1" --staged "$RUNNER_TEMP/bo1-stage"
+          mkdir -p "$RUNNER_TEMP/bo1-public"
+          cp "$RUNNER_TEMP/bo1-stage/manifest.json" "$RUNNER_TEMP/bo1-public/module-manifest.json"
+
+      - name: Re-run all three authentic source host behavior tests before ARM64 integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="$RUNNER_TEMP/bo1/src"
+          S="$RUNNER_TEMP/bo1-stage"
+          H="tools/bo1_pc_engine/compat"
+          CXXFLAGS="-std=c++20 -O2 -DNDEBUG -ffunction-sections -fdata-sections"
+          g++ $CXXFLAGS -include "$H/bo1_arm64_math_compat.h" -I"$SRC" -I"$SRC/universal" \
+            "$S/com_math_anglevectors.cpp" "$H/orientation_host_test.cpp" \
+            -Wl,--gc-sections -o "$S/test_orientation"
+          "$S/test_orientation" | tee "$RUNNER_TEMP/bo1-public/orientation_host.txt"
+          g++ $CXXFLAGS -include "$H/bo1_asset_unpack_compat.h" -I"$SRC" -I"$SRC/universal" \
+            "$S/com_pack.cpp" "$H/asset_unpack_host_test.cpp" \
+            -Wl,--gc-sections -o "$S/test_unpack"
+          "$S/test_unpack" | tee "$RUNNER_TEMP/bo1-public/asset_host.txt"
+          g++ $CXXFLAGS -I"$SRC" "$S/minilzo.cpp" "$H/lzo_host_test.cpp" \
+            -o "$S/test_lzo"
+          "$S/test_lzo" | tee "$RUNNER_TEMP/bo1-public/compression_host.txt"
+
+      - name: Install ARM64 NDK (real cross toolchain)
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          "$SDKMANAGER" 'ndk;27.2.12479018'
+
+      - name: Link THREE original BO1 source modules into ONE Android ARM64 ELF
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="$RUNNER_TEMP/bo1/src"
+          S="$RUNNER_TEMP/bo1-stage"
+          H="tools/bo1_pc_engine/compat"
+          N="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          C="$N/aarch64-linux-android26-clang++"
+          COMMON="-std=c++20 -O2 -DNDEBUG -fPIC -fvisibility=hidden -ffunction-sections -fdata-sections"
+          "$C" $COMMON -include "$H/bo1_arm64_math_compat.h" -I"$SRC" -I"$SRC/universal" \
+            -c "$S/com_math_anglevectors.cpp" -o "$S/orientation.o"
+          "$C" $COMMON -include "$H/bo1_asset_unpack_compat.h" -I"$SRC" -I"$SRC/universal" \
+            -c "$S/com_pack.cpp" -o "$S/asset_unpack.o"
+          "$C" $COMMON -I"$SRC" -c "$S/minilzo.cpp" -o "$S/minilzo.o"
+          "$C" $COMMON -include "$H/bo1_arm64_math_compat.h" -I"$SRC" -I"$SRC/universal" \
+            -c "$H/orientation_arm64_wrapper.cpp" -o "$S/wrapper_orientation.o"
+          "$C" $COMMON -include "$H/bo1_asset_unpack_compat.h" -I"$SRC" -I"$SRC/universal" \
+            -c "$H/asset_unpack_arm64_wrapper.cpp" -o "$S/wrapper_asset.o"
+          "$C" $COMMON -I"$SRC" -c "$H/lzo_arm64_wrapper.cpp" -o "$S/wrapper_lzo.o"
+          "$C" -shared -Wl,--gc-sections -Wl,--no-undefined \
+            "$S/orientation.o" "$S/asset_unpack.o" "$S/minilzo.o" \
+            "$S/wrapper_orientation.o" "$S/wrapper_asset.o" "$S/wrapper_lzo.o" \
+            -o "$S/libbo1_actual_original_core.so"
+          file "$S/libbo1_actual_original_core.so" | tee "$RUNNER_TEMP/bo1-public/abi.txt"
+          grep -qi 'ELF 64-bit' "$RUNNER_TEMP/bo1-public/abi.txt"
+          grep -Eqi '(ARM aarch64|ARM64)' "$RUNNER_TEMP/bo1-public/abi.txt"
+          "$N/llvm-nm" -D "$S/libbo1_actual_original_core.so" \
+            > "$RUNNER_TEMP/bo1-public/symbols.txt"
+          for fn in bo1_original_angle_vectors bo1_original_unpack_rgba \
+                    bo1_original_unpack_normal bo1_original_unpack_uv \
+                    bo1_upstream_lzo_decompress_safe; do
+            grep -q "$fn" "$RUNNER_TEMP/bo1-public/symbols.txt"
+          done
+          sha256sum "$S/libbo1_actual_original_core.so" | \
+            sed 's/  .*$/  libbo1_actual_original_core.so/' \
+            > "$RUNNER_TEMP/bo1-public/sha256.txt"
+          echo 'ORIGINAL_BO1_THREE_MODULES_COMBINED_ARM64_LINK=PASS' | tee "$RUNNER_TEMP/bo1-public/arm64-result.txt"
+          echo 'REAL_BO1_UPSTREAM_MATH_TEXTURE_LZO_ARM64=GREEN' >> "$GITHUB_STEP_SUMMARY"
+          echo 'FULL_BO1_PC_ENGINE_ARM64=NOT_PORTED' >> "$GITHUB_STEP_SUMMARY"
+          echo 'KINO_DER_TOTEN_RUNNING=FALSE' >> "$GITHUB_STEP_SUMMARY"
+          echo 'ANDROID_GAME_APK_CREATED=FALSE' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Consolidated report (original source and compiled game code NOT distributed)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          P="$RUNNER_TEMP/bo1-public"
+          {
+            echo '# REAL Black Ops 1 PC C++ - ARM64 integration report'
+            echo
+            echo 'Source revision: MisaDev4/bo1-zombies-decompiled@102f6992be332610aff587e681e3180b15f395bb'
+            echo 'Modules: original com_math_anglevectors.cpp, original com_pack.cpp, engine-bundled third-party miniLZO.'
+            echo 'Original function bodies unchanged. Only Windows-specific transitive includes isolated.'
+            echo
+            echo '## Host execution gates'
+            cat "$P/orientation_host.txt" 2>/dev/null || true
+            cat "$P/asset_host.txt" 2>/dev/null || true
+            cat "$P/compression_host.txt" 2>/dev/null || true
+            echo
+            echo '## Android cross-compiled library (not APK)'
+            cat "$P/arm64-result.txt" 2>/dev/null || true
+            cat "$P/abi.txt" 2>/dev/null || true
+            cat "$P/sha256.txt" 2>/dev/null || true
+            echo
+            echo 'These are genuine upstream routines but a VERY SMALL fraction of the full engine.'
+            echo 'The game window, DirectX renderer, audio, asset packaging, gameplay AI, and original Kino assets have not been ported.'
+            echo 'NO user-playable Black Ops 1 APK was built.'
+            echo 'Report uploads exclude all game source, game assets, and binary .so files.'
+          } > "$P/README.md"
+          cat "$P/README.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: BO1-REAL-COMBINED-ARM64-MODULE-REPORT-ONLY
+          path: ${{ runner.temp }}/bo1-public
+          retention-days: 21
+          if-no-files-found: warn
