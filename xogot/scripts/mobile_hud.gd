@@ -365,6 +365,23 @@ func _draw() -> void:
 		var bar_pos := Vector2(s.x * 0.79, s.y * 0.50)
 		draw_rect(Rect2(bar_pos, bar_size), Color(1.0, 1.0, 1.0, 0.10), true)
 		draw_rect(Rect2(bar_pos, Vector2(bar_size.x * ratio, bar_size.y)), white, true)
+		# Actual ammo numbers were missing: the previous HUD drew only a thin
+		# bar, which made it impossible to read the current magazine/reserve.
+		var reserve: int = int(_weapon.call("get_reserve")) if _weapon.has_method("get_reserve") else 0
+		var ammo_text: String = "%d / %d" % [magazine, reserve]
+		var ammo_font: Font = ThemeDB.fallback_font
+		var ammo_font_size: int = clampi(int(s.y * 0.031), 18, 30)
+		var ammo_pos := Vector2(s.x * 0.79, s.y * 0.55)
+		draw_string(
+			ammo_font, ammo_pos + Vector2(1.5, 1.5), ammo_text,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, ammo_font_size,
+			Color(0.0, 0.0, 0.0, 0.95)
+		)
+		draw_string(
+			ammo_font, ammo_pos, ammo_text,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, ammo_font_size,
+			Color(1.0, 0.98, 0.90, 0.97)
+		)
 
 	# Points + health rails.
 	if _player != null and _player.has_method("get_points"):
