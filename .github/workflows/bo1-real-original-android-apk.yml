@@ -10,6 +10,7 @@ on:
       - tools/bo1_pc_engine/compat/**
       - tools/bo1_pc_engine/fastfile/**
       - tools/bo1_pc_engine/ff_payload/**
+      - tools/bo1_pc_engine/xblocks/**
       - .github/workflows/bo1-real-original-android-apk.yml
 
 permissions:
