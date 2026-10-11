@@ -69,8 +69,10 @@ jobs:
           set -euo pipefail
           APK=build/android-project/app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
-          unzip -p "$APK" lib/arm64-v8a/libmain.so | strings | grep -F 'ZOMBIES NATIVE DEV'
-          unzip -p "$APK" lib/arm64-v8a/libmain.so | strings | grep -F 'DEVELOPER TOOLS'
+          unzip -p "$APK" lib/arm64-v8a/libmain.so > /tmp/vril_native_dev.so
+          strings /tmp/vril_native_dev.so > /tmp/vril_native_dev.strings
+          grep -F 'ZOMBIES NATIVE DEV' /tmp/vril_native_dev.strings
+          grep -F 'DEVELOPER TOOLS' /tmp/vril_native_dev.strings
       - name: Name the artifact
         shell: bash
         run: |
