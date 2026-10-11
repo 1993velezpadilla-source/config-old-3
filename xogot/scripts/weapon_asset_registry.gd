@@ -62,7 +62,7 @@ static func _collect_animation_names(node: Node, out: Array[String]) -> void:
 				var full_name: String = str(anim_name)
 				if str(lib_name) != "":
 					full_name = str(lib_name) + "/" + full_name
-				out.append(full_name.to_lower())
+				out.append(full_name)
 	for child: Node in node.get_children():
 		_collect_animation_names(child, out)
 
@@ -195,6 +195,10 @@ static func _animation_role_score(role: String, animation_name: String, aliases:
 			var is_empty := (lower.contains("empty") and not is_notempty)
 			if lower.contains("reload") and not is_empty and not lower.contains("partial"):
 				score += 70
+			if lower.contains("viewmodel_") and not lower.contains("hands"):
+				score += 135
+			if lower.contains("reloadhands"):
+				score -= 175
 			if is_empty:
 				score -= 120
 			if lower.contains("partial"):
@@ -205,6 +209,8 @@ static func _animation_role_score(role: String, animation_name: String, aliases:
 			var is_notempty := lower.contains("notempty") or lower.contains("not_empty")
 			if lower.contains("reload") and lower.contains("empty") and not is_notempty:
 				score += 120
+			if lower.contains("viewmodel_") and not lower.contains("hands"):
+				score += 135
 			else:
 				score -= 140
 		"equip":
