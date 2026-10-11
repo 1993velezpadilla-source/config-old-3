@@ -48,7 +48,31 @@ jobs:
           AVDMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager | sort -V | tail -n1)"
           echo "AVDMANAGER=$AVDMANAGER" >> "$GITHUB_ENV"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platform-tools" "emulator"             "system-images;android-30;google_apis;x86_64" >/dev/null
+          "$SDKMANAGER" "platform-tools" "emulator" "build-tools;36.0.0"             "system-images;android-30;google_apis;x86_64" >/dev/null
+
+      - name: A/B test NO legacy online auth or downloader using original embedded DZ
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="$(find /tmp/xchurch-diag -type f -name '*.apk' | head -n1)"
+          test -s "$SRC"
+          OUT=/tmp/xchurch-fast-offline
+          mkdir -p "$OUT/stage/assets"
+          unzip -p "$SRC" assets/app.icf > "$OUT/app-original.icf"
+          python3 tools/boz_mod/patch_offline_startup_icf.py "$OUT/app-original.icf" "$OUT/stage/assets/app.icf"
+          cmp -s "$OUT/app-original.icf" "$OUT/stage/assets/app.icf" && { echo "patch ineffective"; exit 1; } || true
+          grep -q "^EnableOF=0$" "$OUT/stage/assets/app.icf"
+          grep -q "^ResourceDownloader=0$" "$OUT/stage/assets/app.icf"
+          cp "$SRC" "$OUT/unsigned.apk"
+          zip -qd "$OUT/unsigned.apk" assets/app.icf || true
+          zip -qd "$OUT/unsigned.apk" 'META-INF/*.RSA' 'META-INF/*.DSA' 'META-INF/*.EC' 'META-INF/*.SF' 'META-INF/MANIFEST.MF' || true
+          (cd "$OUT/stage"; zip -q "$OUT/unsigned.apk" assets/app.icf)
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -f -p 4 "$OUT/unsigned.apk" "$OUT/aligned.apk"
+          keytool -genkeypair -noprompt -keystore "$OUT/ci-debug.jks" -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=XChurchOffline,O=XZIEL,C=US" >/dev/null 2>&1
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" sign --ks "$OUT/ci-debug.jks" --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out "$OUT/offline.apk" "$OUT/aligned.apk"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify "$OUT/offline.apk"
+          test -s "$OUT/offline.apk"
+          echo "XZIEL_A_B_OFFLINE_CONFIG_APK_READY"
 
       - name: Boot Android 11
         shell: bash
@@ -81,7 +105,7 @@ jobs:
           set +e
           OUT=/tmp/xchurch-fast
           ADB="$ANDROID_HOME/platform-tools/adb"
-          APK="$(find /tmp/xchurch-diag -type f -name '*.apk' | head -n1)"
+          APK="/tmp/xchurch-fast-offline/offline.apk"
           test -s "$APK" || exit 1
 
           "$ADB" install --abi arm64-v8a -r -d "$APK" > "$OUT/install.txt" 2>&1
@@ -276,6 +300,10 @@ jobs:
         if: always()
         with:
           name: XChurch-Fast-Single-Player-Proof
-          path: /tmp/xchurch-fast/
+          path: |
+            /tmp/xchurch-fast/
+            /tmp/xchurch-fast-offline/offline.apk
+            /tmp/xchurch-fast-offline/app-original.icf
+            /tmp/xchurch-fast-offline/stage/assets/app.icf
           if-no-files-found: error
           retention-days: 14
