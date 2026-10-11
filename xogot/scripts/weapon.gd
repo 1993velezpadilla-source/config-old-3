@@ -380,7 +380,7 @@ func _play_mp40_full_hands_reload(role: String, blend: float) -> bool:
 		var socket_keys := 0
 		for track_idx in range(clip.get_track_count()):
 			var track_path: String = str(clip.track_get_path(track_idx))
-			if not track_path.contains("tag_weapon:"):
+			if not track_path.contains(":tag_weapon") or track_path.contains(":tag_weapon1") or track_path.contains(":tag_weapon_end"):
 				continue
 			if clip.track_get_type(track_idx) in [Animation.TYPE_POSITION_3D, Animation.TYPE_ROTATION_3D]:
 				socket_keys = maxi(socket_keys, clip.track_get_key_count(track_idx))
