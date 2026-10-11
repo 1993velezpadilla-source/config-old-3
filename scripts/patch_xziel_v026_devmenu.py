@@ -143,7 +143,7 @@ write(path, s)
 path = qc / "server/main.qc"
 s = rw(path)
 s = once(s, "\tframecount = framecount + 1;",
-r'''\tframecount = framecount + 1;
+'''\tframecount = framecount + 1;
     entity xziel_dev_player = find(world, classname, "player");
     while (xziel_dev_player != world) {
         if (xziel_dev_player.xziel_dev_infinite_reserve &&
@@ -160,7 +160,7 @@ r'''\tframecount = framecount + 1;
 # Weapon Lab must have weapon viewmodels precached at world spawn; this
 # matches existing mystery-box/gun-game pre-cache sequence.
 s = once(s, "\tprecache_extra (W_BIATCH);",
-r'''\tprecache_extra (W_BIATCH);
+'''\tprecache_extra (W_BIATCH);
     // v0.26 Developer Weapon Lab, 56 IDs (no melee/grenade/reserved).
     if (cvar("maxclients") <= 1) {
         for (float wid = 1; wid <= 61; wid++) {
