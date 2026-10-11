@@ -56,7 +56,7 @@ jobs:
           grep -F '<string name="app_name">Xziel: NZP Native</string>' build/android-project/app/src/main/res/values/strings.xml
           grep -F 'Menu_DrawTitle ("MAIN MENU", MENU_COLOR_WHITE);' build/deps/vril/source/menu/menu_main.c
           grep -F 'SELECT MAP: SOLO' build/deps/vril/source/menu/menu_stockmaps.c
-          grep -F 'Menu_DrawButton(5, 4, "DEVELOPER"' build/deps/vril/source/menu/menu_pause.c
+          grep -F 'Menu_DrawButton(6, 5, "DEVELOPER"' build/deps/vril/source/menu/menu_pause.c
           grep -F 'XZIEL DEVELOPER' build/deps/vril/source/menu/menu_pause.c
           grep -F 'XZIEL WEAPON LAB' build/deps/vril/source/menu/menu_pause.c
           grep -F 'XzDev_PauseHandleBack()' build/deps/vril/source/menu/menu_sys.c
@@ -92,6 +92,7 @@ jobs:
           grep -F 'MAIN MENU' /tmp/xziel-nzp-native-strings.txt
           grep -F 'XZIEL DEVELOPER' /tmp/xziel-nzp-native-strings.txt
           grep -F 'XZIEL WEAPON LAB' /tmp/xziel-nzp-native-strings.txt
+          grep -F 'DEVELOPER' /tmp/xziel-nzp-native-strings.txt
           if grep -F 'ZOMBIES NATIVE DEV' /tmp/xziel-nzp-native-strings.txt; then
             echo 'ERROR: This is the wrong engine variant'
             exit 1
