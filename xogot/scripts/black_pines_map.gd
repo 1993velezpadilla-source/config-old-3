@@ -425,7 +425,14 @@ func _add_3d_label(owner: Node3D,content: String,local: Vector3) -> void:
     label.pixel_size=0.0028
     label.outline_size=12
     label.modulate=Color(0.90,0.85,0.73)
-    label.position=local+Vector3(0,0.7,0)
+    # The previous label origin was inside MachineBody's solid box.
+    # Godot depth-tested it against the machine, leaving only fragments
+    # (e.g. "EER II" / "DOUE") visible on the actual phone.
+    var body_visual: MeshInstance3D=owner.get_node_or_null("MachineBody") as MeshInstance3D
+    var clearance: float=1.2
+    if body_visual!=null and body_visual.mesh is BoxMesh:
+        clearance=(body_visual.mesh as BoxMesh).size.y*0.5+0.18
+    label.position=local+Vector3(0,clearance,0)
     label.billboard=BaseMaterial3D.BILLBOARD_ENABLED
     owner.add_child(label)
 
