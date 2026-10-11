@@ -8,6 +8,8 @@ on:
     paths:
       - ".github/workflows/boz-xchurch-direct-native-touch.yml"
       - "tools/boz_mod/patch_direct_native_tap.py"
+      - "tools/boz_mod/patch_native_broadcast_touch.py"
+      - "tools/boz_mod/patch_android16_soundplayer.py"
 
 permissions:
   actions: read
@@ -137,6 +139,13 @@ jobs:
             | tee /tmp/xchurch-direct/proof/broadcast-touch-patch.txt
           grep -q "XZIEL_BROADCAST_NATIVE_TOUCH_PATCH_GREEN" \
             /tmp/xchurch-direct/proof/broadcast-touch-patch.txt
+          # Repair the PROVEN Android 16 JNI SIGABRT from AudioTrack.play()
+          # on an uninitialized SoundPlayer; no game files/assets changed.
+          python3 tools/boz_mod/patch_android16_soundplayer.py \
+            /tmp/boz-direct/app/src/main/java/com/ideaworks3d/marmalade/SoundPlayer.kt \
+            | tee /tmp/xchurch-direct/proof/android16-audio-patch.txt
+          grep -q "XZIEL_ANDROID16_AUDIO_GUARD_PATCH_OK" \
+            /tmp/xchurch-direct/proof/android16-audio-patch.txt
 
       - name: Build diagnostic ARM64 APK
         shell: bash
