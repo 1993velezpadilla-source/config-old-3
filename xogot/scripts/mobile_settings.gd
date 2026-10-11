@@ -59,11 +59,16 @@ var _network_last_error: String = ""
 var _rows: Dictionary = {}
 var _dev_rows: Dictionary = {}
 var _current_page: String = "pause"
+var _page_header: Label
+var _last_back_tick: int = -1000
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Android native Back must navigate, never terminate the game from DEV.
+	get_tree().auto_accept_quit = false
+	set_process_input(true)
 	_load_settings()
 	_build_ui()
 	visible = false
@@ -123,8 +128,12 @@ func _button(vbox: VBoxContainer, name_value: String, text_value: String) -> But
 	var button := Button.new()
 	button.name = name_value
 	button.text = text_value
-	button.custom_minimum_size = Vector2(0.0, 50.0)
+	button.custom_minimum_size = Vector2(0.0, 70.0)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.mouse_filter = Control.MOUSE_FILTER_PASS
+	button.focus_mode = Control.FOCUS_NONE
+	button.add_theme_font_size_override("font_size", 21)
+	button.clip_text = true
 	vbox.add_child(button)
 	return button
 
@@ -145,13 +154,18 @@ func _title(vbox: VBoxContainer, text_value: String, subtitle: String = "") -> v
 func _page_container(parent: Control, page_name: String) -> VBoxContainer:
 	var scroll := ScrollContainer.new()
 	scroll.name = page_name + "Scroll"
-	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
+	scroll.scroll_deadzone = 10
+	scroll.follow_focus = false
+	scroll.mouse_filter = Control.MOUSE_FILTER_STOP
 	parent.add_child(scroll)
 	var vbox := VBoxContainer.new()
 	vbox.name = page_name
 	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.add_theme_constant_override("separation", 8)
+	vbox.add_theme_constant_override("separation", 12)
 	scroll.add_child(vbox)
 	return vbox
 
@@ -159,29 +173,68 @@ func _build_ui() -> void:
 	var shade := ColorRect.new()
 	shade.name = "PauseShade"
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	shade.color = Color(0.008, 0.009, 0.014, 0.92)
+	shade.color = Color(0.005, 0.008, 0.017, 0.91)
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(shade)
 
 	_panel = PanelContainer.new()
 	_panel.name = "PausePanel"
-	_panel.anchor_left = 0.14
-	_panel.anchor_top = 0.07
-	_panel.anchor_right = 0.86
-	_panel.anchor_bottom = 0.93
+	_panel.anchor_left = 0.08
+	_panel.anchor_top = 0.04
+	_panel.anchor_right = 0.92
+	_panel.anchor_bottom = 0.96
 	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_panel)
 
+	# Responsive column: fixed navigation bar, scrollable content only.
+	# The old 760px Pages minimum size forced menus off short phone screens.
+	var column := VBoxContainer.new()
+	column.name = "MenuColumn"
+	column.add_theme_constant_override("separation", 10)
+	_panel.add_child(column)
+
+	var nav := HBoxContainer.new()
+	nav.name = "StickyNavigation"
+	nav.custom_minimum_size = Vector2(0.0, 76.0)
+	nav.add_theme_constant_override("separation", 14)
+	column.add_child(nav)
+	var back := Button.new()
+	back.name = "GlobalBack"
+	back.text = "‹ BACK"
+	back.custom_minimum_size = Vector2(150.0, 72.0)
+	back.add_theme_font_size_override("font_size", 23)
+	back.pressed.connect(_back_navigation)
+	nav.add_child(back)
+	_page_header = Label.new()
+	_page_header.name = "CurrentMenuTitle"
+	_page_header.text = "PAUSED"
+	_page_header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_page_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_page_header.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_page_header.add_theme_font_size_override("font_size", 25)
+	nav.add_child(_page_header)
+	var resume := Button.new()
+	resume.name = "GlobalResume"
+	resume.text = "▶ RESUME"
+	resume.custom_minimum_size = Vector2(175.0, 72.0)
+	resume.add_theme_font_size_override("font_size", 23)
+	resume.pressed.connect(close_menu)
+	nav.add_child(resume)
+
 	var pages := Control.new()
 	pages.name = "Pages"
-	pages.custom_minimum_size = Vector2(760, 760)
-	pages.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_panel.add_child(pages)
+	pages.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pages.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	pages.clip_contents = true
+	column.add_child(pages)
 
 	_page_pause = _page_container(pages, "PausePage")
 	_page_settings = _page_container(pages, "SettingsPage")
 	_page_network = _page_container(pages, "NetworkPage")
 	_page_dev = _page_container(pages, "DevPage")
+	for child in pages.get_children():
+		if child is ScrollContainer:
+			(child as ScrollContainer).set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 	_build_pause_page()
 	_build_settings_page()
@@ -780,6 +833,10 @@ func _show_page(page: String) -> void:
 	_page_settings.get_parent().visible = page == "settings"
 	_page_network.get_parent().visible = page == "network"
 	_page_dev.get_parent().visible = page == "dev"
+	if _page_header != null:
+		_page_header.text = {"pause":"PAUSED", "settings":"SETTINGS", "network":"MULTIPLAYER", "dev":"DEV LAB"}.get(page, "PAUSED")
+	for content in [_page_pause, _page_settings, _page_network, _page_dev]:
+		(content.get_parent() as ScrollContainer).set_deferred("scroll_vertical", 0)
 	if page == "network":
 		_refresh_network_status()
 	if page == "dev":
@@ -914,6 +971,32 @@ func _apply_to_player() -> void:
 	var player: Node = get_node_or_null("../../Player")
 	if player != null and player.has_method("apply_mobile_settings"):
 		player.call("apply_mobile_settings", self)
+
+func _back_navigation() -> void:
+	# Same behavior for the Android system Back key and the always-visible BACK.
+	if not visible:
+		open_pause_menu()
+	elif _current_page != "pause":
+		_show_page("pause")
+	else:
+		close_menu()
+
+func _consume_android_back() -> void:
+	var now: int = Time.get_ticks_msec()
+	if now - _last_back_tick < 180:
+		return
+	_last_back_tick = now
+	_back_navigation()
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_BACK or event.keycode == KEY_ESCAPE:
+			_consume_android_back()
+			get_viewport().set_input_as_handled()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		_consume_android_back()
 
 func toggle_pause_menu() -> void:
 	if visible:
