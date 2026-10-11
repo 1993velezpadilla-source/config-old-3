@@ -341,6 +341,20 @@ jobs:
             sleep 25
             "$ADB" exec-out screencap -p > "$PROOF/screens/broadcast_after_continue_32s.png" 2>/dev/null || true
             BROADCAST_AFTER="$(sha256sum "$PROOF/screens/broadcast_after_continue_32s.png" | cut -d " " -f1)"
+            # LOAD SCREEN IS CONFIRMED visually (authentic comic-panel
+            # artwork after broadcast Continue). Now give native level IO
+            # time to finish; DO NOT equate LOADING to a running round.
+            for phase in "60:28" "100:40" "160:60" "240:80"; do
+              IFS=: read -r SECONDS WAIT <<< "$phase"
+              sleep "$WAIT"
+              "$ADB" exec-out screencap -p > "$PROOF/screens/after_start_${SECONDS}s.png" 2>/dev/null || true
+              HASH="$(sha256sum "$PROOF/screens/after_start_${SECONDS}s.png" | cut -d " " -f1)"
+              echo "XZIEL_NATIVE_GAME_LOAD_${SECONDS}s_HASH=$HASH" | tee -a "$PROOF/status.txt"
+              "$ADB" logcat -d -v threadtime > "$PROOF/logcat_at_${SECONDS}s.txt" 2>&1
+            done
+            echo "XZIEL_LOADING_TO_GAME_VISUAL_QA_REQUIRED" | tee -a "$PROOF/status.txt"
+
+
             echo "BROADCAST_NATIVE_FINAL_HASH=$BROADCAST_AFTER" | tee -a "$PROOF/status.txt"
             if [ "$BROADCAST_AFTER" = "$BEFORE" ]; then
               echo "XZIEL_BROADCAST_JNI_SELECTOR_NOT_MOVED_RED" | tee -a "$PROOF/status.txt"
