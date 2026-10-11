@@ -95,8 +95,9 @@ def main():
             idx=len(texture_map)
             stem=f"{idx:03d}_{name_slug(key_name)}"
             tex_name=f"textures/xziel/sanctum_vertical/{stem}"
-            rgba=np.array(getattr(mat,'baseColorFactor',[255,255,255,255]) if mat else [255]*4,dtype=np.float64)
-            if len(rgba)!=4:rgba=np.array([255]*4,dtype=np.float64)
+            base=getattr(mat,'baseColorFactor',None) if mat is not None else None
+            rgba=np.asarray(base if base is not None else [255,255,255,255],dtype=np.float64)
+            if rgba.ndim!=1 or rgba.size!=4:rgba=np.full(4,255.0,dtype=np.float64)
             if rgba.max()<=1.1: rgba*=255.0
             img=getattr(mat,'baseColorTexture',None) if mat is not None else None
             if img is None:
