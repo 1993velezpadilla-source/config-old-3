@@ -87,7 +87,7 @@ jobs:
               assert vcount==vertices and icount==indices
               assert len(lit)>1, "static candle shading not encoded"
           pngs=list(Path("out-godot-altar/nzp/textures/xziel/godot_altar").glob("*.png"))
-          assert pngs, "Godot material textures missing"
+          assert len(pngs)>=4, f"Godot altar lost color materials! Only {len(pngs)} textures"
           assert all(max(Image.open(p).size)<=2048 for p in pngs)
           print("XZIEL_GODOT_TO_VRIL_XZSM_V3_PROOF_GREEN",json.dumps({
             "meshes":report["source_mesh_nodes"],"triangles":report["triangles"],
