@@ -143,6 +143,19 @@ put(p, s)
 # Magazine counts are untouched to keep reloads (including MP40) testable.
 p = "server/main.qc"
 s = get(p)
+s = once(s, "precache_extra (W_BIATCH);", """precache_extra (W_BIATCH);
+
+    // Precache weapon models + sounds even when they are normally found only
+    // on another map. Only done in this opt-in developer game build.
+    for (float wid = 1; wid <= 61; wid++) {
+        if (wid == 25 || wid == 26 || wid == 27 || wid == 37 || wid == 55)
+            continue;
+        string viewmdl = GetWeaponModel(wid, 0);
+        string worldmdl = GetWeaponModel(wid, 1);
+        if (viewmdl != "") precache_model(viewmdl);
+        if (worldmdl != "") precache_model(worldmdl);
+        precache_extra(wid);
+    }""", "all-map developer arsenal precache")
 s = once(s, "framecount = framecount + 1;", """framecount = framecount + 1;
     entity p_dev = find(world, classname, "player");
     while (p_dev != world) {
@@ -151,6 +164,9 @@ s = once(s, "framecount = framecount + 1;", """framecount = framecount + 1;
                 float wid = p_dev.weapons[i].weapon_id;
                 if (wid && getWeaponAmmo(wid) > 0)
                     p_dev.weapons[i].weapon_reserve = getWeaponAmmo(wid);
+                // M2 / F1W are fuel-magazine weapons with no reserve pool.
+                if (wid == W_M2 || wid == W_FIW)
+                    p_dev.weapons[i].weapon_magazine = getWeaponMag(wid);
             }
         }
         p_dev = find(p_dev, classname, "player");
@@ -265,7 +281,8 @@ s = once(s, "void() Menu_Pause =\n{",
 s = once(s,
   '        Menu_Button(4, "pm_quit", "END GAME", "Return to Main Menu.") ? Menu_Pause_EnterSubMenu(2) : 0;',
   '        Menu_Button(4, "pm_quit", "END GAME", "Return to Main Menu.") ? Menu_Pause_EnterSubMenu(2) : 0;\n'
-  '        Menu_Button(5, "pm_dev", "DEVELOPER", "Solo testing tools.") ? Menu_Pause_EnterSubMenu(3) : 0;',
+  '        if (player_count == 1) Menu_Button(5, "pm_dev", "DEVELOPER", "Solo testing tools.") ? Menu_Pause_EnterSubMenu(3) : 0;\n'
+  '        else Menu_GreyButton(5, "DEVELOPER (SOLO ONLY)");',
   "pause developer entry")
 s = once(s, '        menu_paus_buttons[3] = "pm_quit";',
          '        menu_paus_buttons[3] = "pm_quit";\n'
