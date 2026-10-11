@@ -232,7 +232,7 @@ def main():
               "scope":"Dead Cell pilot only; stock UV-safe HD texture maps also used; fidelity on Android not yet tested",
               "source_pack_sha256":hashlib.sha256(args.pack.read_bytes()).hexdigest(),
               "models":reports}
-    (args.out.parent/"zombie-geo-manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")
+    (args.out.parent.parent/"zombie-geo-manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")
     assert all(v["within_native_Vril_limits"] for v in reports.values())
     print("XZIEL_ZOMBIE_GEO_10_MDLS_ANIMATIONS_UV_BOUNDS_GREEN")
 
