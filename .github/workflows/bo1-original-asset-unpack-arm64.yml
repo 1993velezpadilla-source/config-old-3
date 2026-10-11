@@ -1,0 +1,134 @@
+name: BO1 Original Renderer Asset Unpack - Android ARM64 Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/bo1-original-engine-arm64-feasibility-v1
+    paths:
+      - tools/bo1_pc_engine/compat/asset_unpack_*
+      - tools/bo1_pc_engine/compat/bo1_asset_unpack_compat.h
+      - .github/workflows/bo1-original-asset-unpack-arm64.yml
+
+permissions:
+  contents: read
+
+jobs:
+  actual-bo1-asset-code-on-arm64:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch pinned original recovered BO1 code into temporary workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/MisaDev4/bo1-zombies-decompiled.git "$RUNNER_TEMP/bo1"
+          test "$(git -C "$RUNNER_TEMP/bo1" rev-parse HEAD)" = "102f6992be332610aff587e681e3180b15f395bb"
+          mkdir -p "$RUNNER_TEMP/unpack-audit/report"
+
+      - name: Stage exact original BO1 texture/normal/UV unpacker code without altering function bodies
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="$RUNNER_TEMP/bo1/src/universal/com_pack.cpp"
+          DST="$RUNNER_TEMP/unpack-audit/com_pack.cpp"
+          python3 - "$SRC" "$DST" <<'PY'
+          from pathlib import Path
+          import sys
+          original=Path(sys.argv[1]).read_text()
+          unchanged=original
+          for include in ['#include "com_math.h"','#include "q_shared.h"']:
+              assert unchanged.count(include)==1, "Unexpected upstream include changed"
+              unchanged=unchanged.replace(include,"// ARM64 shim replaces Win32-only transitive "+include)
+          assert unchanged.count("PackedUnitVec __cdecl Vec3PackUnitVec")==1
+          assert unchanged.count("void __cdecl Byte4UnpackRgba")==1
+          Path(sys.argv[2]).write_text(unchanged)
+          print("ORIGINAL_BO1_RENDER_VERTEX_UNPACK_FUNCTION_BODIES_UNCHANGED=true")
+          PY
+
+      - name: Compile original BO1 C++ and execute real unpacking tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          P="$RUNNER_TEMP/unpack-audit"
+          D="$RUNNER_TEMP/bo1/src"
+          HDR="tools/bo1_pc_engine/compat/bo1_asset_unpack_compat.h"
+          g++ -std=c++20 -O2 -DNDEBUG -ffunction-sections -fdata-sections \
+              -include "$HDR" -I"$D" -I"$D/universal" \
+              -c "$P/com_pack.cpp" -o "$P/com_pack_host.o"
+          g++ -std=c++20 -O2 -DNDEBUG -ffunction-sections -fdata-sections \
+              -include "$HDR" -I"$D" -I"$D/universal" \
+              -Wl,--gc-sections tools/bo1_pc_engine/compat/asset_unpack_host_test.cpp \
+              "$P/com_pack_host.o" -o "$P/upstream_unpack_host_test"
+          "$P/upstream_unpack_host_test" | tee "$P/host-status.txt"
+
+      - name: Install Android NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          "$SDKMANAGER" 'ndk;27.2.12479018'
+
+      - name: Compile and LINK original BO1 render asset unpackers into ARM64 native shared library
+        shell: bash
+        run: |
+          set -euo pipefail
+          P="$RUNNER_TEMP/unpack-audit"
+          D="$RUNNER_TEMP/bo1/src"
+          C="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++"
+          NM="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm"
+          HDR="tools/bo1_pc_engine/compat/bo1_asset_unpack_compat.h"
+          "$C" -std=c++20 -O2 -DNDEBUG -fPIC -fvisibility=hidden -ffunction-sections -fdata-sections \
+              -include "$HDR" -I"$D" -I"$D/universal" \
+              -c "$P/com_pack.cpp" -o "$P/com_pack_arm64.o"
+          "$C" -std=c++20 -O2 -DNDEBUG -fPIC -ffunction-sections -fdata-sections \
+              -include "$HDR" -I"$D" -I"$D/universal" \
+              -c tools/bo1_pc_engine/compat/asset_unpack_arm64_wrapper.cpp \
+              -o "$P/export_arm64.o"
+          "$C" -shared -Wl,--gc-sections -Wl,--no-undefined \
+              "$P/com_pack_arm64.o" "$P/export_arm64.o" \
+              -o "$P/libbo1_original_asset_unpack.so"
+          file "$P/libbo1_original_asset_unpack.so" | tee "$P/abi.txt"
+          grep -qi 'ELF 64-bit' "$P/abi.txt"
+          grep -Eqi '(ARM aarch64|ARM64)' "$P/abi.txt"
+          "$NM" -D "$P/libbo1_original_asset_unpack.so" > "$P/symbols.txt"
+          grep -q 'bo1_original_unpack_rgba' "$P/symbols.txt"
+          grep -q 'bo1_original_unpack_normal' "$P/symbols.txt"
+          grep -q 'bo1_original_unpack_uv' "$P/symbols.txt"
+          sha256sum "$P/libbo1_original_asset_unpack.so" > "$P/hash.txt"
+          echo 'REAL_BO1_ORIGINAL_RENDER_ASSET_UNPACK_LINKED_ARM64=PASS' | tee "$P/link-status.txt"
+
+      - name: Summarize verified native scope, do not publish original engine binaries
+        shell: bash
+        if: always()
+        run: |
+          set -euo pipefail
+          P="$RUNNER_TEMP/unpack-audit"
+          mkdir -p "$P/report"
+          {
+            echo '# BO1 original renderer packed asset decoding — ARM64 evidence'
+            echo
+            echo 'Upstream revision: 102f6992be332610aff587e681e3180b15f395bb'
+            echo 'Unmodified function bodies from: src/universal/com_pack.cpp.'
+            echo 'Build adaptation: two Windows-specific header includes replaced by isolated declarations only.'
+            echo
+            cat "$P/host-status.txt" 2>/dev/null || true
+            cat "$P/link-status.txt" 2>/dev/null || true
+            cat "$P/abi.txt" 2>/dev/null || true
+            cat "$P/hash.txt" 2>/dev/null || true
+            echo
+            echo 'STATUS: no game loop, no original map, no shader renderer, no APK.'
+            echo 'A green result only shows these 3 authentic decoding functions compiled and linked.'
+          } > "$P/report/status.md"
+          cat "$P/report/status.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report metadata only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BO1-ORIGINAL-ARM64-RENDER-ASSET-UNPACK-REPORT-NO-APK
+          path: ${{ runner.temp }}/unpack-audit/report
+          retention-days: 21
+          if-no-files-found: warn
