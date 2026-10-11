@@ -114,7 +114,9 @@ def main():
         tex_name=texture_map.get(key_name)
         if tex_name is None:
             idx=len(texture_map)
-            # MAX_QPATH-safe (legacy Vril loader silently truncated long\n            # authoring material names; this was an independent grey fallback).\n            stem=f"t{idx:03d}"
+            # MAX_QPATH-safe: long texture names are truncated by legacy Vril.
+            # Keep GL image paths stable and within the engine limit.
+            stem=f"t{idx:03d}"
             tex_name=f"textures/xziel/sanctum_vertical/{stem}"
             # Some source files use SimpleMaterial.diffuse instead of PBR
             # baseColorFactor; do not erase actual authored solid colors.
