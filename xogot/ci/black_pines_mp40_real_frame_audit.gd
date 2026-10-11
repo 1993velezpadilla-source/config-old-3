@@ -36,7 +36,7 @@ func _capture_frame(
     # Pause() made current_animation empty on the first attempt. Explicitly
     # play, seek, and advance both mixers in MANUAL callback mode.
     var gun_clip_name := "PSA_viewmodel_mp40_reload" if mode == "tactical" else "PSA_viewmodel_mp40_reload_empty"
-    var hand_clip_name := "PSA_viewmodel_mp40_reload_empty"
+    var hand_clip_name := "PSA_MP40ReloadHands" if mode == "tactical" else "PSA_viewmodel_mp40_reload_empty"
     gun_player.play(gun_clip_name, 0.0)
     hand_player.play(hand_clip_name, 0.0)
     gun_player.seek(gun_t, true)
@@ -150,6 +150,17 @@ func _run() -> void:
         if gun_player.current_animation != ("PSA_viewmodel_mp40_reload" if mode == "tactical" else "PSA_viewmodel_mp40_reload_empty"):
             _fail(mode + " chose wrong gun animation")
             return
+        var expected_hands := "PSA_MP40ReloadHands" if mode == "tactical" else "PSA_viewmodel_mp40_reload_empty"
+        if hand_player.current_animation != expected_hands:
+            _fail(mode + " wrong hand animation: " + str(hand_player.current_animation))
+            return
+        if int(weapon.get_meta("mp40_hands_reload_tag_weapon_keys", -1)) < 50:
+            _fail(mode + " source tag_weapon keys missing")
+            return
+        print("MP40_SOURCE_CORRECT_PAIRED_RELOAD", mode,
+            " gun_duration=", gun_player.current_animation_length,
+            " hands_duration=", hand_player.current_animation_length,
+            " keys=", weapon.get_meta("mp40_hands_reload_tag_weapon_keys", 0))
         print("MP40_REAL_FRAME_CASE mode=", mode, " gun=", gun_player.current_animation, " hands=", hand_player.current_animation)
         for idx in range(FRACTIONS.size()):
             if not await _capture_frame(gun_player, hand_player, hands_skeleton, gun_skeleton, weapon, camera, label, mode, idx, float(FRACTIONS[idx])):
