@@ -1,0 +1,66 @@
+name: Vril Zombies - Single Map Developer APK
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/vril-zombies-single-map-dev.yml"
+      - "scripts/patch_vril_one_map_devmenu.py"
+      - "scripts/prepare_android.sh"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+      - name: Validate developer patch Python syntax
+        run: python3 -m py_compile scripts/patch_vril_one_map_devmenu.py
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Android native toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018"
+      - name: Prepare isolated Vril prototype (one map, developer menu)
+        shell: bash
+        env:
+          XZIEL_SINGLE_MAP: ndu
+          XZIEL_DEV_BUILD: "1"
+        run: bash scripts/prepare_android.sh
+      - name: Verify the APK contains one loose playable map
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s build/android-project/app/src/main/assets/nzp-data.zip
+          test "$(unzip -Z1 build/android-project/app/src/main/assets/nzp-data.zip | grep -E '^nzp/maps/[^/]+\.bsp$' | wc -l)" -eq 1
+          unzip -Z1 build/android-project/app/src/main/assets/nzp-data.zip | grep -F 'nzp/maps/ndu.bsp'
+          grep -F 'com.xziel.vrilzombies' build/android-project/app/build.gradle
+          grep -F 'ZOMBIES - Vril Prototype' build/android-project/app/src/main/res/values/strings.xml
+          test -s build/deps/quakec/build/standard/progs.dat
+      - name: Compile Android native APK
+        working-directory: build/android-project
+        run: ./gradlew --no-daemon assembleDebug --stacktrace
+      - name: Name the artifact
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp build/android-project/app/build/outputs/apk/debug/app-debug.apk dist/ZOMBIES-Vril-SingleMap-DEV-arm64-x64.apk
+          test -s dist/ZOMBIES-Vril-SingleMap-DEV-arm64-x64.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ZOMBIES-Vril-SingleMap-DEV
+          path: dist/ZOMBIES-Vril-SingleMap-DEV-arm64-x64.apk
+          if-no-files-found: warn
+          retention-days: 14
