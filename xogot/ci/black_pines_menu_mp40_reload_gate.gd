@@ -78,6 +78,25 @@ func _run() -> void:
     var last: Animation = animation_player.get_animation("PSA_viewmodel_mp40_reload_empty")
     if not _check(anim.length > 3.2 and last.length > 4.1, "authored magazine clips were truncated"):
         return
+
+    # Use *actual* running camera-relative mount, not a guessed roll angle or
+    # green metadata. The imported MP40 GLB has +X muzzle, -Y magazine and
+    # a -Z j_clip extraction. On screen that must map to FORWARD, DOWN, LEFT.
+    var gun_root: Node3D = weapon.get("_weapon_model_root") as Node3D
+    var view_root: Node3D = weapon.get("_view_root") as Node3D
+    if not _check(gun_root != null and view_root != null, "source camera gun mounting nodes missing"):
+        return
+    var gun_basis: Basis = view_root.global_transform.basis.orthonormalized().inverse() * gun_root.global_transform.basis.orthonormalized()
+    var barrel_forward: Vector3 = gun_basis * Vector3.RIGHT
+    var magazine_down: Vector3 = gun_basis * Vector3.DOWN
+    var extraction_left: Vector3 = gun_basis * Vector3(0.0, 0.0, -1.0)
+    print("BLACK_PINES_MP40_SOURCE_AXES forward=", barrel_forward, " mag_down=", magazine_down, " extraction_left=", extraction_left)
+    if not _check(barrel_forward.z < -0.80, "MP40 barrel not forward in camera"):
+        return
+    if not _check(magazine_down.y < -0.80, "MP40 magazine not pointing toward gravity"):
+        return
+    if not _check(extraction_left.x < -0.80, "MP40 magazine extraction axis wrongly points RIGHT"):
+        return
     var clip_moving: bool = false
     for a in [anim, last]:
         var present: bool = false
@@ -92,9 +111,18 @@ func _run() -> void:
             var first: Vector3 = a.track_get_key_value(track, 0)
             var finish: Vector3 = a.track_get_key_value(track, count - 1)
             var max_removal_m: float = 0.0
+            var peak_displacement_view := Vector3.ZERO
             for frame in range(count):
                 var sample: Vector3 = a.track_get_key_value(track, frame)
-                max_removal_m = maxf(max_removal_m, first.distance_to(sample))
+                var displacement_view: Vector3 = gun_basis * (sample - first)
+                if displacement_view.length() > max_removal_m:
+                    max_removal_m = displacement_view.length()
+                    peak_displacement_view = displacement_view
+            # A moving clip alone can be RED: reject the previous right-side
+            # animation even when its length and 80/102 bone keys are valid.
+            if not _check(peak_displacement_view.x < -0.10 and absf(peak_displacement_view.x) > absf(peak_displacement_view.y) * 1.2, "MP40 magazine goes RIGHT/up instead of LEFT"):
+                return
+            print("BLACK_PINES_MP40_EXTRACTION_LEFT animation=", a.resource_name, " displacement_in_view=", peak_displacement_view)
             if not _check(first.distance_to(finish) < 0.03, "magazine never fully returns to the gun"):
                 return
             # Empty reload's clip is still halfway engaged at middle frame.
