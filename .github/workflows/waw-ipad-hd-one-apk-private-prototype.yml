@@ -1,0 +1,105 @@
+name: WAW iPad HD - One Android APK Private Compatibility Prototype
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/waw-ipad-hd-native-android-port-v1
+    paths:
+      - .github/workflows/waw-ipad-hd-one-apk-private-prototype.yml
+      - tools/waw_ios/AndroidIpaBootstrap.java
+      - tools/waw_ios/patch_touchhle_mainactivity.py
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  one-apk:
+    name: Build one ARM64 APK with original iPad HD app staged privately
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Restore owner's original verified iPad IPA
+        uses: actions/download-artifact@v4
+        with:
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          run-id: 38110245544
+          name: COD-World-at-War-Zombies-iPhone-iPad-IPA-originals
+          path: /tmp/waw-one-apk/ipas
+      - name: Verify emulator source and original iPad HD bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/waw-one-apk/output /tmp/waw-one-apk/tools
+          cd /tmp/waw-one-apk/ipas
+          sha1sum -c SHA1SUMS
+          test "$(stat -c %s COD_WAW_Zombies_HD_iPad_v1.5.0.ipa)" = "34131256"
+          cd /tmp/waw-one-apk
+          curl -fL --retry 3 --connect-timeout 30 --max-time 210 -o touchHLE.zip 'https://github.com/touchHLE/touchHLE/releases/download/v0.3.0/touchHLE_v0.3.0_Android_AArch64.zip'
+          echo "0e0e699f89c49b65ccdad020145d6fa34e431ab2bd5737d34a77e03b6a0cc60d  touchHLE.zip" | sha256sum -c -
+          unzip -q touchHLE.zip -d touchHLE-extracted
+          ORIGINAL_APK="$(find touchHLE-extracted -type f -iname '*.apk' | head -n 1)"
+          test -s "$ORIGINAL_APK"
+          cp "$ORIGINAL_APK" tools/emulator.apk
+          curl -fL --retry 3 --connect-timeout 30 --max-time 210 -o tools/apktool.jar 'https://github.com/iBotPeaches/Apktool/releases/download/v2.12.1/apktool_2.12.1.jar'
+          echo "66cf4524a4a45a7f56567d08b2c9b6ec237bcdd78cee69fd4a59c8a0243aeafa  tools/apktool.jar" | sha256sum -c -
+      - name: Build self-contained private test APK (original emulator plus original iPad IPA)
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SM="$(find "$SDK/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          yes | "$SM" --licenses >/dev/null || true
+          "$SM" 'platforms;android-36' 'build-tools;36.0.0' >/tmp/waw-one-apk/tools/sdk-install.log 2>&1
+          cd /tmp/waw-one-apk
+          java -jar tools/apktool.jar d -f -r tools/emulator.apk -o decoded > tools/apktool-decode.log 2>&1
+          python3 "$GITHUB_WORKSPACE/tools/waw_ios/patch_touchhle_mainactivity.py" decoded | tee tools/patch.log
+          mkdir -p decoded/assets
+          cp ipas/COD_WAW_Zombies_HD_iPad_v1.5.0.ipa decoded/assets/waw_ipad_hd_original.ipa
+          sha1sum decoded/assets/waw_ipad_hd_original.ipa | tee tools/embedded-ipa-sha1.txt
+          java -jar tools/apktool.jar b decoded -o tools/rebuilt-unsigned.apk > tools/apktool-build.log 2>&1
+
+          # A separate DEX keeps all upstream emulator Java classes intact.
+          mkdir -p helper-classes helper-dex
+          javac -source 8 -target 8 -encoding UTF-8 -cp "$SDK/platforms/android-36/android.jar" -d helper-classes "$GITHUB_WORKSPACE/tools/waw_ios/AndroidIpaBootstrap.java" > tools/javac.log 2>&1
+          "$SDK/build-tools/36.0.0/d8" --min-api 23 --lib "$SDK/platforms/android-36/android.jar" --output helper-dex helper-classes/org/touchhle/android/AndroidIpaBootstrap.class > tools/d8.log 2>&1
+          IDX=2
+          while unzip -Z1 tools/rebuilt-unsigned.apk | grep -qx "classes${IDX}.dex"; do IDX=$((IDX+1)); done
+          cp helper-dex/classes.dex "classes${IDX}.dex"
+          zip -q -0 tools/rebuilt-unsigned.apk "classes${IDX}.dex"
+          "$SDK/build-tools/36.0.0/zipalign" -p -f 4 tools/rebuilt-unsigned.apk tools/unsigned-aligned.apk
+          keytool -genkeypair -keystore tools/qa-debug.jks -storepass android -keypass android -alias AndroidQA -keyalg RSA -keysize 2048 -validity 365 -dname 'CN=WAW iPad HD Private Compatibility Prototype' >/dev/null 2>&1
+          "$SDK/build-tools/36.0.0/apksigner" sign --ks tools/qa-debug.jks --ks-key-alias AndroidQA --ks-pass pass:android --key-pass pass:android --out output/WAW-iPad-HD-Android64-private-TEST.apk tools/unsigned-aligned.apk
+          "$SDK/build-tools/36.0.0/apksigner" verify --verbose --print-certs output/WAW-iPad-HD-Android64-private-TEST.apk > tools/apk-signature.txt
+          "$SDK/build-tools/36.0.0/aapt" dump badging output/WAW-iPad-HD-Android64-private-TEST.apk > tools/apk-badging.txt
+          unzip -p output/WAW-iPad-HD-Android64-private-TEST.apk assets/waw_ipad_hd_original.ipa | sha1sum | awk '{print $1}' > tools/final-embedded-ipa.sha1
+          echo '198399fe9da5e98218b909f938d2762127ffadc4' | cmp - tools/final-embedded-ipa.sha1
+          unzip -Z1 output/WAW-iPad-HD-Android64-private-TEST.apk | grep -q '^classes2.dex$'
+          unzip -Z1 output/WAW-iPad-HD-Android64-private-TEST.apk | grep -q '^assets/waw_ipad_hd_original.ipa$'
+          echo "ONE_APK_SIGNED_WITH_ORIGINAL_IPAD_HD_BUNDLE=GREEN" | tee output/status.txt
+          echo "EMULATOR_VERSION=touchHLE_v0.3.0" | tee -a output/status.txt
+          echo "GAME_ENGINE_CONVERSION=NATIVE_IOS_ARMV6_EMULATED_NOT_PORTED" | tee -a output/status.txt
+          echo "GAMEPLAY_NOT_YET_CONFIRMED_ON_PIXEL_FOLD" | tee -a output/status.txt
+          echo "PRIVATE_PERSONAL_PROTOTYPE_ONLY_NOT_FOR_PUBLIC_REDISTRIBUTION" | tee -a output/status.txt
+          stat -c 'APK_BYTES=%s' output/WAW-iPad-HD-Android64-private-TEST.apk | tee -a output/status.txt
+      - name: Upload single APK for physical Android testing
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WAW-HD-iPad-Original-in-One-Android-APK-PRIVATE-TEST
+          path: |
+            /tmp/waw-one-apk/output/
+            /tmp/waw-one-apk/tools/patch.log
+            /tmp/waw-one-apk/tools/apk-badging.txt
+            /tmp/waw-one-apk/tools/apk-signature.txt
+            /tmp/waw-one-apk/tools/apktool-build.log
+            /tmp/waw-one-apk/tools/javac.log
+            /tmp/waw-one-apk/tools/d8.log
+          if-no-files-found: warn
+          retention-days: 7
