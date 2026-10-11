@@ -176,11 +176,14 @@ static void XzNative_DrawWeapons(void) {
         Menu_DrawButton(i+1, i, (char *)xz_native_weapon_names[weapon_idx],
             "Give original weapon.", XzNative_GiveSelected);
     }
+    // Keep button indices contiguous on the final (two-weapon) page.
+    // Vril's native mouse/key navigation stops at the first disabled index.
+    int nav = i;
     if (xz_native_weapon_page > 0)
-        Menu_DrawButton(-3, 6, "PREVIOUS", "Previous group.", XzNative_PrevPage);
+        Menu_DrawButton(-3, nav++, "PREVIOUS", "Previous group.", XzNative_PrevPage);
     if ((xz_native_weapon_page+1)*6 < 56)
-        Menu_DrawButton(-2, 7, "NEXT", "Next group.", XzNative_NextPage);
-    Menu_DrawButton(-1, 8, "BACK", "Developer tools.", XzNative_BackWeapons);
+        Menu_DrawButton(-2, nav++, "NEXT", "Next group.", XzNative_NextPage);
+    Menu_DrawButton(-1, nav, "BACK", "Developer tools.", XzNative_BackWeapons);
 }
 
 '''.replace("IDS",ids_c).replace("NAMES",names_c)
@@ -219,5 +222,32 @@ s = replace_function(s, "void Menu_Pause_Draw (void)", r'''void Menu_Pause_Draw 
         Menu_DrawButton(8, 1, "CANCEL", "", Menu_Pause_No);
     }
 }''')
+s += """
+// Returns true only when Android Back was consumed by a developer submenu.
+qboolean XzNative_PauseHandleBack(void)
+{
+    if (menu_paus_submenu == 101) {
+        XzNative_BackWeapons();
+        return true;
+    }
+    if (menu_paus_submenu == 100) {
+        XzNative_Close();
+        return true;
+    }
+    return false;
+}
+"""
 write("menu_pause.c", s)
-print("Native Vril C menu replaced: single map; branded main; solo dev + 56 weapons.")
+
+# ESC / native Android Back must unwind Weapon Lab -> Developer -> Pause
+# instead of entering the generic previous-menu switch or leaving the game.
+s = read("menu_sys.c")
+s = replace_once(s, "void Menu_KeyInput (int key)",
+    "qboolean XzNative_PauseHandleBack(void);\n\nvoid Menu_KeyInput (int key)",
+    "developer Android back declaration")
+s = replace_once(s,
+    "if (m_state == m_pause && menu_paus_submenu == 0)",
+    "if (m_state == m_pause && XzNative_PauseHandleBack()) return;\n\t\tif (m_state == m_pause && menu_paus_submenu == 0)",
+    "developer Android back dispatch")
+write("menu_sys.c", s)
+print("Native Vril C menu replaced: single map; branded main; solo dev + 56 weapons; Android Back safe.")
