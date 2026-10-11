@@ -1,0 +1,178 @@
+name: BO1 Real Original Native Core - Consolidated ARM64 Library (NO APK)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/bo1-original-engine-arm64-feasibility-v1
+    paths:
+      - .github/workflows/bo1-consolidated-original-core-arm64.yml
+      - tools/bo1_pc_engine/integration/**
+
+permissions:
+  contents: read
+
+jobs:
+  actual-blackops-original-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch pinned Black Ops 1 ORIGINAL PC engine into temporary CI directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/MisaDev4/bo1-zombies-decompiled.git "$RUNNER_TEMP/bo1"
+          test "$(git -C "$RUNNER_TEMP/bo1" rev-parse HEAD)" = "102f6992be332610aff587e681e3180b15f395bb"
+          mkdir -p "$RUNNER_TEMP/staged" "$RUNNER_TEMP/bo1-report"
+          python3 tools/bo1_pc_engine/compat/stage_real_modules.py \
+            --upstream "$RUNNER_TEMP/bo1" --staged "$RUNNER_TEMP/staged"
+          python3 tools/bo1_pc_engine/fastfile/stage_db_file_functions.py \
+            --upstream "$RUNNER_TEMP/bo1" --staged "$RUNNER_TEMP/staged"
+          python3 tools/bo1_pc_engine/ff_payload/stage_original_auth.py \
+            --upstream "$RUNNER_TEMP/bo1" --staged "$RUNNER_TEMP/staged"
+          cp "$RUNNER_TEMP/staged/manifest.json" "$RUNNER_TEMP/bo1-report/math-and-asset-manifest.json"
+          cp "$RUNNER_TEMP/staged/auth-extraction.json" "$RUNNER_TEMP/bo1-report/ff-zlib-manifest.json"
+          python3 - "$RUNNER_TEMP/staged/manifest.json" <<'PY'
+          import json,sys
+          obj=json.load(open(sys.argv[1]))
+          assert obj["all_function_bodies_preserved"] is True
+          print("PINNED_REAL_BO1_FUNCTION_BODIES_UNCHANGED=PASS")
+          PY
+
+      - name: Host runtime gate on original BO1 math + asset unpack + compressed XFile payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          S="$RUNNER_TEMP/staged"
+          D="$RUNNER_TEMP/bo1/src"
+          H=tools/bo1_pc_engine/compat
+          F=tools/bo1_pc_engine/fastfile
+          P=tools/bo1_pc_engine/ff_payload
+          g++ -std=c++20 -O2 -DNDEBUG -ffunction-sections -fdata-sections \
+            -include "$H/bo1_arm64_math_compat.h" \
+            -I"$D" -I"$D/universal" \
+            "$S/com_math_anglevectors.cpp" "$H/orientation_host_test.cpp" \
+            -Wl,--gc-sections -o "$S/test_orientation"
+          "$S/test_orientation" | tee "$RUNNER_TEMP/bo1-report/orientation-test.txt"
+          g++ -std=c++20 -O2 -DNDEBUG -ffunction-sections -fdata-sections \
+            -include "$H/bo1_asset_unpack_compat.h" -I"$D" -I"$D/universal" \
+            "$S/com_pack.cpp" "$H/asset_unpack_host_test.cpp" \
+            -Wl,--gc-sections -o "$S/test_unpack"
+          "$S/test_unpack" | tee "$RUNNER_TEMP/bo1-report/asset-test.txt"
+          g++ -std=c++20 -O2 -DNDEBUG -I"$D" -I"$D/minilzo" \
+            "$S/minilzo.cpp" "$H/lzo_host_test.cpp" -o "$S/test_lzo"
+          "$S/test_lzo" | tee "$RUNNER_TEMP/bo1-report/lzo-test.txt"
+          g++ -std=c++20 -O2 -DNDEBUG -I"$F" -I"$P" \
+            "$S/original_bo1_db_file.cpp" "$S/original_bo1_db_auth_inflate.cpp" \
+            "$F/bo1_ff_compat.cpp" "$P/bo1_ff_header_probe.cpp" \
+            "$P/bo1_ff_stream_probe.cpp" "$P/ff_stream_host_test.cpp" \
+            -pthread -lz -o "$S/test_ff_stream"
+          "$S/test_ff_stream" | tee "$RUNNER_TEMP/bo1-report/ff-stream-test.txt"
+          grep -q 'ORIGINAL_BO1_ZLIB_INIT_INFLATE_END_STREAMING=PASS' "$RUNNER_TEMP/bo1-report/ff-stream-test.txt"
+
+      - name: Install official Android NDK (arm64-v8a)
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          "$SDKMANAGER" 'ndk;27.2.12479018'
+
+      - name: Compile and LINK combined original BO1 PC subsystems in ONE ARM64 ELF
+        shell: bash
+        run: |
+          set -euo pipefail
+          S="$RUNNER_TEMP/staged"
+          D="$RUNNER_TEMP/bo1/src"
+          H=tools/bo1_pc_engine/compat
+          F=tools/bo1_pc_engine/fastfile
+          P=tools/bo1_pc_engine/ff_payload
+          N="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          C="$N/aarch64-linux-android26-clang++"
+          OPT="-std=c++20 -O2 -DNDEBUG -fPIC -fvisibility=hidden -ffunction-sections -fdata-sections"
+          "$C" $OPT -include "$H/bo1_arm64_math_compat.h" -I"$D" -I"$D/universal" \
+            -c "$S/com_math_anglevectors.cpp" -o "$S/orientation.o"
+          "$C" $OPT -include "$H/bo1_asset_unpack_compat.h" -I"$D" -I"$D/universal" \
+            -c "$S/com_pack.cpp" -o "$S/unpack.o"
+          "$C" $OPT -I"$D" -I"$D/minilzo" -c "$S/minilzo.cpp" -o "$S/lzo.o"
+          "$C" $OPT -include "$H/bo1_arm64_math_compat.h" -I"$D" -I"$D/universal" \
+            -c "$H/orientation_arm64_wrapper.cpp" -o "$S/angle_wrapper.o"
+          "$C" $OPT -include "$H/bo1_asset_unpack_compat.h" -I"$D" -I"$D/universal" \
+            -c "$H/asset_unpack_arm64_wrapper.cpp" -o "$S/unpack_wrapper.o"
+          "$C" $OPT -I"$D" -c "$H/lzo_arm64_wrapper.cpp" -o "$S/lzo_wrapper.o"
+          "$C" $OPT -I"$F" -I"$P" -c "$S/original_bo1_db_file.cpp" -o "$S/ff_orig_file.o"
+          "$C" $OPT -I"$F" -I"$P" -c "$S/original_bo1_db_auth_inflate.cpp" -o "$S/ff_orig_zlib.o"
+          "$C" $OPT -I"$F" -I"$P" -c "$F/bo1_ff_compat.cpp" -o "$S/ff_posix.o"
+          "$C" $OPT -I"$F" -I"$P" -c "$P/bo1_ff_header_probe.cpp" -o "$S/ff_header.o"
+          "$C" $OPT -I"$F" -I"$P" -c "$P/bo1_ff_stream_probe.cpp" -o "$S/ff_stream.o"
+          "$C" -shared -pthread -Wl,--gc-sections -Wl,--no-undefined \
+            "$S/orientation.o" "$S/unpack.o" "$S/lzo.o" \
+            "$S/angle_wrapper.o" "$S/unpack_wrapper.o" "$S/lzo_wrapper.o" \
+            "$S/ff_orig_file.o" "$S/ff_orig_zlib.o" "$S/ff_posix.o" \
+            "$S/ff_header.o" "$S/ff_stream.o" -lz \
+            -o "$S/libbo1_real_original_core_arm64.so"
+          file "$S/libbo1_real_original_core_arm64.so" | tee "$RUNNER_TEMP/bo1-report/abi.txt"
+          grep -q 'ELF 64-bit' "$RUNNER_TEMP/bo1-report/abi.txt"
+          grep -Eqi '(ARM aarch64|ARM64)' "$RUNNER_TEMP/bo1-report/abi.txt"
+          "$N/llvm-nm" -D "$S/libbo1_real_original_core_arm64.so" > "$RUNNER_TEMP/bo1-report/exports.txt"
+          for symbol in \
+              bo1_original_angle_vectors bo1_original_unpack_rgba \
+              bo1_original_unpack_normal bo1_original_unpack_uv \
+              bo1_upstream_lzo_decompress_safe bo1_original_fastfile_header_probe \
+              bo1_original_ff_payload_prefix_probe bo1_original_zone_exists \
+              bo1_original_zone_size bo1_ff_root_configure; do
+            grep -q "$symbol" "$RUNNER_TEMP/bo1-report/exports.txt"
+          done
+          sha256sum "$S/libbo1_real_original_core_arm64.so" \
+            | sed 's/  .*$/  libbo1_real_original_core_arm64.so/' \
+            > "$RUNNER_TEMP/bo1-report/native-sha256.txt"
+          echo 'ORIGINAL_BO1_MATH_ASSET_LZO_AND_FF_IN_SINGLE_ANDROID_ARM64_ELF=PASS' \
+            | tee "$RUNNER_TEMP/bo1-report/combined-status.txt"
+          echo 'ORIGINAL_BO1_FULL_ENGINE_NATIVE_BUILD=FAIL_OR_NOT_YET_PORTED' >> "$GITHUB_STEP_SUMMARY"
+          echo 'ORIGINAL_BO1_KINO_MAP_RUNNING=false' >> "$GITHUB_STEP_SUMMARY"
+          echo 'ORIGINAL_BO1_APK_EXISTS=false' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report ONLY what ran and what remains broken
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          P="$RUNNER_TEMP/bo1-report"
+          mkdir -p "$P"
+          {
+            echo '# Genuine BO1 PC engine source — consolidated native ARM64 library audit'
+            echo
+            echo 'Pinned original upstream: 102f6992be332610aff587e681e3180b15f395bb'
+            echo 'Sources from actual upstream: com_math_anglevectors.cpp, com_pack.cpp, minilzo.cpp, DB_FileExists, DB_FileSize, DB_AuthLoad_InflateInit, DB_AuthLoad_Inflate and DB_AuthLoad_InflateEnd.'
+            echo 'These are the ORIGINAL upstream bodies. Three modules have Windows-only includes bypassed; source functions are not rewritten.'
+            echo
+            echo '## Host functional checks'
+            cat "$P/orientation-test.txt" 2>/dev/null || true
+            cat "$P/asset-test.txt" 2>/dev/null || true
+            cat "$P/lzo-test.txt" 2>/dev/null || true
+            cat "$P/ff-stream-test.txt" 2>/dev/null || true
+            echo
+            echo '## Combined Android ARM64 native link'
+            cat "$P/combined-status.txt" 2>/dev/null || true
+            cat "$P/abi.txt" 2>/dev/null || true
+            cat "$P/native-sha256.txt" 2>/dev/null || true
+            echo
+            echo '## LIMITATIONS'
+            echo 'This is a library, NOT the BO1 game engine or an APK.'
+            echo 'No original Kino map .ff bytes or any BO1 retail assets were included.'
+            echo 'FF loading: only bounded DEFLATE preview bytes with original zlib functions. No XAsset object decoding.'
+            echo 'Critical unported: DB_AllocXBlocks, Load_XAssetListCustom, Load_XAsset, render DirectX9, Win32 threads, sound and Android Activity.'
+            echo 'Authenticated FF variant IWff0100 is unsupported; test retail assets only when owned copies are available.'
+            echo 'Do not equate CI GREEN with working gameplay.'
+          } > "$P/README.md"
+          cat "$P/README.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload only manifests, ABI and tests — NO proprietary game code/binaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BO1-GENUINE-SINGLE-ARM64-NATIVE-CORE-REPORT-NO-APK
+          path: ${{ runner.temp }}/bo1-report
+          retention-days: 21
+          if-no-files-found: warn
