@@ -1,0 +1,88 @@
+name: Vril One Map Developer APK
+
+on:
+  push:
+    branches:
+      - feature/vril-single-map-devmenu-20261011
+    paths:
+      - "scripts/patch_vril_one_map_devmenu.py"
+      - "scripts/prune_nzp_single_map.py"
+      - "scripts/test_vril_single_map_profile.py"
+      - "scripts/prepare_android.sh"
+      - ".github/workflows/vril-single-map-dev-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vril-dev-one-map-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-dev-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      XZIEL_SINGLE_MAP: ndu
+      XZIEL_DEV_TOOLS: "1"
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v5
+
+      - name: Validate Python and map isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/patch_vril_one_map_devmenu.py scripts/prune_nzp_single_map.py
+          python3 scripts/test_vril_single_map_profile.py
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android NDK / SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018"
+
+      - name: Build original Vril engine and single-map game data
+        shell: bash
+        run: bash scripts/prepare_android.sh
+
+      - name: Prove exactly one bundled map and preserve MP40 assets
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile
+          p = Path("build/android-project/app/src/main/assets/nzp-data.zip")
+          with zipfile.ZipFile(p) as z:
+              entries = z.namelist()
+              bsps = sorted(x for x in entries if x.startswith("nzp/maps/") and x.lower().endswith(".bsp"))
+              assert bsps == ["nzp/maps/ndu.bsp"], f"One-map violation: {bsps}"
+              for key in ("nzp/models/weapons/mp40/v_mp40.mdl",
+                          "nzp/models/weapons/mp40/g_mp40.mdl"):
+                  assert key in entries, f"Missing original MP40 asset: {key}"
+              print("PASS: sole map ndu and original MP40 view/world models preserved")
+          PY
+
+      - name: Compile native universal debug APK
+        working-directory: build/android-project
+        shell: bash
+        run: ./gradlew --no-daemon assembleDebug --stacktrace
+
+      - name: Upload installable developer APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vril-OneMap-Developer-Native-APK
+          path: build/android-project/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
