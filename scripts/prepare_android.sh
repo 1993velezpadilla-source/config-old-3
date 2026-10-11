@@ -26,6 +26,21 @@ git clone --depth 1 https://github.com/ptitSeb/gl4es.git "$DEPS/gl4es"
 git clone --depth 1 https://github.com/nzp-team/vril-engine.git "$DEPS/vril"
 git clone --depth 1 https://github.com/nzp-team/quakec.git "$DEPS/quakec"
 
+# Reproduce the September 27, 2026 original Xziel NZP v0.26 source precisely.
+# These are the five dependency revisions confirmed by the successful
+# v0.26 Native Android run 36297489423 (not today's upstream HEAD).
+for record in \
+  "SDL b90ac95029d801c5abc59472ba8e2200dff31e1e" \
+  "SDL2_mixer 34370d92840d5aa32b4369dc56c6735ef7adf1a8" \
+  "gl4es 81547d986798e876de8b434193920b606a72363f" \
+  "vril aaa474061bff5d0e3aa471ac01f5f0e01b4fca31" \
+  "quakec 8a77f1ce45f1a2b9aa0afb301446954fda40e696"; do
+    read -r dep commit <<< "$record"
+    echo "==> Restoring original v0.26 $dep at $commit"
+    git -C "$DEPS/$dep" fetch --depth 1 origin "$commit"
+    git -C "$DEPS/$dep" checkout --detach "$commit"
+done
+
 # Raise SDL's Android phone sensor polling target from 60 Hz to 120 Hz.
 # The backend still clamps to the physical sensor's minimum delay, so devices
 # that cannot sustain 120 Hz automatically run at their supported rate.
