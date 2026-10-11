@@ -1,0 +1,113 @@
+name: Xziel NZP - Developer Menu ONLY
+
+on:
+  push:
+    branches:
+      - feature/xziel-nzp-devmenu-only-20261011
+    paths:
+      - "scripts/patch_xziel_devmenu_only.py"
+      - "scripts/prepare_android.sh"
+      - ".github/workflows/xziel-devmenu-only.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xziel-devmenu-only-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  xziel-native-dev-menu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      XZIEL_DEV_MENU_ONLY: "1"
+    steps:
+      - name: Checkout original Xziel NZP project
+        uses: actions/checkout@v5
+      - name: Verify tiny patch is opt-in
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/patch_xziel_devmenu_only.py
+          grep -F 'XZIEL_DEV_MENU_ONLY' scripts/prepare_android.sh
+          test ! -f scripts/prune_nzp_single_map.py || ! grep -q 'prune_nzp_single_map.py' scripts/prepare_android.sh
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Android NDK / SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018"
+      - name: Prepare original Xziel NZP with DEV menu
+        run: bash scripts/prepare_android.sh
+      - name: Prove old Xziel app and original maps/HUD are preserved
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'applicationId "com.xziel.nzp"' build/android-project/app/build.gradle
+          grep -F '<string name="app_name">Xziel: NZP Native</string>' build/android-project/app/src/main/res/values/strings.xml
+          grep -F 'Menu_DrawTitle ("MAIN MENU", MENU_COLOR_WHITE);' build/deps/vril/source/menu/menu_main.c
+          grep -F 'SELECT MAP: SOLO' build/deps/vril/source/menu/menu_stockmaps.c
+          grep -F 'Menu_DrawButton(6, 5, "DEVELOPER"' build/deps/vril/source/menu/menu_pause.c
+          grep -F 'XZIEL DEVELOPER' build/deps/vril/source/menu/menu_pause.c
+          grep -F 'XZIEL WEAPON LAB' build/deps/vril/source/menu/menu_pause.c
+          grep -F 'XzDev_PauseHandleBack()' build/deps/vril/source/menu/menu_sys.c
+          grep -F 'Command_XzDev' build/deps/quakec/source/server/utilities/command_parser.qc
+          test -s build/deps/quakec/build/standard/progs.dat
+          python3 - <<'PY'
+          import zipfile
+          p="build/android-project/app/src/main/assets/nzp-data.zip"
+          with zipfile.ZipFile(p) as z:
+              files=set(z.namelist())
+              maps=sorted(x for x in files if x.startswith("nzp/maps/") and x.endswith(".bsp"))
+              assert len(maps)>1, f"Original maps lost: {maps}"
+              for name in ("nzp/maps/ndu.bsp",
+                           "nzp/models/weapons/mp40/v_mp40.mdl",
+                           "nzp/models/weapons/mp40/g_mp40.mdl",
+                           "nzp/gfx/xziel/touch_idle.png",
+                           "nzp/gfx/xziel/touch_pressed.png"):
+                  assert name in files, f"Original Xziel asset missing: {name}"
+              assert "nzp/gfx/xziel/skin_native_dev.txt" not in files
+              print(f"PASS: Original Xziel app, {len(maps)} maps, and inherited mobile HUD skins intact")
+          PY
+      - name: Compile original Xziel Android APK with Dev submenu
+        working-directory: build/android-project
+        run: ./gradlew --no-daemon assembleDebug --stacktrace
+      - name: Verify original renderer and Developer in native ARM64 ELF
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=build/android-project/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          unzip -p "$APK" lib/arm64-v8a/libmain.so > /tmp/xziel-nzp-native.so
+          strings /tmp/xziel-nzp-native.so > /tmp/xziel-nzp-native-strings.txt
+          grep -F 'MAIN MENU' /tmp/xziel-nzp-native-strings.txt
+          grep -F 'XZIEL DEVELOPER' /tmp/xziel-nzp-native-strings.txt
+          grep -F 'XZIEL WEAPON LAB' /tmp/xziel-nzp-native-strings.txt
+          grep -F 'DEVELOPER' /tmp/xziel-nzp-native-strings.txt
+          if grep -F 'ZOMBIES NATIVE DEV' /tmp/xziel-nzp-native-strings.txt; then
+            echo 'ERROR: This is the wrong engine variant'
+            exit 1
+          fi
+      - name: Copy APK for Android install
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp build/android-project/app/build/outputs/apk/debug/app-debug.apk dist/Xziel-NZP-Native-DEV-MENU-ONLY.apk
+          test -s dist/Xziel-NZP-Native-DEV-MENU-ONLY.apk
+      - name: Upload Xziel APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xziel-NZP-DevMenu-ONLY
+          path: dist/Xziel-NZP-Native-DEV-MENU-ONLY.apk
+          if-no-files-found: error
+          retention-days: 14

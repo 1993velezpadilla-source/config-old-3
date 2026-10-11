@@ -65,6 +65,12 @@ if [[ "${XZIEL_NACHT_BENCHMARK:-0}" == "1" ]]; then
     echo "==> Enabling Nacht golden-reference stress controls"
     python3 "$ROOT/scripts/patch_quakec_nacht_benchmark.py" "$DEPS/quakec"
 fi
+# Opt-in ONLY: add Developer submenu to the original Xziel NZP pause menu.
+# All normal Android builds, maps, HUD, controls, title and package stay unchanged.
+if [[ "${XZIEL_DEV_MENU_ONLY:-0}" == "1" ]]; then
+    echo "==> Xziel NZP original + Developer submenu ONLY"
+    python3 "$ROOT/scripts/patch_xziel_devmenu_only.py" "$DEPS" 1
+fi
 chmod +x "$DEPS/quakec/bin/fteqcc-cli-lin" "$DEPS/quakec/tools/qc-compiler-gnu.sh"
 (
     cd "$DEPS/quakec"
