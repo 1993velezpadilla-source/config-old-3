@@ -109,8 +109,8 @@ jobs:
           txt=preset.read_text()
           old='package/unique_name="com.xziel.youwontwin"'
           assert txt.count(old)==1, "Refuse to change unknown export identity"
-          txt=txt.replace(old,'package/unique_name="com.xziel.blackpines.mp40hands"')
-          txt=txt.replace('package/name="YOU WON\'T WIN"','package/name="BLACK PINES MP40 HANDS"')
+          txt=txt.replace(old,'package/unique_name="com.xziel.blackpines.mp40left"')
+          txt=txt.replace('package/name="YOU WON\'T WIN"','package/name="BLACK PINES MP40 LEFT"')
           preset.write_text(txt)
           print("BLACK_PINES_TOUCH_FIX_SIDE_BY_SIDE_PACKAGE_READY")
           PY
