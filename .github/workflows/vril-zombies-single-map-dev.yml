@@ -8,6 +8,9 @@ on:
       - ".github/workflows/vril-zombies-single-map-dev.yml"
       - "scripts/patch_vril_one_map_devmenu.py"
       - "scripts/prepare_android.sh"
+      - "scripts/patch_vril_native_single_map.py"
+      - "scripts/skin_vril_touch_controls.py"
+      - "scripts/prune_nzp_single_map.py"
 
 permissions:
   contents: read
@@ -19,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Validate developer patch Python syntax
-        run: python3 -m py_compile scripts/patch_vril_one_map_devmenu.py
+        run: python3 -m py_compile scripts/patch_vril_one_map_devmenu.py scripts/patch_vril_native_single_map.py scripts/skin_vril_touch_controls.py
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -38,6 +41,15 @@ jobs:
           XZIEL_SINGLE_MAP: ndu
           XZIEL_DEV_BUILD: "1"
         run: bash scripts/prepare_android.sh
+      - name: Verify Android-native menu and touch skin, not unused QuakeC menu
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'ZOMBIES NATIVE DEV' build/deps/vril/source/menu/menu_main.c
+          grep -F 'num_stock_maps = 1;' build/deps/vril/source/menu/menu_helper.c
+          grep -F 'DEVELOPER TOOLS' build/deps/vril/source/menu/menu_pause.c
+          grep -F 'WEAPON LAB' build/deps/vril/source/menu/menu_pause.c
+          unzip -p build/android-project/app/src/main/assets/nzp-data.zip nzp/gfx/xziel/skin_native_dev.txt | grep -F 'XZIEL_NATIVE_TOUCH_YELLOW_SMOKE_V1'
       - name: Verify the APK contains one loose playable map
         shell: bash
         run: |
@@ -51,6 +63,14 @@ jobs:
       - name: Compile Android native APK
         working-directory: build/android-project
         run: ./gradlew --no-daemon assembleDebug --stacktrace
+      - name: Verify menu text exists inside compiled native Android ELF
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=build/android-project/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          unzip -p "$APK" lib/arm64-v8a/libmain.so | strings | grep -F 'ZOMBIES NATIVE DEV'
+          unzip -p "$APK" lib/arm64-v8a/libmain.so | strings | grep -F 'DEVELOPER TOOLS'
       - name: Name the artifact
         shell: bash
         run: |
