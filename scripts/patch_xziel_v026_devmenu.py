@@ -276,8 +276,8 @@ s = once(s, "void Menu_Pause_Draw (void)\n{",
         return;
     }''', "native submenu draw")
 s = once(s,
-    'Menu_DrawButton (5, 4, "EXIT TO MENU", "Return to Main Menu without saving.", Menu_Pause_EnterSubMenu);',
-    'Menu_DrawButton (5, 4, "EXIT TO MENU", "Return to Main Menu without saving.", Menu_Pause_EnterSubMenu);\n'
+    'Menu_DrawButton (5, 4, "EXIT TO MENU",\n\t\t\t"Return to Main Menu without saving.", Menu_Pause_EnterSubMenu);',
+    'Menu_DrawButton (5, 4, "EXIT TO MENU",\n\t\t\t"Return to Main Menu without saving.", Menu_Pause_EnterSubMenu);\n'
     '        if (sv.active && svs.maxclients == 1)\n'
     '            Menu_DrawButton(6, 5, "DEVELOPER", "Solo testing tools.", XzielDev_Open);',
     "Android-specific pause button")
