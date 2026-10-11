@@ -16,6 +16,11 @@ python3 tools/bo1_pc_engine/fastfile/stage_db_file_functions.py --upstream "$SRC
 cp "$STAGE/manifest.json" "$REPORT/bo1-original-file-manifest.json"
 python3 tools/bo1_pc_engine/ff_payload/stage_original_auth.py --upstream "$SRC" --staged "$STAGE"
 cp "$STAGE/auth-extraction.json" "$REPORT/bo1-original-zlib-manifest.json"
+python3 tools/bo1_pc_engine/xblocks/stage_real_alloc.py --upstream "$SRC" --staged "$STAGE"
+cp "$STAGE/alloc-manifest.json" "$REPORT/bo1-original-alloc-manifest.json"
+g++ -std=c++20 -O2 -I tools/bo1_pc_engine/xblocks   "$STAGE/original_bo1_db_alloc.cpp" tools/bo1_pc_engine/xblocks/bo1_alloc_posix.cpp   tools/bo1_pc_engine/xblocks/bo1_alloc_host_test.cpp   -o "$STAGE/bo1_original_alloc_test"
+"$STAGE/bo1_original_alloc_test" | tee "$REPORT/bo1-original-memory-test.txt"
+grep -q 'ORIGINAL_BO1_DB_ALLOCXBLOCKS_SEVEN_BLOCKS_HOST=PASS' "$REPORT/bo1-original-memory-test.txt"
 SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
 "$SDKMANAGER" 'ndk;27.2.12479018'
 NDK="$ANDROID_HOME/ndk/27.2.12479018"
@@ -38,14 +43,16 @@ OPT="-std=c++20 -O2 -DNDEBUG -fPIC -fvisibility=hidden -ffunction-sections -fdat
 "$C" $OPT -I"$F" -I"$P" -c "$F/bo1_ff_compat.cpp" -o "$STAGE/ff_posix.o"
 "$C" $OPT -I"$F" -I"$P" -c "$P/bo1_ff_header_probe.cpp" -o "$STAGE/ff_header.o"
 "$C" $OPT -I"$F" -I"$P" -c "$P/bo1_ff_stream_probe.cpp" -o "$STAGE/ff_stream.o"
-"$C" $OPT -I"$F" -I"$P" -c "$J/bo1_android_jni.cpp" -o "$STAGE/android_jni.o"
+"$C" $OPT -I"$F" -I"$P" -I tools/bo1_pc_engine/xblocks   -c "$J/bo1_android_jni.cpp" -o "$STAGE/android_jni.o"
+"$C" $OPT -I tools/bo1_pc_engine/xblocks -c "$STAGE/original_bo1_db_alloc.cpp" -o "$STAGE/bo1_original_alloc.o"
+"$C" $OPT -I tools/bo1_pc_engine/xblocks -c tools/bo1_pc_engine/xblocks/bo1_alloc_posix.cpp -o "$STAGE/bo1_posix_memory.o"
 LIB="$STAGE/libbo1_real_original_core_arm64.so"
-"$C" -shared -pthread -Wl,--gc-sections -Wl,--no-undefined "$STAGE/orientation.o" "$STAGE/unpack.o" "$STAGE/lzo.o" "$STAGE/angle_bridge.o" "$STAGE/material_bridge.o" "$STAGE/lzo_bridge.o" "$STAGE/ff_file.o" "$STAGE/ff_zlib.o" "$STAGE/ff_posix.o" "$STAGE/ff_header.o" "$STAGE/ff_stream.o" "$STAGE/android_jni.o" -lz -o "$LIB"
+"$C" -shared -pthread -Wl,--gc-sections -Wl,--no-undefined "$STAGE/orientation.o" "$STAGE/unpack.o" "$STAGE/lzo.o" "$STAGE/angle_bridge.o" "$STAGE/material_bridge.o" "$STAGE/lzo_bridge.o" "$STAGE/ff_file.o" "$STAGE/ff_zlib.o" "$STAGE/ff_posix.o" "$STAGE/ff_header.o" "$STAGE/ff_stream.o" "$STAGE/android_jni.o"  "$STAGE/bo1_original_alloc.o" "$STAGE/bo1_posix_memory.o" -lz -o "$LIB"
 file "$LIB" | tee "$REPORT/arm64-abi.txt"
 grep -q 'ELF 64-bit' "$REPORT/arm64-abi.txt"
 grep -Eqi 'ARM aarch64|ARM64' "$REPORT/arm64-abi.txt"
 "$N/llvm-nm" -D "$LIB" > "$REPORT/original-module-symbols.txt"
-for symbol in Java_com_bubblegum_bo1native_MainActivity_nativeSelfTest Java_com_bubblegum_bo1native_MainActivity_nativeProbeFile bo1_original_angle_vectors bo1_original_unpack_rgba bo1_original_zone_exists bo1_original_ff_payload_prefix_probe; do
+for symbol in Java_com_bubblegum_bo1native_MainActivity_nativeSelfTest Java_com_bubblegum_bo1native_MainActivity_nativeProbeFile bo1_original_angle_vectors bo1_original_unpack_rgba bo1_original_zone_exists bo1_original_ff_payload_prefix_probe bo1_original_xblock_allocation_smoke; do
  grep -q "$symbol" "$REPORT/original-module-symbols.txt"
 done
 cp -a tools/bo1_pc_engine/android_app/. "$APP/"
@@ -96,7 +103,7 @@ on actual user Pixel Fold. Device boot/JNI run needs on-device verification.
 $(cat "$REPORT/apk-sha256.txt")
 
 FULL ENGINE: NOT PORTED. KINO: NOT RUNNING.
-Main blockers: secure .ff, XAsset loader, x86 pointer layouts, DirectX9
+Main blockers: secure .ff, XAsset stream relocation, x86 pointer layouts, DirectX9
 renderer, input/audio, gameplay loop.
 EOF
 cat "$REPORT/README.md" >> "$GITHUB_STEP_SUMMARY"
