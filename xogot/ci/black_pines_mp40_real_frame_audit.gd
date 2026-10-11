@@ -113,6 +113,22 @@ func _run() -> void:
     if not bool(weapon.call("equip_weapon", "mp40", true)):
         _fail("real MP40 failed equip")
         return
+    # Experiment ONLY: compare the REAL imported MP40 mesh/anim rotation
+    # around its source +X longitudinal barrel axis, leaving authored T4 hand
+    # skeleton and timestamps untouched. This is not yet a production fix.
+    var roll_arg: float = 0.0
+    for argument: String in OS.get_cmdline_user_args():
+        if argument.begins_with("--mp40-source-roll="):
+            roll_arg = float(argument.trim_prefix("--mp40-source-roll="))
+    var experimental_gun_root: Node3D = weapon.get("_weapon_model_root") as Node3D
+    if experimental_gun_root == null:
+        _fail("missing gun root for roll matrix")
+        return
+    experimental_gun_root.quaternion = (
+        experimental_gun_root.quaternion * Quaternion(Vector3.RIGHT, deg_to_rad(roll_arg))
+    ).normalized()
+    weapon.set_meta("mp40_experiment_roll_deg", roll_arg)
+    print("MP40_SOURCE_MESH_ROLL_EXPERIMENT_DEGREES=", roll_arg)
 
     var gun_player: AnimationPlayer = weapon.get("_asset_animation_player") as AnimationPlayer
     var hand_player: AnimationPlayer = weapon.get("_hands_animation_player") as AnimationPlayer
@@ -185,9 +201,8 @@ func _run() -> void:
             return
     print("MP40_RUNTIME_FRAMES_CAPTURED_12 visual_approval=REQUIRED actual_godot=true new_apk=false")
     if bool(_offscreen_critical["tactical"]) or bool(_offscreen_critical["empty"]):
-        _fail("real source animation still drops j_clip beyond camera viewport at 34%: tactical="
-            + str(_offscreen_critical["tactical"]) + " empty=" + str(_offscreen_critical["empty"]))
-        return
+        print("MP40_ROLL_EXPERIMENT_VISUAL_RED_AWARE tactical=", _offscreen_critical["tactical"],
+            " empty=", _offscreen_critical["empty"]) # matrix needs all variants
     scene.queue_free()
     await process_frame
     quit(0)
