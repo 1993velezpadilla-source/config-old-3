@@ -1,0 +1,101 @@
+name: Xziel NZP v0.26 - Functional Developer APK
+
+on:
+  push:
+    branches: [feature/xziel-v026-working-developer-20261011]
+    paths: ["scripts/patch_xziel_v026_devmenu.py", "scripts/prepare_android.sh", ".github/workflows/xziel-v026-developer.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-v026-dev:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      XZIEL_DEV_MENU_ONLY: "1"
+    steps:
+      - uses: actions/checkout@v5
+      - name: Validate opt-in gameplay implementation
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/patch_xziel_v026_devmenu.py
+          grep -F 'aaa474061bff5d0e3aa471ac01f5f0e01b4fca31' scripts/prepare_android.sh
+          grep -F 'XZIEL_DEV_MENU_ONLY' scripts/prepare_android.sh
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Android toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018"
+      - name: Prepare pinned original v0.26 plus one menu
+        run: bash scripts/prepare_android.sh
+      - name: Verify native menu plus server bindings and original assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'applicationId "com.xziel.nzp"' build/android-project/app/build.gradle
+          grep -F '<string name="app_name">Xziel: NZP Native</string>' build/android-project/app/src/main/res/values/strings.xml
+          grep -F 'Menu_DrawButton(6, 5, "DEVELOPER"' build/deps/vril/source/menu/menu_pause.c
+          grep -F 'XZIEL WEAPON LAB' build/deps/vril/source/menu/menu_pause.c
+          grep -F 'Menu_Resume();' build/deps/vril/source/menu/menu_pause.c
+          grep -F 'cmd xzdev %d' build/deps/vril/source/menu/menu_pause.c
+          grep -F 'Command_XzielDev' build/deps/quakec/source/server/utilities/command_parser.qc
+          grep -F 'self.xziel_dev_infinite_reserve' build/deps/quakec/source/server/utilities/command_parser.qc
+          grep -F 'centerprint(self, "DEV: +10000 POINTS")' build/deps/quakec/source/server/utilities/command_parser.qc
+          test -s build/deps/quakec/build/standard/progs.dat
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          pack=Path("build/android-project/app/src/main/assets/nzp-data.zip")
+          mapping=dict(fire="fire",aim="ads",aim_fire="adsfire",reload="reload",interact="use",
+                       grenade="grenade",vault_jump="jump",slide="slide",knife="knife",
+                       weapon_swap="switch",crouch="crouch",prone="prone")
+          with ZipFile(pack) as z:
+              for src,dest in mapping.items():
+                  original=Path(f"assets/xziel/official_touch_skins_v1/{src}.png").read_bytes()
+                  bundled=z.read(f"nzp/gfx/xziel/{dest}.png")
+                  assert original==bundled, f"APPROVED TOUCH BUTTON MODIFIED: {src}"
+              compiled=z.read("nzp/progs.dat")
+              assert len(compiled)>50000, f"Invalid server bytecode: {len(compiled)}"
+              maps=[n for n in z.namelist() if n.startswith("nzp/maps/") and n.endswith(".bsp")]
+              assert len(maps)>=1, "Lost original maps"
+              print(f"PASS: all 12 official PNGs byte-for-byte original; {len(maps)} maps; QC compiled.")
+          native=Path("build/deps/vril/source/menu/menu_pause.c").read_text()
+          assert native.index('Menu_Resume();\n    Cbuf_AddText(va("cmd xzdev')>0, "Dev command must resume before dispatch"
+          qc=Path("build/deps/quakec/source/server/utilities/command_parser.qc").read_text()
+          assert 'server_commands[]' in qc and '{"xzdev", Command_XzielDev, true,' in qc
+          print("PASS: Developer actions wired from clickable native menu to registered QuakeC server command.")
+          PY
+      - name: Build native Android APK
+        working-directory: build/android-project
+        run: ./gradlew --no-daemon assembleDebug --stacktrace
+      - name: Check ARM64 native menu and name recovered APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=build/android-project/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          unzip -p "$APK" lib/arm64-v8a/libmain.so > /tmp/xziel-v026-dev.so
+          strings /tmp/xziel-v026-dev.so > /tmp/xziel-v026-dev.strings
+          grep -F 'XZIEL DEVELOPER' /tmp/xziel-v026-dev.strings
+          grep -F 'XZIEL WEAPON LAB' /tmp/xziel-v026-dev.strings
+          if grep -F 'ZOMBIES NATIVE DEV' /tmp/xziel-v026-dev.strings; then
+            echo "ERROR: the experimental title got in"; exit 1
+          fi
+          mkdir -p dist
+          cp "$APK" dist/Xziel-NZP-v0.26-Official-Buttons-Developer-ONLY.apk
+          sha256sum dist/*.apk > dist/Xziel-v026-Developer-SHA256.txt
+      - name: Upload v0.26 Developer APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xziel-v026-Official-Buttons-Developer-ONLY
+          path: dist/*
+          retention-days: 14
+          if-no-files-found: error
