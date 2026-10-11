@@ -10,6 +10,7 @@ APP="$PROJECT/app"
 # Optional new Vril prototype. Unset flags preserve the standard NZ:P build.
 XZIEL_SINGLE_MAP="$(printenv XZIEL_SINGLE_MAP || true)"
 XZIEL_DEV_BUILD="$(printenv XZIEL_DEV_BUILD || echo 0)"
+XZIEL_DEV_TOOLS="${XZIEL_DEV_TOOLS:-$XZIEL_DEV_BUILD}"
 if [[ -n "$XZIEL_SINGLE_MAP" && ! "$XZIEL_SINGLE_MAP" =~ ^[A-Za-z0-9_-]+$ ]]; then
     echo "Invalid XZIEL_SINGLE_MAP" >&2; exit 1
 fi
@@ -80,17 +81,13 @@ python3 "$ROOT/scripts/patch_quakec_modern_movement.py" "$DEPS/quakec"
 python3 "$ROOT/scripts/patch_quakec_mobile_v021.py" "$DEPS/quakec"
 python3 "$ROOT/scripts/patch_quakec_mobile_v022.py" "$DEPS/quakec"
 python3 "$ROOT/scripts/patch_quakec_mobile_v024.py" "$DEPS/quakec"
-if [[ -n "${XZIEL_SINGLE_MAP:-}" ]]; then
-    echo "==> Installing single-map Vril menu / developer profile"
-    python3 "$ROOT/scripts/patch_vril_one_map_devmenu.py" "$DEPS/quakec" "$XZIEL_SINGLE_MAP" "${XZIEL_DEV_TOOLS:-0}"
-fi
 if [[ "${XZIEL_NACHT_BENCHMARK:-0}" == "1" ]]; then
     echo "==> Enabling Nacht golden-reference stress controls"
     python3 "$ROOT/scripts/patch_quakec_nacht_benchmark.py" "$DEPS/quakec"
 fi
 if [[ -n "$XZIEL_SINGLE_MAP" ]]; then
-    echo "==> Installing one-map menu overlay (developer=$XZIEL_DEV_BUILD)"
-    python3 "$ROOT/scripts/patch_vril_one_map_devmenu.py" "$DEPS/quakec" "$XZIEL_SINGLE_MAP" "$XZIEL_DEV_BUILD"
+    echo "==> Installing one-map menu overlay (developer=$XZIEL_DEV_TOOLS)"
+    python3 "$ROOT/scripts/patch_vril_one_map_devmenu.py" "$DEPS/quakec" "$XZIEL_SINGLE_MAP" "$XZIEL_DEV_TOOLS"
 fi
 chmod +x "$DEPS/quakec/bin/fteqcc-cli-lin" "$DEPS/quakec/tools/qc-compiler-gnu.sh"
 (
@@ -214,28 +211,8 @@ if [[ -n "${XZIEL_EXTRA_ASSET_DIR:-}" ]]; then
     echo "==> Bundled development asset overlay: $XZIEL_EXTRA_ASSET_DIR"
 fi
 
-# Remove only extra loose BSP/NSZ maps. Keep models, hands, animation frames,
-# weapon sounds, perks, zombie logic, materials and attribution intact.
-if [[ -n "$XZIEL_SINGLE_MAP" ]]; then
-    python3 - "$ASSET_WORK/nzp/maps" "$XZIEL_SINGLE_MAP" <<'PY_SINGLE_MAP'
-from pathlib import Path
-import sys
-maps = Path(sys.argv[1])
-keep = sys.argv[2]
-if not (maps / (keep + ".bsp")).is_file():
-    raise SystemExit("Single-map build missing BSP: " + keep)
-removed = []
-for child in maps.rglob("*"):
-    if child.is_file() and child.suffix.lower() in (".bsp", ".nsz") and child.stem != keep:
-        removed.append(str(child.relative_to(maps)))
-        child.unlink()
-remaining = list(maps.rglob("*.bsp"))
-if len(remaining) != 1 or remaining[0].stem != keep:
-    raise SystemExit("Single-map packaging invariant failed: " + str(remaining))
-print("==> Playable BSP:", keep, "| other BSP/NSZ removed:", len(removed))
-PY_SINGLE_MAP
-fi
-
+# Guarded single-map extraction: retains shared weapon models/audio and
+# performs a fatal check if the selected BSP or protected MP40 assets are missing.
 if [[ -n "${XZIEL_SINGLE_MAP:-}" ]]; then
     echo "==> Packaging exactly one map while preserving every shared weapon model"
     python3 "$ROOT/scripts/prune_nzp_single_map.py" "$ASSET_WORK/nzp" "$XZIEL_SINGLE_MAP"
