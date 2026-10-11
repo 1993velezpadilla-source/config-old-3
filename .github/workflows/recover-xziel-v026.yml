@@ -21,6 +21,8 @@ jobs:
           set -euo pipefail
           test -f scripts/patch_vril_official_touch_skins_v026.py
           python3 -m py_compile scripts/patch_vril_official_touch_skins_v026.py
+          grep -F 'aaa474061bff5d0e3aa471ac01f5f0e01b4fca31' scripts/prepare_android.sh
+          grep -F '8a77f1ce45f1a2b9aa0afb301446954fda40e696' scripts/prepare_android.sh
           for name in fire aim aim_fire crouch prone slide knife grenade reload interact weapon_swap vault_jump; do
             test -s "assets/xziel/official_touch_skins_v1/${name}.png"
           done
