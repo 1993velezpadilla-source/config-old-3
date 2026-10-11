@@ -10,6 +10,7 @@ on:
       - "scripts/test_vril_single_map_profile.py"
       - "scripts/prepare_android.sh"
       - "scripts/patch_vril_sanctum_staticmesh.py"
+      - "scripts/patch_vril_native_single_map.py"
       - ".github/workflows/vril-single-map-dev-apk.yml"
   workflow_dispatch:
 
@@ -36,7 +37,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile scripts/patch_vril_one_map_devmenu.py scripts/prune_nzp_single_map.py
+          python3 -m py_compile scripts/patch_vril_one_map_devmenu.py scripts/prune_nzp_single_map.py scripts/patch_vril_native_single_map.py
           python3 scripts/test_vril_single_map_profile.py
 
       - name: Set up Java
@@ -57,6 +58,17 @@ jobs:
       - name: Build original Vril engine and single-map game data
         shell: bash
         run: bash scripts/prepare_android.sh
+
+      - name: Assert Android renderer uses the NEW native C menus
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'ZOMBIES NATIVE DEV' build/deps/vril/source/menu/menu_main.c
+          grep -F 'num_stock_maps = 1;' build/deps/vril/source/menu/menu_helper.c
+          grep -F 'DEVELOPER TOOLS' build/deps/vril/source/menu/menu_pause.c
+          grep -F 'WEAPON LAB' build/deps/vril/source/menu/menu_pause.c
+          grep -F 'cmd xzdev' build/deps/vril/source/menu/menu_pause.c
+          test -s build/deps/quakec/build/standard/progs.dat
 
       - name: Prove exactly one bundled map and preserve MP40 assets
         shell: bash
@@ -79,6 +91,18 @@ jobs:
         working-directory: build/android-project
         shell: bash
         run: ./gradlew --no-daemon assembleDebug --stacktrace
+
+      - name: Verify native menu markers in compiled Android binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find build/android-project/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          test -s "$APK"
+          mkdir -p build/native-marker-test
+          unzip -p "$APK" lib/arm64-v8a/libmain.so > build/native-marker-test/libmain.so
+          strings build/native-marker-test/libmain.so | grep -F 'ZOMBIES NATIVE DEV'
+          strings build/native-marker-test/libmain.so | grep -F 'DEVELOPER TOOLS'
+          strings build/native-marker-test/libmain.so | grep -F 'WEAPON LAB'
 
       - name: Upload installable developer APK
         uses: actions/upload-artifact@v4
