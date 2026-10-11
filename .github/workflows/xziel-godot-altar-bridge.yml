@@ -1,0 +1,103 @@
+name: Xziel Godot 4.6 Altar to XZSM V3 Proof
+
+on:
+  push:
+    branches: [feature/xziel-v026-godot-altar-bridge-v1-20261011]
+    paths:
+      - 'tools/altar_bridge/**'
+      - '.github/workflows/xziel-godot-altar-bridge.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  godot-altar-export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install pinned Godot 4.6.1 headless runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 4 --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+          /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 --version
+      - name: Export the actual preserved Godot church altar
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out-godot-altar
+          /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path tools/altar_bridge/godot \
+            --script res://export_altar.gd -- \
+            --output "$GITHUB_WORKSPACE/out-godot-altar/altar_from_godot.glb" \
+            2>&1 | tee out-godot-altar/godot-export.log
+          test -s out-godot-altar/altar_from_godot.glb
+          grep -F 'XZIEL_GODOT_ALTAR_EXPORT_GREEN' out-godot-altar/godot-export.log
+      - name: Convert GLB to XZSM v3 with original materials
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'numpy>=1.26,<3' 'pillow>=10,<13' 'trimesh>=4,<5'
+          python3 tools/altar_bridge/glb_to_xzsm_v3.py \
+            --glb out-godot-altar/altar_from_godot.glb \
+            --out out-godot-altar/nzp \
+            --texture-max 2048
+          test -s out-godot-altar/nzp/models/xziel/godot_altar/altar.xzsm
+      - name: Verify 11 genuine Godot components and non-black vertex-light payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import struct
+          import json
+          path=Path("out-godot-altar/nzp/models/xziel/godot_altar/altar.xzsm")
+          report=json.loads(Path("out-godot-altar/nzp/godot_altar_bridge_report.json").read_text())
+          assert report["version"]==3
+          assert report["source_mesh_nodes"]>=11
+          assert report["triangles"]>100
+          assert not report["lightmap_uv2_exported"] and not report["pbr_shader_runtime"]
+          with path.open("rb") as f:
+              magic,ver,batches,vertices,indices=struct.unpack("<4sIIII",f.read(20))
+              assert (magic,ver)==(b"XZSM",3)
+              assert batches>0 and vertices>0 and indices>0 and indices%3==0
+              lit=set()
+              vcount=0
+              icount=0
+              for _ in range(batches):
+                  nvert,nindex,tex,*bounds=struct.unpack("<II96s6f",f.read(128))
+                  assert tex.startswith(b"textures/xziel/godot_altar/")
+                  assert 1<=nvert<=65535 and nindex%3==0
+                  for j in range(nvert):
+                      data=struct.unpack("<5f4B",f.read(24))
+                      assert all(abs(x)<1e7 for x in data[:5])
+                      lit.add(tuple(data[5:8]))
+                  assert len(f.read(nindex*2))==nindex*2
+                  vcount+=nvert
+                  icount+=nindex
+              assert f.read(1)==b"", "XZSM trailing bytes"
+              assert vcount==vertices and icount==indices
+              assert len(lit)>1, "static candle shading not encoded"
+          pngs=list(Path("out-godot-altar/nzp/textures/xziel/godot_altar").glob("*.png"))
+          assert pngs, "Godot material textures missing"
+          assert all(max(Image.open(p).size)<=2048 for p in pngs)
+          print("XZIEL_GODOT_TO_VRIL_XZSM_V3_PROOF_GREEN",json.dumps({
+            "meshes":report["source_mesh_nodes"],"triangles":report["triangles"],
+            "vertex_light_values":len(lit),"textures":len(pngs)
+          }))
+          PY
+      - name: Upload actual GLB, XZSM, material textures, validation log
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xziel-Godot-4.6-Altar-XZSM-V3-Proof
+          path: out-godot-altar/
+          if-no-files-found: error
+          retention-days: 14
