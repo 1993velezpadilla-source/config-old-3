@@ -68,9 +68,10 @@ jobs:
           grep -q 'ELF 64-bit' /tmp/native-abi.txt
           grep -q 'ARM aarch64' /tmp/native-abi.txt
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" > /tmp/native-badging.txt
-          grep -q "package: name='org.zombies.wawhd.nativeport'" /tmp/native-badging.txt
+          grep -q "package: name='org.zombies.wawhd.nativeport.v03'" /tmp/native-badging.txt
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
-          echo "ARM64_BOOTSTRAP_BUILD_GREEN=true" > /tmp/native-status.txt
+          echo "DISTINCT_APPLICATION_ID_V03_VERIFIED=true" > /tmp/native-status.txt
+          echo "ARM64_BOOTSTRAP_BUILD_GREEN=true" >> /tmp/native-status.txt
           echo "ORIGINAL_FPS_SIMULATION_TESTS_GREEN=true" >> /tmp/native-status.txt
           echo "PIXEL_FOLD_GAMEPLAY_GREEN=false" >> /tmp/native-status.txt
           echo "ORIGINAL_WAW_ZOMBIES_CONTENT_PORTED=false" >> /tmp/native-status.txt
