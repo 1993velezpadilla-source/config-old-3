@@ -1,14 +1,18 @@
-name: Black Pines Functional Original Zombies Android APK
+name: Black Pines Android Touch Fire Fix
 on:
   workflow_dispatch:
   push:
     branches:
-      - feature/black-pines-functional-original-zombies-apk-v1
+      - fix/black-pines-godot-touch-fire-hud-20261011
     paths:
       - "xogot/scripts/round_manager.gd"
       - "xogot/ci/black_pines_original_zombies_apk_gate.gd"
       - "xogot/scripts/zombie_dummy.gd"
       - "xogot/scripts/weapon.gd"
+      - "xogot/scripts/player.gd"
+      - "xogot/scripts/mobile_hud.gd"
+      - "xogot/scripts/black_pines_map.gd"
+      - "xogot/ci/black_pines_touch_fire_regression.gd"
       - ".github/workflows/black-pines-functional-original-zombies-apk.yml"
 
 permissions:
@@ -98,6 +102,14 @@ jobs:
           p.write_text(s.replace(key,'run/main_scene="res://black_pines.tscn"'))
           assert Path("xogot/main.tscn").is_file()  # original church remains untouched in git
           print("BLACK_PINES_APK_LOADS_ORIGINAL_SANATORIUM_SCENE")
+          preset=Path("xogot/export_presets.cfg")
+          txt=preset.read_text()
+          old='package/unique_name="com.xziel.youwontwin"'
+          assert txt.count(old)==1, "Refuse to change unknown export identity"
+          txt=txt.replace(old,'package/unique_name="com.xziel.blackpines.touchfix"')
+          txt=txt.replace('package/name="YOU WON\'T WIN"','package/name="BLACK PINES TOUCH FIX"')
+          preset.write_text(txt)
+          print("BLACK_PINES_TOUCH_FIX_SIDE_BY_SIDE_PACKAGE_READY")
           PY
 
       - name: Install Godot 4.6.1 and official free Android export templates
@@ -167,6 +179,17 @@ jobs:
           grep -q 'BLACK_PINES_PHASE1_GAMEPLAY_GREEN' /tmp/black-pines-gameplay.log
           ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_PHASE1_RED' /tmp/black-pines-gameplay.log
 
+      - name: Verify physical-touch fire, semi-auto cadence and visible machine labels
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120 /tmp/black-pines-godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/black_pines_touch_fire_regression.gd \
+            2>&1 | tee /tmp/black-pines-touch-fire-gate.log
+          grep -q 'BLACK_PINES_TOUCH_FIRE_GREEN' /tmp/black-pines-touch-fire-gate.log
+          grep -q 'BLACK_PINES_HUD_LABEL_GREEN' /tmp/black-pines-touch-fire-gate.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|BLACK_PINES_TOUCH_FIRE_RED' /tmp/black-pines-touch-fire-gate.log
+
       - name: Export installable Android ARM64 functional test APK
         shell: bash
         run: |
@@ -188,7 +211,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Black-Pines-Original-Zombies-Functional-Android-APK
+          name: Black-Pines-Godot-Touch-Fire-HUD-Fix-Android-APK
           path: |
             build/android/BLACK-PINES-ORIGINAL-ZOMBIES-test.apk
             build/android/BLACK-PINES-ORIGINAL-ZOMBIES-test.apk.sha256
@@ -196,5 +219,6 @@ jobs:
             /tmp/black-pines-source-gate.log
             /tmp/black-pines-gameplay.log
             /tmp/black-pines-import.log
+            /tmp/black-pines-touch-fire-gate.log
           if-no-files-found: warn
           retention-days: 7
