@@ -146,7 +146,7 @@ int striptris[MAXALIASTRIS];""",
         "strip scratch arrays")
     m = replace_once(
         m,
-        """\tint \t\tbestverts[1024];
+        """\tint\t\tbestverts[1024];
 \tint\t\tbesttris[1024];""",
         """\t/* Static scratch, not a 128 KiB stack allocation on Android. */
 \tstatic int bestverts[MAXALIASTRIS + 2];
