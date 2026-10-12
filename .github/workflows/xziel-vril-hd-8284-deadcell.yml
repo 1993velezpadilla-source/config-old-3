@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   build-prototype:
-    name: Dead Cell stress probe: 8284 animated alias triangles + Vril 16K engine
+    name: "Dead Cell stress probe - 8284 animated alias triangles + Vril 16K engine"
     runs-on: ubuntu-latest
     env:
       XZIEL_DEV_MENU_ONLY: '1'
