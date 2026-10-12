@@ -1,0 +1,62 @@
+name: XZIEL Vril HD 8284 — Publish Direct GitHub APK
+
+on:
+  push:
+    branches: [feature/xziel-vril-hd-alias-16k-20261011]
+    paths:
+      - '.github/workflows/xziel-vril-hd-8284-publish.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    name: GitHub direct APK download - engineering stress test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch verified 8,284-triangle Android ARM64 build
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 38191087429
+          name: XZIEL-DeadCell-VRIL-ENGINE-8284-ARM64
+          github-token: ${{ github.token }}
+          path: artifact
+
+      - name: Confirm original artifact and engine probe evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s artifact/XZIEL-v026-DeadCell-VRIL-ENGINE-8284-ARM64.apk
+          test -s artifact/alias-8284-report.json
+          test -s artifact/APK-SHA256.txt
+          sha256sum artifact/XZIEL-v026-DeadCell-VRIL-ENGINE-8284-ARM64.apk
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          j=json.loads(Path('artifact/alias-8284-report.json').read_text())
+          assert j['type']=='SYNTHETIC_ENGINE_GEOMETRY_BENCHMARK_NOT_HOTSTRIKE'
+          assert j['new_triangles']==8284 and j['frames']==211
+          print('ENGINE_8284_GITHUB_RELEASE_PROVENANCE_GREEN')
+          PY
+
+      - name: Publish pre-release test APK for direct GitHub download
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=xziel-vril-hd-8284-engine-test-20261011
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Pre-release exists; refusing overwrite of a test binary"
+            exit 1
+          fi
+          gh release create "$TAG" \
+            "artifact/XZIEL-v026-DeadCell-VRIL-ENGINE-8284-ARM64.apk" \
+            "artifact/alias-8284-report.json" \
+            "artifact/APK-SHA256.txt" \
+            --title "XZIEL Vril HD 16K - 8284 Animated Geometry Stress APK" \
+            --notes "ENGINE-ONLY EXPERIMENTAL GATE. Vril SDL Android alias bounds raised 2048 to 16384 vertices/triangles. APK includes a SYNTHETIC 8284-triangle stock zombie mesh derived from the NZ:P model, 211 stock animation frames, Dead Cell only, dev menu and all stock weapons. This is NOT the original Hotstrike SZombie geometry. Android native compilation and archive verification GREEN; actual Android runtime, FPS, headshots and source HD model fidelity NOT VERIFIED. This pre-release is not production-ready." \
+            --target "${GITHUB_SHA}" \
+            --prerelease

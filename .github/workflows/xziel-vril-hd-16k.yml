@@ -1,0 +1,98 @@
+name: XZIEL Vril Engine HD Alias 16K — Native Android Gate
+
+on:
+  push:
+    branches: [feature/xziel-vril-hd-alias-16k-20261011]
+    paths:
+      - 'scripts/patch_vril_hd_alias_limits.py'
+      - 'scripts/prepare_android.sh'
+      - '.github/workflows/xziel-vril-hd-16k.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-engine:
+    name: Android ARM64 Vril 16K geometry safety + native compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android native SDK/NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018"
+
+      - name: Prepare pinned v0.26 Android engine with 16K alias patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/prepare_android.sh 2>&1 | tee /tmp/xziel-hd-engine-prepare.log
+          grep -F 'XZIEL_ALIAS_HD_16K_PATCHED' /tmp/xziel-hd-engine-prepare.log
+
+      - name: Audit geometry budget and dangerous fixed buffers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('build/deps/vril/source/platform/sdl/gl')
+          head=(root/'gl_model.h').read_text()
+          mdl=(root/'gl_model.c').read_text()
+          mesh=(root/'gl_mesh.c').read_text()
+          batch=Path('build/deps/vril/source/render/r_mdl.c').read_text()
+          assert '#define\tMAXALIASVERTS\t16384' in head
+          assert '#define\tMAXALIASTRIS\t16384' in head
+          assert 'XZIEL_ALIAS_HD_16K' in mesh
+          assert 'qboolean used[MAXALIASTRIS];' in mesh
+          assert 'int stripverts[MAXALIASTRIS + 2];' in mesh
+          assert 'static int bestverts[MAXALIASTRIS + 2];' in mesh
+          assert 'int vertexorder[XZIEL_ALIAS_HD_MAX_ORDER];' in mesh
+          assert 'int commands[XZIEL_ALIAS_HD_MAX_COMMANDS];' in mesh
+          assert 'numcommands + 1 + 2 * (bestlen + 2) + 1' in mesh
+          assert 'numorder + (bestlen + 2)' in mesh
+          assert 'model %s exceeds %d triangles' in mdl
+          assert 'numframes > MAXALIASFRAMES - posenum' in mdl
+          assert 'static unsigned short *r_alias_indices;' in batch
+          # Worst-case primitive expansion: three reordered verts per tri.
+          assert 3*16384 < 65536
+          assert 7*16384+1 == 114689
+          print('XZIEL_NATIVE_ENGINE_ALIAS_CAPS_16K_GUARDS_GREEN')
+          PY
+
+      - name: Build native Vril + Android application (compiler gate)
+        shell: bash
+        working-directory: build/android-project
+        run: ./gradlew --no-daemon assembleDebug --stacktrace
+
+      - name: Validate engine symbols in compiled ARM64 library
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=build/android-project/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          unzip -p "$APK" lib/arm64-v8a/libmain.so > /tmp/xziel-vril16k-libmain.so
+          strings /tmp/xziel-vril16k-libmain.so | grep -F 'XZIEL HD alias'
+          printf 'Vril Android 16K engine native compile: GREEN\n' > vril-engine-16k-report.txt
+          printf 'Expected: 16384 vertices; 16384 triangles; 49152 reorder vertices; 114689 GL command words.\n' >> vril-engine-16k-report.txt
+          printf 'GPU performance, Android device playtest and 8284-face model import NOT TESTED.\n' >> vril-engine-16k-report.txt
+
+      - name: Upload compiler-gate proof (not a game asset release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Vril-Engine-16K-ARM64-Compile-Proof
+          path: vril-engine-16k-report.txt
+          retention-days: 14
+          if-no-files-found: error

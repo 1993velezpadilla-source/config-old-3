@@ -70,6 +70,10 @@ python3 "$ROOT/scripts/patch_vril_multiplayer_online.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_sanctum_staticmesh.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_official_touch_skins_v026.py" "$DEPS/vril"
 
+# Engine-only: expand the pinned Vril SDL alias geometry buffers safely.
+# No changes to zombie geometry, AI, maps, animations or other platforms.
+python3 "$ROOT/scripts/patch_vril_hd_alias_limits.py" "$DEPS/vril"
+
 echo "==> Patching and compiling Xziel mobile QuakeC"
 python3 -m pip install --quiet colorama==0.4.6 fastcrc==0.3.0 pandas==2.1.4 cairosvg==2.8.2
 python3 "$ROOT/scripts/patch_quakec_mobile.py" "$DEPS/quakec"
