@@ -93,5 +93,36 @@ class ZombieSourceRegressionTest(unittest.TestCase):
                        d/"texture.png", apk)
 
 
+    def test_installer_overwrites_actual_live_zfull_and_all_skin_slots(self):
+        from tools.zombie_hd.install_real_zombie_assets import install
+        with tempfile.TemporaryDirectory() as root:
+            d = Path(root)
+            stock = mdl(1000, 484, 211)
+            new = mdl(4200, 8286, 211)
+            (d/"old.mdl").write_bytes(stock)
+            (d/"new.mdl").write_bytes(new)
+            (d/"albedo.png").write_bytes(png())
+            with ZipFile(d/"SZombie.zip", "w") as z:
+                z.writestr("source.fbx", b"authored fake fixture only")
+                z.writestr("material.png", png())
+            data=d/"nzp-data.zip"
+            with ZipFile(data, "w") as z:
+                z.writestr("nzp/models/ai/zfull.mdl", stock)
+                z.writestr("nzp/maps/xziel_proto.bsp", b"DEAD_CELL")
+                z.writestr("nzp/models/ai/xziel_zombie_hd_0.png", b"stale")
+            report=install(d/"SZombie.zip", d/"old.mdl", d/"new.mdl", d/"albedo.png", data)
+            self.assertEqual(report["status"], "REAL_MODEL_STAGED_NOT_DEVICE_VERIFIED")
+            with ZipFile(data) as z:
+                self.assertEqual(z.read("nzp/models/ai/zfull.mdl"), new)
+                self.assertEqual(z.read("nzp/maps/xziel_proto.bsp"), b"DEAD_CELL")
+                for i in range(4):
+                    p=f"nzp/models/ai/xziel_zombie_hd_{i}.png"
+                    self.assertEqual(z.namelist().count(p), 1)
+                    self.assertEqual(z.read(p), png())
+            self.assertEqual((d/"nzp-data.version").read_text().strip(),
+                             hashlib.sha256(data.read_bytes()).hexdigest())
+
+
+
 if __name__ == "__main__":
     unittest.main()
