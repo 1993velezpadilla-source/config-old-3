@@ -1,0 +1,45 @@
+name: XZIEL Hotstrike Source Acquisition Probe
+
+on:
+  push:
+    branches:
+      - fix/xziel-real-zombie-provenance-gate-20261013
+    paths:
+      - 'tools/zombie_hd/fetch_authored_szombie.py'
+      - '.github/workflows/xziel-hotstrike-source-acquisition.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fetch-free-author-source:
+    name: Fetch free original author source in transient runner (never publish ZIP)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install isolated browser
+        run: |
+          python -m pip install --quiet playwright==1.55.0
+          python -m playwright install --with-deps chromium
+      - name: Attempt $0 Itch author download, verify original meshes and textures
+        run: |
+          python tools/zombie_hd/fetch_authored_szombie.py \
+            --save-to /tmp/SZombie.zip \
+            --manifest build/hotstrike-author-manifest.json
+          test -s /tmp/SZombie.zip
+          test -s build/hotstrike-author-manifest.json
+          # DO NOT upload source ZIP to GitHub artifacts/releases.
+          rm -f /tmp/SZombie.zip
+      - name: Upload metadata ONLY, never actual licensed ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: hotstrike-author-source-metadata-only
+          path: build/hotstrike-author-manifest.json
+          if-no-files-found: error
+          retention-days: 7
