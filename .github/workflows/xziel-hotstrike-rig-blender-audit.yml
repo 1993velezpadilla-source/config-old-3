@@ -1,0 +1,65 @@
+name: XZIEL Genuine Hotstrike Blender Rig Audit
+
+on:
+  push:
+    branches:
+      - fix/xziel-real-zombie-provenance-gate-20261013
+    paths:
+      - 'tools/zombie_hd/inspect_author_rig_blender.py'
+      - '.github/workflows/xziel-hotstrike-rig-blender-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    name: Inspect ORIGINAL rigged Hotstrike FBX, geometry and UVs
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Blender and free-source HTTP helper
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender python3-numpy
+          npm install --no-save --no-audit --no-fund itchio-downloader
+          blender --version | head -2
+      - name: Fetch real, free licensed FBX+PBR pack only into ephemeral runner
+        run: |
+          node tools/zombie_hd/download_source_http.cjs
+          test -s /tmp/SZombie.zip
+          mkdir -p /tmp/hotstrike-source
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          source=Path('/tmp/hotstrike-source').resolve()
+          with ZipFile('/tmp/SZombie.zip') as z:
+              for member in z.infolist():
+                  target=(source/member.filename).resolve()
+                  if not target.is_relative_to(source):
+                      raise ValueError('Unsafe source ZIP path traversal')
+              z.extractall(source)
+          assert (source/'SZombie_Variant_1/SK_SZombie_Variant_1.fbx').is_file()
+          PY
+      - name: Inspect actual armature, mesh and UVs using Blender (not stock zombies)
+        run: |
+          blender --background --factory-startup --python tools/zombie_hd/inspect_author_rig_blender.py -- \
+            --fbx /tmp/hotstrike-source/SZombie_Variant_1/SK_SZombie_Variant_1.fbx \
+            --output build/hotstrike-original-blender-rig-report.json
+          test -s build/hotstrike-original-blender-rig-report.json
+          cat build/hotstrike-original-blender-rig-report.json
+      - name: Delete all source assets before report upload
+        if: always()
+        run: |
+          rm -rf /tmp/SZombie.zip /tmp/hotstrike-source
+      - name: Upload authored rig AUDIT ONLY (no raw FBX/Blend/PBR)
+        uses: actions/upload-artifact@v4
+        with:
+          name: xziel-authentic-hotstrike-rig-audit-json
+          path: build/hotstrike-original-blender-rig-report.json
+          if-no-files-found: error
+          retention-days: 7

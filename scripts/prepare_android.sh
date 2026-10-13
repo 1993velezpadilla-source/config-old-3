@@ -74,6 +74,14 @@ python3 "$ROOT/scripts/patch_vril_official_touch_skins_v026.py" "$DEPS/vril"
 # No changes to zombie geometry, AI, maps, animations or other platforms.
 python3 "$ROOT/scripts/patch_vril_hd_alias_limits.py" "$DEPS/vril"
 
+# Explicit opt-in: wire external authored zombie diffuse PNGs into the native
+# zombie renderer. Merely copying a texture to the APK without a GL binding
+# is not a working character import. Default engine stress builds remain
+# unchanged until the genuine Hotstrike FBX has been converted and validated.
+if [[ "${XZIEL_REAL_ZOMBIE_RENDERER:-0}" == "1" ]]; then
+    python3 "$ROOT/scripts/patch_vril_zombie_hd_png.py" "$DEPS/vril"
+fi
+
 echo "==> Patching and compiling Xziel mobile QuakeC"
 python3 -m pip install --quiet colorama==0.4.6 fastcrc==0.3.0 pandas==2.1.4 cairosvg==2.8.2
 python3 "$ROOT/scripts/patch_quakec_mobile.py" "$DEPS/quakec"
