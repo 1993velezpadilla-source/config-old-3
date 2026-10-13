@@ -1,0 +1,61 @@
+name: XZIEL Hotstrike Free Source HTTP Probe
+
+on:
+  push:
+    branches:
+      - fix/xziel-real-zombie-provenance-gate-20261013
+    paths:
+      - 'tools/zombie_hd/download_source_http.cjs'
+      - '.github/workflows/xziel-hotstrike-source-http.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  author-zip:
+    name: Public author ZIP transient HTTP probe (no source redistribution)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Resolve $0 itch download via public CSRF signed CDN endpoint
+        run: |
+          npm install --no-save --no-audit --no-fund itchio-downloader
+          node tools/zombie_hd/download_source_http.cjs
+      - name: Inspect actual author ZIP without publishing standalone files
+        run: |
+          python3 - <<'PY'
+          import hashlib,json
+          from zipfile import ZipFile
+          from pathlib import Path
+          archive=Path('/tmp/SZombie.zip')
+          assert archive.stat().st_size > 1_000_000
+          with ZipFile(archive) as z:
+              assert z.testzip() is None
+              names=z.namelist()
+              meshes=[x for x in names if x.lower().endswith(('.fbx','.blend'))]
+              textures=[x for x in names if x.lower().endswith(('.png','.tga','.jpg','.jpeg'))]
+              assert meshes and textures, 'Real author FBX/Blend or PBR assets missing'
+          p=Path('build/hotstrike-author-manifest.json')
+          p.parent.mkdir(parents=True,exist_ok=True)
+          p.write_text(json.dumps({'origin':'Hotstrike Studio itch.io free item',
+              'zip_sha256':hashlib.sha256(archive.read_bytes()).hexdigest(),
+              'meshes':meshes,'texture_count':len(textures),
+              'status':'REAL_AUTHOR_SOURCE_ACQUIRED_NOT_CONVERTED'},indent=2))
+          print(p.read_text())
+          PY
+          rm -f /tmp/SZombie.zip
+      - name: Publish metadata only (the raw source ZIP must stay private)
+        uses: actions/upload-artifact@v4
+        with:
+          name: xziel-hotstrike-author-origin-metadata-only
+          path: build/hotstrike-author-manifest.json
+          if-no-files-found: error
+          retention-days: 7
