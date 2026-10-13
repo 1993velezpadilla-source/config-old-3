@@ -4,6 +4,12 @@ extends Node3D
 const MAP: PackedScene = preload("res://black_pines.tscn")
 const LAB_ACTOR: Script = preload("res://scripts/zombie_lab_actor.gd")
 const PROFILES := {
+    "black_white_rig": {
+        "path": "res://assets/zombies/monja_elite/play_runtime/monja_black_white_cmu_rig.gltf",
+        "name": "black_white_authored_mocap",
+        "yaw": 270.0,
+        "waw": false
+    },
     "black_white_raw": {
         "path": "res://assets/zombies/monja_elite/source/monja_black_white.glb",
         "name": "black_white_raw",
@@ -24,6 +30,8 @@ const PROFILES := {
     }
 }
 @export var starting_profile: String = "black_white_raw"
+## In the delivered APK the player only sees the normal HUD, not a model editor.
+@export var phone_playtest: bool = false
 
 var _level: Node3D
 var _actor: CharacterBody3D
@@ -48,7 +56,8 @@ func _ready() -> void:
         push_error("ZOMBIE_LAB_RED existing player missing")
         return
     _add_lab_lighting()
-    _create_controls()
+    if not phone_playtest:
+        _create_controls()
     call_deferred("_begin")
 
 func _add_lab_lighting() -> void:
@@ -70,6 +79,14 @@ func _add_lab_lighting() -> void:
 
 func _begin() -> void:
     spawn_profile(starting_profile)
+    if phone_playtest and (not is_instance_valid(_actor) or
+        not bool(_actor.get_meta("zombie_rig_ready", false))):
+        push_error("ZOMBIE_PHONE_RED: real Black White mocap rig did not load; no fake fallbacks")
+        set_meta("phone_playtest_ready", false)
+        return
+    if phone_playtest:
+        set_meta("phone_playtest_ready", true)
+        print("ZOMBIE_PHONE_BLACK_WHITE_RIG_READY_NO_DEBUG_UI")
     var weapon: Node = _player.get_node_or_null("Weapon")
     if weapon != null and weapon.has_method("equip_weapon"):
         var equipped: bool = bool(weapon.call("equip_weapon", "mp40", true))
