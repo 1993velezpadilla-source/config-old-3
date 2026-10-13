@@ -3,7 +3,7 @@ extends "res://scripts/zombie_dummy.gd"
 ## without changing production zombie selection or introducing a fake fallback.
 ## A mesh with no skeleton stays a stationary *visual* specimen.
 
-@export_file("*.glb", "*.gltf") var lab_asset_path: String = ""
+@export var lab_asset_path: String = ""
 @export var lab_model_id: String = "unconfigured"
 @export var lab_forward_degrees: float = 0.0
 @export var lab_source_waw: bool = false
