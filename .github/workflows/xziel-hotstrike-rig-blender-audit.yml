@@ -25,7 +25,7 @@ jobs:
       - name: Install Blender and free-source HTTP helper
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq blender
+          sudo apt-get install -y -qq blender python3-numpy
           npm install --no-save --no-audit --no-fund itchio-downloader
           blender --version | head -2
       - name: Fetch real, free licensed FBX+PBR pack only into ephemeral runner
