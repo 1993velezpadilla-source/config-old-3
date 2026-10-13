@@ -47,8 +47,26 @@ func _ready() -> void:
     if _player == null:
         push_error("ZOMBIE_LAB_RED existing player missing")
         return
+    _add_lab_lighting()
     _create_controls()
     call_deferred("_begin")
+
+func _add_lab_lighting() -> void:
+    # Bright diagnostic lighting without modifying Black Pines production art.
+    var key := DirectionalLight3D.new()
+    key.name = "LabDiagnosticKey"
+    key.rotation_degrees = Vector3(-70.0, -30.0, 0.0)
+    key.light_energy = 1.75
+    key.shadow_enabled = false
+    add_child(key)
+    var fill := OmniLight3D.new()
+    fill.name = "LabDiagnosticFill"
+    fill.position = _player.global_position + Vector3(0.0, 3.6, -2.8)
+    fill.light_color = Color(1.0, 0.94, 0.84)
+    fill.light_energy = 3.6
+    fill.omni_range = 11.0
+    fill.shadow_enabled = false
+    add_child(fill)
 
 func _begin() -> void:
     spawn_profile(starting_profile)
