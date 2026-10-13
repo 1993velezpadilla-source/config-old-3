@@ -35,11 +35,20 @@ class ZombieSourceRegressionTest(unittest.TestCase):
         with self.assertRaisesRegex(ProvenanceError, "low-detail"):
             verify_real_conversion(old, old)
 
-    def test_synthetic_8284_is_explicitly_rejected(self):
-        old = mdl(1000, 484, 211)
-        fake = mdl(9000, 8284, 211)
-        with self.assertRaisesRegex(ProvenanceError, "synthetic benchmark"):
-            verify_real_conversion(fake, old)
+    def test_real_author_triangle_count_must_not_be_rejected(self):
+        # Blender verified the authentic author FBX has 8,284 triangles too.
+        self.assertEqual(verify_real_conversion(mdl(4143,8284,211),
+                         mdl(389,484,211))["triangles"],8284)
+
+    def test_known_synthetic_is_rejected_by_sha(self):
+        # The exact stock stress model fingerprint is checked in the guard;
+        # we also test the specific SHA match via a mocked sha() call because
+        # its 8,189-vertex, 211-frame serialized MDL is huge.
+        from unittest.mock import patch
+        from guard_hotstrike_real_zombie import KNOWN_STOCK_SYNTHETIC_MDL_SHA256
+        with patch("guard_hotstrike_real_zombie.sha",return_value=KNOWN_STOCK_SYNTHETIC_MDL_SHA256):
+            with self.assertRaisesRegex(ProvenanceError, "synthetic benchmark"):
+                verify_real_conversion(mdl(8189,8284,211),mdl(389,484,211))
 
     def test_t_pose_is_rejected_even_with_genuine_complex_geometry(self):
         with self.assertRaisesRegex(ProvenanceError, "T-pose"):
