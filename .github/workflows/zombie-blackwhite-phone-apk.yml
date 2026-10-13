@@ -1,0 +1,225 @@
+name: Black White Nun One Tap Android
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/zombie-lab-monja-blackwhite-20261013]
+    paths:
+      - ".github/workflows/zombie-blackwhite-phone-apk.yml"
+      - "xogot/scripts/zombie_lab.gd"
+      - "xogot/zombie_lab_play.tscn"
+      - "xogot/ci/zombie_blackwhite_phone_gate.gd"
+permissions:
+  contents: read
+concurrency:
+  group: blackwhite-native-phone
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+      - name: Authentic model and mocap provenance
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          base=Path('xogot')
+          p=base/'assets/zombies/monja_elite/source/monja_black_white.glb'
+          manifest=json.loads((base/'assets/zombies/special_enemy_source_manifest.json').read_text())
+          s=manifest['sources']['monja_elite']
+          assert p.stat().st_size==s['bytes']
+          assert hashlib.sha256(p.read_bytes()).hexdigest()==s['sha256']
+          assert not (p.parent/'.gdignore').exists()
+          assert (base/'assets/zombie_mocap/raw/walk/zombie_walk__104_41.fbx').is_file()
+          print('BLACK_WHITE_OWNER_SOURCE_GREEN')
+          PY
+      - name: Blender and gltf toolchain
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender python3-numpy libegl1 libgl1-mesa-dri
+          sudo npm install --global @gltf-transform/cli@4.5.1
+      - name: Preserve authentic surface with skinned mobile polygon budget
+        run: |
+          set -euo pipefail
+          mkdir -p xogot/build/phone-preprocess
+          gltf-transform copy \
+            xogot/assets/zombies/monja_elite/source/monja_black_white.glb \
+            xogot/build/phone-preprocess/decompressed.glb
+          gltf-transform simplify \
+            xogot/build/phone-preprocess/decompressed.glb \
+            xogot/build/phone-preprocess/black_white_mobile.glb \
+            --ratio 0.075 --error 0.02
+          python3 - <<'PY'
+          import struct,json
+          from pathlib import Path
+          b=Path('xogot/build/phone-preprocess/black_white_mobile.glb').read_bytes()
+          assert b[:4]==b'glTF'
+          n,typ=struct.unpack_from('<II',b,12)
+          assert typ==0x4e4f534a
+          d=json.loads(b[20:20+n].decode().strip(' \x00'))
+          assert d.get('materials') and d.get('textures')
+          tris=sum(d['accessors'][p['indices']]['count']//3 for m in d['meshes'] for p in m['primitives'] if 'indices' in p)
+          assert 10000<tris<=250000,('skinned_mobile_mesh_too_large',tris)
+          print('BLACK_WHITE_REAL_SOURCE_MOBILE_TRIANGLES_GREEN',tris)
+          PY
+      - name: Create weighted humanoid skeleton for the real Black White nun
+        run: |
+          set -euo pipefail
+          mkdir -p xogot/build/phone-rig
+          timeout 3300 blender -b --python xogot/tools/author_monja_source_pose_rig.py -- \
+            --source "$PWD/xogot/build/phone-preprocess/black_white_mobile.glb" \
+            --profile elite \
+            --output-dir "$PWD/xogot/build/phone-rig" \
+            --output-name monja_black_white_clean_rig.glb \
+            2>&1 | tee xogot/build/phone-rig/blender.log
+          grep -q XZOGOT_MONJA_SOURCE_POSE_RIG_GREEN xogot/build/phone-rig/blender.log
+          grep -q XZOGOT_MONJA_DEFORMATION_SANITY_GREEN xogot/build/phone-rig/blender.log
+          python3 - <<'PY'
+          import json
+          r=json.load(open('xogot/build/phone-rig/report.json'))
+          assert r['geometry_conserved'] and r['bones']>=20 and r['profile']=='elite'
+          assert not r.get('deformation_sanity_violations',[])
+          assert all(v['valid'] for v in r['deformation_sanity'].values())
+          print('BLACK_WHITE_REAL_RIG_GREEN')
+          PY
+      - name: Bake human-captured zombie movements onto that rig
+        run: |
+          set -euo pipefail
+          BASE="$PWD/xogot/build/phone-rig/monja_black_white_clean_rig.glb"
+          mkdir -p xogot/build/phone-mocap
+          timeout 1800 blender -b --python xogot/tools/augment_monja_cmu_mocap.py -- \
+            --base "$BASE" --profile elite \
+            --output-dir "$PWD/xogot/build/phone-mocap" \
+            --output-name monja_black_white_cmu_rig.glb \
+            2>&1 | tee xogot/build/phone-mocap/blender.log
+          grep -q XZOGOT_MONJA_CMU_9_REAL_MOCAP_CLIPS_GREEN xogot/build/phone-mocap/blender.log
+          grep -q XZOGOT_MONJA_CMU_DEFORMATION_SANITY_GREEN xogot/build/phone-mocap/blender.log
+          test -s xogot/build/phone-mocap/cmu_animation_only.glb
+          python3 xogot/tools/merge_glb_animations.py \
+            --base "$BASE" \
+            --animations xogot/build/phone-mocap/cmu_animation_only.glb \
+            --output xogot/build/phone-mocap/monja_black_white_cmu_rig.glb \
+            --prefix CMU_ \
+            --report xogot/build/phone-mocap/report.json \
+            2>&1 | tee xogot/build/phone-mocap/merge.log
+          grep -q XZOGOT_GLTF_ANIMATION_MERGE_GREEN xogot/build/phone-mocap/merge.log
+      - name: Convert to Godot-compatible mobile asset without fake placeholders
+        run: |
+          set -euo pipefail
+          DEST=xogot/assets/zombies/monja_elite/play_runtime
+          mkdir -p "$DEST"
+          gltf-transform dequantize \
+            xogot/build/phone-mocap/monja_black_white_cmu_rig.glb \
+            "$DEST/monja_black_white_cmu_rig.gltf"
+          python3 xogot/tools/split_gltf_buffers.py \
+            "$DEST/monja_black_white_cmu_rig.gltf" --max-bytes 85000000
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('xogot/assets/zombies/monja_elite/play_runtime')
+          d=json.loads((root/'monja_black_white_cmu_rig.gltf').read_text())
+          assert d.get('skins') and len(d.get('animations',[]))>=9
+          names=' '.join(a.get('name','') for a in d['animations']).lower()
+          for key in ('idle','walk','attack','death','104_41','111_19','90_16'):
+              assert key in names,(key,names[:200])
+          for b in d.get('buffers',[]): assert (root/b['uri']).is_file()
+          for i in d.get('images',[]):
+              if i.get('uri'): assert (root/i['uri']).is_file()
+          print('BLACK_WHITE_ACTUAL_MOCAP_ASSET_GREEN')
+          PY
+      - name: Set one-tap Black White scene and independent Android package
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('xogot/project.godot')
+          text=p.read_text()
+          old='run/main_scene="res://main.tscn"'
+          assert text.count(old)==1
+          p.write_text(text.replace(old,'run/main_scene="res://zombie_lab_play.tscn"'))
+          p=Path('xogot/export_presets.cfg')
+          text=p.read_text()
+          old='package/unique_name="com.xziel.youwontwin"'
+          assert text.count(old)==1
+          p.write_text(text.replace(old,'package/unique_name="com.xziel.blackwhiteplay"'))
+          print('BLACK_WHITE_ONE_TAP_PACKAGE_GREEN')
+          PY
+      - name: Official free Godot 4.6.1 Android templates
+        run: |
+          set -euo pipefail
+          curl -fL --retry 4 --retry-all-errors \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          curl -fL --retry 4 --retry-all-errors \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_export_templates.tpz \
+            -o /tmp/templates.tpz
+          mkdir -p /tmp/godot /tmp/templates
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          unzip -q /tmp/templates.tpz -d /tmp/templates
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.6.1.stable"
+          cp -a /tmp/templates/templates/. "$HOME/.local/share/godot/export_templates/4.6.1.stable/"
+      - name: Import and test actual chase, animation, forward axis, headshot, UI
+        run: |
+          set -euo pipefail
+          mkdir -p build/blackwhite-phone
+          GODOT=/tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+          timeout 900 "$GODOT" --headless --editor --path xogot --quit \
+            2>&1 | tee build/blackwhite-phone/import.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|ERROR: Failed to load script' build/blackwhite-phone/import.log
+          timeout 300 "$GODOT" --headless --path xogot \
+            --script res://ci/zombie_blackwhite_phone_gate.gd \
+            2>&1 | tee build/blackwhite-phone/probe.log
+          grep -q ZOMBIE_PHONE_BLACKWHITE_REAL_MOCAP_GREEN build/blackwhite-phone/probe.log
+          grep -q ZOMBIE_PHONE_NO_MODEL_DEBUG_BUTTONS_GREEN build/blackwhite-phone/probe.log
+          grep -q ZOMBIE_PHONE_SHIPPING_GAMEPLAY_GREEN build/blackwhite-phone/probe.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|ZOMBIE_PHONE_GATE_RED' build/blackwhite-phone/probe.log
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Native Android SDK and test signing
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME=/usr/local/lib/android/sdk
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.1"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          KEY="$RUNNER_TEMP/blackwhite-debug.keystore"
+          keytool -genkeypair -noprompt -keystore "$KEY" \
+            -storepass android -alias androiddebugkey -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=BlackWhite,O=XZIEL,C=US"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$KEY" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
+      - name: Export installable ARM64 APK
+        run: |
+          set -euo pipefail
+          APK=build/blackwhite-phone/BLACK-WHITE-NUN-ONE-TAP.apk
+          timeout 1200 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --export-debug "Android ARM64" \
+            "../$APK" 2>&1 | tee build/blackwhite-phone/export.log
+          test -s "$APK"
+          unzip -l "$APK" | grep -q 'lib/arm64-v8a/'
+          sha256sum "$APK" > "$APK.sha256"
+          echo BLACK_WHITE_NATIVE_APK_GREEN
+      - name: Keep APK and reports, never mark a failed rig as completed
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BLACK-WHITE-NUN-ONE-TAP-ANDROID
+          path: |
+            build/blackwhite-phone/**
+            xogot/build/phone-rig/report.json
+            xogot/build/phone-rig/blender.log
+            xogot/build/phone-mocap/blender.log
+            xogot/build/phone-mocap/merge.log
+          if-no-files-found: warn
+          retention-days: 14

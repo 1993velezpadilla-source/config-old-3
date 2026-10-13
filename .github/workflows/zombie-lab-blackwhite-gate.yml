@@ -1,0 +1,97 @@
+name: Zombie Lab Black-White Godot 4.6 Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/zombie-lab-monja-blackwhite-20261013
+    paths:
+      - "xogot/**"
+      - ".github/workflows/zombie-lab-blackwhite-gate.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zombie-lab-blackwhite-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  raw-model-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Source 0 bones, 0 animations MUST NOT be falsely promoted
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, struct
+          root=Path('xogot')
+          manifest=json.loads((root/'assets/zombies/monja_elite/source_manifest.json').read_text())
+          p=root/'assets/zombies/monja_elite/source/monja_black_white.glb'
+          assert manifest['source']['skins']==0
+          assert manifest['source']['animations']==0
+          assert p.is_file()
+          assert not (p.parent/'.gdignore').exists(), 'raw visual inaccessible to Godot importer'
+          with p.open('rb') as f:
+              magic, version, length=struct.unpack('<4sII', f.read(12))
+          assert magic==b'glTF' and version==2 and length==p.stat().st_size
+          assert (root/'assets/zombie_mocap/raw/walk/zombie_walk__104_41.fbx').is_file()
+          assert (root/'assets/zombies/monja_clean/clean_runtime/monja_basica_clean_rig.gltf').is_file()
+          assert (root/'assets/zombies/source_waw/honorgd/zombie.glb').is_file()
+          assert (root/'assets/weapons/aether_waw_real/mp40/viewmodel.glb').is_file()
+          assert (root/'zombie_lab.tscn').is_file()
+          print('ZOMBIE_LAB_ASSETS_PROVENANCE_GREEN')
+          PY
+
+  godot-runtime:
+    needs: raw-model-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Godot 4.6.1 (native engine, no simulated success)
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 4 --retry-all-errors \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+          /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 --version
+
+      - name: Import Godot project and parse scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/zombie-lab-log
+          timeout 480 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit \
+            2>&1 | tee /tmp/zombie-lab-log/import.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|ERROR: Failed to load script' /tmp/zombie-lab-log/import.log
+
+      - name: Verify raw/rigged/arms/heads in actual scene runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 240 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/zombie_lab_probe.gd \
+            2>&1 | tee /tmp/zombie-lab-log/probe.log
+          grep -q 'ZOMBIE_LAB_RAW_BLACK_WHITE_GATE_GREEN' /tmp/zombie-lab-log/probe.log
+          grep -q 'ZOMBIE_LAB_CLEAN_MONJA_ANIMATIONS_GREEN' /tmp/zombie-lab-log/probe.log
+          grep -q 'ZOMBIE_LAB_WAW_HEADSHOT_MP40_GREEN' /tmp/zombie-lab-log/probe.log
+          grep -q 'ZOMBIE_LAB_SCENE_GATES_GREEN' /tmp/zombie-lab-log/probe.log
+          ! grep -E 'SCRIPT ERROR|Parse Error|ZOMBIE_LAB_GATE_RED' /tmp/zombie-lab-log/probe.log
+
+      - name: Preserve evidence on failure or success
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zombie-lab-godot-4-6-evidence
+          path: /tmp/zombie-lab-log/
+          if-no-files-found: ignore
