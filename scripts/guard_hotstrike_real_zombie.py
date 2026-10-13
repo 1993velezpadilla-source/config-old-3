@@ -15,7 +15,10 @@ from zipfile import ZipFile, BadZipFile
 MODEL_IN_GAME = "nzp/models/ai/zfull.mdl"
 TEXTURE_IN_GAME = "nzp/models/ai/xziel_zombie_hd_0.png"
 RENDERER_BIND_MARKER = b"XZIEL_ZOMBIE_HD: skin="
-FORBIDDEN_SYNTHETIC_TRIANGLES = 8284
+# Actual Hotstrike FBX also has EXACTLY 8,284 triangles.
+# Reject the known stock-derived synthetic MDL by its real SHA-256, not by
+# a face count shared by unrelated meshes.
+KNOWN_STOCK_SYNTHETIC_MDL_SHA256 = "0e9980c134a75eee8d9a03600e09832ad5e1d5fc78f8f9af957c3d4a69806b53"
 
 
 class ProvenanceError(RuntimeError):
@@ -61,8 +64,8 @@ def verify_author_source(path):
 
 def verify_real_conversion(raw, stock):
     metadata = mdl_header(raw)
-    require(metadata["triangles"] != FORBIDDEN_SYNTHETIC_TRIANGLES,
-            "REJECTED: 8,284-triangle stock-zombie synthetic benchmark, NOT Hotstrike")
+    require(sha(raw) != KNOWN_STOCK_SYNTHETIC_MDL_SHA256,
+            "REJECTED: exact stock-zombie synthetic benchmark MDL (known SHA-256)")
     require(metadata["triangles"] >= 4500 and metadata["vertices"] >= 2000,
             "REJECTED: stock NZ:P low-detail topology, not imported character")
     require(metadata["frames"] >= 100,
