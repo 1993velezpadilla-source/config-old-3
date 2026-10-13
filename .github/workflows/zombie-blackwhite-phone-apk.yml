@@ -103,7 +103,7 @@ jobs:
             --animations xogot/build/phone-mocap/cmu_animation_only.glb \
             --output xogot/build/phone-mocap/monja_black_white_cmu_rig.glb \
             --prefix CMU_ \
-            --report xogot/build/phone-mocap/merged_report.json \
+            --report xogot/build/phone-mocap/report.json \
             2>&1 | tee xogot/build/phone-mocap/merge.log
           grep -q XZOGOT_GLTF_ANIMATION_MERGE_GREEN xogot/build/phone-mocap/merge.log
       - name: Convert to Godot-compatible mobile asset without fake placeholders
