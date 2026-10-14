@@ -324,6 +324,7 @@ jobs:
           assert r["all_frames_real_rigged_mesh_evaluation"]
           assert r["quake_original_162_normal_lut"]
           assert min(r["normal_distinct_indices_per_frame"]) >= 8
+          assert r["previous_double_winding_reversal_eliminated"]
           assert r["smooth_shared_corner_vertices"]
           assert r["deduplicated_vertex_savings"]>500
           assert r["vertex_count"]<r["source_triangle_corner_count"]
