@@ -191,6 +191,53 @@ jobs:
           print("MP40_TRUE_HYBRID_VISUAL_FRAMES_CAPTURED_GREEN")
           PY
 
+      - name: Compile experimental REAL 46-frame HD MP40 into Quake MDL, preserve 16K geometry safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          BLEND=/tmp/mp40/hybrid/mp40-hybrid-vril-hands-aether-gun-EXPERIMENT.blend
+          mkdir -p /tmp/mp40/alias
+          blender -b "$BLEND" \
+            --python tools/mp40_bridge/blender_alias_mdl_probe.py \
+            -- /tmp/mp40/alias \
+            2>&1 | tee /tmp/mp40-alias.log
+          grep -q MP40_46_FRAME_REAL_GEOMETRY_ALIAS_EXPERIMENT_GREEN /tmp/mp40-alias.log
+          python3 - <<'PY'
+          import sys,json
+          from pathlib import Path
+          sys.path.insert(0,"tools/mp40_bridge")
+          from audit_mp40_binary import mdl_audit
+          root=Path("/tmp/mp40/alias")
+          source=root/"v_mp40_aether_hybrid_EXPERIMENT_ONLY.mdl"
+          m=mdl_audit(source)
+          r=json.loads((root/"alias-export-report.json").read_text())
+          assert m["frames"]==46
+          assert m["triangles"]==r["triangle_count"]==3593
+          assert m["vertices"]==r["vertex_count"]<=16384
+          assert r["all_frames_real_rigged_mesh_evaluation"]
+          assert r["largest_avg_pose_delta"]>0.1
+          assert not r["time_mapping_authoritative"]
+          print("MP40_MDL_V6_REAL_46_POSE_BINARY_PARSE_GREEN",source.stat().st_size)
+          PY
+      - name: Compile 2048x1024 true-color dual-skin atlas for both Vril MP40 skins
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          root=Path("/tmp/mp40/alias")
+          gun=Image.open("/tmp/mp40/aether/weapon_mp40_c.png").convert("RGB")
+          for n in (0,1):
+            hands=Image.open("/tmp/mp40-assets/common/models/weapons/mp40/v_mp40.mdl_%d.pcx"%n).convert("RGB")
+            sheet=Image.new("RGB",(2048,1024))
+            sheet.paste(hands.resize((1024,1024),Image.Resampling.NEAREST),(0,0))
+            sheet.paste(gun.resize((1024,1024),Image.Resampling.LANCZOS),(1024,0))
+            path=root/("v_mp40.mdl_%d.tga"%n)
+            sheet.save(path,format="TGA")
+            assert path.stat().st_size>2_000_000
+          print("MP40_VRIL_DUAL_HD_EXTERNAL_TGA_ATLASES_GREEN")
+          PY
       - name: Preserve original authoring audit, no copyrighted model files
         if: always()
         uses: actions/upload-artifact@v4
@@ -206,5 +253,7 @@ jobs:
             /tmp/mp40/hybrid/hybrid-visual-kinematic-report.json
             /tmp/mp40/hybrid/hybrid_mp40_frame_*.png
             /tmp/mp40-visual.log
+            /tmp/mp40-alias.log
+            /tmp/mp40/alias/alias-export-report.json
           if-no-files-found: warn
           retention-days: 14
