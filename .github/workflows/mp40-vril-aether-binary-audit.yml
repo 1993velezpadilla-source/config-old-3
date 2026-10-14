@@ -165,6 +165,24 @@ jobs:
           assert not r["mdl_exported"] and not r["android_rendered"]
           print("MP40_BLENDER_HYBRID_NON_SHIPPING_GATE_GREEN")
           PY
+      - name: Measure original Aether and Vril rest-bone anchors and prove position fit accuracy
+        shell: bash
+        run: |
+          set -euo pipefail
+          blender -b /tmp/mp40/hybrid/mp40-hybrid-vril-hands-aether-gun-EXPERIMENT.blend \
+            --python tools/mp40_bridge/blender_rest_landmarks.py \
+            -- /tmp/mp40/hybrid \
+            2>&1 | tee /tmp/mp40-exact-rest-landmarks.log
+          grep -q MP40_BONE_MATCH_MEASURED_GREEN /tmp/mp40-exact-rest-landmarks.log
+          python3 - <<'PY'
+          import json
+          report=json.load(open("/tmp/mp40/hybrid/mp40-original-bone-landmarks.json"))
+          assert report["independently_measured"] and not report["uses_guessed_positions"]
+          assert len(report["pairs"])==3
+          print("MP40_TRUE_BONE_REST_MATRICES_AUDITED_GREEN")
+          print("MP40_REST_BONE_RMS_PERCENT",round(report["similarity_fit"]["mean_relative_rms"]*100,3))
+          PY
+
       - name: Render original MP40 hands + modern Aether model at three actual rig poses
         shell: bash
         run: |
@@ -400,6 +418,8 @@ jobs:
             /tmp/mp40/hybrid/hybrid_mp40_frame_*.png
             /tmp/mp40-visual.log
             /tmp/mp40-alias.log
+            /tmp/mp40-exact-rest-landmarks.log
+            /tmp/mp40/hybrid/mp40-original-bone-landmarks.json
             /tmp/mp40/alias/alias-export-report.json
           if-no-files-found: warn
           retention-days: 14
