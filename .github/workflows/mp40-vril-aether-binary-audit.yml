@@ -113,6 +113,19 @@ jobs:
             2>&1 | tee /tmp/mp40-blender-census.log
           grep -q MP40_NZP_SOURCE_AUTHORING_CENSUS /tmp/mp40-blender-census.log
           test -s /tmp/mp40-authoring-census.json
+      - name: Bind-mapping truth -- gun, magazine and bolt against exact source bones
+        run: |
+          set -euo pipefail
+          git -c protocol.version=2 fetch --no-tags --depth 1 --filter=blob:none origin feature/godot-aaa-rebuild-v1
+          mkdir -p /tmp/mp40/aether
+          git show FETCH_HEAD:xogot/assets/weapons/aether_waw_real/mp40/viewmodel.glb \
+            > /tmp/mp40/aether/viewmodel.glb
+          blender -b /tmp/mp40-assets/source/models/weapons/mp40/v_mp40/mesh.blend \
+            --python tools/mp40_bridge/blender_rig_crosswalk.py \
+            -- /tmp/mp40/aether/viewmodel.glb \
+            2>&1 | tee /tmp/mp40-rig-crosswalk.log
+          grep -q MP40_RIG_SEMANTIC_CROSSWALK_GREEN /tmp/mp40-rig-crosswalk.log
+          test -s /tmp/mp40-skeleton-crosswalk.json
       - name: Preserve original authoring audit, no copyrighted model files
         if: always()
         uses: actions/upload-artifact@v4
@@ -121,5 +134,7 @@ jobs:
           path: |
             /tmp/mp40-authoring-census.json
             /tmp/mp40-blender-census.log
+            /tmp/mp40-skeleton-crosswalk.json
+            /tmp/mp40-rig-crosswalk.log
           if-no-files-found: warn
           retention-days: 14
