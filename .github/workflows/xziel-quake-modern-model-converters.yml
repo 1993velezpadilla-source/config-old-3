@@ -1,0 +1,61 @@
+name: XZIEL Quake Modern GLB IQM Converter Gauntlet
+on:
+  workflow_dispatch:
+  push:
+    branches: [experiment/mp40-aether-vril-binary-bridge-20261014]
+    paths:
+      - "tools/quake_modern_formats/**"
+      - ".github/workflows/xziel-quake-modern-model-converters.yml"
+permissions:
+  contents: read
+jobs:
+  real-glb-iqm-converter:
+    name: Test upstream FTEQW IQM tool with real Aether MP40 GLB, without publishing model
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - name: Get actual Aether GLB from project source branch, no fake proxy
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/quake-formats
+          git -c protocol.version=2 fetch --no-tags --depth 1 --filter=blob:none origin feature/godot-aaa-rebuild-v1
+          git show FETCH_HEAD:xogot/assets/weapons/aether_waw_real/mp40/viewmodel.glb > /tmp/quake-formats/mp40.glb
+          test -s /tmp/quake-formats/mp40.glb
+          echo XZIEL_GLB_AUTHORITATIVE_AETHER_MODEL_RETRIEVED
+      - name: Compile EXISTING native Quake FTE converter, not homemade reimplementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --filter=blob:none https://github.com/nzp-team/fteqw.git /tmp/nzp-fte-converter
+          git -C /tmp/nzp-fte-converter fetch --depth 1 origin f68a2b547d2dc4bf6886b922baa1bff487cc5038
+          git -C /tmp/nzp-fte-converter checkout --detach f68a2b547d2dc4bf6886b922baa1bff487cc5038
+          make -C /tmp/nzp-fte-converter/engine iqmtool-rel FTE_TARGET=linux64 -j4 2>&1 | tee /tmp/quake-formats/build.log
+          BIN=/tmp/nzp-fte-converter/engine/release/iqmtool
+          test -x "$BIN"
+          echo XZIEL_EXISTING_FTE_NATIVE_CONVERTER_BUILT
+      - name: Convert actual GLB to higher-fidelity IQM and legacy Quake MDL
+        shell: bash
+        run: |
+          set -uo pipefail
+          BIN=/tmp/nzp-fte-converter/engine/release/iqmtool
+          cd /tmp/quake-formats
+          "$BIN" mp40.iqm mp40.glb > iqm.log 2>&1
+          IQM_RESULT=$?
+          "$BIN" mp40.mdl mp40.glb > mdl.log 2>&1
+          MDL_RESULT=$?
+          echo "FTE_IQM_EXIT_CODE=$IQM_RESULT" | tee converter.log
+          echo "FTE_MDL_EXIT_CODE=$MDL_RESULT" | tee -a converter.log
+          cat iqm.log mdl.log >> converter.log
+          python3 "$GITHUB_WORKSPACE/tools/quake_modern_formats/audit_fte_glb_iqm.py" \
+            mp40.glb mp40.iqm mp40.mdl converter.log "$GITHUB_WORKSPACE/quake-format-report/aether-mp40-formats.json"
+      - name: Publish only provenance and format comparison, not copyrighted Aether geometry
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-QUAKE-EXISTING-GLB-CONVERTER-AUDIT
+          path: |
+            quake-format-report/*.json
+          if-no-files-found: warn
+          retention-days: 10
