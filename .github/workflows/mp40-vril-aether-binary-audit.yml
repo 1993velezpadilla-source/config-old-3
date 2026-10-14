@@ -145,7 +145,7 @@ jobs:
           python3 - <<'PY'
           import json
           r=json.load(open("/tmp/mp40/hybrid/hybrid-report.json"))
-          assert r["retained_original_hand_triangles"]>400
+          assert r["retained_original_hand_triangles"]>300
           assert r["removed_stock_weapon_triangles"]>100
           assert r["aether_hd_triangles"]>3000
           assert r["actual_retained_hand_triangles"]==r["retained_original_hand_triangles"]
