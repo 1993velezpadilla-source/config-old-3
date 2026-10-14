@@ -1,0 +1,530 @@
+name: MP40 Vril and Aether Binary Bridge Audit
+on:
+  push:
+    branches: [experiment/mp40-aether-vril-binary-bridge-20261014]
+    paths:
+      - "tools/mp40_bridge/**"
+      - ".github/workflows/mp40-vril-aether-binary-audit.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit-real-source-binaries:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Retrieve actual Project Aether MP40 file from OUR Godot reference branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/mp40/aether /tmp/mp40/stock /tmp/mp40/quakec
+          git -c protocol.version=2 fetch --no-tags --depth 1 --filter=blob:none origin feature/godot-aaa-rebuild-v1
+          git show FETCH_HEAD:xogot/assets/weapons/aether_waw_real/mp40/viewmodel.glb \
+            > /tmp/mp40/aether/viewmodel.glb
+          for name in weapon_mp40_c.png weapon_mp40_n.png _weapon_mp40_mp_s-rgb_weapon__08433bb1.png; do
+            git show "FETCH_HEAD:xogot/assets/weapons/aether_waw_textures/$name" \
+              > "/tmp/mp40/aether/$name"
+          done
+          test -s /tmp/mp40/aether/viewmodel.glb
+          printf 'AETHER_GODOT_ACTUAL_BINARY_ACQUIRED\n'
+
+      - name: Retrieve stock NZP MP40 original MDL and 2 PCX skins
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --depth 1 --sparse https://github.com/nzp-team/assets.git /tmp/mp40-assets
+          git -C /tmp/mp40-assets sparse-checkout set common/models/weapons/mp40
+          cp /tmp/mp40-assets/common/models/weapons/mp40/v_mp40.mdl /tmp/mp40/stock/
+          cp /tmp/mp40-assets/common/models/weapons/mp40/v_mp40.mdl_0.pcx /tmp/mp40/stock/
+          cp /tmp/mp40-assets/common/models/weapons/mp40/v_mp40.mdl_1.pcx /tmp/mp40/stock/
+          printf 'VRIL_STOCK_MDL_ORIGINAL_ACQUIRED\n'
+
+      - name: Read exact pinned NZP QuakeC animation frame contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --depth 1 https://github.com/nzp-team/quakec.git /tmp/mp40-quakec
+          git -C /tmp/mp40-quakec fetch --depth 1 origin 8a77f1ce45f1a2b9aa0afb301446954fda40e696
+          git -C /tmp/mp40-quakec checkout --detach 8a77f1ce45f1a2b9aa0afb301446954fda40e696
+          cp /tmp/mp40-quakec/source/shared/weapon_stats.qc /tmp/mp40/quakec/
+          printf 'NZP_PINNED_QUAKEC_ANIMATION_AUTHORITY_ACQUIRED\n'
+
+      - name: Binary audit both models, skeletal animations, true frame contract, UV/PBR
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+          python3 tools/mp40_bridge/audit_mp40_binary.py \
+            --stock /tmp/mp40/stock/v_mp40.mdl \
+            --aether /tmp/mp40/aether/viewmodel.glb \
+            --texture /tmp/mp40/aether/weapon_mp40_c.png \
+            --texture /tmp/mp40/aether/weapon_mp40_n.png \
+            --texture /tmp/mp40/aether/_weapon_mp40_mp_s-rgb_weapon__08433bb1.png \
+            --quakec /tmp/mp40/quakec/weapon_stats.qc \
+            --report reports/mp40-real-binary-audit.json \
+            2>&1 | tee reports/mp40-audit.log
+          grep -q MP40_REAL_BINARY_GATES_GREEN reports/mp40-audit.log
+          grep -q MP40_16K_CAPACITY_ONLY_GREEN reports/mp40-audit.log
+          python3 - <<'PY'
+          import json
+          data=json.load(open("reports/mp40-real-binary-audit.json"))
+          assert data["stock_vril"]["frames"]==46
+          assert data["aether"]["clips"]==18
+          assert data["aether"]["skins"]==1
+          assert data["aether"]["total_triangles"]>2048
+          assert data["triangles_fit_16k_patch"]
+          assert not data["automatic_animation_retarget_proven"]
+          assert not data["production_or_commercial_distribution_approved"]
+          print("MP40_BOTH_REAL_BINARY_SOURCES_GATED_GREEN")
+          PY
+
+      - name: Publish NON-BINARY audit evidence only (do not redistribute Aether art)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MP40-VRIL-AETHER-TRUE-BINARY-AUDIT
+          path: reports/
+          if-no-files-found: warn
+          retention-days: 14
+
+  inspect-original-blender-source:
+    name: Determine whether Vril MP40 gun and hands can be separated without rebuilding reload
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - name: Retrieve NZP authored MP40 3D source
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --depth 1 --sparse https://github.com/nzp-team/assets.git /tmp/mp40-assets
+          git -C /tmp/mp40-assets sparse-checkout set source/models/weapons/mp40/v_mp40 common/models/weapons/mp40
+          test -s /tmp/mp40-assets/source/models/weapons/mp40/v_mp40/mesh.blend
+      - name: Blender headless original 3D topology and rig census
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender python3-numpy python3-pil libegl1 libgl1 libgl1-mesa-dri
+          blender -b /tmp/mp40-assets/source/models/weapons/mp40/v_mp40/mesh.blend \
+            --python tools/mp40_bridge/blender_source_census.py \
+            2>&1 | tee /tmp/mp40-blender-census.log
+          grep -q MP40_NZP_SOURCE_AUTHORING_CENSUS /tmp/mp40-blender-census.log
+          test -s /tmp/mp40-authoring-census.json
+      - name: Measure actual stock Blender to real Vril MDL coordinate transform (48 orientations)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/mp40/hybrid
+          blender -b /tmp/mp40-assets/source/models/weapons/mp40/v_mp40/mesh.blend \
+            --python tools/mp40_bridge/blender_stock_model_icp.py \
+            -- /tmp/mp40-assets/common/models/weapons/mp40/v_mp40.mdl \
+               /tmp/mp40/hybrid/source-to-mdl-measured-transform.json \
+            2>&1 | tee /tmp/mp40-measured-icp.log
+          grep -q MP40_SOURCE_TO_VRIL_MDL_POINTCLOUD_MATRIX_MEASURED_GREEN /tmp/mp40-measured-icp.log
+          python3 - <<'PY'
+          import json
+          r=json.load(open("/tmp/mp40/hybrid/source-to-mdl-measured-transform.json"))
+          assert r["candidate_axis_initializations"]==48
+          assert r["exact_source_vertices_are_measured"]
+          assert r["original_source_and_compiled_model_not_vertex_identical"]
+          print("MP40_REAL_MDL_COORDINATE_FIT_EVIDENCE_GREEN")
+          PY
+      - name: Recover original published MP40 46-frame reload movement from original 83-frame Blender action
+        shell: bash
+        run: |
+          set -euo pipefail
+          blender -b /tmp/mp40-assets/source/models/weapons/mp40/v_mp40/mesh.blend \
+            --python tools/mp40_bridge/blender_original_pose_timeline.py \
+            -- /tmp/mp40-assets/common/models/weapons/mp40/v_mp40.mdl \
+               /tmp/mp40/hybrid/source-to-mdl-measured-transform.json \
+               /tmp/mp40/hybrid/original-46-pose-authority.json \
+            2>&1 | tee /tmp/mp40-reload-original-timing.log
+          grep -q MP40_REAL_SOURCE_RELOAD_TIMELINE_GREEN /tmp/mp40-reload-original-timing.log
+          python3 - <<'PY'
+          import json
+          report=json.load(open("/tmp/mp40/hybrid/original-46-pose-authority.json"))
+          assert len(report["source_frame_for_published_frame"])==46
+          assert report["linear_even_spaced_83_to_46_rejected"]
+          assert report["relative_p90_error"] < .13
+          print("MP40_ORIGINAL_RELOAD_TIMING_AUTHORITY_GREEN")
+          PY
+      - name: Bind-mapping truth -- gun, magazine and bolt against exact source bones
+        run: |
+          set -euo pipefail
+          git -c protocol.version=2 fetch --no-tags --depth 1 --filter=blob:none origin feature/godot-aaa-rebuild-v1
+          mkdir -p /tmp/mp40/aether
+          git show FETCH_HEAD:xogot/assets/weapons/aether_waw_real/mp40/viewmodel.glb \
+            > /tmp/mp40/aether/viewmodel.glb
+          blender -b /tmp/mp40-assets/source/models/weapons/mp40/v_mp40/mesh.blend \
+            --python tools/mp40_bridge/blender_rig_crosswalk.py \
+            -- /tmp/mp40/aether/viewmodel.glb \
+            2>&1 | tee /tmp/mp40-rig-crosswalk.log
+          grep -q MP40_RIG_SEMANTIC_CROSSWALK_GREEN /tmp/mp40-rig-crosswalk.log
+          test -s /tmp/mp40-skeleton-crosswalk.json
+      - name: Experimental hybrid Blender asset - Aether HD gun + original animated NZP hands
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show FETCH_HEAD:xogot/assets/weapons/aether_waw_textures/weapon_mp40_c.png \
+            > /tmp/mp40/aether/weapon_mp40_c.png
+          mkdir -p /tmp/mp40/hybrid
+          python3 - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          source=Path("/tmp/mp40-assets/common/models/weapons/mp40/v_mp40.mdl_0.pcx")
+          dest=Path("/tmp/mp40/hybrid/real_stock_hand_skin.png")
+          img=Image.open(source).convert("RGB")
+          assert img.size==(128,128),img.size
+          img.save(dest)
+          print("MP40_ORIGINAL_PCX_HAND_TEXTURE_CONVERTED_GREEN")
+          PY
+          blender -b /tmp/mp40-assets/source/models/weapons/mp40/v_mp40/mesh.blend \
+            --python tools/mp40_bridge/blender_hybrid_proto.py \
+            -- /tmp/mp40/aether/viewmodel.glb \
+               /tmp/mp40/aether/weapon_mp40_c.png \
+               /tmp/mp40/hybrid/real_stock_hand_skin.png \
+               /tmp/mp40/hybrid \
+            2>&1 | tee /tmp/mp40-hybrid.log
+          grep -q MP40_HYBRID_REAL_GUN_HAND_SEPARATION_GREEN /tmp/mp40-hybrid.log
+          grep -q MP40_HYBRID_ORIGINAL_NZP_ARMATURE_BONE_BIND_GREEN /tmp/mp40-hybrid.log
+          test -s /tmp/mp40/hybrid/hybrid-report.json
+          python3 - <<'PY'
+          import json
+          r=json.load(open("/tmp/mp40/hybrid/hybrid-report.json"))
+          assert r["retained_original_hand_triangles"]>300
+          assert r["removed_stock_weapon_triangles"]>100
+          assert r["aether_hd_triangles"]>3000
+          assert r["actual_retained_hand_triangles"]==r["retained_original_hand_triangles"]
+          assert r["old_animation_rig_reused"] is True
+          assert r["stock_hands_original_skin_rebound"] is True
+          assert not r["mdl_exported"] and not r["android_rendered"]
+          print("MP40_BLENDER_HYBRID_NON_SHIPPING_GATE_GREEN")
+          PY
+      - name: Measure Aether weapon mesh directly against original Vril gun, not guessed center offset
+        shell: bash
+        run: |
+          set -euo pipefail
+          blender -b /tmp/mp40/hybrid/mp40-hybrid-vril-hands-aether-gun-EXPERIMENT.blend \
+            --python tools/mp40_bridge/blender_aether_stock_surface_match.py \
+            -- /tmp/mp40/hybrid \
+            2>&1 | tee /tmp/mp40-aether-surface-match.log
+          grep -q MP40_AETHER_GUN_TO_ORIGINAL_NZP_SURFACE_MATRIX_MEASURED_GREEN /tmp/mp40-aether-surface-match.log
+          python3 - <<'PY'
+          import json
+          r=json.load(open("/tmp/mp40/hybrid/aether-to-stock-actual-gun-surface-fit.json"))
+          assert not r["positions_eyeballed"]
+          assert r["axis_candidates"]==48
+          print("MP40_REAL_AETHER_GUN_CORRESPONDENCE_MEASURED_GREEN")
+          print("MP40_SOURCE_WEAPON_FIT_P90_PERCENT",100*r["normalized_fit_errors"]["p90"])
+          PY
+      - name: Preserve Aether gun to Vril real bidirectional mesh fit before lengthy Android compile
+        uses: actions/upload-artifact@v4
+        with:
+          name: MP40-GUN-BIDIRECTIONAL-POSITION-MEASUREMENT
+          path: /tmp/mp40/hybrid/aether-to-stock-actual-gun-surface-fit.json
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: APPLY verified Aether-to-NZP gun matrix, reject guessed-box hybrid output
+        shell: bash
+        run: |
+          set -euo pipefail
+          blender -b /tmp/mp40/hybrid/mp40-hybrid-vril-hands-aether-gun-EXPERIMENT.blend \
+            --python tools/mp40_bridge/blender_apply_measured_alignment.py \
+            -- /tmp/mp40/hybrid/aether-to-stock-actual-gun-surface-fit.json /tmp/mp40/hybrid \
+            2>&1 | tee /tmp/mp40-applied-measured.log
+          grep -q MP40_SOURCE_TRANSFORM_APPLIED_TO_ACTUAL_HYBRID_GREEN /tmp/mp40-applied-measured.log
+          test -s /tmp/mp40/hybrid/mp40-hybrid-MEASURED-SOURCE-ALIGNMENT.blend
+          python3 - <<'PY'
+          import json
+          r=json.load(open("/tmp/mp40/hybrid/applied-aether-to-nzp-measured-alignment.json"))
+          assert r["source_hands_preserved"]=="NZP_Original_Animated_Hands_ONLY"
+          assert not r["positions_guessed"]
+          assert r["improves_actual_alignment"]
+          assert r["passes_strict_pose1_target_5pct"]
+          print("MP40_HYBRID_ACTUAL_VISUAL_POSITIONS_VERIFIED_GREEN")
+          PY
+
+      - name: Measure original Aether and Vril rest-bone anchors and prove position fit accuracy
+        shell: bash
+        run: |
+          set -euo pipefail
+          blender -b /tmp/mp40/hybrid/mp40-hybrid-vril-hands-aether-gun-EXPERIMENT.blend \
+            --python tools/mp40_bridge/blender_rest_landmarks.py \
+            -- /tmp/mp40/hybrid \
+            2>&1 | tee /tmp/mp40-exact-rest-landmarks.log
+          grep -q MP40_BONE_MATCH_MEASURED_GREEN /tmp/mp40-exact-rest-landmarks.log
+          python3 - <<'PY'
+          import json
+          report=json.load(open("/tmp/mp40/hybrid/mp40-original-bone-landmarks.json"))
+          assert report["independently_measured"] and not report["uses_guessed_positions"]
+          assert len(report["pairs"])==3
+          print("MP40_TRUE_BONE_REST_MATRICES_AUDITED_GREEN")
+          print("MP40_REST_BONE_RMS_PERCENT",round(report["similarity_fit"]["mean_relative_rms"]*100,3))
+          PY
+
+      - name: Render original MP40 hands + modern Aether model at three actual rig poses
+        shell: bash
+        run: |
+          set -euo pipefail
+          BLEND=/tmp/mp40/hybrid/mp40-hybrid-MEASURED-SOURCE-ALIGNMENT.blend
+          test -s "$BLEND"
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export EGL_PLATFORM=surfaceless
+          blender -b "$BLEND" \
+            --python tools/mp40_bridge/blender_visual_motion_gate.py \
+            -- /tmp/mp40/hybrid \
+            2>&1 | tee /tmp/mp40-visual.log
+          grep -q MP40_REAL_HYBRID_THREE_FRAME_RENDERED_GREEN /tmp/mp40-visual.log
+          test -s /tmp/mp40/hybrid/hybrid_mp40_frame_01.png
+          test -s /tmp/mp40/hybrid/hybrid_mp40_frame_17.png
+          test -s /tmp/mp40/hybrid/hybrid_mp40_frame_31.png
+          python3 - <<'PY'
+          import json
+          p="/tmp/mp40/hybrid/hybrid-visual-kinematic-report.json"
+          data=json.load(open(p))
+          assert data["real_hybrid_in_blender"]
+          assert len(data["visual_preview_png"])==3
+          assert not data["model_mdl_created"] and not data["phone_apk_created"]
+          print("MP40_TRUE_HYBRID_VISUAL_FRAMES_CAPTURED_GREEN")
+          PY
+
+      - name: Compile experimental REAL 46-frame HD MP40 into Quake MDL, preserve 16K geometry safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          BLEND=/tmp/mp40/hybrid/mp40-hybrid-MEASURED-SOURCE-ALIGNMENT.blend
+          mkdir -p /tmp/mp40/alias
+          curl -fsSL https://raw.githubusercontent.com/nzp-team/vril-engine/aaa474061bff5d0e3aa471ac01f5f0e01b4fca31/source/anorms.h -o /tmp/mp40/alias/anorms.h
+          grep -q '0.850651' /tmp/mp40/alias/anorms.h
+          blender -b "$BLEND" \
+            --python tools/mp40_bridge/blender_alias_mdl_probe.py \
+            -- /tmp/mp40/alias \
+               /tmp/mp40-assets/common/models/weapons/mp40/v_mp40.mdl \
+               /tmp/mp40/hybrid/source-to-mdl-measured-transform.json \
+               /tmp/mp40/alias/anorms.h \
+               /tmp/mp40/hybrid/original-46-pose-authority.json \
+            2>&1 | tee /tmp/mp40-alias.log
+          grep -q MP40_46_FRAME_REAL_GEOMETRY_ALIAS_EXPERIMENT_GREEN /tmp/mp40-alias.log
+          python3 - <<'PY'
+          import sys,json
+          from pathlib import Path
+          sys.path.insert(0,"tools/mp40_bridge")
+          from audit_mp40_binary import mdl_audit
+          root=Path("/tmp/mp40/alias")
+          source=root/"v_mp40_aether_hybrid_EXPERIMENT_ONLY.mdl"
+          m=mdl_audit(source)
+          r=json.loads((root/"alias-export-report.json").read_text())
+          assert m["frames"]==46
+          assert m["triangles"]==r["triangle_count"]==3593
+          assert m["vertices"]==r["vertex_count"]<=16384
+          assert r["all_frames_real_rigged_mesh_evaluation"]
+          assert r["quake_original_162_normal_lut"]
+          assert min(r["normal_distinct_indices_per_frame"]) >= 8
+          assert r["previous_double_winding_reversal_eliminated"]
+          assert r["smooth_shared_corner_vertices"]
+          assert r["deduplicated_vertex_savings"]>500
+          assert r["vertex_count"]<r["source_triangle_corner_count"]
+          print("MP40_VERTEX_UV_SEAM_REUSE_GATE_GREEN",r["deduplicated_vertex_savings"],
+                "source_uv_out_of_range",r["source_uv_out_of_range_corners"])
+          assert r["source_to_mdl_transform_from_icp"]
+          assert r["source_to_mdl_original_fit_error_relative"]["p90"]<.02
+          assert r["largest_avg_pose_delta"]>0.1
+          assert r["time_mapping_authoritative"] and r["time_mapping_from_actual_original_published_MDL"]
+          print("MP40_MDL_V6_REAL_46_POSE_BINARY_PARSE_GREEN",source.stat().st_size)
+          PY
+      - name: Compile 2048x1024 true-color dual-skin atlas for both Vril MP40 skins
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          root=Path("/tmp/mp40/alias")
+          gun=Image.open("/tmp/mp40/aether/weapon_mp40_c.png").convert("RGB")
+          for n in (0,1):
+            hands=Image.open("/tmp/mp40-assets/common/models/weapons/mp40/v_mp40.mdl_%d.pcx"%n).convert("RGB")
+            sheet=Image.new("RGB",(2048,1024))
+            sheet.paste(hands.resize((1024,1024),Image.Resampling.NEAREST),(0,0))
+            sheet.paste(gun.resize((1024,1024),Image.Resampling.LANCZOS),(1024,0))
+            path=root/("v_mp40.mdl_%d.tga"%n)
+            sheet.save(path,format="TGA")
+            assert path.stat().st_size>2_000_000
+          print("MP40_VRIL_DUAL_HD_EXTERNAL_TGA_ATLASES_GREEN")
+          PY
+      - name: Make experimental MP40 overlay without touching stock Dead Cell build
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dead-cell-overlay/models/weapons/mp40 dead-cell-overlay/maps
+          SRC=/tmp/mp40/alias
+          cp "$SRC/v_mp40_aether_hybrid_EXPERIMENT_ONLY.mdl" \
+            dead-cell-overlay/models/weapons/mp40/v_mp40.mdl
+          for n in 0 1; do
+            cp "$SRC/v_mp40.mdl_$n.tga" \
+              "dead-cell-overlay/models/weapons/mp40/v_mp40.mdl_$n.tga"
+          done
+          python3 - <<'PY'
+          from pathlib import Path
+          rows=["XZIEL: DEAD CELL", "ORIGINAL FAST-SPAWN CORE ARENA",
+                "4 INSIDE ZOMBIE SPAWNS", "MP40 GEOMETRY LAB ONLY",
+                "SOLO ZOMBIES TEST", "DEVELOPER MENU SUPPORTED",
+                "", "", "", "XZIEL", "0", "1"]
+          Path("dead-cell-overlay/maps/xziel_proto.txt").write_text("\n".join(rows)+"\n")
+          assert len(rows)==12
+          print("MP40_ONLY_DEAD_CELL_OVERLAY_READY_GREEN")
+          PY
+
+      - name: Compile existing four-spawn Dead Cell with stock NZP map builder
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/zombie_prototype/generate_graybox_map.py
+          test -s build/prototype/xziel_proto.map
+          git clone --depth 1 https://github.com/nzp-team/assets.git /tmp/mp40-nzp-map-assets
+          git clone --depth 1 --recursive https://github.com/nzp-team/spawn-zone-tool.git /tmp/mp40-spawn-tool
+          python3 -m pip install --quiet -r /tmp/mp40-spawn-tool/requirements.txt
+          (
+            cd /tmp/mp40-nzp-map-assets
+            bash tools/compile-wads.sh
+            mkdir -p source/maps/xziel_proto
+            cp "$GITHUB_WORKSPACE/build/prototype/xziel_proto.map" source/maps/xziel_proto/xziel_proto.map
+            bash tools/compile-maps.sh --map xziel_proto --zone-tool-path /tmp/mp40-spawn-tool
+          ) 2>&1 | tee /tmp/mp40-map-build.log
+          mkdir -p proto-dist
+          cp /tmp/mp40-nzp-map-assets/common/maps/xziel_proto.bsp proto-dist/
+          cp /tmp/mp40-nzp-map-assets/common/maps/xziel_proto.nsz proto-dist/
+          test -s proto-dist/xziel_proto.bsp
+          test -s proto-dist/xziel_proto.nsz
+          echo MP40_DEAD_CELL_ORIGINAL_MAP_COMPILED_GREEN
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install free Android SDK and NDK 27
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018"
+
+      - name: Build isolated Vril v0.26 Android-native app using modified 16K-capable engine
+        shell: bash
+        env:
+          XZIEL_DEV_MENU_ONLY: "1"
+          XZIEL_EXTRA_MAP_NAME: xziel_proto
+          XZIEL_EXTRA_MAP_BSP: proto-dist/xziel_proto.bsp
+          XZIEL_EXTRA_MAP_NSZ: proto-dist/xziel_proto.nsz
+          XZIEL_EXTRA_ASSET_DIR: dead-cell-overlay
+        run: |
+          set -euo pipefail
+          bash scripts/prepare_android.sh 2>&1 | tee /tmp/mp40-native-prepare.log
+          grep -q XZIEL_ALIAS_HD_16K_PATCHED /tmp/mp40-native-prepare.log
+          python3 scripts/slim_v026_deadcell_only.py build
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("build/android-project/app/build.gradle")
+          old='applicationId "com.xziel.nzp"'
+          txt=p.read_text()
+          assert txt.count(old)==1
+          p.write_text(txt.replace(old,'applicationId "com.xziel.mp40bridge.test"'))
+          p=Path("build/android-project/app/src/main/res/values/strings.xml")
+          old='<string name="app_name">Xziel: NZP Native</string>'
+          txt=p.read_text()
+          assert txt.count(old)==1
+          p.write_text(txt.replace(old,'<string name="app_name">XZIEL MP40 HD BRIDGE TEST</string>'))
+          print("MP40_EXPERIMENT_APP_ISOLATED_GREEN")
+          PY
+
+      - name: Prove exact MP40 asset and Dead Cell only, preserve other weapons and controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          from pathlib import Path
+          import io,sys
+          sys.path.insert(0,"tools/mp40_bridge")
+          from audit_mp40_binary import mdl_audit
+          with ZipFile("build/android-project/app/src/main/assets/nzp-data.zip") as zip:
+              names=set(zip.namelist())
+              maps=sorted(x for x in names if x.startswith("nzp/maps/") and x.endswith(".bsp"))
+              assert maps==["nzp/maps/xziel_proto.bsp"], maps
+              for ext in ("bsp","nsz","txt"):
+                  assert ("nzp/maps/xziel_proto."+ext) in names
+              path="nzp/models/weapons/mp40/v_mp40.mdl"
+              stock=Path("dead-cell-overlay/models/weapons/mp40/v_mp40.mdl").read_bytes()
+              assert zip.read(path)==stock
+              for n in (0,1):
+                  a=zip.read("nzp/models/weapons/mp40/v_mp40.mdl_%d.tga"%n)
+                  b=Path("dead-cell-overlay/models/weapons/mp40/v_mp40.mdl_%d.tga"%n).read_bytes()
+                  assert a==b
+              assert zip.read("nzp/progs.dat")
+              for w in ("mg","kar","stg","m1911"):
+                  assert any("/%s/"%w in name and name.endswith(".mdl") for name in names),w
+          print("MP40_ONLY_NZP_WEAPON_OVERLAY_DEADCELL_GAMEPLAY_GREEN")
+          PY
+
+      - name: Compile native ARM64 Vril + MP40 modified model Android APK
+        working-directory: build/android-project
+        shell: bash
+        run: ./gradlew --no-daemon assembleDebug --stacktrace
+
+      - name: Verify Android ARM64 and publish private-to-GitHub experiment only
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=build/android-project/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          unzip -p "$APK" lib/arm64-v8a/libmain.so > /tmp/mp40-vril-so
+          strings /tmp/mp40-vril-so | grep -q 'XZIEL HD alias'
+          mkdir -p mp40-test-apk
+          cp "$APK" mp40-test-apk/XZIEL-DEADCELL-MP40-AETHER-HD-TEST-ARM64.apk
+          cp /tmp/mp40/alias/alias-export-report.json mp40-test-apk/
+          sha256sum "$APK" > mp40-test-apk/SHA256.txt
+          echo MP40_EXPERIMENTAL_DEAD_CELL_APK_ARM64_GREEN
+
+      - name: Make experiment APK accessible to owner only; no release and no merge
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-DEADCELL-MP40-HD-PRIVATE-TEST
+          path: mp40-test-apk/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Preserve original authoring audit, no copyrighted model files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MP40-NZP-ORIGINAL-BLENDER-STRUCTURE-ONLY
+          path: |
+            /tmp/mp40-authoring-census.json
+            /tmp/mp40-blender-census.log
+            /tmp/mp40-skeleton-crosswalk.json
+            /tmp/mp40-rig-crosswalk.log
+            /tmp/mp40-hybrid.log
+            /tmp/mp40/hybrid/hybrid-report.json
+            /tmp/mp40/hybrid/hybrid-visual-kinematic-report.json
+            /tmp/mp40/hybrid/hybrid_mp40_frame_*.png
+            /tmp/mp40-visual.log
+            /tmp/mp40-alias.log
+            /tmp/mp40-reload-original-timing.log
+            /tmp/mp40/hybrid/original-46-pose-authority.json
+            /tmp/mp40-exact-rest-landmarks.log
+            /tmp/mp40-measured-icp.log
+            /tmp/mp40-aether-surface-match.log
+            /tmp/mp40-applied-measured.log
+            /tmp/mp40/hybrid/applied-aether-to-nzp-measured-alignment.json
+            /tmp/mp40/hybrid/aether-to-stock-actual-gun-surface-fit.json
+            /tmp/mp40/hybrid/source-to-mdl-measured-transform.json
+            /tmp/mp40/hybrid/mp40-original-bone-landmarks.json
+            /tmp/mp40/alias/alias-export-report.json
+          if-no-files-found: warn
+          retention-days: 14
