@@ -20,8 +20,8 @@ from mathutils.kdtree import KDTree
 import numpy as np
 
 args=sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else []
-if len(args)!=4:raise SystemExit("USAGE <real-original-v_mp40.mdl> <measured-source-to-mdl.json> <pinned-QuakeC-weapon_stats.qc> <report.json>")
-mdl_path,fit_path,qc_path,out=map(lambda p:Path(p).resolve(),args)
+if len(args)!=3:raise SystemExit("USAGE <real-original-v_mp40.mdl> <measured-source-to-mdl.json> <report.json>")
+mdl_path,fit_path,out=map(lambda p:Path(p).resolve(),args)
 d=mdl_path.read_bytes()
 if d[:4]!=b"IDPO" or struct.unpack_from("<i",d,4)[0]!=6:raise RuntimeError("MP40_FRAME_AUTHORITY_RED stock MDL not v6")
 sc=np.array(struct.unpack_from("<3f",d,8));origin=np.array(struct.unpack_from("<3f",d,20))
