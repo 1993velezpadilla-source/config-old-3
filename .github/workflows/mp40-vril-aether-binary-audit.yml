@@ -140,7 +140,6 @@ jobs:
             --python tools/mp40_bridge/blender_original_pose_timeline.py \
             -- /tmp/mp40-assets/common/models/weapons/mp40/v_mp40.mdl \
                /tmp/mp40/hybrid/source-to-mdl-measured-transform.json \
-               /tmp/mp40-quakec/source/shared/weapon_stats.qc \
                /tmp/mp40/hybrid/original-46-pose-authority.json \
             2>&1 | tee /tmp/mp40-reload-original-timing.log
           grep -q MP40_REAL_SOURCE_RELOAD_TIMELINE_GREEN /tmp/mp40-reload-original-timing.log
