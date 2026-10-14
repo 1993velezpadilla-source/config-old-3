@@ -73,13 +73,64 @@ def residual(x):
     }
 
 before_error=residual(before)
-inv=new.matrix_world.inverted()
+# The target here is the EVALUATED gun location with the NZ:P skeleton in
+# its animation pose, not the undeformed base mesh. Therefore simply writing
+# measured world coordinates into mesh.vertices[].co double-transforms the
+# gun. Invert the REAL linear-blend-skinning matrix for every vertex instead.
+# The source bone matrices, bind/rest matrices and vertex weights are all
+# read from Blender: not from approximate offsets or manual constants.
+from mathutils import Matrix
+import bmesh
+if new.parent is not None:
+    oldworld=new.matrix_world.copy()
+    new.parent=None
+    new.matrix_parent_inverse.identity()
+    new.matrix_world=oldworld
+# The new skinning mesh has its origin in original NZP armature coordinates.
+# This is checked instead of silently relying on parent transform chains.
+new.matrix_world=rig.matrix_world.copy()
+bpy.context.view_layer.update()
+inv_arm=rig.matrix_world.inverted()
+group_names={g.index:g.name for g in new.vertex_groups}
+joint_mats={}
+for n in ("Body","Slide","Clip"):
+    if n not in rig.pose.bones or n not in rig.data.bones:
+        raise SystemExit("MP40_MEASURED_ALIGN_RED missing authentic NZP bone "+n)
+    joint_mats[n]=rig.pose.bones[n].matrix @ rig.data.bones[n].matrix_local.inverted()
+weight_matrix_determinant_min=1e99
 for index,world_target in enumerate(reference):
-    new.data.vertices[index].co=inv@world_target
+    v=new.data.vertices[index]
+    influences=[(group_names[g.group],float(g.weight)) for g in v.groups
+                if g.weight>0.00001]
+    if not influences or any(name not in joint_mats for name,weight in influences):
+        raise SystemExit("MP40_MEASURED_ALIGN_RED incomplete explicit skin mapping")
+    total=sum(weight for name,weight in influences)
+    if total<0.95 or total>1.05:
+        raise SystemExit("MP40_MEASURED_ALIGN_RED unnormalized bone influences")
+    transform_skin=Matrix(((0.0,0.0,0.0,0.0),)*4)
+    for name,weight in influences:
+        transform_skin+=joint_mats[name]*(weight/total)
+    det=transform_skin.determinant()
+    weight_matrix_determinant_min=min(weight_matrix_determinant_min,abs(det))
+    if abs(det)<1e-10:
+        raise SystemExit("MP40_MEASURED_ALIGN_RED singular authentic vertex skin matrix")
+    target_in_arm=inv_arm@world_target
+    v.co=transform_skin.inverted()@target_in_arm
 new.data.update()
 bpy.context.view_layer.update()
 after=evaluate(new)
 after_error=residual(after)
+# Mirroring axes switches triangle winding, which otherwise creates missing
+# faces under front-face culling. Test the real fitted matrix determinant.
+R=Matrix(r)
+fit_parity=float(R.determinant())
+winding_flipped=fit_parity<0.0
+if winding_flipped:
+    bm=bmesh.new();bm.from_mesh(new.data)
+    bmesh.ops.reverse_faces(bm,faces=list(bm.faces))
+    bm.to_mesh(new.data);bm.free()
+    new.data.update()
+    bpy.context.view_layer.update()
 # Preserve 3D target from independently measured source geometry. A poor
 # Blender armature pose is another measurable problem, not a reason to retune.
 gun_diameter=float(report["original_stock_bbox_diagonal"])
@@ -102,6 +153,11 @@ result={
  "improves_actual_alignment":after_error["p90"]<before_error["p90"],
  "passes_strict_pose1_target_5pct":norm_after<.05,
  "positions_guessed":False,
+ "original_aether_parent_detached":new.parent is None,
+ "inverse_blend_skinning_applied_pose1":True,
+ "min_absolute_skin_matrix_determinant":weight_matrix_determinant_min,
+ "fitted_coordinate_reflection":fit_parity<0,
+ "front_face_winding_reversed_for_reflection":winding_flipped,
  "clip_retiming_validated":False,
  "real_android_playtest":False,
  "commercial_licensing_cleared":False,
