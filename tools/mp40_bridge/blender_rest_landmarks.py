@@ -22,7 +22,7 @@ gun=bpy.data.objects.get("Aether_HD_MP40_On_Vril_Rig")
 if stock_mesh is None or gun is None: raise SystemExit("MP40_BONE_MATCH_RED missing hybrid")
 rig=next((m.object for m in gun.modifiers if m.type=="ARMATURE"),None)
 other=[o for o in bpy.data.objects if o.type=="ARMATURE" and o!=rig]
-src=next((o for o in other if {"j_gun","j_clip","j_bolt"}.issubset(set(o.data.bones))),None)
+src=next((o for o in other if {"j_gun","j_clip","j_bolt"}.issubset({b.name for b in o.data.bones})),None)
 if rig is None or src is None: raise SystemExit("MP40_BONE_MATCH_RED missing original Aether/NZP rigs")
 mapping=[("j_gun","Body"),("j_clip","Clip"),("j_bolt","Slide")]
 def world_rest(arm,name):
