@@ -209,6 +209,26 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
+      - name: APPLY verified Aether-to-NZP gun matrix, reject guessed-box hybrid output
+        shell: bash
+        run: |
+          set -euo pipefail
+          blender -b /tmp/mp40/hybrid/mp40-hybrid-vril-hands-aether-gun-EXPERIMENT.blend \
+            --python tools/mp40_bridge/blender_apply_measured_alignment.py \
+            -- /tmp/mp40/hybrid/aether-to-stock-actual-gun-surface-fit.json /tmp/mp40/hybrid \
+            2>&1 | tee /tmp/mp40-applied-measured.log
+          grep -q MP40_SOURCE_TRANSFORM_APPLIED_TO_ACTUAL_HYBRID_GREEN /tmp/mp40-applied-measured.log
+          test -s /tmp/mp40/hybrid/mp40-hybrid-MEASURED-SOURCE-ALIGNMENT.blend
+          python3 - <<'PY'
+          import json
+          r=json.load(open("/tmp/mp40/hybrid/applied-aether-to-nzp-measured-alignment.json"))
+          assert r["source_hands_preserved"]=="NZP_Original_Animated_Hands_ONLY"
+          assert not r["positions_guessed"]
+          assert r["improves_actual_alignment"]
+          assert r["passes_strict_pose1_target_5pct"]
+          print("MP40_HYBRID_ACTUAL_VISUAL_POSITIONS_VERIFIED_GREEN")
+          PY
+
       - name: Measure original Aether and Vril rest-bone anchors and prove position fit accuracy
         shell: bash
         run: |
@@ -231,7 +251,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BLEND=/tmp/mp40/hybrid/mp40-hybrid-vril-hands-aether-gun-EXPERIMENT.blend
+          BLEND=/tmp/mp40/hybrid/mp40-hybrid-MEASURED-SOURCE-ALIGNMENT.blend
           test -s "$BLEND"
           export LIBGL_ALWAYS_SOFTWARE=1
           export EGL_PLATFORM=surfaceless
@@ -257,7 +277,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BLEND=/tmp/mp40/hybrid/mp40-hybrid-vril-hands-aether-gun-EXPERIMENT.blend
+          BLEND=/tmp/mp40/hybrid/mp40-hybrid-MEASURED-SOURCE-ALIGNMENT.blend
           mkdir -p /tmp/mp40/alias
           blender -b "$BLEND" \
             --python tools/mp40_bridge/blender_alias_mdl_probe.py \
@@ -467,6 +487,8 @@ jobs:
             /tmp/mp40-exact-rest-landmarks.log
             /tmp/mp40-measured-icp.log
             /tmp/mp40-aether-surface-match.log
+            /tmp/mp40-applied-measured.log
+            /tmp/mp40/hybrid/applied-aether-to-nzp-measured-alignment.json
             /tmp/mp40/hybrid/aether-to-stock-actual-gun-surface-fit.json
             /tmp/mp40/hybrid/source-to-mdl-measured-transform.json
             /tmp/mp40/hybrid/mp40-original-bone-landmarks.json
