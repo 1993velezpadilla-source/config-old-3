@@ -93,7 +93,7 @@ normalized={k:float(best[k]/target_diam) for k in ("median","rms","p90")}
 report={"schema":1,"method":"measured source-asset vertex cloud vs shipped alias MDL, 48 initial orientations, trimmed ICP",
         "original_source_blend_mesh":mesh.name,"original_source_vertex_count":len(src),
         "original_shipped_mdl_vertex_count":len(target),
-        "reference_mdl":source_path.name,"source_frame":1,"target_frame":1,
+        "reference_mdl":source_path.name,"reference_mdl_sha256":__import__("hashlib").sha256(mdl).hexdigest(),"source_frame":1,"target_frame":1,
         "candidate_axis_initializations":48,"successful_fits":len(results),
         "best":best,"error_relative_to_original_MDL_bbox_diagonal":normalized,
         "target_mdl_bbox_diagonal":float(target_diam),
