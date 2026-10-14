@@ -132,6 +132,26 @@ jobs:
           assert r["original_source_and_compiled_model_not_vertex_identical"]
           print("MP40_REAL_MDL_COORDINATE_FIT_EVIDENCE_GREEN")
           PY
+      - name: Recover original published MP40 46-frame reload movement from original 83-frame Blender action
+        shell: bash
+        run: |
+          set -euo pipefail
+          blender -b /tmp/mp40-assets/source/models/weapons/mp40/v_mp40/mesh.blend \
+            --python tools/mp40_bridge/blender_original_pose_timeline.py \
+            -- /tmp/mp40-assets/common/models/weapons/mp40/v_mp40.mdl \
+               /tmp/mp40/hybrid/source-to-mdl-measured-transform.json \
+               /tmp/mp40-quakec/source/shared/weapon_stats.qc \
+               /tmp/mp40/hybrid/original-46-pose-authority.json \
+            2>&1 | tee /tmp/mp40-reload-original-timing.log
+          grep -q MP40_REAL_SOURCE_RELOAD_TIMELINE_GREEN /tmp/mp40-reload-original-timing.log
+          python3 - <<'PY'
+          import json
+          report=json.load(open("/tmp/mp40/hybrid/original-46-pose-authority.json"))
+          assert len(report["source_frame_for_published_frame"])==46
+          assert report["linear_even_spaced_83_to_46_rejected"]
+          assert report["relative_p90_error"] < .13
+          print("MP40_ORIGINAL_RELOAD_TIMING_AUTHORITY_GREEN")
+          PY
       - name: Bind-mapping truth -- gun, magazine and bolt against exact source bones
         run: |
           set -euo pipefail
@@ -287,6 +307,7 @@ jobs:
                /tmp/mp40-assets/common/models/weapons/mp40/v_mp40.mdl \
                /tmp/mp40/hybrid/source-to-mdl-measured-transform.json \
                /tmp/mp40/alias/anorms.h \
+               /tmp/mp40/hybrid/original-46-pose-authority.json \
             2>&1 | tee /tmp/mp40-alias.log
           grep -q MP40_46_FRAME_REAL_GEOMETRY_ALIAS_EXPERIMENT_GREEN /tmp/mp40-alias.log
           python3 - <<'PY'
@@ -494,6 +515,8 @@ jobs:
             /tmp/mp40/hybrid/hybrid_mp40_frame_*.png
             /tmp/mp40-visual.log
             /tmp/mp40-alias.log
+            /tmp/mp40-reload-original-timing.log
+            /tmp/mp40/hybrid/original-46-pose-authority.json
             /tmp/mp40-exact-rest-landmarks.log
             /tmp/mp40-measured-icp.log
             /tmp/mp40-aether-surface-match.log
