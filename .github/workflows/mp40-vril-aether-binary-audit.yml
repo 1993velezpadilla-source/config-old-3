@@ -238,6 +238,7 @@ jobs:
             --python tools/mp40_bridge/blender_alias_mdl_probe.py \
             -- /tmp/mp40/alias \
                /tmp/mp40-assets/common/models/weapons/mp40/v_mp40.mdl \
+               /tmp/mp40/hybrid/source-to-mdl-measured-transform.json \
             2>&1 | tee /tmp/mp40-alias.log
           grep -q MP40_46_FRAME_REAL_GEOMETRY_ALIAS_EXPERIMENT_GREEN /tmp/mp40-alias.log
           python3 - <<'PY'
@@ -253,7 +254,8 @@ jobs:
           assert m["triangles"]==r["triangle_count"]==3593
           assert m["vertices"]==r["vertex_count"]<=16384
           assert r["all_frames_real_rigged_mesh_evaluation"]
-          assert r["reference_mdl_bbox_registered"]
+          assert r["source_to_mdl_transform_from_icp"]
+          assert r["source_to_mdl_original_fit_error_relative"]["p90"]<.02
           assert r["largest_avg_pose_delta"]>0.1
           assert not r["time_mapping_authoritative"]
           print("MP40_MDL_V6_REAL_46_POSE_BINARY_PARSE_GREEN",source.stat().st_size)
