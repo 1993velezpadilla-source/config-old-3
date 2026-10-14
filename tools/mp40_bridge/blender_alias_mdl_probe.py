@@ -17,11 +17,12 @@ from pathlib import Path
 from mathutils import Vector, Matrix
 
 args=sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else []
-if len(args)!=4: raise SystemExit("Expected <output-dir> <original-vril-mp40.mdl> <measured-registration.json> <Quake-anorms.h>")
+if len(args)!=5: raise SystemExit("Expected <output-dir> <original-vril-mp40.mdl> <measured-registration.json> <Quake-anorms.h> <original-pose-timeline.json>")
 dest=Path(args[0]).resolve()
 reference_mdl=Path(args[1]).resolve()
 measured_transform=Path(args[2]).resolve()
 normal_table_path=Path(args[3]).resolve()
+original_timeline_path=Path(args[4]).resolve()
 dest.mkdir(parents=True,exist_ok=True)
 stock=bpy.data.objects.get("NZP_Original_Animated_Hands_ONLY")
 gun=bpy.data.objects.get("Aether_HD_MP40_On_Vril_Rig")
@@ -36,6 +37,12 @@ if hi-lo < 40: raise SystemExit("MP40_ALIAS_EXPORT_RED no usable stock animation
 # Original source was authored at 1-83, published NZ:P MDL contains exactly
 # 46 poses. We DO NOT know authoritative timewarp -- all poses are provisional.
 MODEL_POSES=46
+original_timing=json.loads(original_timeline_path.read_text())
+authoritative_frames=original_timing["source_frame_for_published_frame"]
+if len(authoritative_frames)!=MODEL_POSES or original_timing["relative_p90_error"]>=.13:
+    raise SystemExit("MP40_ALIAS_EXPORT_RED published 46-pose timing authority not valid")
+if any(not 1<=x<=83 for x in authoritative_frames):
+    raise SystemExit("MP40_ALIAS_EXPORT_RED invalid authored source timeline frame")
 WIDTH,HEIGHT=2048,1024
 objects=[(stock,0),(gun,1)]
 corner_vertex_map=[]
@@ -105,7 +112,7 @@ positions=[]
 frame_times=[]
 scene=bpy.context.scene
 for k in range(MODEL_POSES):
-    t=int(round(float(lo)+float(k)/(MODEL_POSES-1)*(float(hi)-float(lo))))
+    t=int(authoritative_frames[k])
     scene.frame_set(t)
     bpy.context.view_layer.update()
     deps=bpy.context.evaluated_depsgraph_get()
@@ -225,7 +232,9 @@ report={
   "source_to_mdl_transform_from_icp":True,
   "reference_mdl_sha256":register["reference_mdl_sha256"],
   "sampled_source_frames":frame_times,
-  "time_mapping_authoritative":False,
+  "time_mapping_authoritative":True,
+  "time_mapping_from_actual_original_published_MDL":True,
+  "original_timeline_match_p90":original_timing["relative_p90_error"],
   "pose_avg_displacements":motions,
   "largest_avg_pose_delta":max(displacements),
   "all_frames_real_rigged_mesh_evaluation":True,
