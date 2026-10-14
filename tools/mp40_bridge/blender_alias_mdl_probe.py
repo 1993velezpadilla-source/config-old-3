@@ -16,8 +16,9 @@ from pathlib import Path
 from mathutils import Vector
 
 args=sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else []
-if len(args)!=1: raise SystemExit("Expected output directory")
+if len(args)!=2: raise SystemExit("Expected <output-dir> <original-vril-mp40.mdl>")
 dest=Path(args[0]).resolve()
+reference_mdl=Path(args[1]).resolve()
 dest.mkdir(parents=True,exist_ok=True)
 stock=bpy.data.objects.get("NZP_Original_Animated_Hands_ONLY")
 gun=bpy.data.objects.get("Aether_HD_MP40_On_Vril_Rig")
@@ -94,6 +95,59 @@ for k in range(MODEL_POSES):
         frame.append((float(v.x),float(v.y),float(v.z)))
     positions.append(frame)
     frame_times.append(t)
+# The authored Blender scene and the actual game MDL are NOT in the same
+# coordinate system: the stock viewmodel's forward is Quake X while authored
+# Blender's gun barrel extends along Y. Bounding-register the ORIGINAL stock
+# source geometry against ORIGINAL game-frame geometry rather than guessing
+# absolute unit scale, then use exactly that transform for the hybrid model.
+ref=reference_mdl.read_bytes()
+if ref[:4]!=b"IDPO" or len(ref)<84:
+    raise SystemExit("MP40_ALIAS_EXPORT_RED invalid stock calibration MDL")
+rs=struct.unpack_from("<3f",ref,8)
+ro=struct.unpack_from("<3f",ref,20)
+rsks,rw,rh,rv,rt=struct.unpack_from("<5i",ref,48)
+offset=84
+for _ in range(rsks):
+    kind,=struct.unpack_from("<i",ref,offset)
+    if kind!=0: raise SystemExit("MP40_ALIAS_EXPORT_RED grouped calibration skin")
+    offset+=4+rw*rh
+offset+=rv*12+rt*16
+if struct.unpack_from("<i",ref,offset)[0]!=0:
+    raise SystemExit("MP40_ALIAS_EXPORT_RED grouped first stock pose")
+offset+=28
+oldstock=[tuple(ro[j]+ref[offset+i*4+j]*rs[j] for j in range(3)) for i in range(rv)]
+old_min=[min(p[j] for p in oldstock) for j in range(3)]
+old_max=[max(p[j] for p in oldstock) for j in range(3)]
+src_mesh=bpy.data.objects.get("nzp_hands.ms3d.mo")
+if src_mesh is None:
+    raise SystemExit("MP40_ALIAS_EXPORT_RED original Blender stock mesh absent")
+scene.frame_set(1)
+bpy.context.view_layer.update()
+deps=bpy.context.evaluated_depsgraph_get()
+e=src_mesh.evaluated_get(deps)
+m=e.to_mesh()
+src_first=[e.matrix_world@v.co for v in m.vertices]
+e.to_mesh_clear()
+def quake_orient(p):
+    return (-float(p[1]),float(p[0]),float(p[2]))
+src_rot=[quake_orient(p) for p in src_first]
+src_min=[min(p[j] for p in src_rot) for j in range(3)]
+src_max=[max(p[j] for p in src_rot) for j in range(3)]
+src_span=[src_max[j]-src_min[j] for j in range(3)]
+old_span=[old_max[j]-old_min[j] for j in range(3)]
+if min(src_span)<0.01 or min(old_span)<0.01:
+    raise SystemExit("MP40_ALIAS_EXPORT_RED invalid source or stock reference bounds")
+axis_scale=[old_span[j]/src_span[j] for j in range(3)]
+if not all(0.05<q<10 for q in axis_scale):
+    raise SystemExit("MP40_ALIAS_EXPORT_RED unrealistic calibration scale "+repr(axis_scale))
+src_mid=[(src_min[j]+src_max[j])*0.5 for j in range(3)]
+old_mid=[(old_min[j]+old_max[j])*0.5 for j in range(3)]
+def map_to_game(p):
+    q=quake_orient(p)
+    return tuple(old_mid[j]+(q[j]-src_mid[j])*axis_scale[j] for j in range(3))
+positions=[[map_to_game(p) for p in frame] for frame in positions]
+print("MP40_ORIGINAL_QUAKE_MDL_VIEWMODEL_COORDINATES_CALIBRATED",
+      "scale",axis_scale,"stock first frame span",old_span)
 # Quantize ALL real skinned frames using one stable bounding range.
 vmin=[min(p[j] for frame in positions for p in frame) for j in range(3)]
 vmax=[max(p[j] for frame in positions for p in frame) for j in range(3)]
@@ -135,6 +189,11 @@ report={
   "texture_override_tga_required":True,
   "source_mesh_face_counts":face_ranges,"source_action":base_action.name,
   "source_action_range":[float(lo),float(hi)],
+  "source_blender_to_quake_xyz":"(-Y, +X, +Z)",
+  "source_to_stock_quake_axis_scale":axis_scale,
+  "original_mdl_frame0_bbox":[old_min,old_max],
+  "blender_stock_frame1_bbox_after_quake_orientation":[src_min,src_max],
+  "reference_mdl_bbox_registered":True,
   "sampled_source_frames":frame_times,
   "time_mapping_authoritative":False,
   "pose_avg_displacements":motions,
