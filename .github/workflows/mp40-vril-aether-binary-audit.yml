@@ -101,13 +101,13 @@ jobs:
         run: |
           set -euo pipefail
           git clone --filter=blob:none --depth 1 --sparse https://github.com/nzp-team/assets.git /tmp/mp40-assets
-          git -C /tmp/mp40-assets sparse-checkout set source/models/weapons/mp40/v_mp40
+          git -C /tmp/mp40-assets sparse-checkout set source/models/weapons/mp40/v_mp40 common/models/weapons/mp40
           test -s /tmp/mp40-assets/source/models/weapons/mp40/v_mp40/mesh.blend
       - name: Blender headless original 3D topology and rig census
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq blender python3-numpy libegl1 libgl1 libgl1-mesa-dri
+          sudo apt-get install -y -qq blender python3-numpy python3-pil libegl1 libgl1 libgl1-mesa-dri
           blender -b /tmp/mp40-assets/source/models/weapons/mp40/v_mp40/mesh.blend \
             --python tools/mp40_bridge/blender_source_census.py \
             2>&1 | tee /tmp/mp40-blender-census.log
@@ -133,10 +133,21 @@ jobs:
           git show FETCH_HEAD:xogot/assets/weapons/aether_waw_textures/weapon_mp40_c.png \
             > /tmp/mp40/aether/weapon_mp40_c.png
           mkdir -p /tmp/mp40/hybrid
+          python3 - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          source=Path("/tmp/mp40-assets/common/models/weapons/mp40/v_mp40.mdl_0.pcx")
+          dest=Path("/tmp/mp40/hybrid/real_stock_hand_skin.png")
+          img=Image.open(source).convert("RGB")
+          assert img.size==(128,128),img.size
+          img.save(dest)
+          print("MP40_ORIGINAL_PCX_HAND_TEXTURE_CONVERTED_GREEN")
+          PY
           blender -b /tmp/mp40-assets/source/models/weapons/mp40/v_mp40/mesh.blend \
             --python tools/mp40_bridge/blender_hybrid_proto.py \
             -- /tmp/mp40/aether/viewmodel.glb \
                /tmp/mp40/aether/weapon_mp40_c.png \
+               /tmp/mp40/hybrid/real_stock_hand_skin.png \
                /tmp/mp40/hybrid \
             2>&1 | tee /tmp/mp40-hybrid.log
           grep -q MP40_HYBRID_REAL_GUN_HAND_SEPARATION_GREEN /tmp/mp40-hybrid.log
@@ -150,6 +161,7 @@ jobs:
           assert r["aether_hd_triangles"]>3000
           assert r["actual_retained_hand_triangles"]==r["retained_original_hand_triangles"]
           assert r["old_animation_rig_reused"] is True
+          assert r["stock_hands_original_skin_rebound"] is True
           assert not r["mdl_exported"] and not r["android_rendered"]
           print("MP40_BLENDER_HYBRID_NON_SHIPPING_GATE_GREEN")
           PY
