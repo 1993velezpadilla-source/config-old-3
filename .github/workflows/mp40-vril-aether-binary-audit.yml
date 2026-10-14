@@ -333,7 +333,7 @@ jobs:
           assert r["source_to_mdl_transform_from_icp"]
           assert r["source_to_mdl_original_fit_error_relative"]["p90"]<.02
           assert r["largest_avg_pose_delta"]>0.1
-          assert not r["time_mapping_authoritative"]
+          assert r["time_mapping_authoritative"] and r["time_mapping_from_actual_original_published_MDL"]
           print("MP40_MDL_V6_REAL_46_POSE_BINARY_PARSE_GREEN",source.stat().st_size)
           PY
       - name: Compile 2048x1024 true-color dual-skin atlas for both Vril MP40 skins
