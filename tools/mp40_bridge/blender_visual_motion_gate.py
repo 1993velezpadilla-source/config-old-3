@@ -100,7 +100,15 @@ scene.render.resolution_y=680
 scene.render.resolution_percentage=100
 scene.render.image_settings.file_format="PNG"
 scene.render.film_transparent=False
-scene.world.color=(0.05,0.05,0.05)
+scene.world.color=(0.12,0.12,0.12)
+scene.world.use_nodes=True
+background=scene.world.node_tree.nodes.get("Background")
+if background is not None:
+    background.inputs["Color"].default_value=(0.15,0.15,0.15,1.0)
+    background.inputs["Strength"].default_value=1.2
+scene.view_settings.view_transform="Standard"
+scene.view_settings.exposure=1.35
+scene.view_settings.gamma=1.0
 amb=bpy.data.lights.new("MP40_AUDIT_KEY",type="AREA")
 amb.energy=1600
 amb.shape="DISK"
