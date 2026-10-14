@@ -135,6 +135,12 @@ new_gun=gun.copy()
 new_gun.data=gun.data.copy()
 new_gun.name="Aether_HD_MP40_On_Vril_Rig"
 bpy.context.collection.objects.link(new_gun)
+# The glTF source gun is parented to the Aether armature. A second NZP
+# armature modifier plus that inherited parent produces double-transforms.
+# Keep the authoritative Aether mesh in the scene but DETACH our copy.
+new_gun.parent=None
+new_gun.matrix_parent_inverse.identity()
+new_gun.animation_data_clear()
 world_points=[stock_center+(p-acenter)*scale for p in aether_world]
 new_gun.matrix_world=stock_arm.matrix_world.copy()
 for index,p in enumerate(world_points):
@@ -207,6 +213,7 @@ report={
     "source_gun_bounds":[list(lo),list(hi)],
     "aether_gun_bounds":[list(alow),list(ahigh)],
     "old_animation_rig_reused":True,
+    "new_gun_aether_parent_detached":new_gun.parent is None,
     "stock_hands_original_skin_rebound":True,
     "stock_hand_skin_source":original_skin.name,
     "aether_animation_playback_merged":False,
