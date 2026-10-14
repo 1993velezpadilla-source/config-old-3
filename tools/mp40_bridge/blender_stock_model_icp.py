@@ -89,7 +89,7 @@ for perm in itertools.permutations(range(3)):
 if not results: raise RuntimeError("MP40_ICP_RED no successful source->MDL fits")
 results.sort(key=lambda x:(x["p90"],x["rms"]))
 best=results[0]
-normalized={k:best[k]/target_diam for k in ("median","rms","p90")}
+normalized={k:float(best[k]/target_diam) for k in ("median","rms","p90")}
 report={"schema":1,"method":"measured source-asset vertex cloud vs shipped alias MDL, 48 initial orientations, trimmed ICP",
         "original_source_blend_mesh":mesh.name,"original_source_vertex_count":len(src),
         "original_shipped_mdl_vertex_count":len(target),
@@ -97,8 +97,8 @@ report={"schema":1,"method":"measured source-asset vertex cloud vs shipped alias
         "candidate_axis_initializations":48,"successful_fits":len(results),
         "best":best,"error_relative_to_original_MDL_bbox_diagonal":normalized,
         "target_mdl_bbox_diagonal":float(target_diam),
-        "pass_max_relative_p90_5_percent":normalized["p90"]<=.05,
-        "pass_max_relative_p90_10_percent":normalized["p90"]<=.10,
+        "pass_max_relative_p90_5_percent":bool(normalized["p90"]<=.05),
+        "pass_max_relative_p90_10_percent":bool(normalized["p90"]<=.10),
         "original_source_and_compiled_model_not_vertex_identical":len(src)!=len(target),
         "exact_source_vertices_are_measured":True,"proof_all_animation_frames":False,
         "gameplay_visual_alignment_proven":False}
