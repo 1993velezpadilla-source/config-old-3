@@ -7,7 +7,7 @@ reported; a "successful converter invocation" is NOT Android gameplay proof.
 import json,struct,sys,hashlib
 from pathlib import Path
 
-if len(sys.argv)!=5:
+if len(sys.argv)!=6:
     raise SystemExit("usage: input.glb candidate.iqm candidate.mdl converter.log output.json")
 source,iqm,mdl,logs,out=map(Path,sys.argv[1:])
 record={"schema":1,"conversion_test":"FTEQW native IQM tool / actual Aether MP40",
