@@ -201,6 +201,14 @@ jobs:
           print("MP40_REAL_AETHER_GUN_CORRESPONDENCE_MEASURED_GREEN")
           print("MP40_SOURCE_WEAPON_FIT_P90_PERCENT",100*r["normalized_fit_errors"]["p90"])
           PY
+      - name: Preserve Aether gun to Vril real bidirectional mesh fit before lengthy Android compile
+        uses: actions/upload-artifact@v4
+        with:
+          name: MP40-GUN-BIDIRECTIONAL-POSITION-MEASUREMENT
+          path: /tmp/mp40/hybrid/aether-to-stock-actual-gun-surface-fit.json
+          retention-days: 7
+          if-no-files-found: error
+
       - name: Measure original Aether and Vril rest-bone anchors and prove position fit accuracy
         shell: bash
         run: |
