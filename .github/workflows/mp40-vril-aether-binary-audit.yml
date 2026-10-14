@@ -279,11 +279,14 @@ jobs:
           set -euo pipefail
           BLEND=/tmp/mp40/hybrid/mp40-hybrid-MEASURED-SOURCE-ALIGNMENT.blend
           mkdir -p /tmp/mp40/alias
+          curl -fsSL https://raw.githubusercontent.com/nzp-team/vril-engine/aaa474061bff5d0e3aa471ac01f5f0e01b4fca31/source/anorms.h -o /tmp/mp40/alias/anorms.h
+          grep -q '0.850651' /tmp/mp40/alias/anorms.h
           blender -b "$BLEND" \
             --python tools/mp40_bridge/blender_alias_mdl_probe.py \
             -- /tmp/mp40/alias \
                /tmp/mp40-assets/common/models/weapons/mp40/v_mp40.mdl \
                /tmp/mp40/hybrid/source-to-mdl-measured-transform.json \
+               /tmp/mp40/alias/anorms.h \
             2>&1 | tee /tmp/mp40-alias.log
           grep -q MP40_46_FRAME_REAL_GEOMETRY_ALIAS_EXPERIMENT_GREEN /tmp/mp40-alias.log
           python3 - <<'PY'
@@ -299,6 +302,8 @@ jobs:
           assert m["triangles"]==r["triangle_count"]==3593
           assert m["vertices"]==r["vertex_count"]<=16384
           assert r["all_frames_real_rigged_mesh_evaluation"]
+          assert r["quake_original_162_normal_lut"]
+          assert min(r["normal_distinct_indices_per_frame"]) >= 8
           assert r["source_to_mdl_transform_from_icp"]
           assert r["source_to_mdl_original_fit_error_relative"]["p90"]<.02
           assert r["largest_avg_pose_delta"]>0.1
