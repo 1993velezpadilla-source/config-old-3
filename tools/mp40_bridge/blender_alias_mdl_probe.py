@@ -175,9 +175,14 @@ for row in triangles: out+=struct.pack("<iiii",*row)
 # Aether->NZP alignment; cull must agree with the actual evaluated source.
 # Determine winding on sampled first pose, then keep it consistent on ALL frames.
 # Source Blender faces and MDL face index order are equivalent at this stage.
+# The measured Blender alignment step has ALREADY reversed mirrored gun
+# faces in the actual mesh. The exporter reads that corrected topology.
+# Reversing faces again here silently undoes that fix on Android and
+# produces holes with backface culling. Never apply a second reflection.
 winding_reflection=(float(Matrix(rot).determinant())<0.0)
-if winding_reflection:
-    triangles=[(row[0],row[1],row[3],row[2]) for row in triangles]
+gun_faces_already_fixed=True
+if winding_reflection and not gun_faces_already_fixed:
+    raise SystemExit("MP40_ALIAS_EXPORT_RED winding stage contract changed")
 motions=[]
 first=positions[0]
 normal_index_ranges=[]
@@ -241,6 +246,7 @@ report={
   "quake_original_162_normal_lut":True,
   "normal_distinct_indices_per_frame":normal_index_ranges,
   "source_fit_reflection_and_winding_corrected":winding_reflection,
+  "previous_double_winding_reversal_eliminated":True,
   "normals_authoritative":True,
   "in_game_playtested":False,
   "commercial_distribution_approved":False,
