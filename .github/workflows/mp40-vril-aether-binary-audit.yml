@@ -352,7 +352,7 @@ jobs:
                   b=Path("dead-cell-overlay/models/weapons/mp40/v_mp40.mdl_%d.tga"%n).read_bytes()
                   assert a==b
               assert zip.read("nzp/progs.dat")
-              for w in ("mg42","kar","stg","colt"):
+              for w in ("mg","kar","stg","m1911"):
                   assert any("/%s/"%w in name and name.endswith(".mdl") for name in names),w
           print("MP40_ONLY_NZP_WEAPON_OVERLAY_DEADCELL_GAMEPLAY_GREEN")
           PY
