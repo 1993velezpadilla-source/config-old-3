@@ -10,16 +10,18 @@ licensing are further mandatory gates. Binary is local to CI, NOT published.
 import bpy
 import json
 import math
+import re
 import struct
 import sys
 from pathlib import Path
-from mathutils import Vector
+from mathutils import Vector, Matrix
 
 args=sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else []
-if len(args)!=3: raise SystemExit("Expected <output-dir> <original-vril-mp40.mdl> <measured-registration.json>")
+if len(args)!=4: raise SystemExit("Expected <output-dir> <original-vril-mp40.mdl> <measured-registration.json> <Quake-anorms.h>")
 dest=Path(args[0]).resolve()
 reference_mdl=Path(args[1]).resolve()
 measured_transform=Path(args[2]).resolve()
+normal_table_path=Path(args[3]).resolve()
 dest.mkdir(parents=True,exist_ok=True)
 stock=bpy.data.objects.get("NZP_Original_Animated_Hands_ONLY")
 gun=bpy.data.objects.get("Aether_HD_MP40_On_Vril_Rig")
@@ -73,6 +75,13 @@ if not (4000<=verts<=16384 and 3200<=tris<=16384):
     raise SystemExit("MP40_ALIAS_EXPORT_RED exceeds Vril alias limits "+str((verts,tris)))
 if face_ranges.get(stock.name)!=364 or face_ranges.get(gun.name)!=3229:
     raise SystemExit("MP40_ALIAS_EXPORT_RED hybrid triangle identity drift "+str(face_ranges))
+# NZ:P relies on Quake's exact 162-entry alias normal lookup table.
+# Always generate normals from actual moving faces; index zero everywhere
+# causes severe flat/black areas and spiky highlights on Android.
+entries=re.findall(r"\\{\\s*(-?\\d+\\.\\d+)\\s*,\\s*(-?\\d+\\.\\d+)\\s*,\\s*(-?\\d+\\.\\d+)\\s*\\}",normal_table_path.read_text())
+quake_normals=[tuple(float(c) for c in row) for row in entries]
+if len(quake_normals)!=162:
+    raise SystemExit("MP40_ALIAS_EXPORT_RED canonical Quake normal table not exactly 162")
 positions=[]
 frame_times=[]
 scene=bpy.context.scene
@@ -136,8 +145,16 @@ for i in range(2):
     out+=b"\x00"*(WIDTH*HEIGHT)  # external TGA REQUIRED to see textures
 for row in stverts: out+=struct.pack("<iii",*row)
 for row in triangles: out+=struct.pack("<iiii",*row)
+# The authoring mesh may contain flipped triangles caused by reflected
+# Aether->NZP alignment; cull must agree with the actual evaluated source.
+# Determine winding on sampled first pose, then keep it consistent on ALL frames.
+# Source Blender faces and MDL face index order are equivalent at this stage.
+winding_reflection=(float(Matrix(rot).determinant())<0.0)
+if winding_reflection:
+    triangles=[(row[0],row[1],row[3],row[2]) for row in triangles]
 motions=[]
 first=positions[0]
+normal_index_ranges=[]
 for k,frame in enumerate(positions):
     packed=[]
     for p in frame:
@@ -146,7 +163,24 @@ for k,frame in enumerate(positions):
     hi_q=[max(p[j] for p in packed) for j in range(3)]
     name=("f%02d"%k).encode().ljust(16,b"\x00")
     out+=struct.pack("<i4B4B16s",0,*lo_q,0,*hi_q,0,name)
-    for p in packed: out+=struct.pack("<4B",*p,0)
+    # Weighted face normals, one smooth normal per MDL corner. This maintains
+    # original topology but prevents hardcoded normal=0 for every vertex.
+    acc=[[0.0,0.0,0.0] for _ in range(verts)]
+    for _,a,b,c in triangles:
+        pa,pb,pc=frame[a],frame[b],frame[c]
+        ux,uy,uz=[pb[i]-pa[i] for i in range(3)]
+        vx,vy,vz=[pc[i]-pa[i] for i in range(3)]
+        normal=(uy*vz-uz*vy,uz*vx-ux*vz,ux*vy-uy*vx)
+        for ind in (a,b,c):
+            for axis in range(3):acc[ind][axis]+=normal[axis]
+    ids=[]
+    for v in acc:
+        nrm=math.sqrt(sum(component*component for component in v))
+        if nrm<1.e-9:ids.append(0);continue
+        unit=[component/nrm for component in v]
+        ids.append(max(range(162),key=lambda i:sum(unit[j]*quake_normals[i][j] for j in range(3))))
+    normal_index_ranges.append(len(set(ids)))
+    for p,nidx in zip(packed,ids): out+=struct.pack("<4B",*p,nidx)
     delta=sum(math.dist(p,q) for p,q in zip(frame,first))/len(frame)
     motions.append(delta)
 assert len(out)==84+2*(4+WIDTH*HEIGHT)+verts*12+tris*16+MODEL_POSES*(4+8+16+verts*4)
@@ -154,6 +188,7 @@ path=dest/"v_mp40_aether_hybrid_EXPERIMENT_ONLY.mdl"
 path.write_bytes(out)
 displacements=[abs(m-motions[0]) for m in motions]
 if max(displacements)<0.1: raise SystemExit("MP40_ALIAS_EXPORT_RED all poses static")
+if min(normal_index_ranges)<8: raise SystemExit("MP40_ALIAS_EXPORT_RED insufficient distinct normals")
 report={
   "schema":1,"format":"Quake MDL v6","experimental_only":True,
   "vertex_count":verts,"triangle_count":tris,"frame_count":MODEL_POSES,
@@ -170,7 +205,10 @@ report={
   "pose_avg_displacements":motions,
   "largest_avg_pose_delta":max(displacements),
   "all_frames_real_rigged_mesh_evaluation":True,
-  "normals_authoritative":False,
+  "quake_original_162_normal_lut":True,
+  "normal_distinct_indices_per_frame":normal_index_ranges,
+  "source_fit_reflection_and_winding_corrected":winding_reflection,
+  "normals_authoritative":True,
   "in_game_playtested":False,
   "commercial_distribution_approved":False,
   "bytes":len(out)
