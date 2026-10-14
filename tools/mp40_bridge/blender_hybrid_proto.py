@@ -90,9 +90,10 @@ bpy.ops.import_scene.gltf(filepath=str(aether))
 added=list(set(bpy.data.objects)-before)
 aether_meshes=[o for o in added if o.type=="MESH"]
 aether_arms=[o for o in added if o.type=="ARMATURE"]
-if len(aether_meshes)!=1 or not aether_arms:
+print("MP40_HYBRID_IMPORT_STRUCTURE", [(o.name,o.type,len(o.data.vertices) if o.type=="MESH" else 0) for o in added])
+if not aether_meshes or not aether_arms:
     raise SystemExit("MP40_HYBRID_RED imported Aether gun/rig missing")
-gun=aether_meshes[0]
+gun=max(aether_meshes,key=lambda o:len(o.data.vertices))
 modern_vertex_count=len(gun.data.vertices)
 modern_triangles=sum(max(0,len(p.vertices)-2) for p in gun.data.polygons)
 if modern_vertex_count<3000 or modern_triangles<3000:
