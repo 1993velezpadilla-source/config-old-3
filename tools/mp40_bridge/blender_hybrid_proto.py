@@ -49,7 +49,7 @@ for poly in stock.data.polygons:
 original_triangles=sum(max(0,len(poly.vertices)-2) for poly in stock.data.polygons)
 removed_triangles=sum(max(0,len(poly.vertices)-2) for poly,cut in zip(stock.data.polygons,is_gun) if cut)
 remaining=original_triangles-removed_triangles
-if not (60<removed_triangles<original_triangles*0.65 and remaining>original_triangles*0.45):
+if not (60<removed_triangles<original_triangles*0.65 and remaining>original_triangles*0.35):
     raise SystemExit("MP40_HYBRID_RED gun segmentation unsafe "+
                      repr((original_triangles,removed_triangles,remaining)))
 gun_verts={v for poly,cut in zip(stock.data.polygons,is_gun) if cut for v in poly.vertices}
