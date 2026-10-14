@@ -28,18 +28,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libpng-dev libjpeg-dev libvorbis-dev libogg-dev libopus-dev libfreetype-dev zlib1g-dev
           git clone --depth 1 --filter=blob:none https://github.com/nzp-team/fteqw.git /tmp/nzp-fte-converter
           git -C /tmp/nzp-fte-converter fetch --depth 1 origin f68a2b547d2dc4bf6886b922baa1bff487cc5038
           git -C /tmp/nzp-fte-converter checkout --detach f68a2b547d2dc4bf6886b922baa1bff487cc5038
           make -C /tmp/nzp-fte-converter/engine iqmtool-rel FTE_TARGET=linux64 -j4 2>&1 | tee /tmp/quake-formats/build.log
-          BIN=/tmp/nzp-fte-converter/engine/release/iqmtool
+          BIN=/tmp/nzp-fte-converter/engine/release/iqmtool64
           test -x "$BIN"
           echo XZIEL_EXISTING_FTE_NATIVE_CONVERTER_BUILT
       - name: Convert actual GLB to higher-fidelity IQM and legacy Quake MDL
         shell: bash
         run: |
           set -uo pipefail
-          BIN=/tmp/nzp-fte-converter/engine/release/iqmtool
+          BIN=/tmp/nzp-fte-converter/engine/release/iqmtool64
           cd /tmp/quake-formats
           "$BIN" mp40.iqm mp40.glb > iqm.log 2>&1
           IQM_RESULT=$?
