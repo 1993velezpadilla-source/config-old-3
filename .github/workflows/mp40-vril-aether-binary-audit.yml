@@ -107,7 +107,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq blender python3-numpy
+          sudo apt-get install -y -qq blender python3-numpy python3-numpy
           blender -b /tmp/mp40-assets/source/models/weapons/mp40/v_mp40/mesh.blend \
             --python tools/mp40_bridge/blender_source_census.py \
             2>&1 | tee /tmp/mp40-blender-census.log
