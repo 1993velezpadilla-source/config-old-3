@@ -73,30 +73,51 @@ for perm in itertools.permutations(range(3)):
             u,sv,vt=np.linalg.svd((left-a).T@(right-b))
             sgn=np.diag([1.,1.,parity*float(np.linalg.det(u@vt))])
             R=u@sgn@vt
-            scale=float((sv*np.diag(sgn)).sum()/max(1.e-12,((left-a)**2).sum()))
-            if not .5<scale<1000:break
+            proposed_scale=float((sv*np.diag(sgn)).sum()/max(1.e-12,((left-a)**2).sum()))
+            if not .5<proposed_scale<1000:break
+            # Prevent degenerate ICP solutions which collapse the whole Aether
+            # model onto a tiny portion of the original gun, showing falsely
+            # excellent one-way nearest-neighbor error. Both represent an MP40
+            # so their whole-gun geometric scale must remain near the actual
+            # measured point-cloud RMS ratio (not an arbitrary scene constant).
+            scale=min(isotropic*1.15,max(isotropic*.85,proposed_scale))
             shift=b-scale*a@R
         else:
-            idx,d=nearest(scale*(src@R)+shift)
+            predicted=scale*(src@R)+shift
+            idx,d=nearest(predicted)
+            # Bidirectional coverage: original MP40 ALSO has to find a close
+            # counterpart on Aether; one-way ICP can silently collapse onto
+            # one easy-to-fit tiny region while the rest disappears.
+            source_kd=KDTree(len(predicted))
+            for q,p in enumerate(predicted):source_kd.insert(Vector(p),q)
+            source_kd.balance()
+            backward=[float(source_kd.find(Vector(p))[2]) for p in target]
             fits.append({"median":float(np.median(d)),"p90":float(np.quantile(d,.9)),
-                         "rms":float(np.sqrt(np.mean(d*d))),"scale":scale,
+                         "rms":float(np.sqrt(np.mean(d*d))),
+                         "reverse_p90":float(np.quantile(backward,.9)),
+                         "reverse_median":float(np.median(backward)),
+                         "scale":scale,"scale_ratio_to_initial_geometry":scale/isotropic,
                          "rotation":R.tolist(),"translation":shift.tolist(),
                          "parity":parity,"initial_perm":perm,"initial_signs":signs})
 if not fits:raise RuntimeError("MP40_AETHER_MATCH_RED no converged skin")
-fits.sort(key=lambda x:(x["p90"],x["median"]))
+fits.sort(key=lambda x:(x["p90"]+x["reverse_p90"],x["median"]+x["reverse_median"]))
 best=fits[0]
 relative={"median":best["median"]/tdiam,"p90":best["p90"]/tdiam,
+          "reverse_p90":best["reverse_p90"]/tdiam,
+          "reverse_median":best["reverse_median"]/tdiam,
           "rms":best["rms"]/tdiam}
 report={"schema":1,"method":"actual weapon-only face weighted source geometry, robust ICP",
         "stock_reference_mesh":old.name,"aether_reference_mesh":source.name,
         "original_stock_gun_vertices":len(target),"aether_source_vertices":len(raw),
         "aether_fitted_samples":len(src),"axis_candidates":48,
         "converged_candidates":len(fits),"original_stock_bbox_diagonal":tdiam,
+        "initial_actual_rms_geometry_scale":isotropic,
+        "symmetric_coverage_required":True,
         "measured_aether_to_stock":best,"normalized_fit_errors":relative,
-        "precision_gate_p90_lt_5_percent":relative["p90"]<.05,
-        "precision_gate_p90_lt_10_percent":relative["p90"]<.1,
+        "precision_gate_p90_lt_5_percent":relative["p90"]<.05 and relative["reverse_p90"]<.05,
+        "precision_gate_p90_lt_10_percent":relative["p90"]<.1 and relative["reverse_p90"]<.1,
         "positions_eyeballed":False,"source_game_data_used":True,
         "automatic_original_animation_alignment_proven":False}
 (out/"aether-to-stock-actual-gun-surface-fit.json").write_text(json.dumps(report,indent=2))
 print("MP40_AETHER_GUN_TO_ORIGINAL_NZP_SURFACE_MATRIX_MEASURED_GREEN",json.dumps({"relative":relative,"scale":best["scale"],"translation":best["translation"],"R":best["rotation"]}))
-print("MP40_AETHER_TO_STOCK_PRECISION", "PASS_5_PERCENT" if report["precision_gate_p90_lt_5_percent"] else ("PASS_10_PERCENT" if report["precision_gate_p90_lt_10_percent"] else "REJECT_POOR_MATCH"))
+print("MP40_AETHER_TO_STOCK_PRECISION_BIDIRECTIONAL", "PASS_5_PERCENT" if report["precision_gate_p90_lt_5_percent"] else ("PASS_10_PERCENT" if report["precision_gate_p90_lt_10_percent"] else "REJECT_POOR_MATCH"))
