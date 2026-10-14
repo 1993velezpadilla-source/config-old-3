@@ -126,6 +126,33 @@ jobs:
             2>&1 | tee /tmp/mp40-rig-crosswalk.log
           grep -q MP40_RIG_SEMANTIC_CROSSWALK_GREEN /tmp/mp40-rig-crosswalk.log
           test -s /tmp/mp40-skeleton-crosswalk.json
+      - name: Experimental hybrid Blender asset - Aether HD gun + original animated NZP hands
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show FETCH_HEAD:xogot/assets/weapons/aether_waw_textures/weapon_mp40_c.png \
+            > /tmp/mp40/aether/weapon_mp40_c.png
+          mkdir -p /tmp/mp40/hybrid
+          blender -b /tmp/mp40-assets/source/models/weapons/mp40/v_mp40/mesh.blend \
+            --python tools/mp40_bridge/blender_hybrid_proto.py \
+            -- /tmp/mp40/aether/viewmodel.glb \
+               /tmp/mp40/aether/weapon_mp40_c.png \
+               /tmp/mp40/hybrid \
+            2>&1 | tee /tmp/mp40-hybrid.log
+          grep -q MP40_HYBRID_REAL_GUN_HAND_SEPARATION_GREEN /tmp/mp40-hybrid.log
+          grep -q MP40_HYBRID_ORIGINAL_NZP_ARMATURE_BONE_BIND_GREEN /tmp/mp40-hybrid.log
+          test -s /tmp/mp40/hybrid/hybrid-report.json
+          python3 - <<'PY'
+          import json
+          r=json.load(open("/tmp/mp40/hybrid/hybrid-report.json"))
+          assert r["retained_original_hand_triangles"]>400
+          assert r["removed_stock_weapon_triangles"]>100
+          assert r["aether_hd_triangles"]>3000
+          assert r["actual_retained_hand_triangles"]==r["retained_original_hand_triangles"]
+          assert r["old_animation_rig_reused"] is True
+          assert not r["mdl_exported"] and not r["android_rendered"]
+          print("MP40_BLENDER_HYBRID_NON_SHIPPING_GATE_GREEN")
+          PY
       - name: Preserve original authoring audit, no copyrighted model files
         if: always()
         uses: actions/upload-artifact@v4
@@ -136,5 +163,7 @@ jobs:
             /tmp/mp40-blender-census.log
             /tmp/mp40-skeleton-crosswalk.json
             /tmp/mp40-rig-crosswalk.log
+            /tmp/mp40-hybrid.log
+            /tmp/mp40/hybrid/hybrid-report.json
           if-no-files-found: warn
           retention-days: 14
