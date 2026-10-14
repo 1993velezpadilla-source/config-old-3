@@ -57,6 +57,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p reports
           python3 tools/mp40_bridge/audit_mp40_binary.py \
             --stock /tmp/mp40/stock/v_mp40.mdl \
             --aether /tmp/mp40/aether/viewmodel.glb \
