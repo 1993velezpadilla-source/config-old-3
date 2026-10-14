@@ -16,9 +16,11 @@ from mathutils import Vector
 from pathlib import Path
 
 params=sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else []
-if len(params)!=3:
-    raise SystemExit("expected <aether.glb> <basecolor.png> <output-dir>")
-aether,albedo,out=map(lambda p:Path(p).resolve(),params)
+if len(params)!=4:
+    raise SystemExit("expected <aether.glb> <basecolor.png> <hands_original_skin.png> <output-dir>")
+aether,albedo,original_skin,out=map(lambda p:Path(p).resolve(),params)
+if not original_skin.is_file():
+    raise SystemExit("MP40_HYBRID_RED actual stock hand atlas missing")
 out.mkdir(parents=True,exist_ok=True)
 
 stock_meshes=[o for o in bpy.data.objects if o.type=="MESH"]
@@ -81,6 +83,19 @@ if orphan:
     bmesh.ops.delete(bm,geom=orphan,context="VERTS")
 bm.to_mesh(hands.data)
 bm.free()
+# The Blender source references external images that are not bundled in the
+# authored .blend. Bind the ORIGINAL stock indexed MP40 skin to the retained
+# hand topology; otherwise previews falsely show purple/magenta arms.
+stock_hand_image=bpy.data.images.load(str(original_skin),check_existing=True)
+handmat=bpy.data.materials.new("NZP_MP40_Original_Hand_Skin_Visual_Authority")
+handmat.use_nodes=True
+handbsdf=handmat.node_tree.nodes.get("Principled BSDF")
+handtex=handmat.node_tree.nodes.new("ShaderNodeTexImage")
+handtex.image=stock_hand_image
+handtex.interpolation="Closest"
+handmat.node_tree.links.new(handtex.outputs["Color"],handbsdf.inputs["Base Color"])
+hands.data.materials.clear()
+hands.data.materials.append(handmat)
 stock.hide_render=True
 stock.hide_set(True)
 
@@ -165,6 +180,8 @@ bsdf=mat.node_tree.nodes.get("Principled BSDF")
 tex=mat.node_tree.nodes.new("ShaderNodeTexImage")
 tex.image=image
 mat.node_tree.links.new(tex.outputs["Color"],bsdf.inputs["Base Color"])
+bsdf.inputs["Metallic"].default_value=0.24
+bsdf.inputs["Roughness"].default_value=0.55
 new_gun.data.materials.clear()
 new_gun.data.materials.append(mat)
 gun.hide_render=True
@@ -190,6 +207,8 @@ report={
     "source_gun_bounds":[list(lo),list(hi)],
     "aether_gun_bounds":[list(alow),list(ahigh)],
     "old_animation_rig_reused":True,
+    "stock_hands_original_skin_rebound":True,
+    "stock_hand_skin_source":original_skin.name,
     "aether_animation_playback_merged":False,
     "mdl_exported":False,"android_rendered":False,
     "first_person_visual_alignment_proven":False,
