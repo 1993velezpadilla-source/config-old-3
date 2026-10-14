@@ -51,6 +51,21 @@ Separate general-purpose assets:
 - **All zombies:** same runtime GLB/IQM loader; skeleton/clip migration and head hitbox authority independent from visual scale and LOD.
 - **Every map:** preserve existing Dead Cell / Nacht gameplay map and collision; GLB loading should not force a remap or damage QuakeC weapons/perks.
 
+## First **real** source conversion evidence — GREEN, 2026-10-14
+
+GitHub Actions run: https://github.com/1993velezpadilla-source/config-old-3/actions/runs/38655097762
+Metrics-only artifact: https://github.com/1993velezpadilla-source/config-old-3/actions/runs/38655097762/artifacts/11935709467
+
+**The upstream NZ:P FTEQW IQM utility (actual original C++ source) compiled under GitHub Actions and both conversions exited 0** against the project's **original 501,256-byte MP40 GLB**. We did **not** run any fake stand-in proxy geometry.
+
+| Measured format | Triangles | Vertices | Joints | Animation clips | Frames | Notes |
+|---|---:|---:|---:|---:|---:|---|
+| Source Aether GLB | **3,229** | accessors (not necessarily shared/render count) | 1 glTF skin | **18** | source animation keyframes | **0 embedded image payloads**; external texture references need resolving |
+| Native FTE **IQM** | **3,229** | 3,566 | **8** | **18** | **254** | **all 3,229 triangles and all 18 clips preserved by header counts** |
+| Native FTE Quake **MDL** | **3,229** | 3,566 | **0** (no skeletal format) | 18 frame entries | 18 | Skin **128×128**. **Not** NZ:P's original 46-pose runtime contract. Material fidelity reduced |
+
+**Significance:** The converter is real, already supplied by the NZ:P FTE fork, and maintains the modern model's polygon count in both outputs. **IQM**, not the 18-pose MDL, is the superior geometry+skeletal intermediate. Header metrics do not guarantee all facial lighting, UVs, transform quality or in-game appearance. We have **no claim** that our current Android Vril engine can load IQM or GLB yet. The direct FTE GLB plugin lives in the **FTE PC source**, not in Vril's Android path.
+
 ## Automated evidence
 
 `.github/workflows/xziel-quake-modern-model-converters.yml` builds the **existing NZ:P FTE IQM tool** and tries converting the **real project's Aether MP40 GLB** into IQM (plus a diagnostic MDL), then checks actual on-disk geometry, bones, frames and animation counts via `tools/quake_modern_formats/audit_fte_glb_iqm.py`. Reports contain **JSON metrics only**. **No extracted BO3-derived game binaries are published**.
