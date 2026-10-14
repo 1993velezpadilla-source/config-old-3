@@ -42,6 +42,16 @@ corner_vertex_map=[]
 stverts=[]
 triangles=[]
 face_ranges={}
+# MDL indexes positions and UVs per vertex, not per polygon corner.
+# The earlier exporter wrote three independent vertices for every triangle,
+# producing hard shading seams across all 3593 faces and needless memory use.
+# Share corners only when their source vertex AND atlas UV are identical;
+# keep genuine texture seams separate, with no arbitrary vertex welding.
+vertex_for_corner={}
+uv_clamp_count=0
+uv_corner_count=0
+uv_min=[float("inf"),float("inf")]
+uv_max=[-float("inf"),-float("inf")]
 for obj,side in objects:
     mesh=obj.data
     uv=mesh.uv_layers.active
@@ -58,21 +68,30 @@ for obj,side in objects:
             if not math.isfinite(u) or not math.isfinite(v):
                 raise SystemExit("MP40_ALIAS_EXPORT_RED nonfinite UV")
             # Quake MDL stores whole-pixel atlas coordinates per vertex.
+            uv_corner_count+=1
+            uv_min=[min(uv_min[0],u),min(uv_min[1],v)]
+            uv_max=[max(uv_max[0],u),max(uv_max[1],v)]
+            if u<0 or u>1 or v<0 or v>1:
+                uv_clamp_count+=1
             u=min(1,max(0,u))
             v=min(1,max(0,v))
             s=min(WIDTH-1,max(0,round((side+u)*WIDTH/2)-1))
             t=min(HEIGHT-1,max(0,round((1-v)*HEIGHT)-1))
-            vid=len(corner_vertex_map)
-            corner_vertex_map.append((obj.name,int(loop.vertex_index)))
-            stverts.append((0,s,t))
-            corners.append(vid)
+            key=(obj.name,int(loop.vertex_index),s,t)
+            if key not in vertex_for_corner:
+                vertex_for_corner[key]=len(corner_vertex_map)
+                corner_vertex_map.append((obj.name,int(loop.vertex_index)))
+                stverts.append((0,s,t))
+            corners.append(vertex_for_corner[key])
         triangles.append((1, *corners))
     face_ranges[obj.name]=len(triangles)-face_start
 
 verts=len(stverts)
 tris=len(triangles)
-if not (4000<=verts<=16384 and 3200<=tris<=16384):
+if not (1000<=verts<=16384 and 3200<=tris<=16384):
     raise SystemExit("MP40_ALIAS_EXPORT_RED exceeds Vril alias limits "+str((verts,tris)))
+if uv_clamp_count:
+    print("MP40_SOURCE_UV_OUTSIDE_ZERO_ONE",uv_clamp_count,"of",uv_corner_count,"range",uv_min,uv_max)
 if face_ranges.get(stock.name)!=364 or face_ranges.get(gun.name)!=3229:
     raise SystemExit("MP40_ALIAS_EXPORT_RED hybrid triangle identity drift "+str(face_ranges))
 # NZ:P relies on Quake's exact 162-entry alias normal lookup table.
@@ -192,6 +211,11 @@ if min(normal_index_ranges)<8: raise SystemExit("MP40_ALIAS_EXPORT_RED insuffici
 report={
   "schema":1,"format":"Quake MDL v6","experimental_only":True,
   "vertex_count":verts,"triangle_count":tris,"frame_count":MODEL_POSES,
+  "smooth_shared_corner_vertices":True,
+  "source_triangle_corner_count":3*tris,
+  "deduplicated_vertex_savings":3*tris-verts,
+  "source_uv_out_of_range_corners":uv_clamp_count,
+  "source_uv_range":[uv_min,uv_max],
   "skin_count":2,"embedded_skin_size":[WIDTH,HEIGHT],
   "texture_override_tga_required":True,
   "source_mesh_face_counts":face_ranges,"source_action":base_action.name,
