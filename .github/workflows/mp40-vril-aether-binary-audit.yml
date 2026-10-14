@@ -304,6 +304,11 @@ jobs:
           assert r["all_frames_real_rigged_mesh_evaluation"]
           assert r["quake_original_162_normal_lut"]
           assert min(r["normal_distinct_indices_per_frame"]) >= 8
+          assert r["smooth_shared_corner_vertices"]
+          assert r["deduplicated_vertex_savings"]>500
+          assert r["vertex_count"]<r["source_triangle_corner_count"]
+          print("MP40_VERTEX_UV_SEAM_REUSE_GATE_GREEN",r["deduplicated_vertex_savings"],
+                "source_uv_out_of_range",r["source_uv_out_of_range_corners"])
           assert r["source_to_mdl_transform_from_icp"]
           assert r["source_to_mdl_original_fit_error_relative"]["p90"]<.02
           assert r["largest_avg_pose_delta"]>0.1
