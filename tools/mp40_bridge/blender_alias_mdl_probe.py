@@ -78,7 +78,7 @@ if face_ranges.get(stock.name)!=364 or face_ranges.get(gun.name)!=3229:
 # NZ:P relies on Quake's exact 162-entry alias normal lookup table.
 # Always generate normals from actual moving faces; index zero everywhere
 # causes severe flat/black areas and spiky highlights on Android.
-entries=re.findall(r"\\{\\s*(-?\\d+\\.\\d+)\\s*,\\s*(-?\\d+\\.\\d+)\\s*,\\s*(-?\\d+\\.\\d+)\\s*\\}",normal_table_path.read_text())
+entries=re.findall(r"\{\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*\}",normal_table_path.read_text())
 quake_normals=[tuple(float(c) for c in row) for row in entries]
 if len(quake_normals)!=162:
     raise SystemExit("MP40_ALIAS_EXPORT_RED canonical Quake normal table not exactly 162")
