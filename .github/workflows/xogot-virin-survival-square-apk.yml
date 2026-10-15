@@ -10,6 +10,7 @@ on:
       - "xogot/scripts/virin_survival_square.gd"
       - "xogot/virin_survival_square.tscn"
       - "xogot/ci/virin_survival_square_smoke.gd"
+      - "xogot/ci/virin_android_emulator_boot.sh"
 
 permissions:
   contents: read
