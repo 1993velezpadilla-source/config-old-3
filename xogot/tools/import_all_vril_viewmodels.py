@@ -46,7 +46,7 @@ class Reader:
 
 def read_frame(reader, numverts, scale, translate):
     reader.skip(8)  # bboxmin, bboxmax (trivertx_t)
-    name = reader.read(16).split(b"\\0", 1)[0].decode("ascii", "replace")
+    name = reader.read(16).split(b"\0", 1)[0].decode("ascii", "replace")
     packed = reader.read(numverts * 4)
     vertices = []
     for offset in range(0, len(packed), 4):
@@ -216,14 +216,14 @@ def make_glb(data, png_bytes, output, fps):
     gltf["buffers"][0]["byteLength"] = len(builder.buffer)
     json_data = json.dumps(gltf, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
     json_data += b" " * ((-len(json_data)) % 4)
-    binary = bytes(builder.buffer) + b"\\0" * ((-len(builder.buffer)) % 4)
+    binary = bytes(builder.buffer) + b"\0" * ((-len(builder.buffer)) % 4)
     total = 12 + 8 + len(json_data) + 8 + len(binary)
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("wb") as file:
         file.write(struct.pack("<4sII", b"glTF", 2, total))
         file.write(struct.pack("<I4s", len(json_data), b"JSON"))
         file.write(json_data)
-        file.write(struct.pack("<I4s", len(binary), b"BIN\\0"))
+        file.write(struct.pack("<I4s", len(binary), b"BIN\0"))
         file.write(binary)
 
 
