@@ -14,6 +14,7 @@ on:
       - "xogot/tools/import_vril_dead_cell.py"
       - "xogot/scripts/vril_original_gallery.gd"
       - "xogot/vril_original_gallery.tscn"
+      - "xogot/ci/vril_original_smoke.gd"
 
 permissions:
   contents: read
@@ -26,6 +27,7 @@ jobs:
       - name: Checkout conversion code and authoritative Dead Cell generator
         uses: actions/checkout@v4
         with:
+          filter: blob:none
           sparse-checkout: |
             .github/workflows/vril-original-godot-import.yml
             tools/zombie_prototype/generate_graybox_map.py
@@ -34,6 +36,7 @@ jobs:
             xogot/scripts/vril_original_gallery.gd
             xogot/vril_original_gallery.tscn
             xogot/project.godot
+            xogot/ci/vril_original_smoke.gd
           sparse-checkout-cone-mode: false
 
       - uses: actions/setup-python@v5
@@ -94,6 +97,30 @@ jobs:
           assert len(data['brushes'])>=10, "Missing map brushes"
           print('VRIL_GODOT_IMPORT_GREEN',len(entries),'viewmodels;',len(data['brushes']),'brushes; original frame totals',sum(x['frames'] for x in entries))
           PY
+
+      - name: Install Godot 4.6 (official Linux executable)
+        run: |
+          curl -fL --retry 4 --retry-delay 2 \
+            https://github.com/godotengine/godot/releases/download/4.6-stable/Godot_v4.6-stable_linux.x86_64.zip \
+            -o godot-4.6.zip
+          unzip -q godot-4.6.zip
+          chmod +x Godot_v4.6-stable_linux.x86_64
+          ./Godot_v4.6-stable_linux.x86_64 --version
+
+      - name: REAL Godot 4.6 import and frame-animation load test
+        run: |
+          set -euo pipefail
+          GODOT=./Godot_v4.6-stable_linux.x86_64
+          if ! "$GODOT" --headless --path xogot --editor --import > /tmp/virin-godot-import.log 2>&1; then
+            tail -n 150 /tmp/virin-godot-import.log
+            exit 1
+          fi
+          if ! "$GODOT" --headless --path xogot --script res://ci/vril_original_smoke.gd > /tmp/virin-godot-smoke.log 2>&1; then
+            tail -n 200 /tmp/virin-godot-smoke.log
+            exit 1
+          fi
+          grep 'VRIL_GODOT46_RUNTIME_GREEN' /tmp/virin-godot-smoke.log
+          tail -n 10 /tmp/virin-godot-smoke.log
 
       - name: Upload converted assets and Godot preview scene
         if: always()
