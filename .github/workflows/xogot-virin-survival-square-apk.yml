@@ -1,0 +1,197 @@
+name: Advanced Xogot Virin Original Weapons Survival Square APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-advanced-square-survival-virin-weapons-20261015
+    paths:
+      - ".github/workflows/xogot-virin-survival-square-apk.yml"
+      - "xogot/scripts/virin_survival_square.gd"
+      - "xogot/virin_survival_square.tscn"
+      - "xogot/ci/virin_survival_square_smoke.gd"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - name: Checkout advanced original Xogot project, NOT fresh viewer project
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            xogot
+          sparse-checkout-cone-mode: true
+
+      - name: Restore independently validated 41 original Virin viewmodels
+        uses: actions/download-artifact@v4
+        with:
+          name: Virin-Original-Weapons-DeadCell-Godot46
+          repository: ${{ github.repository }}
+          run-id: 38699922473
+          github-token: ${{ github.token }}
+          path: /tmp/virin-originals
+
+      - name: Mount originals; DO NOT mount the old Dead Cell BSP/mesh or scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -s /tmp/virin-originals/xogot/assets/vril_original/weapons/catalog.json ]]; then
+            SRC=/tmp/virin-originals/xogot/assets/vril_original/weapons
+          elif [[ -s /tmp/virin-originals/assets/vril_original/weapons/catalog.json ]]; then
+            SRC=/tmp/virin-originals/assets/vril_original/weapons
+          elif [[ -s /tmp/virin-originals/vril_original/weapons/catalog.json ]]; then
+            SRC=/tmp/virin-originals/vril_original/weapons
+          else
+            echo "RED: Original viewmodel catalog not found" >&2
+            exit 4
+          fi
+          mkdir -p xogot/assets/vril_original/weapons
+          cp -a "$SRC"/. xogot/assets/vril_original/weapons/
+          test -s xogot/assets/zombies/source_waw/honorgd/zombie.glb
+          test -s xogot/assets/hud/latest_12/hud_ads.webp
+          test -s xogot/assets/weapons/aether_waw_real/mp40/viewmodel.glb
+          test -s xogot/scripts/weapon.gd
+          test -s xogot/scripts/round_manager.gd
+          test -s xogot/scripts/player.gd
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          base=Path('xogot')
+          assert not (base/'assets/vril_original/dead_cell.json').exists(), 'Old invisible imported map is forbidden'
+          data=json.loads((base/'assets/vril_original/weapons/catalog.json').read_text())
+          assert len(data['weapons'])==41 and not data['failed']
+          assert sum(x['frames'] for x in data['weapons'])==1859
+          scene=(base/'virin_survival_square.tscn').read_text()
+          assert 'res://scripts/virin_survival_square.gd' in scene
+          assert 'res://scripts/player.gd' in scene
+          assert 'res://scripts/weapon.gd' in scene
+          assert 'res://scripts/round_manager.gd' in scene
+          assert 'res://scripts/mobile_hud.gd' in scene
+          print('XZIEL_ADVANCED_SOURCE_41_WEAPONS_NEW_SQUARE_GREEN')
+
+          project=base/'project.godot'
+          src=project.read_text()
+          old='run/main_scene="res://main.tscn"'
+          assert src.count(old)==1, 'refusing to mutate unknown Xogot'
+          src=src.replace(old,'run/main_scene="res://virin_survival_square.tscn"')
+          src=src.replace('config/name="YOU WON\'T WIN"', 'config/name="Virin Survival Square"')
+          src=src.replace('window/handheld/orientation=4','window/handheld/orientation=1')
+          project.write_text(src)
+          preset=base/'export_presets.cfg'
+          src=preset.read_text()
+          old='package/unique_name="com.xziel.youwontwin"'
+          assert src.count(old)==1
+          src=src.replace(old,'package/unique_name="com.xziel.advancedvirinsquare"')
+          src=src.replace('package/name="YOU WON\'T WIN"','package/name="VIRIN SURVIVAL"')
+          src=src.replace('version/code=1','version/code=44')
+          src=src.replace('version/name="0.1-mobile"','version/name="0.1.44-survival"')
+          src=src.replace('include_filter=""','include_filter="*.json"')
+          preset.write_text(src)
+          print('XZIEL_ADVANCED_PROJECT_PRESERVED_NEW_MAP_IS_BUILD_ONLY')
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Godot 4.6.1 and official Android templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail -L --retry 5 --retry-all-errors \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip -o /tmp/godot.zip
+          curl --fail -L --retry 5 --retry-all-errors \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_export_templates.tpz -o /tmp/godot-templates.tpz
+          mkdir -p /tmp/godot /tmp/godot-templates
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          unzip -q /tmp/godot-templates.tpz -d /tmp/godot-templates
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+          DIR="$HOME/.local/share/godot/export_templates/4.6.1.stable"
+          mkdir -p "$DIR"
+          cp -a /tmp/godot-templates/templates/. "$DIR/"
+          test -s "$DIR/android_debug.apk"
+
+      - name: Set up Android SDK, debug signing and independent app identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export ANDROID_HOME="$SDK_ROOT" ANDROID_SDK_ROOT="$SDK_ROOT"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.1"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          KEYSTORE="$RUNNER_TEMP/virin-advanced-survival.keystore"
+          keytool -genkeypair -noprompt -keystore "$KEYSTORE" -storepass android \
+            -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 \
+            -validity 10000 -dname "CN=VirinAdvancedSurvival,O=XZIEL,C=US"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$KEYSTORE" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
+
+      - name: Validate actual advanced Xogot and original source imports
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/virin-advanced-survival
+          GODOT=/tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+          timeout 600 "$GODOT" --headless --editor --path xogot --import \
+            > build/virin-advanced-survival/import.log 2>&1 || {
+              tail -n 180 build/virin-advanced-survival/import.log
+              exit 20
+            }
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR: Failed to load script' build/virin-advanced-survival/import.log; then
+            exit 21
+          fi
+          timeout 160 "$GODOT" --headless --path xogot \
+            --script res://ci/virin_survival_square_smoke.gd \
+            > build/virin-advanced-survival/verification.log 2>&1 || {
+              tail -n 190 build/virin-advanced-survival/verification.log
+              exit 22
+            }
+          cat build/virin-advanced-survival/verification.log | tail -n 90
+          grep -q 'VIRIN_SURVIVAL_REAL_ENGINE_GREEN' build/virin-advanced-survival/verification.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR: Failed to load script|SURVIVAL_SQUARE_RED' build/virin-advanced-survival/verification.log; then
+            exit 23
+          fi
+
+      - name: Export playable first-person survival APK (arm64)
+        shell: bash
+        run: |
+          set -euo pipefail
+          GODOT=/tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+          APK=build/virin-advanced-survival/Virin-Advanced-Survival-Square-OriginalWeapons.apk
+          "$GODOT" --headless --path xogot --export-debug "Android ARM64" \
+            "../$APK" > build/virin-advanced-survival/export.log 2>&1 || {
+              tail -n 160 build/virin-advanced-survival/export.log
+              exit 30
+            }
+          test -s "$APK"
+          AAPT2="$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 | sort -V | tail -n1)"
+          "$AAPT2" dump badging "$APK" > build/virin-advanced-survival/badging.txt
+          grep -q "package: name='com.xziel.advancedvirinsquare'" build/virin-advanced-survival/badging.txt
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n1)"
+          "$APKSIGNER" verify --verbose "$APK" > build/virin-advanced-survival/signature.txt
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' build/virin-advanced-survival/signature.txt
+          unzip -l "$APK" > build/virin-advanced-survival/contents.txt
+          grep -q 'lib/arm64-v8a/' build/virin-advanced-survival/contents.txt
+          sha256sum "$APK" | tee "$APK.sha256"
+          ls -lh "$APK"
+          echo "VIRIN_ADVANCED_SURVIVAL_SQUARE_ANDROID_APK_GREEN"
+
+      - name: Upload APK and all gates even when RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Virin-Advanced-Survival-Square-OriginalWeapons-APK
+          path: build/virin-advanced-survival/
+          if-no-files-found: warn
+          retention-days: 30
