@@ -8,16 +8,15 @@ PKG=com.xziel.advancedvirinsquare
 mkdir -p "$OUT"
 test -s "$APK"
 adb install -r "$APK"
+# Remove emulator-only SYSTEM MODALS (not part of the game). The prior
+# screenshot-test false GREEN was a "Viewing full screen" dialog hiding a
+# recording-permission dialog, not visible gameplay.
+adb shell settings put secure immersive_mode_confirmations confirmed
+adb shell pm grant "$PKG" android.permission.RECORD_AUDIO || true
 adb logcat -c
 adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1
-# Android API35 immersive-mode safety dialog covers the entire 3D screen
-# on the first install. Dismiss it like a normal player would.
-sleep 8
-adb shell input tap 1315 385
-adb shell input keyevent KEYCODE_ENTER || true
-# Large source animations take time on SwiftShader CPU Vulkan; do NOT capture
-# a splash/permission screen instead of actual Godot gameplay.
-sleep 48
+# A 3D model/animation cold boot can be slow with the emulator's software GPU.
+sleep 65
 adb exec-out screencap -p > "$OUT/android-screen.png"
 adb logcat -d -v time > "$OUT/android-logcat.txt"
 adb shell dumpsys activity top > "$OUT/foreground.txt"
@@ -44,6 +43,13 @@ unique = len(set(pixels))
 fraction = count / len(pixels)
 print("ANDROID_REAL_SCREEN_CAPTURE", img.size, "dominant_fraction",
       round(fraction, 3), "unique_rgb", unique, "most_common", color)
+# Android 35 onboarding popup has a large EXACT offwhite background;
+# reject its screenshot even if there are hundreds of text antialias colors.
+modal_color=(238,237,244)
+modal_fraction=pixels.count(modal_color)/len(pixels)
+print("ANDROID_MODAL_EXACT_COLOR_FRACTION",round(modal_fraction,4))
+if modal_fraction > 0.035:
+    raise SystemExit("ANDROID_UI_OVERLAY_NOT_DISMISSED_RED")
 if fraction > 0.79 or unique < 28:
     raise SystemExit("ANDROID_GRAY_SCREEN_PERSISTED_RED")
 print("ANDROID_SURVIVAL_VISIBLE_FRAME_GREEN")
