@@ -336,47 +336,7 @@ jobs:
           profile: pixel_6
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
-          script: |
-            set -eu
-            mkdir -p build/virin-advanced-survival/device-probe
-            APK=build/virin-advanced-survival/VIrin-SURVIVAL-EMULATOR-X86.apk
-            adb install -r "$APK"
-            adb logcat -c
-            adb shell monkey -p com.xziel.advancedvirinsquare -c android.intent.category.LAUNCHER 1
-            sleep 23
-            adb exec-out screencap -p > build/virin-advanced-survival/device-probe/android-screen.png
-            adb logcat -d -v time > build/virin-advanced-survival/device-probe/android-logcat.txt
-            adb shell pidof com.xziel.advancedvirinsquare
-            python3 - <<'PY'
-            import zipfile
-            from collections import Counter
-            from pathlib import Path
-            try:
-                from PIL import Image
-            except ImportError:
-                import subprocess,sys
-                subprocess.check_call([sys.executable,'-m','pip','install','Pillow==11.3.0'])
-                from PIL import Image
-            png=Path('build/virin-advanced-survival/device-probe/android-screen.png')
-            img=Image.open(png).convert('RGB').resize((160,90))
-            pix=list(img.getdata())
-            common,n=Counter(pix).most_common(1)[0]
-            variability=len(set(pix))
-            gray_fraction=n/len(pix)
-            print('ANDROID_REAL_SCREEN_CAPTURE',img.size,
-                  'dominant_fraction',round(gray_fraction,3),
-                  'unique_rgb',variability,'most_common',common)
-            if gray_fraction > 0.79 or variability < 28:
-                raise SystemExit('ANDROID_GRAY_SCREEN_PERSISTED: reject test APK')
-            print('ANDROID_SURVIVAL_SCREEN_IS_NOT_UNIFORM_GRAY_GREEN')
-            PY
-            if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Cannot open file' \
-              build/virin-advanced-survival/device-probe/android-logcat.txt \
-              | grep -E 'Godot|godot|virin_survival|weapon_catalog|player.gd|mobile_hud'; then
-              echo 'ANDROID_STARTUP_GDSCRIPT_ERROR: reject test APK'
-              exit 42
-            fi
-            echo "VIRIN_SURVIVAL_EMULATOR_VISIBLE_GAME_GREEN"
+          script: bash xogot/ci/virin_android_emulator_boot.sh
 
       - name: Upload APK and all gates even when RED
         if: always()
