@@ -337,7 +337,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           script: |
-            set -euo pipefail
+            set -eu
             mkdir -p build/virin-advanced-survival/device-probe
             APK=build/virin-advanced-survival/VIrin-SURVIVAL-EMULATOR-X86.apk
             adb install -r "$APK"
