@@ -83,7 +83,19 @@ jobs:
           src=src.replace('config/name="YOU WON\'T WIN"', 'config/name="Virin Survival Square"')
           src=src.replace('window/handheld/orientation=4','window/handheld/orientation=4')
           assert 'window/handheld/orientation=4' in src, 'landscape must remain 4 (sensor landscape)'
+          # PRECISE RENDER FIX: emulator Pixel 6 screenshot was 100% black
+          # while Godot gameplay/Zombie/MP40 all ran correctly in logcat.
+          # Vulkan's Software SwiftShader repeatedly reported
+          # "QueuePresentKHR failed with error: 5", so change the renderer
+          # only inside this disposable APK export, never main/project source.
+          assert 'renderer/rendering_method="mobile"' in src
+          assert 'renderer/rendering_method.mobile="mobile"' in src
+          src=src.replace('renderer/rendering_method="mobile"',
+             'renderer/rendering_method="gl_compatibility"')
+          src=src.replace('renderer/rendering_method.mobile="mobile"',
+             'renderer/rendering_method.mobile="gl_compatibility"')
           project.write_text(src)
+          print('VIRIN_BUILD_ONLY_GLES3_COMPATIBILITY_SWITCH_GREEN')
           preset=base/'export_presets.cfg'
           src=preset.read_text()
           old='package/unique_name="com.xziel.youwontwin"'
