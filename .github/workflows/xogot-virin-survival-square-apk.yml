@@ -1,0 +1,369 @@
+name: Advanced Xogot Virin Original Weapons Survival Square APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-advanced-square-survival-virin-weapons-20261015
+    paths:
+      - ".github/workflows/xogot-virin-survival-square-apk.yml"
+      - "xogot/scripts/virin_survival_square.gd"
+      - "xogot/virin_survival_square.tscn"
+      - "xogot/ci/virin_survival_square_smoke.gd"
+      - "xogot/ci/virin_android_emulator_boot.sh"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - name: Checkout advanced original Xogot project, NOT fresh viewer project
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            xogot
+          sparse-checkout-cone-mode: true
+
+      - name: Restore independently validated 41 original Virin viewmodels
+        uses: actions/download-artifact@v4
+        with:
+          name: Virin-Original-Weapons-DeadCell-Godot46
+          repository: ${{ github.repository }}
+          run-id: 38699922473
+          github-token: ${{ github.token }}
+          path: /tmp/virin-originals
+
+      - name: Mount originals; DO NOT mount the old Dead Cell BSP/mesh or scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -s /tmp/virin-originals/xogot/assets/vril_original/weapons/catalog.json ]]; then
+            SRC=/tmp/virin-originals/xogot/assets/vril_original/weapons
+          elif [[ -s /tmp/virin-originals/assets/vril_original/weapons/catalog.json ]]; then
+            SRC=/tmp/virin-originals/assets/vril_original/weapons
+          elif [[ -s /tmp/virin-originals/vril_original/weapons/catalog.json ]]; then
+            SRC=/tmp/virin-originals/vril_original/weapons
+          else
+            echo "RED: Original viewmodel catalog not found" >&2
+            exit 4
+          fi
+          mkdir -p xogot/assets/vril_original/weapons
+          cp -a "$SRC"/. xogot/assets/vril_original/weapons/
+          test -s xogot/assets/zombies/source_waw/honorgd/zombie.glb
+          test -s xogot/assets/hud/latest_12/hud_ads.webp
+          test -s xogot/assets/weapons/aether_waw_real/mp40/viewmodel.glb
+          test -s xogot/scripts/weapon.gd
+          test -s xogot/scripts/round_manager.gd
+          test -s xogot/scripts/player.gd
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          base=Path('xogot')
+          assert not (base/'assets/vril_original/dead_cell.json').exists(), 'Old invisible imported map is forbidden'
+          data=json.loads((base/'assets/vril_original/weapons/catalog.json').read_text())
+          assert len(data['weapons'])==41 and not data['failed']
+          assert sum(x['frames'] for x in data['weapons'])==1859
+          scene=(base/'virin_survival_square.tscn').read_text()
+          assert 'res://scripts/virin_survival_square.gd' in scene
+          assert 'res://scripts/player.gd' in scene
+          assert 'res://scripts/weapon.gd' in scene
+          assert 'res://scripts/round_manager.gd' in scene
+          assert 'res://scripts/mobile_hud.gd' in scene
+          print('XZIEL_ADVANCED_SOURCE_41_WEAPONS_NEW_SQUARE_GREEN')
+
+          project=base/'project.godot'
+          src=project.read_text()
+          old='run/main_scene="res://main.tscn"'
+          assert src.count(old)==1, 'refusing to mutate unknown Xogot'
+          src=src.replace(old,'run/main_scene="res://virin_survival_square.tscn"')
+          src=src.replace('config/name="YOU WON\'T WIN"', 'config/name="Virin Survival Square"')
+          src=src.replace('window/handheld/orientation=4','window/handheld/orientation=4')
+          assert 'window/handheld/orientation=4' in src, 'landscape must remain 4 (sensor landscape)'
+          # PRECISE RENDER FIX: emulator Pixel 6 screenshot was 100% black
+          # while Godot gameplay/Zombie/MP40 all ran correctly in logcat.
+          # Vulkan's Software SwiftShader repeatedly reported
+          # "QueuePresentKHR failed with error: 5", so change the renderer
+          # only inside this disposable APK export, never main/project source.
+          assert 'renderer/rendering_method="mobile"' in src
+          assert 'renderer/rendering_method.mobile="mobile"' in src
+          src=src.replace('renderer/rendering_method="mobile"',
+             'renderer/rendering_method="gl_compatibility"')
+          src=src.replace('renderer/rendering_method.mobile="mobile"',
+             'renderer/rendering_method.mobile="gl_compatibility"')
+          project.write_text(src)
+          print('VIRIN_BUILD_ONLY_GLES3_COMPATIBILITY_SWITCH_GREEN')
+          preset=base/'export_presets.cfg'
+          src=preset.read_text()
+          old='package/unique_name="com.xziel.youwontwin"'
+          assert src.count(old)==1
+          src=src.replace(old,'package/unique_name="com.xziel.advancedvirinsquare"')
+          src=src.replace('package/name="YOU WON\'T WIN"','package/name="VIRIN SURVIVAL"')
+          src=src.replace('version/code=1','version/code=44')
+          src=src.replace('version/name="0.1-mobile"','version/name="0.1.44-survival"')
+          # Keep the full advanced SOURCE tree untouched but package only the
+          # new survival scene plus all its static and dynamic dependencies.
+          # ALL_RESOURCES would accidentally package every unrelated gigantic
+          # Nacht/Black Pines/Church texture and map (first smoke APK = 696 MB).
+          src=src.replace('export_filter="all_resources"','export_filter="resources"')
+          include=[
+              'res://virin_survival_square.tscn',
+              'res://scripts/zombie_dummy.gd',
+              'res://assets/zombies/source_waw/honorgd/zombie.glb',
+          ]
+          include += [ 'res://'+str(p.relative_to(base)).replace('\\','/')
+              for p in (base/'assets/vril_original/weapons').rglob('*.glb') ]
+          # FATAL root cause proven in the prior shipped APK: the selected
+          # export had player.gdc and weapon.gdc, but OMITTED the GDScript
+          # preloads they reference (weapon_catalog.gdc, mobile_layout.gdc,
+          # weapon_asset_registry.gdc, etc). The game could not load its
+          # startup scene on Android: pure Godot gray screen.
+          # Carry ALL actual GDScript dependencies from the existing advanced
+          # Xogot gameplay rather than pretending the entry point is enough.
+          include += [ 'res://'+p.relative_to(base).as_posix()
+              for p in (base/'scripts').rglob('*.gd') ]
+          # Gray-screen regression: selected-resource export omitted 15
+          # preload() HUD skins and both Quake-compatible native viewhands/gun.
+          # Headless editor tests could load them from the full checkout, while
+          # Android could NOT. Keep our ORIGINAL advanced controls/assets.
+          include += [ 'res://'+p.relative_to(base).as_posix()
+              for p in (base/'assets/hud').rglob('*')
+              if p.is_file() and p.suffix.lower() in ('.webp','.png','.svg') ]
+          include += [
+              'res://assets/weapons/aether_waw_real/mp40/viewmodel.glb',
+              'res://assets/weapons/aether_waw_hands/t4_marine/mp40/viewhands.glb',
+              'res://assets/weapons/aether_waw_hands/t4_marine/colt/viewhands.glb',
+              'res://assets/weapons/aether_waw_real/colt/viewmodel.glb',
+          ]
+          # Texture registry uses these files by dynamic path during startup.
+          include += [ 'res://'+p.relative_to(base).as_posix()
+              for p in (base/'assets/weapons/aether_waw_textures').rglob('*.png') ]
+          # Preserve original documented WaW visual source materials.
+          include += [ 'res://'+p.relative_to(base).as_posix()
+              for p in (base/'assets/zombies/source_waw/source_materials').rglob('*.png') ]
+
+          # Runtime lookups for real WaW zombies and stock weapons need their
+          # actual audio files even if they are not preload() script deps.
+          include += [ 'res://'+str(p.relative_to(base)).replace('\\','/')
+              for p in (base/'assets/audio').rglob('*')
+              if p.is_file() and p.suffix.lower() in ('.ogg','.wav','.mp3') ]
+          include=sorted(set(include))
+          assert len([x for x in include if x.startswith(
+            'res://assets/vril_original/weapons/')])==41
+          for required in (
+            'res://assets/hud/latest_12/hud_ads.webp',
+            'res://assets/hud/latest_12/hud_fire.png',
+            'res://assets/hud/latest_12/hud_reload.webp',
+            'res://assets/hud/official/joystick_ring.svg',
+            'res://assets/weapons/aether_waw_real/mp40/viewmodel.glb',
+            'res://assets/weapons/aether_waw_hands/t4_marine/mp40/viewhands.glb',
+            'res://assets/zombies/source_waw/honorgd/zombie.glb',
+          ):
+            assert required in include, 'GRAY_SCREEN_UNPACKED_DEPENDENCY: '+required
+          resource_line='export_files=PackedStringArray('+','.join(
+            json.dumps(value) for value in include)+')'
+          src=src.replace('include_filter=""',resource_line+'\ninclude_filter="*.json"')
+          preset.write_text(src)
+          print('VIRIN_MINI_SURVIVAL_EXPORT_FILES_GREEN',len(include),'selected resources; no unrelated maps packaged')
+          print('XZIEL_ADVANCED_PROJECT_PRESERVED_NEW_MAP_IS_BUILD_ONLY')
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Godot 4.6.1 and official Android templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail -L --retry 5 --retry-all-errors \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip -o /tmp/godot.zip
+          curl --fail -L --retry 5 --retry-all-errors \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_export_templates.tpz -o /tmp/godot-templates.tpz
+          mkdir -p /tmp/godot /tmp/godot-templates
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          unzip -q /tmp/godot-templates.tpz -d /tmp/godot-templates
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+          DIR="$HOME/.local/share/godot/export_templates/4.6.1.stable"
+          mkdir -p "$DIR"
+          cp -a /tmp/godot-templates/templates/. "$DIR/"
+          test -s "$DIR/android_debug.apk"
+
+      - name: Set up Android SDK, debug signing and independent app identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export ANDROID_HOME="$SDK_ROOT" ANDROID_SDK_ROOT="$SDK_ROOT"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.1"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          KEYSTORE="$RUNNER_TEMP/virin-advanced-survival.keystore"
+          keytool -genkeypair -noprompt -keystore "$KEYSTORE" -storepass android \
+            -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 \
+            -validity 10000 -dname "CN=VirinAdvancedSurvival,O=XZIEL,C=US"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$KEYSTORE" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
+
+      - name: Validate actual advanced Xogot and original source imports
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/virin-advanced-survival
+          GODOT=/tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+          timeout 600 "$GODOT" --headless --editor --path xogot --import \
+            > build/virin-advanced-survival/import.log 2>&1 || {
+              tail -n 180 build/virin-advanced-survival/import.log
+              exit 20
+            }
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR: Failed to load script' build/virin-advanced-survival/import.log; then
+            exit 21
+          fi
+          timeout 160 "$GODOT" --headless --path xogot \
+            --script res://ci/virin_survival_square_smoke.gd \
+            > build/virin-advanced-survival/verification.log 2>&1 || {
+              tail -n 190 build/virin-advanced-survival/verification.log
+              exit 22
+            }
+          cat build/virin-advanced-survival/verification.log | tail -n 90
+          grep -q 'VIRIN_SURVIVAL_REAL_ENGINE_GREEN' build/virin-advanced-survival/verification.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR: Failed to load script|SURVIVAL_SQUARE_RED' build/virin-advanced-survival/verification.log; then
+            exit 23
+          fi
+
+      - name: Export playable first-person survival APK (arm64)
+        shell: bash
+        run: |
+          set -euo pipefail
+          GODOT=/tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+          APK=build/virin-advanced-survival/Virin-Advanced-Survival-Square-OriginalWeapons.apk
+          "$GODOT" --headless --path xogot --export-debug "Android ARM64" \
+            "../$APK" > build/virin-advanced-survival/export.log 2>&1 || {
+              tail -n 160 build/virin-advanced-survival/export.log
+              exit 30
+            }
+          test -s "$APK"
+          AAPT2="$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 | sort -V | tail -n1)"
+          "$AAPT2" dump badging "$APK" > build/virin-advanced-survival/badging.txt
+          grep -q "package: name='com.xziel.advancedvirinsquare'" build/virin-advanced-survival/badging.txt
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n1)"
+          "$APKSIGNER" verify --verbose "$APK" > build/virin-advanced-survival/signature.txt
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' build/virin-advanced-survival/signature.txt
+          unzip -l "$APK" > build/virin-advanced-survival/contents.txt
+          grep -q 'lib/arm64-v8a/' build/virin-advanced-survival/contents.txt
+          # Validate the EXPORTED Android APK, not just project source.
+          python3 - "$APK" <<'PY'
+          import sys, zipfile
+          from pathlib import Path
+          apk=Path(sys.argv[1])
+          with zipfile.ZipFile(apk) as z:
+              files=set(z.namelist())
+          def check(text):
+              if not any(text in f for f in files):
+                  raise SystemExit('APK_GRAY_SCREEN_DEPENDENCY_MISSING '+text)
+          for needed in (
+              'assets/scripts/virin_survival_square.gdc',
+              'assets/scripts/player.gdc',
+              'assets/scripts/weapon.gdc',
+              'assets/scripts/mobile_hud.gdc',
+              'assets/scripts/round_manager.gdc',
+              'assets/scripts/zombie_dummy.gdc',
+              # No more false GREEN: these were absent from the Android APK
+              # that produced the photographed gray screen on Pixel Fold.
+              'assets/scripts/weapon_catalog.gdc',
+              'assets/scripts/weapon_asset_registry.gdc',
+              'assets/scripts/weapon_texture_registry.gdc',
+              'assets/scripts/weapon_viewmodel_source_pose.gdc',
+              'assets/scripts/weapon_viewmodel_source_presentation.gdc',
+              'assets/scripts/weapon_balance_aaa.gdc',
+              'assets/scripts/weapon_source_combat.gdc',
+              'assets/scripts/mobile_layout.gdc',
+              'assets/scripts/cod_source_contract.gdc',
+              'assets/scripts/perk_catalog.gdc',
+              'assets/scripts/source_modifier_policy.gdc',
+              'hud_ads.webp',
+              'hud_fire.png',
+              'hud_reload.webp',
+              'joystick_ring.svg',
+              'viewmodel.glb-',
+              'viewhands.glb-',
+              'v_mp40.glb-',
+              'zombie.glb-',
+              'assets/virin_survival_square.tscn.remap',
+          ):
+              check(needed)
+          models=[f for f in files if '.godot/imported/v_' in f and f.endswith('.scn')]
+          assert len(models)>=41, ('APK_MISSING_SOURCE_WEAPONS',len(models))
+          if any('/dead_cell.json' in f for f in files):
+              raise SystemExit('FORBIDDEN_OLD_DEAD_CELL_MAP')
+          print('APK_PACKED_RUNTIME_PROOF_GREEN hud+original_weapon+hands+zombie+survival scripts original_models=',len(models))
+          PY
+          sha256sum "$APK" | tee "$APK.sha256"
+          ls -lh "$APK"
+          echo "VIRIN_ADVANCED_SURVIVAL_SQUARE_ANDROID_APK_GREEN"
+
+      - name: Export same advanced Xogot project as Android x86_64 emulator APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          preset=Path('xogot/export_presets.cfg')
+          s=preset.read_text()
+          assert 'architectures/arm64-v8a=true' in s
+          assert 'architectures/x86_64=false' in s
+          preset.write_text(s.replace(
+            'architectures/arm64-v8a=true','architectures/arm64-v8a=false'
+          ).replace('architectures/x86_64=false','architectures/x86_64=true'))
+          PY
+          /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --export-debug "Android ARM64" \
+            "../build/virin-advanced-survival/VIrin-SURVIVAL-EMULATOR-X86.apk" \
+            > build/virin-advanced-survival/emulator-export.log 2>&1 || {
+              tail -n 130 build/virin-advanced-survival/emulator-export.log
+              exit 40
+            }
+          test -s build/virin-advanced-survival/VIrin-SURVIVAL-EMULATOR-X86.apk
+
+      - name: Install screenshot decoding dependency for live Android UI gate
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Pillow for screenshot visual verification
+        run: python -m pip install --disable-pip-version-check Pillow==11.3.0
+
+      - name: Allow Android emulator KVM
+        shell: bash
+        run: |
+          if [[ -e /dev/kvm ]]; then
+            sudo chmod 666 /dev/kvm
+          fi
+
+      - name: Emulate real Android launch and capture physical rendered screen
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash xogot/ci/virin_android_emulator_boot.sh
+
+      - name: Upload APK and all gates even when RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Virin-Advanced-Survival-Square-OriginalWeapons-APK
+          path: build/virin-advanced-survival/
+          if-no-files-found: warn
+          retention-days: 30
