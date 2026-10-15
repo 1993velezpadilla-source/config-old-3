@@ -159,10 +159,16 @@ jobs:
             2>&1 | tee build/vril-preview/export.log
           APK="build/vril-preview/Virin-DeadCell-41-Original-Weapons-ARM64.apk"
           test -s "$APK"
-          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n1)"
-          test -x "$AAPT"
-          "$AAPT" dump badging "$APK" > build/vril-preview/badging.txt
+          # Android 35's legacy aapt can falsely fail to parse Godot's manifest
+          # ("android:required is not an integer"). Use aapt2 for final audit.
+          AAPT2="$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 | sort -V | tail -n1)"
+          test -x "$AAPT2"
+          "$AAPT2" dump badging "$APK" > build/vril-preview/badging.txt
           grep -q "package: name='com.xziel.virinoriginalviewer'" build/vril-preview/badging.txt
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n1)"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --verbose "$APK" > build/vril-preview/signature.txt
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' build/vril-preview/signature.txt
           unzip -l "$APK" > build/vril-preview/apk-contents.txt
           grep -q "lib/arm64-v8a/" build/vril-preview/apk-contents.txt
           if grep -q "lib/armeabi-v7a/" build/vril-preview/apk-contents.txt; then
