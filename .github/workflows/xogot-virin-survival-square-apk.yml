@@ -80,7 +80,8 @@ jobs:
           assert src.count(old)==1, 'refusing to mutate unknown Xogot'
           src=src.replace(old,'run/main_scene="res://virin_survival_square.tscn"')
           src=src.replace('config/name="YOU WON\'T WIN"', 'config/name="Virin Survival Square"')
-          src=src.replace('window/handheld/orientation=4','window/handheld/orientation=1')
+          src=src.replace('window/handheld/orientation=4','window/handheld/orientation=4')
+          assert 'window/handheld/orientation=4' in src, 'landscape must remain 4 (sensor landscape)'
           project.write_text(src)
           preset=base/'export_presets.cfg'
           src=preset.read_text()
@@ -102,6 +103,26 @@ jobs:
           ]
           include += [ 'res://'+str(p.relative_to(base)).replace('\\','/')
               for p in (base/'assets/vril_original/weapons').rglob('*.glb') ]
+          # Gray-screen regression: selected-resource export omitted 15
+          # preload() HUD skins and both Quake-compatible native viewhands/gun.
+          # Headless editor tests could load them from the full checkout, while
+          # Android could NOT. Keep our ORIGINAL advanced controls/assets.
+          include += [ 'res://'+p.relative_to(base).as_posix()
+              for p in (base/'assets/hud').rglob('*')
+              if p.is_file() and p.suffix.lower() in ('.webp','.png','.svg') ]
+          include += [
+              'res://assets/weapons/aether_waw_real/mp40/viewmodel.glb',
+              'res://assets/weapons/aether_waw_hands/t4_marine/mp40/viewhands.glb',
+              'res://assets/weapons/aether_waw_hands/t4_marine/colt/viewhands.glb',
+              'res://assets/weapons/aether_waw_real/colt/viewmodel.glb',
+          ]
+          # Texture registry uses these files by dynamic path during startup.
+          include += [ 'res://'+p.relative_to(base).as_posix()
+              for p in (base/'assets/weapons/aether_waw_textures').rglob('*.png') ]
+          # Preserve original documented WaW visual source materials.
+          include += [ 'res://'+p.relative_to(base).as_posix()
+              for p in (base/'assets/zombies/source_waw/source_materials').rglob('*.png') ]
+
           # Runtime lookups for real WaW zombies and stock weapons need their
           # actual audio files even if they are not preload() script deps.
           include += [ 'res://'+str(p.relative_to(base)).replace('\\','/')
@@ -110,6 +131,16 @@ jobs:
           include=sorted(set(include))
           assert len([x for x in include if x.startswith(
             'res://assets/vril_original/weapons/')])==41
+          for required in (
+            'res://assets/hud/latest_12/hud_ads.webp',
+            'res://assets/hud/latest_12/hud_fire.png',
+            'res://assets/hud/latest_12/hud_reload.webp',
+            'res://assets/hud/official/joystick_ring.svg',
+            'res://assets/weapons/aether_waw_real/mp40/viewmodel.glb',
+            'res://assets/weapons/aether_waw_hands/t4_marine/mp40/viewhands.glb',
+            'res://assets/zombies/source_waw/honorgd/zombie.glb',
+          ):
+            assert required in include, 'GRAY_SCREEN_UNPACKED_DEPENDENCY: '+required
           resource_line='export_files=PackedStringArray('+','.join(
             json.dumps(value) for value in include)+')'
           src=src.replace('include_filter=""',resource_line+'\ninclude_filter="*.json"')
@@ -206,6 +237,40 @@ jobs:
           grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' build/virin-advanced-survival/signature.txt
           unzip -l "$APK" > build/virin-advanced-survival/contents.txt
           grep -q 'lib/arm64-v8a/' build/virin-advanced-survival/contents.txt
+          # Validate the EXPORTED Android APK, not just project source.
+          python3 - "$APK" <<'PY'
+          import sys, zipfile
+          from pathlib import Path
+          apk=Path(sys.argv[1])
+          with zipfile.ZipFile(apk) as z:
+              files=set(z.namelist())
+          def check(text):
+              if not any(text in f for f in files):
+                  raise SystemExit('APK_GRAY_SCREEN_DEPENDENCY_MISSING '+text)
+          for needed in (
+              'assets/scripts/virin_survival_square.gdc',
+              'assets/scripts/player.gdc',
+              'assets/scripts/weapon.gdc',
+              'assets/scripts/mobile_hud.gdc',
+              'assets/scripts/round_manager.gdc',
+              'assets/scripts/zombie_dummy.gdc',
+              'hud_ads.webp',
+              'hud_fire.png',
+              'hud_reload.webp',
+              'joystick_ring.svg',
+              'viewmodel.glb-',
+              'viewhands.glb-',
+              'v_mp40.glb-',
+              'zombie.glb-',
+              'assets/virin_survival_square.tscn.remap',
+          ):
+              check(needed)
+          models=[f for f in files if '.godot/imported/v_' in f and f.endswith('.scn')]
+          assert len(models)>=41, ('APK_MISSING_SOURCE_WEAPONS',len(models))
+          if any('/dead_cell.json' in f for f in files):
+              raise SystemExit('FORBIDDEN_OLD_DEAD_CELL_MAP')
+          print('APK_PACKED_RUNTIME_PROOF_GREEN hud+original_weapon+hands+zombie+survival scripts original_models=',len(models))
+          PY
           sha256sum "$APK" | tee "$APK.sha256"
           ls -lh "$APK"
           echo "VIRIN_ADVANCED_SURVIVAL_SQUARE_ANDROID_APK_GREEN"
