@@ -5,6 +5,7 @@
 #include "BlackPinesZombie.generated.h"
 
 class ABlackPinesRoundDirector;
+struct FLifetimeProperty;
 
 UCLASS(Blueprintable)
 class BLACKPINES_API ABlackPinesZombie : public ACharacter
@@ -19,6 +20,9 @@ public:
         struct FDamageEvent const& DamageEvent,
         class AController* EventInstigator,
         AActor* DamageCauser) override;
+
+    virtual void GetLifetimeReplicatedProps(
+        TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
     UFUNCTION(BlueprintCallable, Category="BlackPines|Zombie")
     void InitializeForRound(int32 InRound, ABlackPinesRoundDirector* InDirector);
