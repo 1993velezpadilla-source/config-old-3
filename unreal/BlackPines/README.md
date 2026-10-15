@@ -1,49 +1,62 @@
 # Black Pines Sanatorium — Unreal Engine 5.8
 
-**This is a native Unreal Engine C++ game project**, not a workflow to convert
-Unreal assets to Godot. New development is in `unreal/BlackPines/`.
+**This is a native Unreal Engine C++ game project.** Active gameplay development
+lives under `unreal/BlackPines/`.
 
-## What is actually committed
+## What is committed
 
 - `BlackPines.uproject`, UnrealBuildTool game/editor targets and native C++ module.
 - `ABlackPinesCharacter`: first-person walking/look/jump foundation.
-- `ABlackPinesGameMode`: native UE pawn startup.
-- `ABlackPinesRoundDirector`: UE-native endless-wave **arithmetic and actor
-  bookkeeping only**, with 24 concurrent actors max, 144 solo / 192 four-player
-  late waves and 250,000 zombie-health budget. Not yet connected to enemies.
+- `ABlackPinesGameMode`: native UE pawn startup and automatic round-director bootstrap.
+- `ABlackPinesRoundDirector`: endless-wave arithmetic, live spawn bookkeeping,
+  tagged `ZombieSpawn` discovery, paced spawning, concurrent-actor cap and
+  inter-round transitions.
+- `ABlackPinesZombie`: replicated health/death state, round-scaled health,
+  server-authoritative damage and melee attacks.
+- `ABlackPinesZombieAIController`: low-frequency mobile-conscious pursuit of
+  the nearest player through Unreal AI/navigation.
 - `Content/MapData/black_pines_layout.json`: original 9 rooms, 12 portals,
-  12 windows, 6 perks, and authored gameplay positions. Portable map DATA,
-  not a Godot runtime or scene.
+  12 windows, 6 perks, and authored gameplay positions as portable map data.
+- Android configuration targets ARM64 with mobile rendering settings.
 
-## Required to do real work in the Unreal Editor
+## Native zombie loop
 
-1. On a capable Windows workstation, install Epic Games Launcher and
-   **Unreal Engine 5.8** with Android target platform. For Linux, use the
-   Epic-authenticated official installed build.
-2. Open `unreal/BlackPines/BlackPines.uproject`, generate project files and
-   compile `BlackPinesEditor` with UnrealBuildTool.
-3. In Unreal Editor create the sanatorium level, import original/verified
-   licensed GLB or FBX assets, then author UE collision and navigation.
-4. Connect zombie actors and AI to native round director; implement
-   weapon ADS, movable touch HUD, gyroscope, mystery box, perks and
-   Unreal networking. Validate each in PIE and on-device.
-5. In Unreal Editor use **Platforms > SDK Management > Android >
-   Install SDK** (Turnkey). Build ARM64, test performance and memory on
-   actual Android hardware.
+The authored source path is now:
 
-Official UE installation docs:
-https://dev.epicgames.com/documentation/unreal-engine/install-unreal-engine
+`ABlackPinesGameMode`
+→ `ABlackPinesRoundDirector`
+→ actors tagged `ZombieSpawn`
+→ `ABlackPinesZombie`
+→ `ABlackPinesZombieAIController`
+→ player pursuit / melee
+→ zombie death
+→ `RegisterZombieDeath()`
+→ next-round transition.
 
-UE 5.8 Android development requirements:
-https://dev.epicgames.com/documentation/unreal-engine/android-development-requirements-for-unreal-engine
+The runtime source under `Source/BlackPines` does not depend on Godot, Xogot
+or GDScript.
 
-## Status / no fake completion claims
+## What still requires a real Unreal runner
 
-**Unreal Engine 5.8 has NOT been downloaded, installed, run or compiled by
-this ChatGPT environment.** This repository is an authored **uncompiled
-starter project**, not a built Android APK or working playable Unreal map.
-No Unreal screenshots, zombie AI, UI, gyro, co-op or Unreal gameplay test
-passes have been produced. Godot files remain in source-control history for
-preservation; the Unreal port does not run or depend on Godot.
+The source is authored in GitHub, but Unreal Engine 5.8 still must be installed
+on a capable runner/workstation before any Editor compile, PIE test, Android
+cook or APK can be claimed as passing.
 
-Only original and licensed content may be included in a public release.
+Required validation:
+
+1. Generate project files and compile `BlackPinesEditor`.
+2. Create/import the actual level and add navigation.
+3. Place/tag zombie spawn actors with `ZombieSpawn`.
+4. Import the licensed/original weapon, enemy and environment assets directly
+   into Unreal.
+5. Validate navigation, combat, round transitions and replication in PIE.
+6. Install the UE 5.8 Android toolchain with Turnkey and cook/package ARM64.
+7. Test performance, memory, touch controls and gyroscope on Android hardware.
+
+## Current status
+
+The native zombie C++ foundation is committed, but **Unreal Engine 5.8 has not
+yet been run against this branch in a real UE environment**, so this remains
+an uncompiled source implementation rather than a certified playable build.
+
+Only original and properly licensed content should be included in a public release.
