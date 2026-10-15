@@ -1,0 +1,85 @@
+name: Black Pines Unreal Native Zombies
+on:
+  push:
+    branches:
+      - feature/unreal-native-zombies-v1
+    paths:
+      - "unreal/BlackPines/**"
+      - ".github/workflows/black-pines-unreal-native-zombies.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unreal-source-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Validate Unreal-only native zombie foundation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("unreal/BlackPines")
+          source = root / "Source/BlackPines"
+
+          required = [
+              root / "BlackPines.uproject",
+              source / "BlackPines.Build.cs",
+              source / "Public/BlackPinesCharacter.h",
+              source / "Public/BlackPinesGameMode.h",
+              source / "Public/BlackPinesRoundDirector.h",
+              source / "Public/BlackPinesZombie.h",
+              source / "Public/BlackPinesZombieAIController.h",
+              source / "Private/BlackPinesCharacter.cpp",
+              source / "Private/BlackPinesGameMode.cpp",
+              source / "Private/BlackPinesRoundDirector.cpp",
+              source / "Private/BlackPinesZombie.cpp",
+              source / "Private/BlackPinesZombieAIController.cpp",
+          ]
+
+          missing = [str(p) for p in required if not p.is_file()]
+          assert not missing, f"missing Unreal native files: {missing}"
+
+          project = json.loads((root / "BlackPines.uproject").read_text())
+          assert project["EngineAssociation"] == "5.8"
+          assert "Android" in project["TargetPlatforms"]
+
+          build = (source / "BlackPines.Build.cs").read_text()
+          for module in ("AIModule", "NavigationSystem", "Engine", "InputCore"):
+              assert f'"{module}"' in build, f"missing module: {module}"
+
+          combined = "\n".join(
+              p.read_text(errors="ignore")
+              for p in required
+              if p.suffix in {".h", ".cpp", ".cs"}
+          )
+
+          for symbol in (
+              "ABlackPinesZombie",
+              "ABlackPinesZombieAIController",
+              "ABlackPinesRoundDirector",
+              "SpawnOneZombie",
+              "TryMeleeAttack",
+              "RegisterZombieDeath",
+          ):
+              assert symbol in combined, f"missing Unreal symbol: {symbol}"
+
+          runtime_files = list(source.rglob("*.h")) + list(source.rglob("*.cpp"))
+          runtime_text = "\n".join(p.read_text(errors="ignore") for p in runtime_files)
+          for forbidden in ("Godot", "Xogot", "GDScript"):
+              assert forbidden not in runtime_text, f"foreign runtime dependency leaked into Unreal Source: {forbidden}"
+
+          for p in runtime_files:
+              text = p.read_text(errors="ignore")
+              assert text.count("{") == text.count("}"), f"brace imbalance: {p}"
+
+          print("BLACK_PINES_UNREAL_NATIVE_ZOMBIES_SOURCE_CONTRACT_GREEN")
+          print("UNREAL_EDITOR_COMPILE_AND_ANDROID_COOK_STILL_REQUIRE_REAL_UE_5_8_RUNNER")
+          PY
