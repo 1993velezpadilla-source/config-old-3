@@ -103,6 +103,15 @@ jobs:
           ]
           include += [ 'res://'+str(p.relative_to(base)).replace('\\','/')
               for p in (base/'assets/vril_original/weapons').rglob('*.glb') ]
+          # FATAL root cause proven in the prior shipped APK: the selected
+          # export had player.gdc and weapon.gdc, but OMITTED the GDScript
+          # preloads they reference (weapon_catalog.gdc, mobile_layout.gdc,
+          # weapon_asset_registry.gdc, etc). The game could not load its
+          # startup scene on Android: pure Godot gray screen.
+          # Carry ALL actual GDScript dependencies from the existing advanced
+          # Xogot gameplay rather than pretending the entry point is enough.
+          include += [ 'res://'+p.relative_to(base).as_posix()
+              for p in (base/'scripts').rglob('*.gd') ]
           # Gray-screen regression: selected-resource export omitted 15
           # preload() HUD skins and both Quake-compatible native viewhands/gun.
           # Headless editor tests could load them from the full checkout, while
@@ -254,6 +263,19 @@ jobs:
               'assets/scripts/mobile_hud.gdc',
               'assets/scripts/round_manager.gdc',
               'assets/scripts/zombie_dummy.gdc',
+              # No more false GREEN: these were absent from the Android APK
+              # that produced the photographed gray screen on Pixel Fold.
+              'assets/scripts/weapon_catalog.gdc',
+              'assets/scripts/weapon_asset_registry.gdc',
+              'assets/scripts/weapon_texture_registry.gdc',
+              'assets/scripts/weapon_viewmodel_source_pose.gdc',
+              'assets/scripts/weapon_viewmodel_source_presentation.gdc',
+              'assets/scripts/weapon_balance_aaa.gdc',
+              'assets/scripts/weapon_source_combat.gdc',
+              'assets/scripts/mobile_layout.gdc',
+              'assets/scripts/cod_source_contract.gdc',
+              'assets/scripts/perk_catalog.gdc',
+              'assets/scripts/source_modifier_policy.gdc',
               'hud_ads.webp',
               'hud_fire.png',
               'hud_reload.webp',
