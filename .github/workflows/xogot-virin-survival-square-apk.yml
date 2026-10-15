@@ -297,6 +297,87 @@ jobs:
           ls -lh "$APK"
           echo "VIRIN_ADVANCED_SURVIVAL_SQUARE_ANDROID_APK_GREEN"
 
+      - name: Export same advanced Xogot project as Android x86_64 emulator APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          preset=Path('xogot/export_presets.cfg')
+          s=preset.read_text()
+          assert 'architectures/arm64-v8a=true' in s
+          assert 'architectures/x86_64=false' in s
+          preset.write_text(s.replace(
+            'architectures/arm64-v8a=true','architectures/arm64-v8a=false'
+          ).replace('architectures/x86_64=false','architectures/x86_64=true'))
+          PY
+          /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --export-debug "Android ARM64" \
+            "../build/virin-advanced-survival/VIrin-SURVIVAL-EMULATOR-X86.apk" \
+            > build/virin-advanced-survival/emulator-export.log 2>&1 || {
+              tail -n 130 build/virin-advanced-survival/emulator-export.log
+              exit 40
+            }
+          test -s build/virin-advanced-survival/VIrin-SURVIVAL-EMULATOR-X86.apk
+
+      - name: Allow Android emulator KVM
+        shell: bash
+        run: |
+          if [[ -e /dev/kvm ]]; then
+            sudo chmod 666 /dev/kvm
+          fi
+
+      - name: Emulate real Android launch and capture physical rendered screen
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            mkdir -p build/virin-advanced-survival/device-probe
+            APK=build/virin-advanced-survival/VIrin-SURVIVAL-EMULATOR-X86.apk
+            adb install -r "$APK"
+            adb logcat -c
+            adb shell monkey -p com.xziel.advancedvirinsquare -c android.intent.category.LAUNCHER 1
+            sleep 23
+            adb exec-out screencap -p > build/virin-advanced-survival/device-probe/android-screen.png
+            adb logcat -d -v time > build/virin-advanced-survival/device-probe/android-logcat.txt
+            adb shell pidof com.xziel.advancedvirinsquare
+            python3 - <<'PY'
+            import zipfile
+            from collections import Counter
+            from pathlib import Path
+            try:
+                from PIL import Image
+            except ImportError:
+                import subprocess,sys
+                subprocess.check_call([sys.executable,'-m','pip','install','Pillow==11.3.0'])
+                from PIL import Image
+            png=Path('build/virin-advanced-survival/device-probe/android-screen.png')
+            img=Image.open(png).convert('RGB').resize((160,90))
+            pix=list(img.getdata())
+            common,n=Counter(pix).most_common(1)[0]
+            variability=len(set(pix))
+            gray_fraction=n/len(pix)
+            print('ANDROID_REAL_SCREEN_CAPTURE',img.size,
+                  'dominant_fraction',round(gray_fraction,3),
+                  'unique_rgb',variability,'most_common',common)
+            if gray_fraction > 0.79 or variability < 28:
+                raise SystemExit('ANDROID_GRAY_SCREEN_PERSISTED: reject test APK')
+            print('ANDROID_SURVIVAL_SCREEN_IS_NOT_UNIFORM_GRAY_GREEN')
+            PY
+            if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Cannot open file' \
+              build/virin-advanced-survival/device-probe/android-logcat.txt \
+              | grep -E 'Godot|godot|virin_survival|weapon_catalog|player.gd|mobile_hud'; then
+              echo 'ANDROID_STARTUP_GDSCRIPT_ERROR: reject test APK'
+              exit 42
+            fi
+            echo "VIRIN_SURVIVAL_EMULATOR_VISIBLE_GAME_GREEN"
+
       - name: Upload APK and all gates even when RED
         if: always()
         uses: actions/upload-artifact@v4
