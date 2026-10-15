@@ -1,0 +1,135 @@
+# Original NZ:P/Vril first-person weapons + Dead Cell map -> Godot 4.6
+# No manually installed PC/Blender required. Downloads only official OSS assets.
+# This builds an importable asset bundle; does NOT claim an Android APK is done.
+name: Virin Original Weapons to Godot
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/virin-all-original-weapons-dead-cell-godot-20261015
+    paths:
+      - ".github/workflows/vril-original-godot-import.yml"
+      - "xogot/tools/import_all_vril_viewmodels.py"
+      - "xogot/tools/import_vril_dead_cell.py"
+      - "xogot/scripts/vril_original_gallery.gd"
+      - "xogot/vril_original_gallery.tscn"
+      - "xogot/ci/vril_original_smoke.gd"
+
+permissions:
+  contents: read
+
+jobs:
+  import-all-originals:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    steps:
+      - name: Checkout conversion code and authoritative Dead Cell generator
+        uses: actions/checkout@v4
+        with:
+          filter: blob:none
+          sparse-checkout: |
+            .github/workflows/vril-original-godot-import.yml
+            tools/zombie_prototype/generate_graybox_map.py
+            xogot/tools/import_all_vril_viewmodels.py
+            xogot/tools/import_vril_dead_cell.py
+            xogot/scripts/vril_original_gallery.gd
+            xogot/vril_original_gallery.tscn
+            xogot/project.godot
+            xogot/ci/vril_original_smoke.gd
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install open image decoder
+        run: python -m pip install --disable-pip-version-check Pillow==11.3.0
+
+      - name: Fetch the ORIGINAL NZP runtime model sources
+        run: |
+          git clone --depth 1 --filter=blob:none --sparse \
+            https://github.com/nzp-team/assets.git /tmp/nzp-asset-authority
+          git -C /tmp/nzp-asset-authority sparse-checkout set common/models/weapons
+          test -s /tmp/nzp-asset-authority/common/models/weapons/mp40/v_mp40.mdl
+          test -s /tmp/nzp-asset-authority/common/models/weapons/ptrs/v_ptrs.mdl
+          echo "Official first-person MDLs and their texture PCX sources fetched."
+
+      - name: Convert EVERY stock first-person model and all MDL frames
+        run: |
+          python xogot/tools/import_all_vril_viewmodels.py \
+            --assets /tmp/nzp-asset-authority \
+            --output xogot/assets/vril_original/weapons
+
+      - name: Regenerate actual Dead Cell Quake220 map
+        run: |
+          python tools/zombie_prototype/generate_graybox_map.py
+          test -s build/prototype/xziel_proto.map
+          python xogot/tools/import_vril_dead_cell.py \
+            --map build/prototype/xziel_proto.map \
+            --out xogot/assets/vril_original/dead_cell.json
+          cp build/prototype/xziel_proto_report.json xogot/assets/vril_original/dead_cell_source_report.json
+
+      - name: Validate first-person GLB binaries and map semantics
+        run: |
+          python - <<'PY'
+          import json, struct
+          from pathlib import Path
+          root=Path('xogot/assets/vril_original')
+          cat=json.loads((root/'weapons/catalog.json').read_text())
+          entries=cat['weapons']
+          assert entries and not cat['failed'], "Incomplete weapon conversion"
+          for item in entries:
+              path=root/'weapons'/item['resource']
+              data=path.read_bytes()
+              magic,version,size=struct.unpack_from('<4sII', data)
+              assert (magic,version,size)==(b'glTF',2,len(data)), path
+              assert item['frames']>0, path
+          data=json.loads((root/'dead_cell.json').read_text())
+          counts={}
+          for entity in data['entities']:
+              name=entity['classname']
+              counts[name]=counts.get(name,0)+1
+          assert counts.get('spawn_zombie',0)==12, counts
+          assert counts.get('info_player_1_spawn',0)==1, counts
+          assert counts.get('mystery_box',0)==1, counts
+          assert counts.get('perk_pap',0)==1, counts
+          assert len(data['brushes'])>=10, "Missing map brushes"
+          print('VRIL_GODOT_IMPORT_GREEN',len(entries),'viewmodels;',len(data['brushes']),'brushes; original frame totals',sum(x['frames'] for x in entries))
+          PY
+
+      - name: Install Godot 4.6 (official Linux executable)
+        run: |
+          curl -fL --retry 4 --retry-delay 2 \
+            https://github.com/godotengine/godot/releases/download/4.6-stable/Godot_v4.6-stable_linux.x86_64.zip \
+            -o godot-4.6.zip
+          unzip -q godot-4.6.zip
+          chmod +x Godot_v4.6-stable_linux.x86_64
+          ./Godot_v4.6-stable_linux.x86_64 --version
+
+      - name: REAL Godot 4.6 import and frame-animation load test
+        run: |
+          set -euo pipefail
+          GODOT=./Godot_v4.6-stable_linux.x86_64
+          if ! "$GODOT" --headless --path xogot --editor --import > /tmp/virin-godot-import.log 2>&1; then
+            tail -n 150 /tmp/virin-godot-import.log
+            exit 1
+          fi
+          if ! "$GODOT" --headless --path xogot --script res://ci/vril_original_smoke.gd > /tmp/virin-godot-smoke.log 2>&1; then
+            tail -n 200 /tmp/virin-godot-smoke.log
+            exit 1
+          fi
+          grep 'VRIL_GODOT46_RUNTIME_GREEN' /tmp/virin-godot-smoke.log
+          tail -n 10 /tmp/virin-godot-smoke.log
+
+      - name: Upload converted assets and Godot preview scene
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Virin-Original-Weapons-DeadCell-Godot46
+          path: |
+            xogot/assets/vril_original/
+            xogot/scripts/vril_original_gallery.gd
+            xogot/vril_original_gallery.tscn
+          if-no-files-found: warn
+          retention-days: 30

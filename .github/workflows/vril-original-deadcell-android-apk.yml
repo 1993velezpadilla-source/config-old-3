@@ -1,0 +1,189 @@
+name: Virin Original Weapons Dead Cell Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/virin-all-original-weapons-dead-cell-godot-20261015
+    paths:
+      - ".github/workflows/vril-original-deadcell-android-apk.yml"
+      - "xogot/scripts/vril_original_gallery.gd"
+      - "xogot/vril_original_gallery.tscn"
+      - "xogot/ci/vril_original_smoke.gd"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    steps:
+      - name: Checkout ONLY actual Godot viewer source and export presets
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            xogot/project.godot
+            xogot/export_presets.cfg
+            xogot/vril_original_gallery.tscn
+            xogot/scripts/vril_original_gallery.gd
+            xogot/ci/vril_original_smoke.gd
+          sparse-checkout-cone-mode: false
+
+      - name: Fetch previously verified original model and map conversion
+        uses: actions/download-artifact@v4
+        with:
+          name: Virin-Original-Weapons-DeadCell-Godot46
+          repository: ${{ github.repository }}
+          run-id: 38699922473
+          github-token: ${{ github.token }}
+          path: /tmp/virin-validated
+
+      - name: Mount verified source models in temporary Godot project
+        shell: bash
+        run: |
+          set -euo pipefail
+          find /tmp/virin-validated -maxdepth 4 -type f | head -30
+          if [[ -s /tmp/virin-validated/xogot/assets/vril_original/weapons/catalog.json ]]; then
+            SRC=/tmp/virin-validated/xogot/assets/vril_original
+          elif [[ -s /tmp/virin-validated/assets/vril_original/weapons/catalog.json ]]; then
+            SRC=/tmp/virin-validated/assets/vril_original
+          elif [[ -s /tmp/virin-validated/vril_original/weapons/catalog.json ]]; then
+            SRC=/tmp/virin-validated/vril_original
+          else
+            echo "RED: verified artifact catalog missing" >&2
+            find /tmp/virin-validated -type f -name catalog.json
+            exit 3
+          fi
+          mkdir -p xogot/assets/vril_original
+          cp -a "$SRC"/. xogot/assets/vril_original/
+          test -s xogot/assets/vril_original/dead_cell.json
+          test -s xogot/assets/vril_original/weapons/mp40/v_mp40.glb
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          data=json.loads(Path('xogot/assets/vril_original/weapons/catalog.json').read_text())
+          assert len(data['weapons'])==41 and not data['failed']
+          assert sum(int(item['frames']) for item in data['weapons'])==1859
+          print('VRIL_PREVALIDATED_ORIGINAL_41_WEAPONS_READY_GREEN')
+          p=Path('xogot/project.godot')
+          text=p.read_text()
+          old='run/main_scene="res://main.tscn"'
+          assert text.count(old)==1
+          text=text.replace(old, 'run/main_scene="res://vril_original_gallery.tscn"')
+          text=text.replace('config/name="YOU WON\'T WIN"','config/name="Virin Original Viewer"')
+          # Tablet/fold-friendly fixed landscape view, touch buttons.
+          text=text.replace('window/handheld/orientation=4', 'window/handheld/orientation=1')
+          p.write_text(text)
+          preset=Path('xogot/export_presets.cfg')
+          out=preset.read_text()
+          a='package/unique_name="com.xziel.youwontwin"'
+          assert out.count(a)==1
+          out=out.replace(a,'package/unique_name="com.xziel.virinoriginalviewer"')
+          out=out.replace('package/name="YOU WON\'T WIN"','package/name="VIRIN Original Viewer"')
+          out=out.replace('include_filter=""','include_filter="*.json"')
+          out=out.replace('version/code=1','version/code=43')
+          out=out.replace('version/name="0.1-mobile"','version/name="0.1.43-original"')
+          out=out.replace('permissions/internet=true','permissions/internet=false')
+          out=out.replace('permissions/record_audio=true','permissions/record_audio=false')
+          preset.write_text(out)
+          print('VRIL_SEPARATE_ANDROID_APP_AND_GODOT_PREVIEW_SCENE_GREEN')
+          PY
+
+      - name: Install Godot 4.6.1 and Android export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail -L --retry 4 --retry-all-errors \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          curl --fail -L --retry 4 --retry-all-errors \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_export_templates.tpz \
+            -o /tmp/godot-templates.tpz
+          mkdir -p /tmp/virin-godot /tmp/virin-export
+          unzip -q /tmp/godot.zip -d /tmp/virin-godot
+          unzip -q /tmp/godot-templates.tpz -d /tmp/virin-export
+          chmod +x /tmp/virin-godot/Godot_v4.6.1-stable_linux.x86_64
+          DIR="$HOME/.local/share/godot/export_templates/4.6.1.stable"
+          mkdir -p "$DIR"
+          cp -a /tmp/virin-export/templates/. "$DIR/"
+          test -s "$DIR/android_debug.apk"
+          /tmp/virin-godot/Godot_v4.6.1-stable_linux.x86_64 --version
+
+      - name: Android SDK and independent debug signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export ANDROID_HOME="$SDK_ROOT" ANDROID_SDK_ROOT="$SDK_ROOT"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.1"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          KEYSTORE="$RUNNER_TEMP/virin-original-viewer-debug.keystore"
+          keytool -genkeypair -noprompt -keystore "$KEYSTORE" \
+            -storepass android -alias androiddebugkey -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=VirinOriginal,O=XZIEL,C=US"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$KEYSTORE" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
+
+      - name: Import ALL 41 source-animated weapons in actual Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/vril-preview
+          GODOT=/tmp/virin-godot/Godot_v4.6.1-stable_linux.x86_64
+          timeout 300 "$GODOT" --headless --editor --path xogot --import \
+            2>&1 | tee build/vril-preview/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/vril-preview/import.log
+          timeout 200 "$GODOT" --headless --path xogot \
+            --script res://ci/vril_original_smoke.gd \
+            2>&1 | tee build/vril-preview/smoke.log
+          grep -q "VRIL_GODOT46_RUNTIME_GREEN 41 original viewmodels, 41 animations" build/vril-preview/smoke.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|VRIL_GODOT46_RUNTIME_RED" build/vril-preview/smoke.log
+
+      - name: Export offline ARM64 standalone preview APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          GODOT=/tmp/virin-godot/Godot_v4.6.1-stable_linux.x86_64
+          mkdir -p build/vril-preview
+          "$GODOT" --headless --path xogot \
+            --export-debug "Android ARM64" \
+            "../build/vril-preview/Virin-DeadCell-41-Original-Weapons-ARM64.apk" \
+            2>&1 | tee build/vril-preview/export.log
+          APK="build/vril-preview/Virin-DeadCell-41-Original-Weapons-ARM64.apk"
+          test -s "$APK"
+          # Android 35's legacy aapt can falsely fail to parse Godot's manifest
+          # ("android:required is not an integer"). Use aapt2 for final audit.
+          AAPT2="$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 | sort -V | tail -n1)"
+          test -x "$AAPT2"
+          "$AAPT2" dump badging "$APK" > build/vril-preview/badging.txt
+          grep -q "package: name='com.xziel.virinoriginalviewer'" build/vril-preview/badging.txt
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n1)"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --verbose "$APK" > build/vril-preview/signature.txt
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' build/vril-preview/signature.txt
+          unzip -l "$APK" > build/vril-preview/apk-contents.txt
+          grep -q "lib/arm64-v8a/" build/vril-preview/apk-contents.txt
+          if grep -q "lib/armeabi-v7a/" build/vril-preview/apk-contents.txt; then
+            echo "RED: unexpected ARMv7 library" >&2
+            exit 2
+          fi
+          sha256sum "$APK" > "$APK.sha256"
+          ls -lh "$APK"
+          echo "VIRIN_DEADCELL_ORIGINAL_41_WEAPONS_ANDROID_APK_GREEN"
+
+      - name: Upload standalone installable APK and full validation logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Virin-DeadCell-41-Original-Weapons-Android-APK
+          path: build/vril-preview/
+          if-no-files-found: warn
+          retention-days: 30
