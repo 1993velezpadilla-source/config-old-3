@@ -90,8 +90,31 @@ jobs:
           src=src.replace('package/name="YOU WON\'T WIN"','package/name="VIRIN SURVIVAL"')
           src=src.replace('version/code=1','version/code=44')
           src=src.replace('version/name="0.1-mobile"','version/name="0.1.44-survival"')
-          src=src.replace('include_filter=""','include_filter="*.json"')
+          # Keep the full advanced SOURCE tree untouched but package only the
+          # new survival scene plus all its static and dynamic dependencies.
+          # ALL_RESOURCES would accidentally package every unrelated gigantic
+          # Nacht/Black Pines/Church texture and map (first smoke APK = 696 MB).
+          src=src.replace('export_filter="all_resources"','export_filter="resources"')
+          include=[
+              'res://virin_survival_square.tscn',
+              'res://scripts/zombie_dummy.gd',
+              'res://assets/zombies/source_waw/honorgd/zombie.glb',
+          ]
+          include += [ 'res://'+str(p.relative_to(base)).replace('\\','/')
+              for p in (base/'assets/vril_original/weapons').rglob('*.glb') ]
+          # Runtime lookups for real WaW zombies and stock weapons need their
+          # actual audio files even if they are not preload() script deps.
+          include += [ 'res://'+str(p.relative_to(base)).replace('\\','/')
+              for p in (base/'assets/audio').rglob('*')
+              if p.is_file() and p.suffix.lower() in ('.ogg','.wav','.mp3') ]
+          include=sorted(set(include))
+          assert len([x for x in include if x.startswith(
+            'res://assets/vril_original/weapons/')])==41
+          resource_line='export_files=PackedStringArray('+','.join(
+            json.dumps(value) for value in include)+')'
+          src=src.replace('include_filter=""',resource_line+'\ninclude_filter="*.json"')
           preset.write_text(src)
+          print('VIRIN_MINI_SURVIVAL_EXPORT_FILES_GREEN',len(include),'selected resources; no unrelated maps packaged')
           print('XZIEL_ADVANCED_PROJECT_PRESERVED_NEW_MAP_IS_BUILD_ONLY')
 
       - name: Set up Java 17
