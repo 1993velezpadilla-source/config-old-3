@@ -1,0 +1,108 @@
+name: Unity Personal CLI Android
+
+on:
+  push:
+    branches:
+      - fix/unity-personal-ci-activation-v1
+    paths:
+      - ".github/workflows/unity-personal-cli-android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Unity 6.3 Personal -> Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout Unity branch
+        uses: actions/checkout@v5
+
+      - name: Reclaim ephemeral runner disk
+        shell: bash
+        run: |
+          set -euxo pipefail
+          df -h /
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /usr/local/.ghcup || true
+          sudo rm -rf /usr/local/lib/android/sdk || true
+          sudo apt-get clean || true
+          df -h /
+
+      - name: Install official Unity CLI
+        shell: bash
+        run: |
+          set -euxo pipefail
+          curl -fsSL https://unity.com/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.local/bin:$PATH"
+          unity --version
+          unity doctor --format github || true
+
+      - name: Sign in to Unity
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.local/bin:$PATH"
+          echo "::notice::Open the Unity sign-in URL printed below on your phone and finish login."
+          echo "::notice::This runner waits up to 30 minutes for that one-time browser login."
+          timeout 30m stdbuf -oL -eL unity auth login --format ndjson
+
+      - name: Activate free Unity Personal license
+        shell: bash
+        run: |
+          set -euxo pipefail
+          export PATH="$HOME/.local/bin:$PATH"
+          unity auth status --format github
+          unity license activate --personal --accept-eula --format github
+          unity license status --format github
+
+      - name: Install Unity 6000.3.18f1 plus Android
+        shell: bash
+        env:
+          UNITY_INSTALL_RETRIES: "2"
+        run: |
+          set -euxo pipefail
+          export PATH="$HOME/.local/bin:$PATH"
+          unity install 6000.3.18f1 \
+            --module android \
+            --child-modules \
+            --yes \
+            --accept-eula \
+            --format github
+          unity editors --installed --format github
+          unity modules list 6000.3.18f1 --format github
+
+      - name: Build Sanctum Zombies Android APK
+        shell: bash
+        run: |
+          set -euxo pipefail
+          export PATH="$HOME/.local/bin:$PATH"
+          mkdir -p unity/Builds/Android
+          unity run unity \
+            --editor-version 6000.3.18f1 \
+            --timeout 5400 \
+            --log-file "$GITHUB_WORKSPACE/unity/Builds/unity-android-build.log" \
+            -- -nographics -executeMethod Sanctum.Zombies.EditorTools.UnityZombiesCIEntry.BuildAndroid
+          test -s unity/Builds/Android/UnityZombies-dev.apk
+          ls -lh unity/Builds/Android/UnityZombies-dev.apk
+
+      - name: Upload Android APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sanctum-zombies-unity-android-apk
+          path: unity/Builds/Android/UnityZombies-dev.apk
+          if-no-files-found: error
+
+      - name: Upload Unity build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unity-personal-cli-build-log
+          path: unity/Builds/unity-android-build.log
+          if-no-files-found: ignore
