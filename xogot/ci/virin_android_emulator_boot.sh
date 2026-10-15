@@ -10,7 +10,14 @@ test -s "$APK"
 adb install -r "$APK"
 adb logcat -c
 adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1
-sleep 25
+# Android API35 immersive-mode safety dialog covers the entire 3D screen
+# on the first install. Dismiss it like a normal player would.
+sleep 8
+adb shell input tap 1315 385
+adb shell input keyevent KEYCODE_ENTER || true
+# Large source animations take time on SwiftShader CPU Vulkan; do NOT capture
+# a splash/permission screen instead of actual Godot gameplay.
+sleep 48
 adb exec-out screencap -p > "$OUT/android-screen.png"
 adb logcat -d -v time > "$OUT/android-logcat.txt"
 adb shell dumpsys activity top > "$OUT/foreground.txt"
@@ -41,6 +48,14 @@ if fraction > 0.79 or unique < 28:
     raise SystemExit("ANDROID_GRAY_SCREEN_PERSISTED_RED")
 print("ANDROID_SURVIVAL_VISIBLE_FRAME_GREEN")
 PY
+# Require ACTUAL gameplay authority, not just a running Godot process.
+for marker in VIRIN_SQUARE_GEOMETRY_VISIBLE_GREEN VIRIN_SURVIVAL_SQUARE_ROUND_1_IMMEDIATE VIRIN_ORIGINAL_SURVIVAL_VIEWMODEL_GREEN XZOGOT_ZOMBIE_SPAWN; do
+  if ! grep -q "$marker" "$OUT/android-logcat.txt"; then
+    echo "ANDROID_GAMEPLAY_NEVER_REACHED: $marker"
+    grep -Ei 'godot|SCRIPT ERROR|ERROR:|VIRIN_|XZOGOT_' "$OUT/android-logcat.txt" | tail -n 90 || true
+    exit 43
+  fi
+done
 if grep -E 'SCRIPT ERROR|Parse Error|Failed loading resource|Cannot open file' "$OUT/android-logcat.txt" \
     | grep -Ei 'Godot|virin_survival|weapon_catalog|player.gd|mobile_hud'; then
   echo "ANDROID_STARTUP_GDSCRIPT_ERROR_RED"
