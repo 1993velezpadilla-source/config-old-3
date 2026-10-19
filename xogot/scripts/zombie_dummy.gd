@@ -36,6 +36,10 @@ var _attack_timer: float = 0.0
 var _gravity: float = 18.0
 var _hit_reaction_timer: float = 0.0
 var _visual_root: Node3D
+var _avoidance_side: float = 1.0
+var _avoidance_timer: float = 0.0
+const OBSTACLE_PROBE_DISTANCE := 1.45
+const OBSTACLE_PROBE_HEIGHT := 0.52
 
 func _ready() -> void:
 	_gravity = float(ProjectSettings.get_setting("physics/3d/default_gravity", 18.0))
@@ -189,6 +193,7 @@ func _build_fallback_visual() -> void:
 
 func _physics_process(delta: float) -> void:
 	_update_hit_reaction(delta)
+	_avoidance_timer = maxf(0.0, _avoidance_timer - delta)
 	if phase == Phase.DEAD:
 		return
 	if _attack_timer > 0.0:
@@ -265,17 +270,52 @@ func _tick_chase() -> void:
 			target_player.call("apply_damage", player_damage)
 			_attack_timer = attack_interval
 		return
-	_move_toward_flat(target, 0.0)
+	_move_toward_flat(target, 0.0, true)
 
-func _move_toward_flat(target: Vector3, stop_distance: float) -> bool:
-	return _move_toward_flat_speed(target, stop_distance, move_speed)
+# Local obstacle steering for pews. This is deliberately NOT a navmesh solution:
+# it prevents repeated straight-line collisions while full pathfinding is built.
+func _steer_around_furniture(forward: Vector3) -> Vector3:
+	var space := get_world_3d().direct_space_state
+	if space == null:
+		return forward
+	var origin := global_position + Vector3.UP * OBSTACLE_PROBE_HEIGHT
+	var query := PhysicsRayQueryParameters3D.create(origin, origin + forward * OBSTACLE_PROBE_DISTANCE)
+	query.exclude = [get_rid()]
+	query.collision_mask = collision_mask
+	var hit := space.intersect_ray(query)
+	if hit.is_empty():
+		_avoidance_timer = 0.0
+		return forward
+	var obstacle: Object = hit.get("collider")
+	if not (obstacle is StaticBody3D):
+		return forward
+	if _avoidance_timer <= 0.0:
+		var right := Vector3(-forward.z, 0.0, forward.x)
+		var left_query := PhysicsRayQueryParameters3D.create(origin, origin + (forward - right * 0.85).normalized() * OBSTACLE_PROBE_DISTANCE)
+		var right_query := PhysicsRayQueryParameters3D.create(origin, origin + (forward + right * 0.85).normalized() * OBSTACLE_PROBE_DISTANCE)
+		left_query.exclude = [get_rid()]
+		right_query.exclude = [get_rid()]
+		left_query.collision_mask = collision_mask
+		right_query.collision_mask = collision_mask
+		var left_clear := space.intersect_ray(left_query).is_empty()
+		var right_clear := space.intersect_ray(right_query).is_empty()
+		if left_clear != right_clear:
+			_avoidance_side = -1.0 if left_clear else 1.0
+		_avoidance_timer = 0.75
+	var lateral := Vector3(-forward.z, 0.0, forward.x) * _avoidance_side
+	return (forward * 0.18 + lateral).normalized()
 
-func _move_toward_flat_speed(target: Vector3, stop_distance: float, speed: float) -> bool:
+func _move_toward_flat(target: Vector3, stop_distance: float, avoid_obstacles: bool = false) -> bool:
+	return _move_toward_flat_speed(target, stop_distance, move_speed, avoid_obstacles)
+
+func _move_toward_flat_speed(target: Vector3, stop_distance: float, speed: float, avoid_obstacles: bool = false) -> bool:
 	var delta_pos := Vector3(target.x - global_position.x, 0.0, target.z - global_position.z)
 	var distance: float = delta_pos.length()
 	if distance <= stop_distance:
 		return true
 	var direction: Vector3 = delta_pos.normalized()
+	if avoid_obstacles:
+		direction = _steer_around_furniture(direction)
 	var target_yaw: float = atan2(-direction.x, -direction.z)
 	rotation.y = lerp_angle(rotation.y, target_yaw, turn_lerp)
 	velocity.x = direction.x * speed
