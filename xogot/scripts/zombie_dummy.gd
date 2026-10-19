@@ -38,6 +38,9 @@ var _hit_reaction_timer: float = 0.0
 var _visual_root: Node3D
 var _avoidance_side: float = 1.0
 var _avoidance_timer: float = 0.0
+var _last_chase_position: Vector3 = Vector3.ZERO
+var _stuck_seconds: float = 0.0
+var _unstick_seconds: float = 0.0
 const OBSTACLE_PROBE_DISTANCE := 1.45
 const OBSTACLE_PROBE_HEIGHT := 0.52
 
@@ -46,6 +49,7 @@ func _ready() -> void:
 	floor_snap_length = 0.24
 	add_to_group("zombie")
 	_build_body()
+	_last_chase_position = global_position
 	print("XZOGOT_ZOMBIE_GROUND_SNAP_READY 0.24")
 	print("XZOGOT_ZOMBIE_READY")
 
@@ -208,7 +212,7 @@ func _physics_process(delta: float) -> void:
 		Phase.ATTACK_BARRICADE:
 			_tick_barricade()
 		Phase.CHASE_PLAYER:
-			_tick_chase()
+			_tick_chase(delta)
 		Phase.CROSS_WINDOW:
 			_tick_cross_window()
 
@@ -256,7 +260,7 @@ func _tick_cross_window() -> void:
 		phase = Phase.CHASE_PLAYER
 		print("XZOGOT_ZOMBIE_ENTERED")
 
-func _tick_chase() -> void:
+func _tick_chase(delta: float) -> void:
 	if target_player == null or not is_instance_valid(target_player):
 		velocity.x = 0.0
 		velocity.z = 0.0
@@ -270,6 +274,18 @@ func _tick_chase() -> void:
 			target_player.call("apply_damage", player_damage)
 			_attack_timer = attack_interval
 		return
+	# Detect genuine lack of progress rather than changing sides every frame.
+	var progress := Vector2(global_position.x - _last_chase_position.x, global_position.z - _last_chase_position.z).length()
+	if progress < 0.015:
+		_stuck_seconds += delta
+	else:
+		_stuck_seconds = 0.0
+	_last_chase_position = global_position
+	if _stuck_seconds > 0.85:
+		_avoidance_side *= -1.0
+		_unstick_seconds = 1.1
+		_stuck_seconds = 0.0
+	_unstick_seconds = maxf(0.0, _unstick_seconds - delta)
 	_move_toward_flat(target, 0.0, true)
 
 # Local obstacle steering for pews. This is deliberately NOT a navmesh solution:
@@ -283,13 +299,13 @@ func _steer_around_furniture(forward: Vector3) -> Vector3:
 	query.exclude = [get_rid()]
 	query.collision_mask = collision_mask
 	var hit := space.intersect_ray(query)
-	if hit.is_empty():
+	if hit.is_empty() and _unstick_seconds <= 0.0:
 		_avoidance_timer = 0.0
 		return forward
 	var obstacle: Object = hit.get("collider")
-	if not (obstacle is StaticBody3D):
+	if not (obstacle is StaticBody3D) and _unstick_seconds <= 0.0:
 		return forward
-	if _avoidance_timer <= 0.0:
+	if _avoidance_timer <= 0.0 and _unstick_seconds <= 0.0:
 		var right := Vector3(-forward.z, 0.0, forward.x)
 		var left_query := PhysicsRayQueryParameters3D.create(origin, origin + (forward - right * 0.85).normalized() * OBSTACLE_PROBE_DISTANCE)
 		var right_query := PhysicsRayQueryParameters3D.create(origin, origin + (forward + right * 0.85).normalized() * OBSTACLE_PROBE_DISTANCE)
