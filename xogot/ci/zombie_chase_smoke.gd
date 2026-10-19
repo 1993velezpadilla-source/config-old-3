@@ -33,6 +33,9 @@ func _run() -> void:
 		game.add_child(zombie)
 		zombie.global_position = Vector3(2.5 + float(i % 5) * 0.5, 1.0, -9.0 + float(i / 5) * 1.0)
 		zombies.append(zombie)
+	var initial_positions: Array[Vector3] = []
+	for zombie in zombies:
+		initial_positions.append(zombie.global_position)
 	for frame in range(90):
 		await physics_frame
 		for zombie in zombies:
@@ -44,6 +47,15 @@ func _run() -> void:
 				push_error("ZOMBIE_SMOKE_FAIL nonfinite position")
 				quit(6)
 				return
-	print("ZOMBIE_CHASE_SMOKE_GREEN: 10 zombies survived 90 physics frames")
+	var moving_count := 0
+	for i in range(zombies.size()):
+		var displacement := Vector2(zombies[i].global_position.x - initial_positions[i].x, zombies[i].global_position.z - initial_positions[i].z).length()
+		if displacement >= 0.15:
+			moving_count += 1
+	if moving_count < 5:
+		push_error("ZOMBIE_SMOKE_FAIL: only %d / 10 zombies moved at least 0.15m horizontally" % moving_count)
+		quit(7)
+		return
+	print("ZOMBIE_CHASE_SMOKE_GREEN: 10 zombies survived; %d moved >= 0.15m horizontally" % moving_count)
 	print("ZOMBIE_CHASE_PENDING: route-completion, obstacle avoidance quality, stairs, network sync")
 	quit(0)
