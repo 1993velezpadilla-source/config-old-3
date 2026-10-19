@@ -38,3 +38,5 @@ jobs:
         run: godot --headless --path xogot --script res://ci/zombie_pew_route_gate.gd
       - name: Verify left right and center church routes
         run: godot --headless --path xogot --script res://ci/zombie_multi_route_gate.gd
+      - name: Verify altar and balcony stair ramp geometry
+        run: godot --headless --path xogot --script res://ci/altar_stairs_geometry_gate.gd
