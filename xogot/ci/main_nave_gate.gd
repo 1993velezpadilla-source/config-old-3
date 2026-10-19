@@ -15,7 +15,7 @@ func _audit() -> void:
 	await process_frame
 	await process_frame
 	var player := game.get_node_or_null("Player") as CharacterBody3D
-	var world := game.get_node_or_null("YouWontWin")
+	var world := game
 	if player == null or world == null:
 		push_error("MAIN_NAVE_FAIL: player or church missing")
 		quit(3)
