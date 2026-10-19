@@ -34,3 +34,5 @@ jobs:
         run: godot --headless --path xogot --script res://ci/main_nave_gate.gd
       - name: Run 10-zombie chase physics smoke
         run: godot --headless --path xogot --script res://ci/zombie_chase_smoke.gd
+      - name: Verify zombie can cross pew rows
+        run: godot --headless --path xogot --script res://ci/zombie_pew_route_gate.gd
