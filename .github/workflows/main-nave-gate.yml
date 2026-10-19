@@ -40,3 +40,5 @@ jobs:
         run: godot --headless --path xogot --script res://ci/zombie_multi_route_gate.gd
       - name: Verify altar and balcony stair ramp geometry
         run: godot --headless --path xogot --script res://ci/altar_stairs_geometry_gate.gd
+      - name: Verify zombie ascends and descends balcony ramp
+        run: godot --headless --path xogot --script res://ci/zombie_stair_traversal_gate.gd
