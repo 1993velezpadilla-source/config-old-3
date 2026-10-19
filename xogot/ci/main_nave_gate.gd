@@ -34,7 +34,7 @@ func _audit() -> void:
 		return
 	# Check each collider is enabled and has a real box shape.
 	for bench in benches:
-		var shape := bench.get_node_or_null("CollisionShape3D") as CollisionShape3D
+		var shape := bench.get_child(0) as CollisionShape3D
 		if shape == null or shape.disabled or not (shape.shape is BoxShape3D):
 			push_error("MAIN_NAVE_FAIL: missing/disabled bench collider " + bench.name)
 			quit(5)
@@ -48,8 +48,8 @@ func _audit() -> void:
 			var second := benches[b]
 			if absf(first.position.x - second.position.x) > 0.5:
 				continue
-			var shape_a := (first.get_node("CollisionShape3D") as CollisionShape3D).shape as BoxShape3D
-			var shape_b := (second.get_node("CollisionShape3D") as CollisionShape3D).shape as BoxShape3D
+			var shape_a := (first.get_child(0) as CollisionShape3D).shape as BoxShape3D
+			var shape_b := (second.get_child(0) as CollisionShape3D).shape as BoxShape3D
 			var clearance := absf(first.position.z - second.position.z) - (shape_a.size.z + shape_b.size.z) * 0.5
 			if clearance > 0.0 and clearance < radius * 2.0:
 				push_error("MAIN_NAVE_FAIL: insufficient row clearance %.3f" % clearance)
