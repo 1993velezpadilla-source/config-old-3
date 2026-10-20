@@ -118,8 +118,10 @@ func _build_nun_sprite_visual() -> bool:
 	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	sprite.transparent = true
 	sprite.shaded = true
+	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
 	sprite.pixel_size = target_visual_height / float(texture.get_height())
+	# Keep the cutout standing on the floor without changing the physics capsule.
 	sprite.position.y = target_visual_height * 0.5
 	sprite.no_depth_test = false
 	add_child(sprite)
