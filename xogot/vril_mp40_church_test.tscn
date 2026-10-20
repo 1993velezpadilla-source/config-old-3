@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://main.tscn" id="1_game"]
+[ext_resource type="Script" path="res://scripts/vril_mp40_church_bridge.gd" id="2_bridge"]
+
+[node name="YouWontWin" instance=ExtResource("1_game")]
+
+[node name="VrilMP40Bridge" type="Node3D" parent="Player/Head/Camera3D"]
+script = ExtResource("2_bridge")
+force_mp40_in_test_scene = true
