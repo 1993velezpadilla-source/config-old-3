@@ -270,8 +270,19 @@ func _tick_chase(delta: float) -> void:
 	# steering sideways into its upper landing. Only activate when the
 	# target is substantially lower and the zombie is within the ramp lane.
 	if global_position.y > target.y + 1.8 and absf(global_position.x + 6.24) < 1.8 and global_position.z > 0.0 and global_position.z < 7.2:
+		# The upper landing overlaps the ramp entry. Drive along the
+		# ramp's downhill tangent, rather than directly at a low target
+		# through the landing's vertical collision face.
 		var ramp_exit := Vector3(-6.24, target.y, 0.20)
-		_move_toward_flat(ramp_exit, 0.30, false)
+		var downhill := Vector3(0.0, 0.0, -1.0)
+		velocity.x = 0.0
+		velocity.z = downhill.z * move_speed
+		# A grounded CharacterBody3D cannot cross a raised lip by
+		# horizontal motion alone. A tiny upward step assist is allowed
+		# only while blocked at the top of the authored ramp.
+		if is_on_wall() and is_on_floor() and global_position.z > 5.8:
+			velocity.y = maxf(velocity.y, 2.2)
+		move_and_slide()
 		return
 	# An inclined walkable ramp is a floor, not furniture to dodge.
 	# Floor snap must remain active on the slope and the character must
