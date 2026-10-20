@@ -27,6 +27,5 @@ slide={"deadzone":0.1,"events":[Object(InputEventKey,"physical_keycode":67)]}
 
 [rendering]
 renderer/rendering_method="mobile"
-renderer/rendering_method.mobile="gl_compatibility"
 textures/default_filters/use_nearest_mipmap_filter=false
 environment/defaults/default_clear_color=Color(0.016, 0.020, 0.027, 1)
