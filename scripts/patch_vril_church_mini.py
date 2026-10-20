@@ -31,9 +31,11 @@ s=s.replace(old,new,1)
 # not an OpenGL GLuint. glBindTexture(index) drew the wrong atlas and made
 # real Tripo objects look like torn black/orange mosaics.
 # Hyena_BindTexture resolves registry index -> actual glTextureObject.
-if s.count("GL_Bind(b->texture);") != 1:
-    raise SystemExit("Expected one legacy texture binder call")
-s=s.replace("GL_Bind(b->texture);", "Hyena_BindTexture(b->texture);", 1)
+if s.count("GL_Bind(b->texture);") == 1:
+    # Backward compatibility with earlier renderer templates.
+    s=s.replace("GL_Bind(b->texture);", "Hyena_BindTexture(b->texture);", 1)
+if s.count("Hyena_BindTexture(b->texture);") != 1:
+    raise SystemExit("XZSM must bind via HYENA texture registry exactly once")
 file.write_text(s,encoding="utf-8")
 
 s=renderer.read_text(encoding="utf-8")
