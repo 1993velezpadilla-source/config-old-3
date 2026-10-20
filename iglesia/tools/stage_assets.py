@@ -83,6 +83,8 @@ def main() -> None:
         print("Run from full config-old-3 checkout on the church-art source branch.", file=sys.stderr)
         raise SystemExit(2)
     stage_local_art()
+    from stage_tripo_fixtures import stage_fixtures
+    stage_fixtures(ROOT, ASSETS, git_sha)
     stage_hud()
     stage_mp40()
     print("IGLESIA_OWNER_ART_STAGED: true; VISUAL_RENDER_AND_APK_NOT_YET_VALIDATED")

@@ -21,3 +21,8 @@ A real APK, valid art import, rendering screenshots, collision/pathing under com
 
 ## Non-negotiable gameplay direction
 Landscape Android; thumb joystick + right-look + simultaneous fire/look; ADS hold/toggle option; gyroscope only while ADS; sprint never interrupts reload; weapon pose frames from approved 2D source; zombies must physically navigate around pews, not through them; unbounded round counter; wallbuy visible; no legacy Virin systems or deprecated touch skins.
+
+## Real Tripo church chandelier import (source-gated)
+The independent `stage_tripo_fixtures.py` searches the existing owner church/Tripo asset directories, copies only matching ORIGINAL GLBs without editing their bytes and records their Git blob hashes in a staged JSON catalog. `level.gd` fits real hanging chandeliers to the ceiling underside, sconces to wall planes, and standing candelabra to the floor. No generated substitutes or floating dummy candles. The headless smoke requires that every source catalog entry produce a real imported fixture.
+
+As of 2026-10-20, the accessible GitHub branch has owner altar and bench GLBs but **no confirmed Tripo chandelier/sconce GLBs**. Hence there are not yet any actual Tripo light fixtures to instantiate; automated gauntlet prints a clear missing-source message, rather than claiming they're fixed. Import locations and audit: `docs/TRIPO_CHURCH_ASSET_AUDIT.md`.

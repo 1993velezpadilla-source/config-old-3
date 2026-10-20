@@ -18,6 +18,7 @@ func _ready() -> void:
     _architecture()
     _pews()
     _altar()
+    _tripo_original_fixtures()
     _navigation_grid()
 
 func _mat(color: Color, rough: float = 0.85) -> StandardMaterial3D:
@@ -209,3 +210,101 @@ func next_step(from_world: Vector3, to_world: Vector3) -> Vector3:
         return from_world
     var next_id: Vector2i = ids[1]
     return Vector3(-8.25 + float(next_id.x) * 0.25, 0, -15.25 + float(next_id.y) * 0.25)
+
+
+# No procedural, generated or CC0 replacement chandeliers. Load user GLBs
+# only, recorded with exact SHA by tools/stage_tripo_fixtures.py.
+func _tripo_original_fixtures() -> void:
+    var path := "res://assets/tripo/fixtures_catalog.json"
+    if not FileAccess.file_exists(path):
+        debug_missing_art = true
+        push_warning("TRIPO_FIXTURE_CATALOG_NOT_STAGED")
+        return
+    var record = JSON.parse_string(FileAccess.get_file_as_string(path))
+    if not (record is Dictionary):
+        debug_missing_art = true
+        push_warning("TRIPO_FIXTURE_CATALOG_INVALID")
+        return
+    var slots: Dictionary = {}
+    for entry in record.get("fixtures", []):
+        if not (entry is Dictionary):
+            continue
+        var asset_path: String = str(entry.get("destination", ""))
+        var kind: String = str(entry.get("kind", ""))
+        if not asset_path.begins_with("res://assets/tripo/fixtures/"):
+            debug_missing_art = true
+            push_warning("TRIPO_UNVERIFIED_RESOURCE_PATH " + asset_path)
+            continue
+        var index: int = int(slots.get(kind, 0))
+        slots[kind] = index + 1
+        var anchor := Vector3.ZERO
+        var dims := Vector3.ZERO
+        var contact := ""
+        var yaw := 0.0
+        match kind:
+            "ceiling_chandelier":
+                # Ceiling lower plane: y=8.30. Top of original model touches it.
+                anchor = Vector3(0, 8.29, clampf(-11.0 + 6.0 * float(index), -12, 11))
+                dims = Vector3(2.4, 2.45, 2.4)
+                contact = "top"
+            "wall_sconce":
+                # Wall interior planes x=±8.25, not world-air.
+                var side := -1.0 if index % 2 == 0 else 1.0
+                anchor = Vector3(side * 8.25, 4.25,
+                    clampf(-10.5 + 4.7 * float(floori(float(index) / 2.0)), -12, 11))
+                yaw = -PI * 0.5 if side < 0.0 else PI * 0.5
+                dims = Vector3(1.0, 1.45, 0.8)
+                contact = "back"
+            "standing_candelabrum":
+                var side := -1.0 if index % 2 == 0 else 1.0
+                anchor = Vector3(side * 6.35, 0.02,
+                    clampf(-10.5 + 4.5 * float(floori(float(index) / 2.0)), -12, 11))
+                dims = Vector3(1.1, 2.35, 1.1)
+                contact = "bottom"
+            _:
+                debug_missing_art = true
+                push_warning("TRIPO_UNCLASSIFIED_FIXTURE " + kind)
+                continue
+        if not ResourceLoader.exists(asset_path):
+            debug_missing_art = true
+            push_warning("TRIPO_OWNER_FIXTURE_MISSING " + asset_path)
+            continue
+        var packed = load(asset_path)
+        if not (packed is PackedScene):
+            debug_missing_art = true
+            push_warning("TRIPO_OWNER_FIXTURE_IMPORT_RED " + asset_path)
+            continue
+        var node = (packed as PackedScene).instantiate()
+        if not (node is Node3D):
+            debug_missing_art = true
+            node.queue_free()
+            continue
+        var model := node as Node3D
+        add_child(model)
+        var bounds: AABB = _scene_bounds(model)
+        if bounds.size.length() < 0.001:
+            debug_missing_art = true
+            model.queue_free()
+            continue
+        var scale_factor := minf(dims.x / maxf(bounds.size.x, 0.001),
+            minf(dims.y / maxf(bounds.size.y, 0.001),
+                 dims.z / maxf(bounds.size.z, 0.001)))
+        scale_factor = clampf(scale_factor, 0.0001, 100.0)
+        model.scale = Vector3.ONE * scale_factor
+        model.rotation.y = yaw
+        var local_contact := bounds.position + bounds.size * 0.5
+        if contact == "top":
+            local_contact.y = bounds.end.y
+        elif contact == "bottom":
+            local_contact.y = bounds.position.y
+        else:
+            local_contact.z = bounds.end.z
+        model.position = anchor - Basis(Vector3.UP, yaw) * (local_contact * scale_factor)
+        model.name = "ApprovedTripo_%s_%03d" % [kind, index]
+        model.add_to_group("iglesia_tripo_fixture")
+        model.set_meta("anchor_kind", contact)
+        model.set_meta("anchor_world", anchor)
+        for collider in model.find_children("*", "CollisionShape3D", true, false):
+            (collider as CollisionShape3D).disabled = true
+        print("IGLESIA_ORIGINAL_TRIPO_FIXTURE_ANCHORED ", model.name, " ", anchor)
+

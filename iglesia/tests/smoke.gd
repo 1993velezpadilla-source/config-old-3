@@ -36,6 +36,22 @@ func _run() -> void:
             if game.level.nav.is_point_solid(pt):
                 errors.append("ZOMBIE_NAV_INTERSECTS_PEW")
                 break
+
+        var fixture_catalog := "res://assets/tripo/fixtures_catalog.json"
+        if not FileAccess.file_exists(fixture_catalog):
+            errors.append("TRIPO_FIXTURE_CATALOG_MISSING")
+        else:
+            var fixture_inventory = JSON.parse_string(FileAccess.get_file_as_string(fixture_catalog))
+            if not (fixture_inventory is Dictionary):
+                errors.append("TRIPO_FIXTURE_CATALOG_INVALID")
+            else:
+                var staged_fixtures: int = int(fixture_inventory.get("fixture_count", 0))
+                var in_world: int = get_nodes_in_group("iglesia_tripo_fixture").size()
+                if staged_fixtures != in_world:
+                    errors.append("TRIPO_FIXTURE_COUNT_RED %d/%d" % [in_world, staged_fixtures])
+                if staged_fixtures == 0:
+                    print("IGLESIA_TRIPO_CHANDELIERS_NOT_IN_GITHUB_YET — NO_FAKE_MODELS")
+
         if game.hud.mp40_frames.size() != 9:
             errors.append("MP40_SOURCE_FRAMES_NOT_9")
         if game.hud.buttons.size() < 6:
