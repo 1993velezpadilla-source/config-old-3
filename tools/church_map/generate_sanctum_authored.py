@@ -187,8 +187,12 @@ if not TRIPO_FURNITURE:
     parts.append(brush_box((790,-80,24),(865,80,84),ART["wood"]))
     parts.append(brush_box((900,-18,84),(916,18,230),ART["wood"]))
     parts.append(brush_box((900,-72,155),(916,72,185),ART["wood"]))
-# When enabled the real Tripo altar rests at (754,0,z=24), facing the
-# nave's player spawns; retain ALL original chancel masonry/steps/lighting.
+# Real Tripo altar centered at (754,0,24). Its XZSM mesh is *visual only*.
+# Clip texture produces invisible, gameplay-authoritative player/Zombie collision.
+# Shrunk collider fits INSIDE the reduced altar footprint, preventing walking
+# through it while leaving 180+ unit clear lanes on each side of the chancel.
+if TRIPO_FURNITURE:
+    parts.append(brush_box((721,-59,24),(787,59,108),"CLIP"))
 
 # PASSABLE PEWS — visible but explicitly noclip so AI has clean lanes.
 # Keep brush entities outside worldspawn; nesting an entity inside worldspawn is invalid MAP syntax.
@@ -332,9 +336,12 @@ for cls,pos,cost in [
 
 # WALL BUYS.
 for name,wid,cost,ammo,pos,ang in [
-    ("m1",13,600,300,(-890,300,48),0),
-    ("mp40",15,1000,500,(-300,395,48),270),
-    ("trench",23,1500,750,(350,-395,48),90),
+    # Place chalk on solid wall segments (not over the barricade apertures).
+    # Face toward nave: side-wall y=+395 faces -Y (270), y=-395 faces +Y (90).
+    ("m1",13,600,300,(-700,-395,72),90),
+    ("mp40",15,1000,500,(-300,395,72),270),
+    ("trench",23,1500,750,(350,-395,72),90),
+    ("thompson",3,1200,600,(100,395,72),270),
 ]:
     chalk=f"sanctum_chalk_{name}"
     parts.append(point("weapon_wall",pos,{
@@ -399,6 +406,9 @@ report={
  "paid_doors":3,"zones":len(zones),"player_spawns":4,
  "zombie_spawns":len(spawn_defs)+3,"perks":4,"pap":1,
  "mystery_box_locations":3,"power":1,
+ "wallbuys":4,
+ "altar_collision":"BRUSH_CLIP_INSIDE_TRUE_TRIPO_ALTAR" if TRIPO_FURNITURE else "LEGACY_ALTAR_BRUSH",
+ "altar_collision_bounds":[[721,-59,24],[787,59,108]] if TRIPO_FURNITURE else None,
  "ai_design":[
     "wide center aisle",
     "window lanes aligned between columns",
