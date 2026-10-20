@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import json
+import os
+
+TRIPO_FURNITURE=os.environ.get('SANCTUM_TRIPO_FURNITURE','0')=='1'
 
 MAP_NAME="sanctum_authored"
 TITLE="XZIEL: SANCTUM OF ASH"
@@ -175,19 +178,26 @@ for i in range(3):
     x1=500+i*24
     parts.append(brush_box((x1,-250,0),(x1+24,250,(i+1)*8),ART["floor"]))
 parts.append(brush_box((572,-250,0),(900,250,24),ART["floor"]))
-parts.append(brush_box((790,-80,24),(865,80,84),ART["wood"]))
-parts.append(brush_box((900,-18,84),(916,18,230),ART["wood"]))
-parts.append(brush_box((900,-72,155),(916,72,185),ART["wood"]))
+if not TRIPO_FURNITURE:
+    # Legacy placeholder altar was three rectangular wood brushes, NOT Tripo.
+    parts.append(brush_box((790,-80,24),(865,80,84),ART["wood"]))
+    parts.append(brush_box((900,-18,84),(916,18,230),ART["wood"]))
+    parts.append(brush_box((900,-72,155),(916,72,185),ART["wood"]))
+# When enabled the real Tripo altar rests at (754,0,z=24), facing the
+# nave's player spawns; retain ALL original chancel masonry/steps/lighting.
 
 # PASSABLE PEWS — visible but explicitly noclip so AI has clean lanes.
 # Keep brush entities outside worldspawn; nesting an entity inside worldspawn is invalid MAP syntax.
 pew_entities=[]
-for x in (-520,-380,-240,-100,40,180):
-    for y1,y2 in [(-210,-72),(72,210)]:
-        pew_entities.append(brush_entity(
-            "func_detail",(x-44,y1,0),(x+44,y2,28),ART["wood"],
-            {"zhlt_noclip":"1","zhlt_detaillevel":"2"}
-        ))
+if not TRIPO_FURNITURE:
+    for x in (-520,-380,-240,-100,40,180):
+        for y1,y2 in [(-210,-72),(72,210)]:
+            pew_entities.append(brush_entity(
+                "func_detail",(x-44,y1,0),(x+44,y2,28),ART["wood"],
+                {"zhlt_noclip":"1","zhlt_detaillevel":"2"}
+            ))
+# Tripo pews are separate visual XZSM instances, with clean BSP walking
+# lanes and no 12 overlapping placeholder wooden rectangles.
 
 # Doorway framing.
 parts.append(brush_box((-1000,-105,0),(-960,-90,205),ART["wall"]))
@@ -296,7 +306,9 @@ parts.append(point("power_switch",(590,585,40),{"angle":"270","oldmodel":"sounds
 parts.append(point("mystery_box",(-720,535,40),{"cost":"950","spawnflags":"0","angle":"270"}))
 parts.append(point("mystery_box_tp_spot",(700,160,48),{"angle":"180"}))
 parts.append(point("mystery_box_tp_spot",(-1080,0,40),{"angle":"0"}))
-parts.append(point("perk_pap",(840,0,64),{"cost":"5000","angle":"180"}))
+# Keep Pack-a-Punch accessible WITHOUT clipping through the new main altar.
+# Old placement (840,0) intersects the Tripo altar centerline.
+parts.append(point("perk_pap",(860,-210,64) if TRIPO_FURNITURE else (840,0,64),{"cost":"5000","angle":"180"}))
 for cls,pos,cost in [
     ("perk_revive",(-820,-315,40),500),
     ("perk_juggernog",(420,330,40),2500),
@@ -340,6 +352,9 @@ OUT.write_text("".join(parts),encoding="utf-8")
 
 report={
  "title":TITLE,"map":str(OUT),
+ "furniture":"REAL_2x_Tripo_GLB" if TRIPO_FURNITURE else "legacy_wood_brush",
+ "placeholderPews":len(pew_entities),
+ "placeholderAltarBrushes":0 if TRIPO_FURNITURE else 3,
  "design":"authored church, no bbox rooms/no auto bridges",
  "footprint":{"nave":[1540,880],"chancel":[380,600],"tower":[340,400]},
  "columns":len(columns),"functional_stair_steps":40,"stair_rise":8,
@@ -350,7 +365,7 @@ report={
  "ai_design":[
     "wide center aisle",
     "window lanes aligned between columns",
-    "pews are noclip detail",
+    "real Tripo pews separate from BSP; no placeholder rectangles" if TRIPO_FURNITURE else "pews are noclip detail",
     "8-unit stair risers"
  ],
  "acceptance":[
@@ -376,6 +391,12 @@ def rect(x1,y1,x2,y2,label,fill="#333"):
     svg.append(f'<text x="{X+W/2:.1f}" y="{Y+H/2:.1f}" fill="white" font-family="sans-serif" font-size="16" text-anchor="middle">{label}</text>')
 rect(-980,-440,560,440,"NAVE + AISLES")
 rect(560,-300,940,300,"CHANCEL / ALTAR","#3b3333")
+if TRIPO_FURNITURE:
+    # Placement review: 12 symmetric pew positions and clear center aisle.
+    for x in (-525,-385,-245,-105,35,175):
+        for yc in (-155,155):
+            rect(x-37,yc-75,x+37,yc+75,"TRIPO", "#573d2b")
+    rect(677,-130,831,130,"TRIPO ALTAR","#68503e")
 rect(-1180,-240,-980,240,"NARTHEX","#2d333a")
 rect(-920,440,-620,690,"OFFICE","#303a30")
 rect(420,440,760,690,"BOILER","#3a3030")
