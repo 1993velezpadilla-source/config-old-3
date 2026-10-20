@@ -41,7 +41,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python iglesia/tools/stage_assets.py
+          IGLESIA_REQUIRE_REAL_TRIPO_104=1 python iglesia/tools/stage_assets.py 2>&1 | tee /tmp/iglesia-source-audit.log
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("iglesia/assets/tripo/fixtures_catalog.json").read_text())
+          assert d["original_split_model_count"] == 104
+          assert d["original_split_archive_count"] == 8
+          assert d["fixture_count"] == 10
+          assert {m["kind"] for m in d["fixtures"]} == {"ceiling_chandelier","wall_sconce","standing_candelabrum"}
+          print("IGLESIA_ORIGINAL_TRIPO_SOURCE_GREEN")
+          PY
           test -s iglesia/assets/altar.glb
           test -s iglesia/assets/bench.glb
           test -s iglesia/assets/weapons/mp40/ads_idle.png
@@ -132,6 +142,7 @@ jobs:
         with:
           name: Iglesia-Gauntlet-RED-Logs
           path: |
+            /tmp/iglesia-source-audit.log
             /tmp/iglesia-import.log
             /tmp/iglesia-smoke.log
             /tmp/iglesia-export.log

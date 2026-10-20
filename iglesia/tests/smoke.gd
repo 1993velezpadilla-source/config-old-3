@@ -52,8 +52,15 @@ func _run() -> void:
                 var recovered_count: int = int(fixture_inventory.get("original_split_model_count", 0))
                 if recovered_count != 0 and recovered_count != 104:
                     errors.append("ORIGINAL_TRIPO_SPLIT_104_INCOMPLETE")
-                if recovered_count == 104 and staged_fixtures < 8:
-                    errors.append("ORIGINAL_TRIPO_FIXTURE_STAGING_INCOMPLETE")
+                if recovered_count == 104:
+                    if staged_fixtures != 10:
+                        errors.append("ORIGINAL_TRIPO_FIXTURE_STAGING_INCOMPLETE")
+                    var practicals := 0
+                    for obj in game.level.get_children():
+                        if obj.name.begins_with("SourceTripoLight_"):
+                            practicals += 1
+                    if practicals != 8:
+                        errors.append("ORIGINAL_TRIPO_PRACTICAL_LIGHT_RED %d/8" % practicals)
                 if staged_fixtures == 0:
                     print("TRIPO_ORIGINALS_FOUND_IN_LIBRARY_NOT_YET_IN_REPOSITORY; NO_SYNTHETIC_CHANDELIERS")
 

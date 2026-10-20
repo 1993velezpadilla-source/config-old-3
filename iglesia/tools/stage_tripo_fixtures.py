@@ -2,6 +2,7 @@
 """Inventory owner-saved church Tripo GLBs. NO asset creation or substitutes."""
 from __future__ import annotations
 import json
+import os
 from pathlib import Path
 from typing import Callable
 
@@ -60,6 +61,8 @@ def stage_fixtures(repo: Path, asset_dest: Path, git_sha: Callable[[bytes], str]
             print("TRIPO_CHURCH_ORIGINAL_FOUND", kind, path.relative_to(repo))
     from stage_original_tripo_packs import stage_archived_tripo
     restored = stage_archived_tripo(repo, asset_dest, catalog)
+    if os.environ.get("IGLESIA_REQUIRE_REAL_TRIPO_104", "0") == "1" and (restored["packages_found"] != 8 or restored["models_audited"] != 104):
+        raise RuntimeError("IGLESIA_ORIGINAL_TRIPO_8_ZIP_104_GLB_MISSING_FROM_GITHUB: do not publish fake APK")
     if restored["packages_found"]:
         # Exact canonical source ZIPs override any legacy filename-based picks.
         catalog = restored["visible_fixtures"]

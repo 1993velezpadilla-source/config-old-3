@@ -50,6 +50,7 @@ FOLDERS = ("iglesia/source_tripo_packs", "assets/tripo_packs",
 # scenery. Original source models are not destroyed to meet mobile budgets.
 VISIBLE_IN_MAIN_NAVE = {"chandeliers": (1, 3, 5, 7),
                         "candleholders": (1, 3, 6, 8, 10, 12)}
+WALL_MOUNTED_CANDLEHOLDERS = frozenset((1, 3, 6, 8))
 CATEGORY_TO_KIND = {"chandeliers": "ceiling_chandelier",
                     "candleholders": "standing_candelabrum"}
 
@@ -125,11 +126,15 @@ def stage_archived_tripo(repo: Path, assets: Path, previous_fixtures: list[dict]
                         elif target.read_bytes() != payload:
                             raise RuntimeError("TRIPO_TEXTURE_HASH_CONFLICT " + image)
                     kind = CATEGORY_TO_KIND[category]
+                    if category == "candleholders" and model_id in WALL_MOUNTED_CANDLEHOLDERS:
+                        kind = "wall_sconce"
                     visible.append({
                         "kind": kind,
                         "destination": f"res://assets/tripo/fixtures/{category}/{Path(member).name}",
                         "source": f"{archive.name}!/{member}",
                         "source_archive_sha256": observed_hash,
+                        "source_model_index": model_id,
+                        "source_geometry_unchanged": True,
                     })
                 all_entries.append({
                     "category": category,

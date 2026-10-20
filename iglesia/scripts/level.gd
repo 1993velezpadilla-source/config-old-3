@@ -302,9 +302,24 @@ func _tripo_original_fixtures() -> void:
         model.position = anchor - Basis(Vector3.UP, yaw) * (local_contact * scale_factor)
         model.name = "ApprovedTripo_%s_%03d" % [kind, index]
         model.add_to_group("iglesia_tripo_fixture")
+        _original_tripo_practical_light(kind, anchor, index)
         model.set_meta("anchor_kind", contact)
         model.set_meta("anchor_world", anchor)
         for collider in model.find_children("*", "CollisionShape3D", true, false):
             (collider as CollisionShape3D).disabled = true
         print("IGLESIA_ORIGINAL_TRIPO_FIXTURE_ANCHORED ", model.name, " ", anchor)
 
+
+
+# Practical photons only. All fixture meshes must come from the original GLBs.
+func _original_tripo_practical_light(kind: String, anchor: Vector3, index: int) -> void:
+    if index > 3 or (kind != "ceiling_chandelier" and kind != "wall_sconce"):
+        return
+    var bulb := OmniLight3D.new()
+    bulb.name = "SourceTripoLight_%s_%02d" % [kind, index]
+    bulb.light_color = Color(1.0, 0.61, 0.32)
+    bulb.light_energy = 0.65 if kind == "ceiling_chandelier" else 0.35
+    bulb.omni_range = 5.6 if kind == "ceiling_chandelier" else 3.0
+    bulb.shadow_enabled = false
+    bulb.position = anchor + (Vector3(0, -1.2, 0) if kind == "ceiling_chandelier" else Vector3(-0.4 if anchor.x > 0 else 0.4, 0, 0))
+    add_child(bulb)
