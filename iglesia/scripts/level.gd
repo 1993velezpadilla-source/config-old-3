@@ -169,9 +169,14 @@ func _pews() -> void:
                 _box("DEBUG_MISSING_BENCH_ART", Vector3(x, 0.58, z), Vector3(4.25, 1.10, 0.85), _mat(Color(0.85, 0.20, 0.16)), false)
 
 func _altar() -> void:
-    _proxy("AltarCollisionNoWalkThrough", Vector3(0.0, 1.14, -12.4), Vector3(3.15, 1.70, 1.30))
-    _import_owner_asset("res://assets/altar.glb", "ApprovedTripoAltar", Vector3(0, 0.51, -12.4),
-        Vector3(3.15, 1.65, 1.30), deg_to_rad(180.0))
+    # This ONE authentic Tripo altar has its own fit profile, not the generic
+    # narrow 1.30 m deep auto-fit which shrank the altar. Facing toward +Z,
+    # the main aisle/player, instead of facing the stone wall at -Z.
+    const ALTAR_BASE_Y := 0.51  # top of our ChancelTop (0.37 + 0.28 / 2)
+    const ALTAR_MAX_SIZE := Vector3(4.10, 2.38, 2.16)
+    _proxy("AltarCollisionNoWalkThrough", Vector3(0.0, ALTAR_BASE_Y + ALTAR_MAX_SIZE.y * 0.5, -12.4), ALTAR_MAX_SIZE)
+    _import_owner_asset("res://assets/altar.glb", "ApprovedTripoAltar", Vector3(0, ALTAR_BASE_Y, -12.4),
+        ALTAR_MAX_SIZE, deg_to_rad(0.0))
     if debug_missing_art:
         _box("DEBUG_MISSING_ALTAR_ART", Vector3(0, 1.1, -12.4), Vector3(3.15, 1.5, 1.28), _mat(Color(0.88, 0.18, 0.16)), false)
 
@@ -259,7 +264,9 @@ func _tripo_original_fixtures() -> void:
                 var side := -1.0 if index % 2 == 0 else 1.0
                 anchor = Vector3(side * 6.35, 0.02,
                     clampf(-10.5 + 4.5 * float(floori(float(index) / 2.0)), -12, 11))
-                dims = Vector3(1.1, 2.35, 1.1)
+                # Original Tripo triple-cup floor holders were huge on Android.
+                # Stay below waist-height; do not stretch these compact props.
+                dims = Vector3(0.65, 0.90, 0.65)
                 contact = "bottom"
             _:
                 debug_missing_art = true
@@ -304,6 +311,8 @@ func _tripo_original_fixtures() -> void:
         model.add_to_group("iglesia_tripo_fixture")
         _original_tripo_practical_light(kind, anchor, index)
         model.set_meta("anchor_kind", contact)
+        model.set_meta("fit_ceiling", dims)
+        model.set_meta("art_original_tripo", true)
         model.set_meta("anchor_world", anchor)
         for collider in model.find_children("*", "CollisionShape3D", true, false):
             (collider as CollisionShape3D).disabled = true

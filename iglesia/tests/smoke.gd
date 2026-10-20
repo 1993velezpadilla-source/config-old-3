@@ -27,6 +27,28 @@ func _run() -> void:
             errors.append("PEW_COLLISION_COUNT %d/14" % pew_colliders)
         if not game.level.has_node("AltarCollisionNoWalkThrough"):
             errors.append("ALTAR_NO_COLLISION")
+        var altar_art = game.level.get_node_or_null("ApprovedTripoAltar")
+        var altar_proxy = game.level.get_node_or_null("AltarCollisionNoWalkThrough")
+        if altar_art == null:
+            errors.append("ALTAR_ORIGINAL_ASSET_MISSING")
+        else:
+            # Source is permitted art only, no synthetic replacement.
+            # Zero yaw faces down the main aisle, not the altar wall.
+            if absf((altar_art as Node3D).rotation.y) > 0.01:
+                errors.append("ALTAR_FACING_WRONG_WAY")
+            var bounds: AABB = game.level._scene_bounds(altar_art)
+            if bounds.size.length() < 0.001:
+                errors.append("ALTAR_BOUNDING_BOX_MISSING")
+            else:
+                var y_floor: float = (altar_art as Node3D).position.y + bounds.position.y * (altar_art as Node3D).scale.y
+                if absf(y_floor - 0.51) > 0.075:
+                    errors.append("ALTAR_FLOOR_CONTACT_WRONG")
+        if altar_proxy != null:
+            var collider = altar_proxy.get_node_or_null("CollisionShape3D")
+            if collider == null or not (collider.shape is BoxShape3D):
+                errors.append("ALTAR_COLLIDER_SHAPE_MISSING")
+            elif absf((collider.shape as BoxShape3D).size.x - 4.1) > 0.02:
+                errors.append("ALTAR_COLLIDER_NOT_RESIZED")
         var nav_path = game.level.nav.get_id_path(
             game.level.world_to_cell(Vector3(-7.0, 0.0, 10.0)),
             game.level.world_to_cell(Vector3(0.0, 0.0, -10.0)))
@@ -69,6 +91,57 @@ func _run() -> void:
             errors.append("MP40_SOURCE_FRAMES_NOT_9")
         if game.hud.buttons.size() < 6:
             errors.append("TOUCH_HUD_INCOMPLETE")
+        for action in ["fire", "ads", "reload", "jump", "slide", "interact"]:
+            if not game.hud.buttons.has(action):
+                errors.append("TOUCH_ACTION_BUTTON_MISSING_" + action)
+                continue
+            var touch_button = game.hud.buttons[action]
+            if not (touch_button is TextureButton):
+                errors.append("TOUCH_BUTTON_NOT_TEXTURE_BUTTON_" + action)
+                continue
+            if touch_button.texture_normal == null:
+                errors.append("TOUCH_OFFICIAL_ART_MISSING_" + action)
+            if not touch_button.visible or touch_button.mouse_filter != Control.MOUSE_FILTER_STOP:
+                errors.append("TOUCH_BUTTON_UNCLICKABLE_" + action)
+        for dims in [Vector2(1280, 720), Vector2(2340, 1080), Vector2(1920, 1440), Vector2(960, 540)]:
+            game.hud._layout(dims)
+            var fire_btn: Control = game.hud.buttons["fire"]
+            var ads_btn: Control = game.hud.buttons["ads"]
+            for action in ["fire", "ads"]:
+                var hitbox: Rect2 = game.hud.buttons[action].get_rect()
+                if hitbox.position.x < 0 or hitbox.position.y < 0 or hitbox.end.x > dims.x or hitbox.end.y > dims.y:
+                    errors.append("TOUCH_BUTTON_OUTSIDE_SCREEN_%s_%s" % [action, str(dims)])
+            if fire_btn.get_rect().intersects(ads_btn.get_rect()):
+                errors.append("FIRE_ADS_TOUCH_TARGET_OVERLAP_" + str(dims))
+        game.hud._layout()
+        # A tap on empty space must not activate the MP40's mapped mouse fire.
+        if bool(ProjectSettings.get_setting("input_devices/pointing/emulate_mouse_from_touch", true)):
+            errors.append("TOUCH_EMULATES_MOUSE_FIRE_REGRESSION")
+        Input.action_release("fire")
+        Input.action_release("ads")
+        game.hud._press_action("fire")
+        if not Input.is_action_pressed("fire"):
+            errors.append("FIRE_TOUCH_PRESS_DOES_NOT_FIRE")
+        game.hud._release_action("fire")
+        if Input.is_action_pressed("fire"):
+            errors.append("FIRE_TOUCH_RELEASE_STUCK")
+        game.player.ads_toggle_mode = false
+        game.hud._press_action("ads")
+        if not Input.is_action_pressed("ads"):
+            errors.append("ADS_TOUCH_PRESS_DOES_NOT_AIM")
+        game.hud._release_action("ads")
+        if Input.is_action_pressed("ads"):
+            errors.append("ADS_TOUCH_RELEASE_STUCK")
+        game.player.ads_toggle_mode = true
+        for node in get_nodes_in_group("iglesia_tripo_fixture"):
+            if str(node.get_meta("fixture_kind", node.get_meta("anchor_kind", ""))) == "standing_candelabrum" or str(node.name).begins_with("ApprovedTripo_standing_candelabrum"):
+                var geometry = game.level._scene_bounds(node)
+                var size_y: float = geometry.size.y * (node as Node3D).scale.y
+                if size_y > 0.94:
+                    errors.append("FLOOR_TRIPLE_CUP_CANDLEHOLDER_TOO_BIG " + str(size_y))
+                var bottom: float = (node as Node3D).position.y + geometry.position.y * (node as Node3D).scale.y
+                if absf(bottom - 0.02) > 0.06:
+                    errors.append("FLOOR_CANDLEHOLDER_NOT_GROUNDED " + str(bottom))
         if not game.player.camera.current:
             errors.append("FPS_CAMERA_MISSING")
         if game.round_number != 1 or game.round_remaining < 5:
