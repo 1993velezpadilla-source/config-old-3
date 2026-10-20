@@ -275,11 +275,22 @@ jobs:
               > church-mini-dist/am-start.txt
           for i in $(seq 1 40); do
             STAGE="$("$ADB" shell run-as com.xziel.churchmini cat files/nzp-runtime/.xziel-stage 2>/dev/null | tr -d '\r' || true)"
-            [[ "$STAGE" == "FIRST_FRAME_OK" ]] && break
+            [[ "$STAGE" == "FIRST_FRAME_OK" || "$STAGE" == "SYS_ERROR" ]] && break
             sleep 2
           done
           echo "$STAGE" > church-mini-dist/runtime-stage.txt
-          test "$STAGE" = "FIRST_FRAME_OK"
+          # Always collect the engine's actual failure cause; previous
+          # runs aborted before logcat/error-file capture on SYS_ERROR.
+          "$ADB" shell run-as com.xziel.churchmini cat files/nzp-runtime/.xziel-last-error \
+              > church-mini-dist/runtime-last-error.txt 2>/dev/null || true
+          "$ADB" logcat -d -v threadtime > church-mini-dist/logcat.txt || true
+          "$ADB" exec-out screencap -p > church-mini-dist/church-mini-real-android.png || true
+          if [[ "$STAGE" != "FIRST_FRAME_OK" ]]; then
+            echo "CHURCH_MINI_RUNTIME_STAGE_FAILURE=$STAGE"
+            cat church-mini-dist/runtime-last-error.txt || true
+            grep -E '(Xziel|Vril|FATAL|Fatal|Error|error)' church-mini-dist/logcat.txt | tail -90 || true
+            exit 1
+          fi
           # Old CI screen capture was mostly Android's "Viewing full screen"
           # modal, hiding the altar and making a false screenshot GREEN.
           "$ADB" shell input tap 1700 500 || true
