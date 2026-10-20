@@ -22,7 +22,7 @@ META=[]
 BATCHES=[]
 BATCH_LIMIT=10000
 MAX_TOTAL_TRIANGLES=155000
-SCALE_RATIO=0.010  # derived copies only; originals never modified
+SCALE_RATIO=0.006  # mobile ~0.6% LOD on copies; originals never modified
 POSITIONS_BENCH=[(-171,y,27) for y in (-220,-80,60,200)]+[(171,y,27) for y in (-220,-80,60,200)]
 PLACEMENTS={
     "bench":(POSITIONS_BENCH,(180,52,50)),
