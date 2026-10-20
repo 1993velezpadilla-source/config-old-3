@@ -1,22 +1,61 @@
-# IGLESIA — original Tripo church assets audit (2026-10-20)
+# Iglesia Tripo — corrected recovery audit (2026-10-20)
 
-**Authority:** `feature/iglesia-godot-cleanroom-20261020` — clean-room Godot 4.6 project. Previous map/gameplay scripts must NOT be imported.
+**CORRECTION: THE OWNER'S ORIGINAL TRIPO ASSETS HAVE BEEN FOUND.**
+Previous GitHub-only inspection was incomplete. The missing sources were not
+imaginary and must not be redrawn.
 
-## Verified present in owner GitHub
-- `xogot/assets/environment/church/altar.glb` — 69,805,480 bytes; pinned blob SHA `30516ffc82687374793e555fbe66f6f4b325e206`.
-- `xogot/assets/environment/church/bench.glb` — 70,099,048 bytes; pinned blob SHA `12fff5499483ce023803f4460e0b52190d2799be`.
-- `xogot/assets/environment/church/church_final_architecture.glb` — 8,905,540 bytes, generated geometry and **not a Tripo chandelier**.
+## Authoritative Library source
 
-A search of the main owner repositories and multiple Oct 19/20 church feature branches identified no tracked GLB with original Tripo chandelier, ceiling lantern, wall sconce, or candelabra source. The above two original furniture assets already stage into Iglesia, but no fixture can truthfully be called integrated yet.
+Folder: `/ZOMBIESSSSSSS PORTABLE/gift_runtime_packs/` in the user's ChatGPT Library.
 
-## Automatic source inventory, no substitutions
-`iglesia/tools/stage_tripo_fixtures.py` checks:
-- `xogot/assets/environment/church`, `xogot/assets/church`
-- `assets/tripo/church`, `assets/tripo3d/church`, `xogot/assets/tripo`
-- `iglesia/source_tripo`
+| ZIP | GLB models | Verified SHA-256 |
+|---|---:|---|
+| `altar.zip` | 9 | `427a6cd1cc5f54e4dec0fec72761872955b9d5820cd4761d48b247ea79decd5f` |
+| `candleholders.zip` | 19 | `3627fcd408fdac84594edb4cc40d8c7ce28e5e580e1e6aca4878e31f7c801d6f` |
+| `chandeliers.zip` | 11 | `51343ba8401df1e562a6e6b89730c05a9bb1d74f399418ddda45bd44162792d3` |
+| `furniture.zip` | 12 | `2d26885f668d9bb019c0495d235888d3c1eccc92e941a97f6dc5edc8e08b5ddd` |
+| `ruins.zip` | 29 | `011a889e61bbd5fc4fdbee8aa197aacfe97d15ae6e2d0425350a235bf47a7348` |
+| `stained_multi.zip` | 11 | `c208d73bf2a7a2563237b8a85a49411f185322cb4c681427b375e47cc87622f5` |
+| `stained_single.zip` | 1 | `37248a62c128ae8536809cd91da2c7ba3f98ea569617b323c7fa6444377f33fe` |
+| `statues.zip` | 12 | `35da7f3908a8214ed3a323b21c000116e7089509452b593b9d6177c57c0c64f7` |
 
-For matching fixture-model filenames/folders, stage exact GLB bytes, validate glTF container signature, deduplicate by Git blob hash, and record every asset origin in `iglesia/assets/tripo/fixtures_catalog.json`. Unclassified GLBs are separately reported and **never** randomly inserted.
+Verified originals: **8 ZIP, 104 individually split GLBs**, **14,986,049 triangles** total.
+Each split GLB is real binary glTF and references original external texture
+files inside its package's `textures/` folder (albedo, ORM, OpenGL normal).
+The group names correspond to original master GLBs:
+`candelabros colgantes techo.glb` (11 original roof chandeliers),
+`ornate candle holder 3d model.glb` (19 holders),
+`gothic church furniture 3d model.glb` (12 furniture),
+`intricate wooden altar 3d model.glb` (9 altar components),
+`medieval church ruins 3d model.glb` (29 ruins),
+stained glass multi (11) + single (1), and statues (12).
 
-Godot maps each verified staged fixture model at least once, fitting model bounds to source-safe sizes and snapping to actual ceiling underside (Y=8.29), wall interiors (X=±8.25), or floor (Y=0.02). No floating placeholder chandelier, no generated illustration, no CC0 substitution, no copy of the rejected gun or hands.
+Individual `Model_01` etc may represent components/submeshes, not a semantically
+independent complete fixture. The 19 candleholder models are **not** automatically
+all wall sconces. Their physical mounting must be visually verified before final placement.
 
-**Blocker:** The chandelier/sconce Tripo exports appear not to have been committed to the GitHub source folders inspected. Uploading the originals to one of the checked folders makes them discoverable by the existing GitHub Actions staging pipeline. The current test must print `IGLESIA_TRIPO_CHANDELIERS_NOT_IN_GITHUB_YET` until it has real fixture source material.
+## GitHub integration and source constraints
+
+Code branch: `feature/iglesia-godot-cleanroom-20261020`.
+
+Production import adapter: `iglesia/tools/stage_original_tripo_packs.py`.
+Original archives can be staged at:
+- `iglesia/source_tripo_packs/`
+- `assets/tripo_packs/`
+- `iglesia/original_tripo_archives/`
+
+It SHA-verifies **all eight archives**, audits **104 model members and texture
+dependencies**, retains the original ZIPs unmodified and writes a complete model
+catalog in `iglesia/assets/tripo/fixtures_catalog.json`.
+The *initial nave* only imports source models `chandeliers/Model_{01,03,05,07}.glb`
+and `candleholders/Model_{01,03,06,08,10,12}.glb`, with authentic shared
+textures and physical anchoring. Other 94 models remain accessible in their
+original source archives for later rooms, not silently converted into substitutes
+or stuffed into the 31m main aisle.
+
+**Verified blocker:** These original ZIPs live in the ChatGPT Library, not in
+the GitHub repository. The current GitHub connector writes source text but
+does not ingest local binary ZIPs by path. Consequently, this commit integrates
+the exact-source importer but does **not** make any unsupported claim that all
+GLB media have been shipped to GitHub or the APK. Earlier GitHub-only
+"missing files" reports should be superseded by this source audit.

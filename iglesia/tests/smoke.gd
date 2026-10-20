@@ -49,8 +49,13 @@ func _run() -> void:
                 var in_world: int = get_nodes_in_group("iglesia_tripo_fixture").size()
                 if staged_fixtures != in_world:
                     errors.append("TRIPO_FIXTURE_COUNT_RED %d/%d" % [in_world, staged_fixtures])
+                var recovered_count: int = int(fixture_inventory.get("original_split_model_count", 0))
+                if recovered_count != 0 and recovered_count != 104:
+                    errors.append("ORIGINAL_TRIPO_SPLIT_104_INCOMPLETE")
+                if recovered_count == 104 and staged_fixtures < 8:
+                    errors.append("ORIGINAL_TRIPO_FIXTURE_STAGING_INCOMPLETE")
                 if staged_fixtures == 0:
-                    print("IGLESIA_TRIPO_CHANDELIERS_NOT_IN_GITHUB_YET — NO_FAKE_MODELS")
+                    print("TRIPO_ORIGINALS_FOUND_IN_LIBRARY_NOT_YET_IN_REPOSITORY; NO_SYNTHETIC_CHANDELIERS")
 
         if game.hud.mp40_frames.size() != 9:
             errors.append("MP40_SOURCE_FRAMES_NOT_9")

@@ -26,3 +26,14 @@ Landscape Android; thumb joystick + right-look + simultaneous fire/look; ADS hol
 The independent `stage_tripo_fixtures.py` searches the existing owner church/Tripo asset directories, copies only matching ORIGINAL GLBs without editing their bytes and records their Git blob hashes in a staged JSON catalog. `level.gd` fits real hanging chandeliers to the ceiling underside, sconces to wall planes, and standing candelabra to the floor. No generated substitutes or floating dummy candles. The headless smoke requires that every source catalog entry produce a real imported fixture.
 
 As of 2026-10-20, the accessible GitHub branch has owner altar and bench GLBs but **no confirmed Tripo chandelier/sconce GLBs**. Hence there are not yet any actual Tripo light fixtures to instantiate; automated gauntlet prints a clear missing-source message, rather than claiming they're fixed. Import locations and audit: `docs/TRIPO_CHURCH_ASSET_AUDIT.md`.
+
+## 2026-10-20 source correction — recovered split Tripo archive library
+**The 104 original user Tripo GLBs ARE FOUND**, in the user's project Library
+`/ZOMBIESSSSSSS PORTABLE/gift_runtime_packs/`. Original eight ZIPs are:
+`altar.zip`, `candleholders.zip`, `chandeliers.zip`, `furniture.zip`,
+`ruins.zip`, `stained_multi.zip`, `stained_single.zip`, `statues.zip`.
+The new `stage_original_tripo_packs.py` is the source-locked importer, tested
+against each archive SHA256 and split membership. It replaces generic
+filename guessing when actual original archives are staged into the repo.
+This is source code integration only; GitHub APK still lacks these archives
+until the binary files are copied/uploaded into a source folder.

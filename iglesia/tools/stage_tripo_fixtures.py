@@ -58,14 +58,23 @@ def stage_fixtures(repo: Path, asset_dest: Path, git_sha: Callable[[bytes], str]
                 "git_blob_sha": sha, "bytes": len(original),
             })
             print("TRIPO_CHURCH_ORIGINAL_FOUND", kind, path.relative_to(repo))
+    from stage_original_tripo_packs import stage_archived_tripo
+    restored = stage_archived_tripo(repo, asset_dest, catalog)
+    if restored["packages_found"]:
+        # Exact canonical source ZIPs override any legacy filename-based picks.
+        catalog = restored["visible_fixtures"]
     manifest = {
-        "version": 1, "fixture_count": len(catalog),
+        "source_library_status": restored.get("source", "project_library_recovered_not_in_repository"),
+        "original_split_model_count": restored["models_audited"],
+        "original_split_archive_count": restored["packages_found"],
+        "archive_entries": restored["archive_entries"],
+        "version": 2, "fixture_count": len(catalog),
         "source_roots": list(ROOTS), "fixtures": catalog,
         "unclassified_glbs": unclassified, "no_synthetic_replacements": True,
     }
     (output / "fixtures_catalog.json").write_text(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     if not catalog:
-        print("IGLESIA_TRIPO_FIXTURES_PENDING_SOURCE: no original chandelier/sconce GLB in checked GitHub folders")
+        print("TRIPO_ARCHIVES_EXIST_IN_PROJECT_LIBRARY_BUT_NOT_IN_GITHUB_SOURCE: code cannot copy them automatically")
     else:
         print("IGLESIA_TRIPO_OWNER_FIXTURES_STAGED", len(catalog))
