@@ -49,15 +49,28 @@ func _run_test() -> void:
             _bad("Original source hands+gun not visible")
         if view != null and view.visible:
             _bad("Original non-Vril model not hidden")
+        var original_roles: Dictionary = bridge.get("_source_roles")
+        if original_roles.get("fire", []) != [1, 2] or original_roles.get("reload", []) != [4, 31]:
+            _bad("NZ:P QuakeC original frame authority not applied")
+        if original_roles.has("sprint_out"):
+            _bad("Out-of-range QuakeC sprint_out was invented")
         var shots_before: int = int(gun.get("_shots_fired"))
         gun.call("request_fire")
         await process_frame
         if int(gun.get("_shots_fired")) <= shots_before:
             _bad("Existing MP40 hitscan/ammo firearm no longer fires")
+        if str(bridge.get("_playing_role")) != "fire":
+            _bad("Original Vril MP40 1-2 frame firing action did not play")
+        if animator != null and absf(animator.speed_scale - (0.2 / 0.12)) > 0.01:
+            _bad("Source firing playback does not respect 0.12 s QuakeC fire delay")
         gun.call("request_reload")
         await process_frame
         if not bool(gun.get("_reloading")):
             _bad("Existing MP40 reload/ammo pathway no longer works")
+        if str(bridge.get("_playing_role")) != "reload":
+            _bad("Original Vril MP40 frames 4-31 did not start reloading")
+        if animator != null and absf(animator.speed_scale - (2.8 / 2.3)) > 0.01:
+            _bad("Source reload playback does not respect 2.3 s QuakeC reload delay")
         gun.call("equip_weapon", "colt", true)
         await process_frame
         if str(gun.get("_weapon_id")) != "colt":
@@ -69,7 +82,7 @@ func _run_test() -> void:
     game.queue_free()
     await process_frame
     if failures.is_empty():
-        print("VRIL_MP40_CHURCH_RUNTIME_GREEN original_source=true game_church=true mp40_fire_reload=true colt_preserved=true")
+        print("VRIL_MP40_CHURCH_RUNTIME_GREEN original_source=true game_church=true mp40_original_fire_frames_1to2=true mp40_original_reload_frames_4to31=true colt_preserved=true")
         quit(0)
     else:
         print("VRIL_MP40_CHURCH_RUNTIME_RED count=", failures.size())
