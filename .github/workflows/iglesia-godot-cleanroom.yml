@@ -50,6 +50,13 @@ jobs:
               exit 1
             }
           fi
+          # Accept one complete original source bundle via Android file picker.
+          bundle='iglesia/source_tripo_packs/Iglesia-8-ZIP-Originales-Tripo-104-GLB.zip'
+          if [[ -s "$bundle" ]]; then
+            echo '3dbb9c860106ba907ff7e5ff46fa1dc84f8ef12e93a7f1d503b513103d87265b  iglesia/source_tripo_packs/Iglesia-8-ZIP-Originales-Tripo-104-GLB.zip' | sha256sum -c -
+            unzip -oq "$bundle" -d iglesia/source_tripo_packs
+            echo 'IGLESIA_TRIPO_BUNDLE_104_SOURCE_UNPACKED'
+          fi
           for f in altar.zip candleholders.zip chandeliers.zip furniture.zip ruins.zip stained_multi.zip stained_single.zip statues.zip; do
             test -s "iglesia/source_tripo_packs/$f" || { echo "TRIPO_BINARY_SOURCE_RED: $f"; exit 1; }
           done

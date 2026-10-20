@@ -1,0 +1,32 @@
+name: Prepare Iglesia original Tripo release
+
+on:
+  push:
+    branches:
+      - feature/iglesia-godot-cleanroom-20261020
+    paths:
+      - '.github/workflows/iglesia-original-tripo-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-source-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create original Tripo asset release if absent
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view iglesia-tripo-originals-v1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'IGLESIA_TRIPO_SOURCE_RELEASE_ALREADY_EXISTS'
+          else
+            gh release create iglesia-tripo-originals-v1 --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" --prerelease \
+              --title 'Iglesia - Original Tripo 3D asset archives' \
+              --notes 'Upload the original source bundle Iglesia-8-ZIP-Originales-Tripo-104-GLB.zip containing 8 archives/104 GLBs. SHA-256 validated at CI import. No synthetic models.'
+            echo 'IGLESIA_TRIPO_SOURCE_RELEASE_CREATED_UPLOAD_REQUIRED'
+          fi

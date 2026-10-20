@@ -40,3 +40,6 @@ until the binary files are copied/uploaded into a source folder.
 
 ## Authentic Tripo source-release gate
 The Android CI now blocks export unless all 8 preserved ZIPs and all 104 split source GLBs are verified, and the ten first-room fixtures (four chandelier pieces, four wall-mounted holders, two floor holders) are staged from original Tripo GLBs. The eight ZIP archives have been located in the project Library, but not yet transferred into the GitHub repository; until then, CI must show a source-gate RED rather than publish the old-looking APK as the new art update. Original meshes/textures are not replaced with synthetics.
+
+## Single-bundle mobile source transfer (October 20)
+Exact owner archives are available in `Iglesia-8-ZIP-Originales-Tripo-104-GLB.zip` (250,870,223 bytes, SHA256 `3dbb9c860106ba907ff7e5ff46fa1dc84f8ef12e93a7f1d503b513103d87265b`). It wraps eight untouched original ZIPs plus one manifest. Android browser users upload only this single archive as a Release asset at tag `iglesia-tripo-originals-v1`. The Godot workflow downloads it, checks outer SHA, unpacks original 8 ZIPs, and checks each source SHA before stage; source absence is RED. `iglesia-original-tripo-release.yml` creates release metadata/tag, never claims to have transferred missing media.
