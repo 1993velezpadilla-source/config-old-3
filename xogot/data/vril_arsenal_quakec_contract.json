@@ -1,0 +1,1297 @@
+{
+  "source": "nzp-team/assets + nzp-team/quakec",
+  "source_quakec_commit": "3678e45b4cbff1ab2fccc801e91fca5b32f41cb3",
+  "source_file": "source/shared/weapon_stats.qc",
+  "frames_indexed_from": "GetFrame(W_*) zero-based values",
+  "units": "original MDL morph-frame animation",
+  "notes": "All 41 source entries are real first-person source viewmodels, not 41 independent guns. Aux/dual/effect models are preview-only until real paired-gameplay support. Existing Xogot WeaponCatalog combat is not claimed to equal NZ:P gameplay. Out-of-bounds and reversed timings are flagged.",
+  "entries": [
+    {
+      "source": "357/v_357.mdl",
+      "resource": "357/v_357.glb",
+      "weapon": "W_357",
+      "gameplay_id": "357",
+      "frames": 43,
+      "triangles": 655,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          1,
+          3
+        ],
+        "reload": [
+          4,
+          25
+        ],
+        "equip": [
+          29,
+          31
+        ],
+        "holster": [
+          26,
+          28
+        ],
+        "sprint_in": [
+          32,
+          33
+        ],
+        "sprint_out": [
+          41,
+          42
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "gameplay_crossover"
+    },
+    {
+      "source": "bar/v_bar.mdl",
+      "resource": "bar/v_bar.glb",
+      "weapon": "W_BAR",
+      "gameplay_id": "bar",
+      "frames": 42,
+      "triangles": 658,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          1,
+          2
+        ],
+        "reload": [
+          3,
+          36
+        ],
+        "equip": [
+          41,
+          39
+        ],
+        "holster": [
+          39,
+          41
+        ],
+        "sprint_in": [
+          37,
+          38
+        ],
+        "sprint_out": [
+          38,
+          37
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "gameplay_crossover"
+    },
+    {
+      "source": "bk/v_bk.mdl",
+      "resource": "bk/v_bk.glb",
+      "weapon": "W_BK",
+      "gameplay_id": null,
+      "frames": 47,
+      "triangles": 692,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          22,
+          26
+        ],
+        "reload": [
+          26,
+          37
+        ],
+        "equip": [
+          39,
+          41
+        ],
+        "holster": [
+          37,
+          39
+        ],
+        "sprint_in": [
+          37,
+          39
+        ],
+        "sprint_out": [
+          39,
+          41
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "preview_only"
+    },
+    {
+      "source": "bk/v_blade_bowie.mdl",
+      "resource": "bk/v_blade_bowie.glb",
+      "weapon": null,
+      "gameplay_id": null,
+      "frames": 47,
+      "triangles": 226,
+      "roles": {},
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "preview_only"
+    },
+    {
+      "source": "bk/v_blade_knife.mdl",
+      "resource": "bk/v_blade_knife.glb",
+      "weapon": null,
+      "gameplay_id": null,
+      "frames": 47,
+      "triangles": 174,
+      "roles": {},
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "preview_only"
+    },
+    {
+      "source": "browning/v_browning.mdl",
+      "resource": "browning/v_browning.glb",
+      "weapon": "W_BROWNING",
+      "gameplay_id": "browning",
+      "frames": 83,
+      "triangles": 763,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          1,
+          2
+        ],
+        "reload": [
+          25,
+          54
+        ],
+        "reload_empty": [
+          57,
+          72
+        ],
+        "reload_part": [
+          4,
+          24
+        ],
+        "equip": [
+          79,
+          81
+        ],
+        "holster": [
+          77,
+          79
+        ],
+        "sprint_in": [
+          75,
+          76
+        ],
+        "sprint_out": [
+          76,
+          77
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "gameplay_crossover"
+    },
+    {
+      "source": "db/v_db.mdl",
+      "resource": "db/v_db.glb",
+      "weapon": "W_DB",
+      "gameplay_id": "doublebarrel",
+      "frames": 42,
+      "triangles": 605,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          1,
+          4
+        ],
+        "reload": [
+          5,
+          31
+        ],
+        "equip": [
+          37,
+          41
+        ],
+        "holster": [
+          35,
+          37
+        ],
+        "sprint_in": [
+          32,
+          33
+        ],
+        "sprint_out": [
+          33,
+          31
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "gameplay_crossover"
+    },
+    {
+      "source": "fg42/v_fg.mdl",
+      "resource": "fg42/v_fg.glb",
+      "weapon": "W_FG",
+      "gameplay_id": "fg42",
+      "frames": 38,
+      "triangles": 738,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          0,
+          2
+        ],
+        "reload": [
+          3,
+          29
+        ],
+        "equip": [
+          32,
+          34
+        ],
+        "holster": [
+          30,
+          32
+        ],
+        "sprint_in": [
+          35,
+          36
+        ],
+        "sprint_out": [
+          36,
+          37
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "gameplay_crossover"
+    },
+    {
+      "source": "garand/v_m1.mdl",
+      "resource": "garand/v_m1.glb",
+      "weapon": "W_M1",
+      "gameplay_id": "m1",
+      "frames": 43,
+      "triangles": 791,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          1,
+          2
+        ],
+        "reload": [
+          10,
+          20
+        ],
+        "reload_empty": [
+          4,
+          10
+        ],
+        "reload_part": [
+          21,
+          30
+        ],
+        "holster": [
+          36,
+          39
+        ],
+        "sprint_in": [
+          32,
+          33
+        ],
+        "sprint_out": [
+          34,
+          35
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {
+        "equip": [
+          40,
+          43
+        ]
+      },
+      "kind": "gameplay_crossover"
+    },
+    {
+      "source": "gewehr/v_gewehr.mdl",
+      "resource": "gewehr/v_gewehr.glb",
+      "weapon": "W_GEWEHR",
+      "gameplay_id": "gewehr",
+      "frames": 84,
+      "triangles": 774,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          2,
+          4
+        ],
+        "reload": [
+          11,
+          52
+        ],
+        "equip": [
+          75,
+          83
+        ],
+        "holster": [
+          64,
+          71
+        ],
+        "sprint_in": [
+          55,
+          57
+        ],
+        "sprint_out": [
+          59,
+          61
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "gameplay_crossover"
+    },
+    {
+      "source": "grenade/v_betty.mdl",
+      "resource": "grenade/v_betty.glb",
+      "weapon": null,
+      "gameplay_id": null,
+      "frames": 19,
+      "triangles": 707,
+      "roles": {},
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "preview_only"
+    },
+    {
+      "source": "grenade/v_grenade.mdl",
+      "resource": "grenade/v_grenade.glb",
+      "weapon": null,
+      "gameplay_id": null,
+      "frames": 7,
+      "triangles": 310,
+      "roles": {},
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "preview_only"
+    },
+    {
+      "source": "kar/v_kar.mdl",
+      "resource": "kar/v_kar.glb",
+      "weapon": "W_KAR",
+      "gameplay_id": "kar98k",
+      "frames": 39,
+      "triangles": 713,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          1,
+          3
+        ],
+        "reload": [
+          14,
+          28
+        ],
+        "equip": [
+          33,
+          35
+        ],
+        "holster": [
+          32,
+          33
+        ],
+        "sprint_in": [
+          29,
+          30
+        ],
+        "sprint_out": [
+          30,
+          29
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "gameplay_crossover"
+    },
+    {
+      "source": "kar/v_karscope.mdl",
+      "resource": "kar/v_karscope.glb",
+      "weapon": null,
+      "gameplay_id": null,
+      "frames": 38,
+      "triangles": 200,
+      "roles": {},
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "preview_only"
+    },
+    {
+      "source": "knife/v_bowie.mdl",
+      "resource": "knife/v_bowie.glb",
+      "weapon": null,
+      "gameplay_id": null,
+      "frames": 43,
+      "triangles": 408,
+      "roles": {},
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "preview_only"
+    },
+    {
+      "source": "knife/v_knife.mdl",
+      "resource": "knife/v_knife.glb",
+      "weapon": null,
+      "gameplay_id": null,
+      "frames": 13,
+      "triangles": 357,
+      "roles": {},
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "preview_only"
+    },
+    {
+      "source": "m1911/v_biatch_left.mdl",
+      "resource": "m1911/v_biatch_left.glb",
+      "weapon": null,
+      "gameplay_id": null,
+      "frames": 49,
+      "triangles": 362,
+      "roles": {},
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "preview_only"
+    },
+    {
+      "source": "m1911/v_biatch_right.mdl",
+      "resource": "m1911/v_biatch_right.glb",
+      "weapon": null,
+      "gameplay_id": null,
+      "frames": 49,
+      "triangles": 343,
+      "roles": {},
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "preview_only"
+    },
+    {
+      "source": "m1911/v_colt.mdl",
+      "resource": "m1911/v_colt.glb",
+      "weapon": "W_COLT",
+      "gameplay_id": "colt",
+      "frames": 42,
+      "triangles": 565,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          1,
+          2
+        ],
+        "reload": [
+          3,
+          26
+        ],
+        "equip": [
+          29,
+          32
+        ],
+        "holster": [
+          26,
+          29
+        ],
+        "sprint_in": [
+          33,
+          34
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {
+        "sprint_out": [
+          41,
+          42
+        ]
+      },
+      "kind": "gameplay_crossover"
+    },
+    {
+      "source": "m1carbine/v_m1a1.mdl",
+      "resource": "m1carbine/v_m1a1.glb",
+      "weapon": "W_M1A1",
+      "gameplay_id": "m1a1",
+      "frames": 39,
+      "triangles": 716,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          1,
+          2
+        ],
+        "reload": [
+          3,
+          29
+        ],
+        "equip": [
+          33,
+          36
+        ],
+        "holster": [
+          30,
+          33
+        ],
+        "sprint_in": [
+          37,
+          38
+        ],
+        "sprint_out": [
+          38,
+          37
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "gameplay_crossover"
+    },
+    {
+      "source": "m2flame/v_m2flame.mdl",
+      "resource": "m2flame/v_m2flame.glb",
+      "weapon": "W_M2",
+      "gameplay_id": null,
+      "frames": 24,
+      "triangles": 550,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "holster": [
+          20,
+          22
+        ],
+        "sprint_in": [
+          17,
+          18
+        ],
+        "sprint_out": [
+          18,
+          19
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {
+        "equip": [
+          22,
+          24
+        ]
+      },
+      "kind": "preview_only"
+    },
+    {
+      "source": "mg/v_mg.mdl",
+      "resource": "mg/v_mg.glb",
+      "weapon": "W_MG",
+      "gameplay_id": "mg42",
+      "frames": 48,
+      "triangles": 624,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          1,
+          2
+        ],
+        "reload": [
+          3,
+          38
+        ],
+        "equip": [
+          43,
+          47
+        ],
+        "holster": [
+          42,
+          43
+        ],
+        "sprint_in": [
+          39,
+          40
+        ],
+        "sprint_out": [
+          40,
+          38
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "gameplay_crossover"
+    },
+    {
+      "source": "morphine/v_morphine.mdl",
+      "resource": "morphine/v_morphine.glb",
+      "weapon": null,
+      "gameplay_id": null,
+      "frames": 23,
+      "triangles": 564,
+      "roles": {},
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "preview_only"
+    },
+    {
+      "source": "mp40/v_mp40.mdl",
+      "resource": "mp40/v_mp40.glb",
+      "weapon": "W_MP40",
+      "gameplay_id": "mp40",
+      "frames": 46,
+      "triangles": 751,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          1,
+          2
+        ],
+        "reload": [
+          4,
+          31
+        ],
+        "equip": [
+          35,
+          37
+        ],
+        "holster": [
+          32,
+          34
+        ],
+        "sprint_in": [
+          39,
+          41
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {
+        "sprint_out": [
+          42,
+          46
+        ]
+      },
+      "kind": "gameplay_crossover"
+    },
+    {
+      "source": "mp5k/v_mp5k.mdl",
+      "resource": "mp5k/v_mp5k.glb",
+      "weapon": "W_MP5K",
+      "gameplay_id": null,
+      "frames": 67,
+      "triangles": 942,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          2,
+          4
+        ],
+        "reload": [
+          7,
+          50
+        ],
+        "equip": [
+          56,
+          59
+        ],
+        "holster": [
+          52,
+          55
+        ],
+        "sprint_in": [
+          62,
+          64
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {
+        "sprint_out": [
+          65,
+          67
+        ]
+      },
+      "kind": "preview_only"
+    },
+    {
+      "source": "panzer/v_panzer.mdl",
+      "resource": "panzer/v_panzer.glb",
+      "weapon": "W_PANZER",
+      "gameplay_id": null,
+      "frames": 35,
+      "triangles": 637,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          1,
+          5
+        ],
+        "reload": [
+          6,
+          29
+        ],
+        "holster": [
+          31,
+          33
+        ],
+        "sprint_in": [
+          0,
+          0
+        ],
+        "sprint_out": [
+          0,
+          0
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {
+        "equip": [
+          33,
+          35
+        ]
+      },
+      "kind": "preview_only"
+    },
+    {
+      "source": "ppsh/v_ppsh.mdl",
+      "resource": "ppsh/v_ppsh.glb",
+      "weapon": "W_PPSH",
+      "gameplay_id": "ppsh",
+      "frames": 52,
+      "triangles": 929,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          0,
+          1
+        ],
+        "reload": [
+          5,
+          38
+        ],
+        "holster": [
+          46,
+          48
+        ],
+        "sprint_in": [
+          40,
+          42
+        ],
+        "sprint_out": [
+          43,
+          45
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {
+        "equip": [
+          49,
+          52
+        ]
+      },
+      "kind": "gameplay_crossover"
+    },
+    {
+      "source": "ptrs/v_ptrs.mdl",
+      "resource": "ptrs/v_ptrs.glb",
+      "weapon": "W_PTRS",
+      "gameplay_id": "ptrs",
+      "frames": 43,
+      "triangles": 648,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          1,
+          3
+        ],
+        "reload": [
+          4,
+          35
+        ],
+        "equip": [
+          40,
+          42
+        ],
+        "holster": [
+          38,
+          40
+        ],
+        "sprint_in": [
+          36,
+          37
+        ],
+        "sprint_out": [
+          37,
+          38
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "gameplay_crossover"
+    },
+    {
+      "source": "ray/v_ray.mdl",
+      "resource": "ray/v_ray.glb",
+      "weapon": "W_RAY",
+      "gameplay_id": "ray",
+      "frames": 69,
+      "triangles": 880,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          2,
+          5
+        ],
+        "reload": [
+          7,
+          49
+        ],
+        "equip": [
+          53,
+          55
+        ],
+        "holster": [
+          50,
+          53
+        ],
+        "sprint_in": [
+          56,
+          59
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {
+        "sprint_out": [
+          66,
+          69
+        ]
+      },
+      "kind": "gameplay_crossover"
+    },
+    {
+      "source": "ray/v_ray_energy.mdl",
+      "resource": "ray/v_ray_energy.glb",
+      "weapon": null,
+      "gameplay_id": null,
+      "frames": 69,
+      "triangles": 16,
+      "roles": {},
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "preview_only"
+    },
+    {
+      "source": "ray2/v_ray2.mdl",
+      "resource": "ray2/v_ray2.glb",
+      "weapon": "W_RAYMK2",
+      "gameplay_id": "raymk2",
+      "frames": 31,
+      "triangles": 1029,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          1,
+          2
+        ],
+        "reload": [
+          3,
+          21
+        ],
+        "equip": [
+          28,
+          30
+        ],
+        "holster": [
+          26,
+          28
+        ],
+        "sprint_in": [
+          22,
+          24
+        ],
+        "sprint_out": [
+          24,
+          25
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "gameplay_crossover"
+    },
+    {
+      "source": "ray2/v_ray2_energy.mdl",
+      "resource": "ray2/v_ray2_energy.glb",
+      "weapon": null,
+      "gameplay_id": null,
+      "frames": 31,
+      "triangles": 66,
+      "roles": {},
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "preview_only"
+    },
+    {
+      "source": "sawnoff/v_sawnoff.mdl",
+      "resource": "sawnoff/v_sawnoff.glb",
+      "weapon": "W_SAWNOFF",
+      "gameplay_id": "sawnoff",
+      "frames": 42,
+      "triangles": 547,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          1,
+          4
+        ],
+        "reload": [
+          5,
+          31
+        ],
+        "equip": [
+          37,
+          41
+        ],
+        "holster": [
+          35,
+          37
+        ],
+        "sprint_in": [
+          32,
+          33
+        ],
+        "sprint_out": [
+          33,
+          31
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "gameplay_crossover"
+    },
+    {
+      "source": "sawnoff/v_snuff_left.mdl",
+      "resource": "sawnoff/v_snuff_left.glb",
+      "weapon": null,
+      "gameplay_id": null,
+      "frames": 59,
+      "triangles": 613,
+      "roles": {},
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "preview_only"
+    },
+    {
+      "source": "sawnoff/v_snuff_right.mdl",
+      "resource": "sawnoff/v_snuff_right.glb",
+      "weapon": null,
+      "gameplay_id": null,
+      "frames": 59,
+      "triangles": 613,
+      "roles": {},
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "preview_only"
+    },
+    {
+      "source": "spring/v_spring.mdl",
+      "resource": "spring/v_spring.glb",
+      "weapon": "W_SPRING",
+      "gameplay_id": "springfield",
+      "frames": 38,
+      "triangles": 815,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          1,
+          3
+        ],
+        "reload": [
+          14,
+          28
+        ],
+        "equip": [
+          33,
+          35
+        ],
+        "holster": [
+          32,
+          33
+        ],
+        "sprint_in": [
+          29,
+          30
+        ],
+        "sprint_out": [
+          30,
+          29
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "gameplay_crossover"
+    },
+    {
+      "source": "stg/v_stg.mdl",
+      "resource": "stg/v_stg.glb",
+      "weapon": "W_STG",
+      "gameplay_id": "stg",
+      "frames": 74,
+      "triangles": 879,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          1,
+          3
+        ],
+        "reload": [
+          6,
+          49
+        ],
+        "equip": [
+          54,
+          61
+        ],
+        "holster": [
+          50,
+          53
+        ],
+        "sprint_in": [
+          63,
+          67
+        ],
+        "sprint_out": [
+          68,
+          73
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "gameplay_crossover"
+    },
+    {
+      "source": "tesla/v_tesla.mdl",
+      "resource": "tesla/v_tesla.glb",
+      "weapon": "W_TESLA",
+      "gameplay_id": "tesla",
+      "frames": 80,
+      "triangles": 757,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          1,
+          4
+        ],
+        "reload": [
+          9,
+          58
+        ],
+        "equip": [
+          72,
+          76
+        ],
+        "holster": [
+          66,
+          71
+        ],
+        "sprint_in": [
+          60,
+          63
+        ],
+        "sprint_out": [
+          63,
+          66
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "gameplay_crossover"
+    },
+    {
+      "source": "thomp/v_thomp.mdl",
+      "resource": "thomp/v_thomp.glb",
+      "weapon": "W_THOMPSON",
+      "gameplay_id": "thompson",
+      "frames": 36,
+      "triangles": 580,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          1,
+          2
+        ],
+        "reload": [
+          3,
+          25
+        ],
+        "equip": [
+          32,
+          35
+        ],
+        "holster": [
+          29,
+          32
+        ],
+        "sprint_in": [
+          26,
+          27
+        ],
+        "sprint_out": [
+          28,
+          29
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "gameplay_crossover"
+    },
+    {
+      "source": "trench/v_trench.mdl",
+      "resource": "trench/v_trench.glb",
+      "weapon": "W_TRENCH",
+      "gameplay_id": "trench",
+      "frames": 37,
+      "triangles": 454,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          1,
+          3
+        ],
+        "equip": [
+          32,
+          36
+        ],
+        "holster": [
+          30,
+          32
+        ],
+        "sprint_in": [
+          27,
+          28
+        ],
+        "sprint_out": [
+          27,
+          26
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "gameplay_crossover"
+    },
+    {
+      "source": "type/v_type.mdl",
+      "resource": "type/v_type.glb",
+      "weapon": "W_TYPE",
+      "gameplay_id": "type100",
+      "frames": 42,
+      "triangles": 708,
+      "roles": {
+        "idle": [
+          0,
+          0
+        ],
+        "fire": [
+          0,
+          1
+        ],
+        "reload": [
+          2,
+          24
+        ],
+        "equip": [
+          38,
+          41
+        ],
+        "holster": [
+          35,
+          38
+        ],
+        "sprint_in": [
+          35,
+          37
+        ],
+        "sprint_out": [
+          38,
+          40
+        ]
+      },
+      "duration_seconds": {},
+      "invalid_source_ranges": {},
+      "kind": "gameplay_crossover"
+    }
+  ]
+}
