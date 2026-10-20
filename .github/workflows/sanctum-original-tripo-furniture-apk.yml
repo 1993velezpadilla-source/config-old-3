@@ -191,6 +191,11 @@ jobs:
             cd source/maps/sanctum_authored
             ../../../tools/vhlt/hlcsg -threads 8 -nowadtextures -wadautodetect sanctum_authored.map
             ../../../tools/vhlt/hlbsp -threads 8 sanctum_authored.map
+            # BSP without VIS/RAD shipped with fullbright white floor and noisy,
+            # washed-out stone in the REAL Android screenshot. Compile proper
+            # visibility and baked lighting, same as authored Sanctum workflow.
+            ../../../tools/vhlt/hlvis -threads 8 -fast sanctum_authored.bsp
+            ../../../tools/vhlt/hlrad -threads 8 sanctum_authored.bsp
             python3 /tmp/spawn-zone-tool/spawn_zone_tool.py sanctum_authored.map --output ../../../common/maps/sanctum_authored.nsz
             mv sanctum_authored.bsp ../../../common/maps/sanctum_authored.bsp
           ) 2>&1 | tee build/church_mini/bsp-compile.log
