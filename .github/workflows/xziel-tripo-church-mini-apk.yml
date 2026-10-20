@@ -130,13 +130,20 @@ jobs:
           XZIEL_EXTRA_MAP_NAME: sanctum_mini
           XZIEL_EXTRA_MAP_BSP: ${{ github.workspace }}/../dummy
           XZIEL_EXTRA_MAP_NSZ: ${{ github.workspace }}/../dummy
-          XZIEL_EXTRA_ASSET_DIR: ${{ github.workspace }}/build/church_mini/nzp
+          XZIEL_EXTRA_ASSET_DIR: /tmp/xziel-church-mini-nzp
         shell: bash
         run: |
           set -euo pipefail
           export XZIEL_EXTRA_MAP_BSP="/tmp/nzp-assets/common/maps/sanctum_mini.bsp"
           export XZIEL_EXTRA_MAP_NSZ="/tmp/nzp-assets/common/maps/sanctum_mini.nsz"
-          bash scripts/prepare_android.sh 2>&1 | tee build/church-mini-native-build.log
+          mkdir -p church-mini-dist
+          cp -a build/church_mini/nzp /tmp/xziel-church-mini-nzp
+          cp build/church_mini/map_report.json church-mini-dist/
+          cp build/church_mini/nzp/tripo_mini_export.json church-mini-dist/
+          cp build/church_mini/tripo-export.log church-mini-dist/
+          cp build/church_mini/bsp-compile.log church-mini-dist/
+          # prepare_android.sh intentionally deletes build/. Keep all evidence outside it.
+          bash scripts/prepare_android.sh 2>&1 | tee church-mini-dist/native-build.log
           unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/maps/sanctum_mini.bsp'
           unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/models/xziel/sanctum_mini/sanctum_mini.xzsm'
           unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/textures/xziel/sanctum_mini/'
@@ -180,13 +187,11 @@ jobs:
         if: always()
         shell: bash
         run: |
-          mkdir -p build/church_mini/dist
+          mkdir -p church-mini-dist
           if [[ -s build/android-project/app/build/outputs/apk/debug/app-debug.apk ]]; then
-            cp build/android-project/app/build/outputs/apk/debug/app-debug.apk build/church_mini/dist/XZIEL-Tripo-Church-Mini-ARM64.apk
-            sha256sum build/church_mini/dist/XZIEL-Tripo-Church-Mini-ARM64.apk > build/church_mini/dist/XZIEL-Tripo-Church-Mini-ARM64.apk.sha256
+            cp build/android-project/app/build/outputs/apk/debug/app-debug.apk church-mini-dist/XZIEL-Tripo-Church-Mini-ARM64.apk
+            sha256sum church-mini-dist/XZIEL-Tripo-Church-Mini-ARM64.apk > church-mini-dist/XZIEL-Tripo-Church-Mini-ARM64.apk.sha256
           fi
-          cp build/church_mini/map_report.json build/church_mini/dist/ 2>/dev/null || true
-          cp build/church_mini/nzp/tripo_mini_export.json build/church_mini/dist/ 2>/dev/null || true
 
       - name: Upload APK and proof of original Tripo assets
         if: always()
@@ -194,9 +199,7 @@ jobs:
         with:
           name: XZIEL-Tripo-Church-Mini-Android
           path: |
-            build/church_mini/dist/
-            build/church_mini/tripo-export.log
-            build/church_mini/bsp-compile.log
-            build/church-mini-native-build.log
+            church-mini-dist/
+
           if-no-files-found: warn
           retention-days: 30
