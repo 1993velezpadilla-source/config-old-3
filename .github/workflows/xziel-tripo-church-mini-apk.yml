@@ -1,0 +1,353 @@
+name: XZIEL Tripo Church Mini - Android Native
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-tripo-church-mini-20261020
+    paths:
+      - ".github/workflows/xziel-tripo-church-mini-apk.yml"
+      - "tools/church_mini/**"
+      - "scripts/patch_vril_church_mini.py"
+      - "scripts/patch_vril_approved_touch_skins.py"
+      - "scripts/patch_vril_church_hide_weapon_cards.py"
+      - "scripts/install_approved_touch_skins.py"
+      - "xogot/assets/hud/latest_12/**"
+      - "scripts/patch_quakec_modern_movement.py"
+      - "scripts/patch_quakec_mobile_v022.py"
+      - "scripts/patch_vril_mobile_v018.py"
+      - "scripts/prepare_android.sh"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xziel-tripo-church-mini-${{ github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  native-church-mini:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 85
+    steps:
+      - name: Checkout native XZIEL and REAL user Tripo church assets
+        uses: actions/checkout@v4
+        with:
+          filter: blob:none
+          sparse-checkout: |
+            scripts
+            android
+            tools/church_mini
+            xogot/assets/environment/church
+            xogot/assets/hud/latest_12
+          sparse-checkout-cone-mode: true
+
+      - name: Verify authentic recovered altar + bench files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s xogot/assets/environment/church/altar.glb
+          test -s xogot/assets/environment/church/bench.glb
+          test -s xogot/assets/environment/church/furniture.asset.json
+          python3 - <<'PY'
+          import json, struct
+          from pathlib import Path
+          root=Path("xogot/assets/environment/church")
+          for name in ("bench.glb","altar.glb"):
+              with (root/name).open("rb") as f:
+                  magic,version,n=struct.unpack("<4sII",f.read(12))
+              assert magic==b"glTF" and version==2 and n>100000
+              print("USER_TRIPO_SOURCE_GLTF_GREEN",name,n)
+          data=json.loads((root/"furniture.asset.json").read_text())
+          assert {"bench","altar"} <= set(data["assets"])
+          PY
+
+      - name: Verify actual approved Touch Gyro HUD art from XOGOT
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet Pillow==11.3.0
+          python3 -m py_compile scripts/install_approved_touch_skins.py scripts/patch_vril_approved_touch_skins.py
+          python3 scripts/install_approved_touch_skins.py /tmp/church-mini-skin-preflight
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("/tmp/church-mini-skin-preflight/approved_hud_manifest.json").read_text())
+          assert d["source_set"]=="xziel_hud_zombies_mobile_v1"
+          assert len(d["skins"])==13
+          for k in ["fire","ads","adsfire","reload","jump","grenade","knife","slide"]:
+              v=d["skins"][k]
+              assert (Path("/tmp/church-mini-skin-preflight")/("skin_"+k+".png")).stat().st_size>350
+              print("XZIEL_APPROVED_SOURCE_BUTTON",k,v["source"],v["resolution"])
+          assert d["skins"]["fire"]["source"].endswith("hud_fire.png")
+          print("HUD_USER_APPROVED_LATEST12_ASSET_GATE_GREEN")
+          PY
+
+      - name: Preflight every Vril renderer/control patch BEFORE expensive Android build
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/nzp-team/vril-engine.git /tmp/xziel-vril-source-probe
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, subprocess
+          src=Path("scripts/prepare_android.sh").read_text()
+          scripts=[line.split("scripts/")[1].split('"')[0] for line in src.splitlines() if 'python3 "$ROOT/scripts/patch_vril_' in line and '"$DEPS/vril"' in line]
+          assert len(scripts)>=10, scripts
+          for s in scripts:
+              print("VRIL_PATCH_PREFLIGHT",s,flush=True)
+              subprocess.run(["python3","scripts/"+s,"/tmp/xziel-vril-source-probe"],check=True)
+          from pathlib import Path
+          h=Path("/tmp/xziel-vril-source-probe/source/render/r_hud.c").read_text()
+          touch=Path("/tmp/xziel-vril-source-probe/source/platform/sdl/sys_sdl.c").read_text()
+          assert "CHURCH_MINI: author removed the 3 weapon cards" in h
+          assert "xziel_approved_skin_swap;" in h
+          assert '0.041f, "SWAP", "", xziel_mobile_switch_pressed, editor);' in h
+          assert "no phantom hit areas after card removal" in touch
+          assert "0.052f * hs)) return XZ_TOUCH_SWITCH;" in touch
+          print("XZIEL_NO_WEAPON_CARDS_SWAP_STILL_WORKS_PREFLIGHT_GREEN")
+          print("XZIEL_NATIVE_SOURCE_PATCH_GATE_GREEN",len(scripts))
+          PY
+
+      - name: Generate small Quake church from known validated NZP brush rules
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/church_mini/build_map.py tools/church_mini/export_tripo_xzsm.py scripts/patch_vril_church_mini.py
+          python3 tools/church_mini/build_map.py
+          test -s build/church_mini/sanctum_mini.map
+
+      - name: Export REAL Tripo furniture as mobile XZSM v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender python3-numpy
+          blender --background --factory-startup --python tools/church_mini/export_tripo_xzsm.py \
+            2>&1 | tee build/church_mini/tripo-export.log
+          grep -q XZIEL_TRIPO_MINI_EXPORT_GREEN build/church_mini/tripo-export.log
+          test -s build/church_mini/nzp/models/xziel/sanctum_mini/sanctum_mini.xzsm
+          test -d build/church_mini/nzp/textures/xziel/sanctum_mini
+          python3 - <<'PY'
+          import json
+          d=json.load(open("build/church_mini/nzp/tripo_mini_export.json"))
+          assert len(d["assetSources"])==2
+          assert {x["kind"] for x in d["assetSources"]}=={"bench","altar"}
+          assert d["triangles"]>200 and d["triangles"]<=360000
+          assert d["textureCount"]==2
+          from pathlib import Path
+          atlas=Path("build/church_mini/nzp/textures/xziel/sanctum_mini")
+          for kind in ("bench","altar"):
+              tex=atlas/f"{kind}_000.png"
+              assert tex.stat().st_size>20000, f"{kind}: FLAT_SWATCH_INSTEAD_OF_REAL_TRIPO_PBR"
+              print("USER_TRIPO_ORIGINAL_PBR_GREEN",kind,tex.stat().st_size)
+          assert all(x["lodTrianglesPerInstance"]>22000 for x in d["assetSources"])
+          print("USER_TRIPO_MOBILE_XZSM_GREEN",d["triangles"],d["textureCount"])
+          PY
+
+      - name: Compile authentic NZP map BSP and zombie spawn zones
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/nzp-team/assets.git /tmp/nzp-assets
+          git clone --depth 1 --recursive https://github.com/nzp-team/spawn-zone-tool.git /tmp/spawn-zone-tool
+          python3 -m pip install --quiet -r /tmp/spawn-zone-tool/requirements.txt
+          (
+            cd /tmp/nzp-assets
+            bash tools/compile-wads.sh
+            mkdir -p source/maps/sanctum_mini
+            cp "$GITHUB_WORKSPACE/build/church_mini/sanctum_mini.map" source/maps/sanctum_mini/
+            if [[ ! -x tools/vhlt/hlbsp ]]; then
+              wget -q -P tools/ https://github.com/nzp-team/vhlt/releases/download/Vanilla/vhlt-v34-linux-x86_64.zip
+              unzip -q tools/vhlt-v34-linux-x86_64.zip -d tools/vhlt/
+              chmod +x tools/vhlt/*
+            fi
+            cd source/maps/sanctum_mini
+            ../../../tools/vhlt/hlcsg -threads 8 -nowadtextures -wadautodetect sanctum_mini.map
+            ../../../tools/vhlt/hlbsp -threads 8 sanctum_mini.map
+            python3 /tmp/spawn-zone-tool/spawn_zone_tool.py sanctum_mini.map --output ../../../common/maps/sanctum_mini.nsz
+            mv sanctum_mini.bsp ../../../common/maps/sanctum_mini.bsp
+          ) 2>&1 | tee build/church_mini/bsp-compile.log
+          test -s /tmp/nzp-assets/common/maps/sanctum_mini.bsp
+          test -s /tmp/nzp-assets/common/maps/sanctum_mini.nsz
+
+      - name: Install Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android native SDK NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -name sdkmanager -type f | sort | tail -n1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "emulator" "system-images;android-35;google_apis;x86_64"
+
+      - name: Build original VRIL gameplay with opt-in mini renderer
+        env:
+          XZIEL_CHURCH_MINI: "1"
+          XZIEL_EXTRA_MAP_NAME: sanctum_mini
+          XZIEL_EXTRA_MAP_BSP: ${{ github.workspace }}/../dummy
+          XZIEL_EXTRA_MAP_NSZ: ${{ github.workspace }}/../dummy
+          XZIEL_EXTRA_ASSET_DIR: /tmp/xziel-church-mini-nzp
+        shell: bash
+        run: |
+          set -euo pipefail
+          export XZIEL_EXTRA_MAP_BSP="/tmp/nzp-assets/common/maps/sanctum_mini.bsp"
+          export XZIEL_EXTRA_MAP_NSZ="/tmp/nzp-assets/common/maps/sanctum_mini.nsz"
+          mkdir -p church-mini-dist
+          cp -a build/church_mini/nzp /tmp/xziel-church-mini-nzp
+          cp build/church_mini/map_report.json church-mini-dist/
+          cp build/church_mini/nzp/tripo_mini_export.json church-mini-dist/
+          cp build/church_mini/tripo-export.log church-mini-dist/
+          cp build/church_mini/bsp-compile.log church-mini-dist/
+          # prepare_android.sh intentionally deletes build/. Keep all evidence outside it.
+          bash scripts/prepare_android.sh 2>&1 | tee church-mini-dist/native-build.log
+          unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/maps/sanctum_mini.bsp'
+          unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/models/xziel/sanctum_mini/sanctum_mini.xzsm'
+          unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/textures/xziel/sanctum_mini/'
+          # CI MUST fail if native APK silently swaps approved touch faces
+          # back to generic circles or forgets HUD assets from sparse checkout.
+          for role in fire ads adsfire reload jump grenade knife slide swap sprint claw crouch prone; do
+            unzip -Z1 build/android-project/app/src/main/assets/nzp-data.zip | grep -qx "nzp/gfx/xziel/skin_${role}.png"
+          done
+          unzip -Z1 build/android-project/app/src/main/assets/nzp-data.zip | grep -qx "nzp/gfx/xziel/approved_hud_manifest.json"
+          echo XZIEL_APPROVED_TOUCHSKINS_IN_REAL_APK_ASSETZIP_GREEN
+
+
+      - name: Configure one-tap landscape APK without changing weapon logic
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          activity=Path("build/android-project/app/src/main/java/org/libsdl/app/NZPActivity.java")
+          s=activity.read_text()
+          needle='''return new String[] {
+                      "-basedir", dataRoot.getAbsolutePath()
+                  };'''
+          assert s.count(needle)==1, "Expected exact default launcher only"
+          s=s.replace(needle,'''return new String[] {
+                      "-basedir", dataRoot.getAbsolutePath(),
+                      "+map", "sanctum_mini"
+                  };''',1)
+          assert "SCREEN_ORIENTATION_SENSOR_LANDSCAPE" in s
+          activity.write_text(s)
+          gradle=Path("build/android-project/app/build.gradle")
+          s=gradle.read_text()
+          s,n=re.subn(r'applicationId\s+"[^"]+"','applicationId "com.xziel.churchmini"',s,count=1)
+          assert n==1
+          gradle.write_text(s)
+          strings=Path("build/android-project/app/src/main/res/values/strings.xml")
+          s=strings.read_text()
+          s=re.sub(r'<string name="app_name">.*?</string>','<string name="app_name">XZIEL: Church Mini</string>',s)
+          strings.write_text(s)
+          PY
+
+      - name: Assemble ARM64 native APK
+        shell: bash
+        working-directory: build/android-project
+        run: ./gradlew --no-daemon assembleDebug --stacktrace
+
+      - name: Android emulator gameplay smoke and LANDSCAPE screenshot
+        id: mini_smoke
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          ANDROID_AVD_HOME: ${{ runner.temp }}/xziel-church-mini-avd
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$ANDROID_AVD_HOME" church-mini-dist
+          ADB="${ANDROID_HOME}/platform-tools/adb"
+          EMULATOR="${ANDROID_HOME}/emulator/emulator"
+          AVDMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name avdmanager | sort | tail -n1)"
+          printf 'no\n' | "$AVDMANAGER" create avd --force --name xziel-church-mini-ci \
+              --package "system-images;android-35;google_apis;x86_64" --device "pixel_6"
+          if [[ -e /dev/kvm ]]; then sudo chmod 666 /dev/kvm || true; fi
+          nohup "$EMULATOR" @xziel-church-mini-ci -no-window -no-audio \
+              -no-boot-anim -no-snapshot -gpu swiftshader_indirect -memory 2048 \
+              > church-mini-dist/emulator.log 2>&1 &
+          timeout 120 "$ADB" wait-for-device
+          for i in $(seq 1 60); do
+            [[ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]] && break
+            sleep 2
+          done
+          test "$("$ADB" shell getprop sys.boot_completed | tr -d '\r')" == "1"
+          "$ADB" install -r build/android-project/app/build/outputs/apk/debug/app-debug.apk
+          "$ADB" logcat -c
+          "$ADB" shell settings put secure immersive_mode_confirmations confirmed || true
+          "$ADB" shell am start -W -n com.xziel.churchmini/org.libsdl.app.NZPActivity \
+              > church-mini-dist/am-start.txt
+          for i in $(seq 1 40); do
+            STAGE="$("$ADB" shell run-as com.xziel.churchmini cat files/nzp-runtime/.xziel-stage 2>/dev/null | tr -d '\r' || true)"
+            [[ "$STAGE" == "FIRST_FRAME_OK" || "$STAGE" == "SYS_ERROR" ]] && break
+            sleep 2
+          done
+          echo "$STAGE" > church-mini-dist/runtime-stage.txt
+          # Always collect the engine's actual failure cause; previous
+          # runs aborted before logcat/error-file capture on SYS_ERROR.
+          "$ADB" shell run-as com.xziel.churchmini cat files/nzp-runtime/.xziel-last-error \
+              > church-mini-dist/runtime-last-error.txt 2>/dev/null || true
+          "$ADB" logcat -d -v threadtime > church-mini-dist/logcat.txt || true
+          "$ADB" exec-out screencap -p > church-mini-dist/church-mini-real-android.png || true
+          if [[ "$STAGE" != "FIRST_FRAME_OK" ]]; then
+            echo "CHURCH_MINI_RUNTIME_STAGE_FAILURE=$STAGE"
+            cat church-mini-dist/runtime-last-error.txt || true
+            grep -E '(Xziel|Vril|FATAL|Fatal|Error|error)' church-mini-dist/logcat.txt | tail -90 || true
+            exit 1
+          fi
+          # Old CI screen capture was mostly Android's "Viewing full screen"
+          # modal, hiding the altar and making a false screenshot GREEN.
+          "$ADB" shell input tap 1700 500 || true
+          sleep 5
+          "$ADB" exec-out screencap -p > church-mini-dist/church-mini-real-android.png
+          "$ADB" logcat -d -v threadtime > church-mini-dist/logcat.txt
+          python3 -m pip install --quiet pillow==11.3.0
+          python3 - <<'PY'
+          from PIL import Image,ImageStat
+          im=Image.open("church-mini-dist/church-mini-real-android.png").convert("RGB")
+          s=ImageStat.Stat(im.convert("L"))
+          print("CHURCH_MINI_REAL_ANDROID_FRAME",im.size,round(s.stddev[0],2))
+          assert im.width>im.height, "PORTRAIT_ORIENTATION_NOT_ACCEPTED"
+          assert s.stddev[0]>6.0, "BLANK_OR_FLAT_FRAME_NOT_ACCEPTED"
+          # An OS permission/immersive overlay must never be advertised as
+          # in-game rendering evidence.
+          pts=[im.getpixel((int(im.width*u/100),int(im.height*v/100)))
+               for v in range(16,48,4) for u in range(32,68,4)]
+          overlay_white=sum(min(rgb)>225 for rgb in pts)/len(pts)
+          print("CHURCH_MINI_OS_POPUP_WHITE_COVERAGE",round(overlay_white,3))
+          assert overlay_white<0.65,"OS_FULLSCREEN_POPUP_NOT_DISMISSED"
+          PY
+          ! grep -Eq 'Fatal signal|FATAL EXCEPTION|XZSM: invalid header|stage=SYS_ERROR' church-mini-dist/logcat.txt
+          echo "CHURCH_MINI_REAL_ANDROID_VISUAL_GREEN" | tee church-mini-dist/runtime-visual-state.txt
+
+      - name: Fail on failed live Android gameplay smoke
+        if: steps.mini_smoke.outcome == 'failure'
+        shell: bash
+        run: exit 1
+
+      - name: Preserve native APK and trace evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p church-mini-dist
+          if [[ -s build/android-project/app/build/outputs/apk/debug/app-debug.apk ]]; then
+            cp build/android-project/app/build/outputs/apk/debug/app-debug.apk church-mini-dist/XZIEL-Tripo-Church-Mini-ARM64.apk
+            sha256sum church-mini-dist/XZIEL-Tripo-Church-Mini-ARM64.apk > church-mini-dist/XZIEL-Tripo-Church-Mini-ARM64.apk.sha256
+          fi
+
+      - name: Upload APK and proof of original Tripo assets
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Tripo-Church-Mini-Android
+          path: |
+            church-mini-dist/
+
+          if-no-files-found: warn
+          retention-days: 30

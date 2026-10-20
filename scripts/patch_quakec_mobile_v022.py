@@ -204,7 +204,35 @@ walk_to = r'''void(float dist, vector vec) do_walk_to_vec =
 
 	self.velocity = new_velocity;
 };'''
-text = replace_function(text, "void(float dist, vector vec) do_walk_to_vec", walk_to)
+# Upstream QuakeC (2026) now has AI_PathLookahead, AI_PathVelocity and
+# AI_CrowdVelocity. Never overwrite that collision-aware pathing with a
+# deprecated pre-2026 implementation referencing push_away_zombies().
+# Smooth only the final XY velocity; preserve validated upstream navigation.
+ai_signature = "void(float dist, vector vec) do_walk_to_vec"
+ai_start = text.find(ai_signature)
+ai_end = text.find("void(float dist) do_walk", ai_start)
+if ai_start < 0 or ai_end < 0:
+    raise SystemExit("NZP AI movement function not found")
+ai_function = text[ai_start:ai_end]
+upstream_velocity = """\tnew_velocity_z = self.velocity_z;
+\tself.velocity = new_velocity;"""
+smooth_velocity = """\t/* Android opt-in smooth XY transitions; keep upstream crowd/path vectors. */
+\tif (cvar("xziel_modern_zombies") >= 0.5
+\t    && self.classname == "ai_zombie"
+\t    && self.crawling != true && self.outside == FALSE
+\t    && dist > 0) {
+\t\tnew_velocity_x = self.velocity_x + (new_velocity_x - self.velocity_x) * 0.70;
+\t\tnew_velocity_y = self.velocity_y + (new_velocity_y - self.velocity_y) * 0.70;
+\t}
+\tnew_velocity_z = self.velocity_z;
+\tself.velocity = new_velocity;"""
+if "AI_PathLookahead" not in ai_function:
+    raise SystemExit("Upstream AI_PathLookahead contract unavailable; refusing to downgrade zombie pathing")
+if ai_function.count(upstream_velocity) != 1:
+    raise SystemExit("Upstream AI velocity commit anchor changed")
+ai_function = ai_function.replace(upstream_velocity, smooth_velocity, 1)
+text = text[:ai_start] + ai_function + text[ai_end:]
+print("XZIEL_ZOMBIE_AI_UPSTREAM_PATH_LOOKAHEAD_PRESERVED")
 
 zombie_walk = r'''void(float dist) Zombie_Walk =
 {
@@ -254,7 +282,27 @@ zombie_walk = r'''void(float dist) Zombie_Walk =
 
 	do_walk(dist);
 };'''
-text = replace_function(text, "void(float dist) Zombie_Walk", zombie_walk)
+# Keep NZ:P super-sprint, fall recovery, crawler, dog separation,
+# Window_Walk and window hop logic intact. Smooth by stopping per-frame planar
+# hard reset for walking zombies ONLY; nothing else uses altered behavior.
+walk_start = text.find("void(float dist) Zombie_Walk")
+walk_end = text.find("void() Zombie_AI", walk_start)
+if walk_start < 0 or walk_end < 0:
+    raise SystemExit("Upstream Zombie_Walk function not found")
+walk_function = text[walk_start:walk_end]
+old_stop = """\tself.velocity_x = 0;
+\tself.velocity_y = 0;"""
+new_stop = """\tif (!(cvar("xziel_modern_zombies") >= 0.5
+\t    && self.classname == "ai_zombie"
+\t    && self.crawling != true && self.outside == FALSE
+\t    && dist > 0)) {
+\t\tself.velocity_x = 0;
+\t\tself.velocity_y = 0;
+\t}"""
+if walk_function.count(old_stop) != 1:
+    raise SystemExit("Upstream zombie planar reset anchor changed")
+walk_function = walk_function.replace(old_stop, new_stop, 1)
+text = text[:walk_start] + walk_function + text[walk_end:]
 
 ai.write_text(text, encoding="utf-8")
 print("Applied Xziel v0.22 ADS walking, reliable slide and modern zombie motion.")

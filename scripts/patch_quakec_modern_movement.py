@@ -30,7 +30,7 @@ text = player.read_text(encoding="utf-8")
 
 old_jump = r'''void() PlayerJump =
 {
-	if (!(self.flags & FL_ONGROUND) 
+	if ((self.map_control_flags & PLAYER_CONTROL_FROZEN) || !(self.flags & FL_ONGROUND)
 	    || !(self.flags & FL_JUMPRELEASED)
 		|| self.downed 
 		|| self.dive ) {
@@ -58,7 +58,8 @@ new_jump = r'''void() PlayerJump =
 		time <= self.xziel_last_grounded_time + 0.085)
 		can_leave_ground = true;
 
-	if (!can_leave_ground
+	if ((self.map_control_flags & PLAYER_CONTROL_FROZEN)
+	    || !can_leave_ground
 	    || !(self.flags & FL_JUMPRELEASED)
 		|| self.downed
 		|| self.dive ) {
@@ -87,6 +88,8 @@ if "shorter,\n\t   heavier modern-shooter arc" not in text:
 
 old_check = r'''void(float override) JumpCheck =
 {
+	if (self.map_control_flags & PLAYER_CONTROL_FROZEN)
+		return;
 
 #ifndef FTE
 
@@ -109,6 +112,8 @@ old_check = r'''void(float override) JumpCheck =
 
 new_check = r'''void(float override) JumpCheck =
 {
+	if (self.map_control_flags & PLAYER_CONTROL_FROZEN)
+		return;
 
 #ifndef FTE
 

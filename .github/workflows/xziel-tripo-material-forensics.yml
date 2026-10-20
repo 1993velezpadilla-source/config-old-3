@@ -1,0 +1,24 @@
+name: XZIEL Tripo Material Forensics
+on:
+  push:
+    branches:
+      - feature/xziel-tripo-church-mini-20261020
+    paths:
+      - "tools/church_mini/audit_tripo_materials.py"
+      - ".github/workflows/xziel-tripo-material-forensics.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          filter: blob:none
+          sparse-checkout: |
+            tools/church_mini
+            xogot/assets/environment/church
+          sparse-checkout-cone-mode: true
+      - run: python3 tools/church_mini/audit_tripo_materials.py
