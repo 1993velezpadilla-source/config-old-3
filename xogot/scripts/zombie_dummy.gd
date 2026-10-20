@@ -266,6 +266,13 @@ func _tick_chase(delta: float) -> void:
 		velocity.z = 0.0
 		return
 	var target: Vector3 = target_player.global_position
+	# Descending from the balcony: keep moving along the ramp rather than
+	# steering sideways into its upper landing. Only activate when the
+	# target is substantially lower and the zombie is within the ramp lane.
+	if global_position.y > target.y + 1.8 and absf(global_position.x + 6.24) < 1.8 and global_position.z > 0.0 and global_position.z < 7.2:
+		var ramp_exit := Vector3(-6.24, target.y, 0.20)
+		_move_toward_flat(ramp_exit, 0.30, false)
+		return
 	# An inclined walkable ramp is a floor, not furniture to dodge.
 	# Floor snap must remain active on the slope and the character must
 	# accept slopes below the authored ramp's 36.91 degree incline.
