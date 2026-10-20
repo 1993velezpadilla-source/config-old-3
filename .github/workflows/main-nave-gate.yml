@@ -42,3 +42,6 @@ jobs:
         run: godot --headless --path xogot --script res://ci/altar_stairs_geometry_gate.gd
       - name: Verify zombie ascends and descends balcony ramp
         run: godot --headless --path xogot --script res://ci/zombie_stair_traversal_gate.gd
+
+      - name: Verify Nun Enemy 01 Sprite3D and collider
+        run: godot --headless --path xogot --script res://ci/nun_sprite_gate.gd
