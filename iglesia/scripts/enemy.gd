@@ -2,8 +2,8 @@ extends CharacterBody3D
 ## 2.5D camera-facing sprite enemy with NEW grid-navigation AI.
 ## DEBUG ART is visibly marked until the approved multi-direction nun sprites exist.
 signal killed(reward: int)
-var target: CharacterBody3D
-var level: Node3D
+var target
+var level
 var health: float = 70.0
 var move_speed: float = 1.45
 var chase_tick: float = 0.0
