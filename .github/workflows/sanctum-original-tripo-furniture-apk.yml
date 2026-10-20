@@ -139,6 +139,10 @@ jobs:
           print("ORIGINAL_SANCTUM_AUTHORING_PRESERVED_NO_PLACEHOLDERS_GREEN")
           PY
           test -s build/church_mini/sanctum_authored.map
+          python3 tools/church_map/gauntlet_sanctum_nave.py \
+            --map build/church_mini/sanctum_authored.map \
+            --report build/church_mini/map_report.json \
+            --export build/church_mini/master_adversarial_critic.json
 
       - name: Export REAL Tripo furniture as mobile XZSM v2
         shell: bash
@@ -273,6 +277,7 @@ jobs:
           mkdir -p sanctum-ash-dist
           cp -a build/church_mini/nzp /tmp/xziel-sanctum-ash-nzp
           cp build/church_mini/map_report.json sanctum-ash-dist/
+          cp build/church_mini/master_adversarial_critic.json sanctum-ash-dist/
           cp build/church_mini/sanctum_material_grade.json sanctum-ash-dist/
           mkdir -p sanctum-ash-dist/cc0_source_4k
           cp build/church_mini/cc0_source_4k/* sanctum-ash-dist/cc0_source_4k/
