@@ -258,7 +258,7 @@ void Xziel_StaticMesh_Draw(void)
         if (!xzsm_draw_logged)
             XZLOG("draw batch=%u name=%s tex=%d", i, b->texture_name, b->texture);
         if (b->texture >= 0)
-            GL_Bind(b->texture);
+            Hyena_BindTexture(b->texture);
         glVertexPointer(3, GL_FLOAT, sizeof(xzsm_vertex_t), &b->vertices[0].x);
         glTexCoordPointer(2, GL_FLOAT, sizeof(xzsm_vertex_t), &b->vertices[0].u);
         glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(xzsm_vertex_t), &b->vertices[0].r);
