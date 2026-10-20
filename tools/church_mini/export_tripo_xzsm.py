@@ -272,7 +272,7 @@ def export(kind,filename):
                 else:
                     p=(world-origin)*scale
                 uv=uv_layer.data[li].uv if uv_layer else (0.0,0.0)
-                tri.append((float(p.x),float(p.y),float(p.z),
+                tri.append((float(p[0]),float(p[1]),float(p[2]),
                             float(uv[0]),float(1.0-uv[1]),255,255,255,255))
             groups[key].append(tuple(tri))
             tris_kept+=1
