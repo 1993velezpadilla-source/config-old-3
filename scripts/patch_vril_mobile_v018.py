@@ -84,9 +84,15 @@ good_dist = (
     "int target_idx = waypoints[i].target[p];\n"
     "\t\t\tfloat dist = VecLength2(waypoints[target_idx].origin, waypoints[i].origin);"
 )
-if bad_dist not in stext:
-    raise SystemExit("Could not find waypoint edge-distance bug anchor")
-stext = stext.replace(bad_dist, good_dist)
+# Upstream VRIL fixed this directly in 65fec30. Preserve its native
+# equivalent instead of treating an already-fixed waypoint loop as an error.
+upstream_fixed_dist = "float dist = VecLength2(waypoints[waypoints[i].target[p]].origin, waypoints[i].origin);"
+if bad_dist in stext:
+    stext = stext.replace(bad_dist, good_dist, 1)
+elif upstream_fixed_dist in stext or good_dist in stext:
+    print("XZIEL_WAYPOINT_DISTANCE_UPSTREAM_ALREADY_FIXED")
+else:
+    raise SystemExit("Waypoint edge-distance source unexpectedly changed")
 
 old_cmp = """int argsort_comparator(const void *lhs, const void *rhs) {
 \treturn ((argsort_entry_t*)lhs)->value - ((argsort_entry_t*)rhs)->value;
