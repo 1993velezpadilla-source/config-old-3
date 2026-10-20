@@ -72,7 +72,8 @@ def main():
     assert d["wallbuys"]==4 and d["zombie_windows"]==8
     assert d["altar_collision"]=="BRUSH_CLIP_INSIDE_TRUE_TRIPO_ALTAR"
     assert d["altar_collision_bounds"]==[[721,-59,24],[787,59,108]]
-    assert mapdata.count(" CLIP ")==6,"Exact 6-face solid altar CLIP brush must exist"
+    assert mapdata.count(" CLIP ")==78,"13 solid six-face CLIP hulls required: altar + 12 pews"
+    assert d["pew_collision"]=="12_BSP_CLIP_HULLS"
     assert mapdata.count('"classname" "weapon_wall"')==4
     assert mapdata.count('"classname" "buy_weapon"')==4
     assert mapdata.count('"classname" "spawn_zombie"')>=8
@@ -102,7 +103,7 @@ def main():
         "zombie_route_scenarios":len(paths),
         "route_lengths":paths,
         "pew_visual_instances":12,
-        "pew_hulls":"adversarial simulated solid; runtime visual-only pending actual AI test",
+        "pew_hulls":"12 real BSP CLIP hulls; live zombie traversal still unverified",
         "altar_hull":"real BSP CLIP",
         "main_wallbuy_count":4,
         "ai_live_gameplay_proof":"NOT_YET_VERIFIED",
