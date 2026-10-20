@@ -8,7 +8,9 @@ on:
     paths:
       - ".github/workflows/sanctum-original-tripo-furniture-apk.yml"
       - "tools/church_mini/**"
-      - "tools/church_map/generate_sanctum_authored.py"
+      - "tools/church_map/**"
+      - "scripts/patch_quakec_sprint_reload_continuity.py"
+      - "scripts/patch_vril_sanctum_dev_menu.py"
       - "scripts/patch_vril_sanctum_authored_tripo.py"
       - "scripts/patch_vril_church_mini.py"
       - "scripts/patch_vril_approved_touch_skins.py"
