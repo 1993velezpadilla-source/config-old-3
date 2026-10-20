@@ -95,7 +95,8 @@ func _initialize_arsenal() -> void:
         if not (entry.get("frame_names", []) is Array):
             push_error("VRIL_ARSENAL_RED missing original vertex frame names")
             return
-        var gameplay_id: String = str(contract.get("gameplay_id", ""))
+        var raw_id: Variant = contract.get("gameplay_id", null)
+        var gameplay_id: String = str(raw_id) if raw_id is String else ""
         if not gameplay_id.is_empty():
             if primary_ids.has(gameplay_id):
                 push_error("VRIL_ARSENAL_RED duplicate gameplay weapon: " + gameplay_id)
@@ -173,7 +174,8 @@ func _select_source(index: int) -> bool:
             next_model.free()
             push_error("VRIL_ARSENAL_RED invalid QuakeC %s frame indices on %s" % [role, path])
             return false
-    var gameplay_id: String = str(contract.get("gameplay_id", ""))
+    var raw_id: Variant = contract.get("gameplay_id", null)
+    var gameplay_id: String = str(raw_id) if raw_id is String else ""
     if not gameplay_id.is_empty():
         if not bool(_weapon.call("equip_weapon", gameplay_id, true)):
             next_model.free()
