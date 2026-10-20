@@ -55,6 +55,9 @@ python3 "$ROOT/scripts/patch_vril_sanctum_staticmesh.py" "$DEPS/vril"
 if [[ "${XZIEL_CHURCH_MINI:-0}" == "1" ]]; then
   echo "==> Enabling church mini transparent/Tripo XZSM overlay"
   python3 "$ROOT/scripts/patch_vril_church_mini.py" "$DEPS/vril"
+  if [[ "${XZIEL_TRIPO_SANCTUM:-0}" == "1" ]]; then
+      python3 "$ROOT/scripts/patch_vril_sanctum_authored_tripo.py" "$DEPS/vril"
+  fi
   python3 "$ROOT/scripts/patch_vril_approved_touch_skins.py" "$DEPS/vril"
   python3 "$ROOT/scripts/patch_vril_church_hide_weapon_cards.py" "$DEPS/vril"
 fi
