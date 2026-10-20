@@ -1,0 +1,43 @@
+name: XZIEL Church Tripo Geometry Fidelity
+on:
+  push:
+    branches:
+      - feature/xziel-tripo-church-mini-20261020
+    paths:
+      - "tools/church_mini/render_source_fidelity.py"
+      - ".github/workflows/xziel-tripo-geometry-fidelity.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          filter: blob:none
+          sparse-checkout: |
+            tools/church_mini
+            xogot/assets/environment/church
+          sparse-checkout-cone-mode: true
+      - name: Install Blender Python environment
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender python3-numpy
+      - name: Render authentic high-poly and mobile-truncated 3D geometry
+        run: |
+          blender -b --factory-startup --python tools/church_mini/render_source_fidelity.py \
+            2>&1 | tee tripo-fidelity.log
+          test -s tripo-fidelity/bench_source.png
+          test -s tripo-fidelity/bench_mobile.png
+          test -s tripo-fidelity/altar_source.png
+          test -s tripo-fidelity/altar_mobile.png
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tripo-Source-Vs-Mobile-Fidelity
+          path: |
+            tripo-fidelity/
+            tripo-fidelity.log
+          if-no-files-found: warn
