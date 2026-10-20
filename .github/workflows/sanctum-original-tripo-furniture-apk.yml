@@ -276,6 +276,30 @@ jobs:
           export XZIEL_EXTRA_MAP_NSZ="/tmp/nzp-assets/common/maps/sanctum_authored.nsz"
           mkdir -p sanctum-ash-dist
           cp -a build/church_mini/nzp /tmp/xziel-sanctum-ash-nzp
+          # Build first ORIGINAL 2D ink-comic pistol frames directly in GitHub
+          # Actions, never from tiny HUD icons or ripped FPS animations. Bundle
+          # full-res authored RGBA frames as development assets. The proven 3D
+          # pistol remains active until native rendering/timing gauntlet passes.
+          python3 -m pip install --quiet cairosvg==2.8.2 Pillow==11.3.0
+          python3 tools/church_map/build_pixel_colt_art.py \
+            /tmp/xziel-sanctum-ash-nzp/gfx/xziel/colt_ink_2d
+          cp -a /tmp/xziel-sanctum-ash-nzp/gfx/xziel/colt_ink_2d \
+            sanctum-ash-dist/colt_ink_2d
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          from PIL import Image
+          p=Path("sanctum-ash-dist/colt_ink_2d")
+          d=json.loads((p/"manifest.json").read_text())
+          expected={"hip_idle","hip_fire","hip_reload","hip_reload_empty","ads_idle","ads_fire"}
+          assert set(d["frames"])==expected
+          for name in expected:
+              with Image.open(p/(name+".png")) as im:
+                  assert im.size==(1536,1024) and im.mode=="RGBA"
+                  assert im.getchannel("A").getbbox()
+          assert d["status"]=="ART_ONLY_NOT_YET_ACTIVATED_IN_GAME"
+          print("XZIEL_SIX_AUTHORIAL_COLT_PNG_NO_TINY_CROP_GREEN")
+          PY
           cp build/church_mini/map_report.json sanctum-ash-dist/
           cp build/church_mini/master_adversarial_critic.json sanctum-ash-dist/
           cp build/church_mini/sanctum_material_grade.json sanctum-ash-dist/
@@ -309,6 +333,11 @@ jobs:
           PY
           unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/maps/sanctum_authored.bsp'
           unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/models/xziel/sanctum_ash_tripo/sanctum_ash_tripo.xzsm'
+          for frame in hip_idle hip_fire hip_reload hip_reload_empty ads_idle ads_fire; do
+            unzip -Z1 build/android-project/app/src/main/assets/nzp-data.zip | grep -qx "nzp/gfx/xziel/colt_ink_2d/${frame}.png"
+          done
+          unzip -Z1 build/android-project/app/src/main/assets/nzp-data.zip | grep -qx 'nzp/gfx/xziel/colt_ink_2d/manifest.json'
+          echo XZIEL_ORIGINAL_COLT_SIX_FRAME_PNG_BUNDLED_ONLY_GREEN
           unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/textures/xziel/sanctum_ash_tripo/'
           # CI MUST fail if native APK silently swaps approved touch faces
           # back to generic circles or forgets HUD assets from sparse checkout.
