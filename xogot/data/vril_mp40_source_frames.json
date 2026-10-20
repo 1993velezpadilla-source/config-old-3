@@ -1,0 +1,49 @@
+{
+  "source": "nzp-team/quakec",
+  "source_commit": "3678e45b4cbff1ab2fccc801e91fca5b32f41cb3",
+  "source_file": "source/shared/weapon_stats.qc",
+  "weapon": "W_MP40",
+  "model": "nzp-team/assets/common/models/weapons/mp40/v_mp40.mdl",
+  "frame_count": 46,
+  "indexing": "zero_based_GetFrame_values",
+  "roles": {
+    "idle": [
+      0,
+      0
+    ],
+    "fire": [
+      1,
+      2
+    ],
+    "reload": [
+      4,
+      31
+    ],
+    "equip": [
+      35,
+      37
+    ],
+    "holster": [
+      32,
+      34
+    ],
+    "sprint_in": [
+      39,
+      41
+    ]
+  },
+  "durations_seconds": {
+    "fire": 0.12,
+    "reload": 2.3
+  },
+  "reload_cancel_frame": 18,
+  "source_discrepancy": {
+    "sprint_out_source": [
+      42,
+      46
+    ],
+    "imported_last_frame": 45,
+    "policy": "DO NOT enable source sprint_out: index 46 does not exist in 46-frame MDL."
+  },
+  "note": "The original MDL names are frame1…frame46, not action names. Source QuakeC GetFrame(W_MP40) is authoritative for index ranges, but some source ranges are incompatible with this particular MDL. Do not guess missing poses. Gameplay remains handled by existing Xogot weapon.gd."
+}
