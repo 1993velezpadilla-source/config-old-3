@@ -9,6 +9,9 @@ on:
       - ".github/workflows/xziel-tripo-church-mini-apk.yml"
       - "tools/church_mini/**"
       - "scripts/patch_vril_church_mini.py"
+      - "scripts/patch_vril_approved_touch_skins.py"
+      - "scripts/install_approved_touch_skins.py"
+      - "xogot/assets/hud/latest_12/**"
       - "scripts/patch_quakec_modern_movement.py"
       - "scripts/patch_quakec_mobile_v022.py"
       - "scripts/patch_vril_mobile_v018.py"
@@ -35,6 +38,7 @@ jobs:
             android
             tools/church_mini
             xogot/assets/environment/church
+            xogot/assets/hud/latest_12
           sparse-checkout-cone-mode: true
 
       - name: Verify authentic recovered altar + bench files
@@ -55,6 +59,27 @@ jobs:
               print("USER_TRIPO_SOURCE_GLTF_GREEN",name,n)
           data=json.loads((root/"furniture.asset.json").read_text())
           assert {"bench","altar"} <= set(data["assets"])
+          PY
+
+      - name: Verify actual approved Touch Gyro HUD art from XOGOT
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet Pillow==11.3.0
+          python3 -m py_compile scripts/install_approved_touch_skins.py scripts/patch_vril_approved_touch_skins.py
+          python3 scripts/install_approved_touch_skins.py /tmp/church-mini-skin-preflight
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("/tmp/church-mini-skin-preflight/approved_hud_manifest.json").read_text())
+          assert d["source_set"]=="xziel_hud_zombies_mobile_v1"
+          assert len(d["skins"])==13
+          for k in ["fire","ads","adsfire","reload","jump","grenade","knife","slide"]:
+              v=d["skins"][k]
+              assert (Path("/tmp/church-mini-skin-preflight")/("skin_"+k+".png")).stat().st_size>350
+              print("XZIEL_APPROVED_SOURCE_BUTTON",k,v["source"],v["resolution"])
+          assert d["skins"]["fire"]["source"].endswith("hud_fire.png")
+          print("HUD_USER_APPROVED_LATEST12_ASSET_GATE_GREEN")
           PY
 
       - name: Preflight every Vril renderer/control patch BEFORE expensive Android build
@@ -174,6 +199,14 @@ jobs:
           unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/maps/sanctum_mini.bsp'
           unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/models/xziel/sanctum_mini/sanctum_mini.xzsm'
           unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/textures/xziel/sanctum_mini/'
+          # CI MUST fail if native APK silently swaps approved touch faces
+          # back to generic circles or forgets HUD assets from sparse checkout.
+          for role in fire ads adsfire reload jump grenade knife slide swap sprint claw crouch prone; do
+            unzip -Z1 build/android-project/app/src/main/assets/nzp-data.zip | grep -qx "nzp/gfx/xziel/skin_${role}.png"
+          done
+          unzip -Z1 build/android-project/app/src/main/assets/nzp-data.zip | grep -qx "nzp/gfx/xziel/approved_hud_manifest.json"
+          echo XZIEL_APPROVED_TOUCHSKINS_IN_REAL_APK_ASSETZIP_GREEN
+
 
       - name: Configure one-tap landscape APK without changing weapon logic
         shell: bash
