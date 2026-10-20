@@ -143,21 +143,20 @@ def stage_archived_tripo(repo: Path, assets: Path, previous_fixtures: list[dict]
                 # catalogued for other rooms without bloating current mobile APK.
                 if active:
                     stage_category.mkdir(parents=True, exist_ok=True)
-                    (stage_category / Path(member).name).write_bytes(original)
-                    for image in dependencies:
-                        target = stage_category / image
-                        target.parent.mkdir(parents=True, exist_ok=True)
-                        payload = zf.read(category + "/" + image)
-                        if not target.exists():
-                            target.write_bytes(payload)
-                        elif target.read_bytes() != payload:
-                            raise RuntimeError("TRIPO_TEXTURE_HASH_CONFLICT " + image)
+                    from tripo_quantized_to_godot import convert_quantized_tripo_glb
+                    textures = {image: zf.read(category + "/" + image)
+                                for image in dependencies}
+                    godot_source = convert_quantized_tripo_glb(
+                        original, textures, stage_category, Path(member).stem
+                    )
                     kind = CATEGORY_TO_KIND[category]
                     if category == "candleholders" and model_id in WALL_MOUNTED_CANDLEHOLDERS:
                         kind = "wall_sconce"
                     visible.append({
                         "kind": kind,
-                        "destination": f"res://assets/tripo/fixtures/{category}/{Path(member).name}",
+                        "destination": f"res://assets/tripo/fixtures/{category}/{godot_source.name}",
+                        "source_geometry_glb_sha256": sha256(original).hexdigest(),
+                        "rendering_transcode": "quantized_GLB_to_dequantized_Godot_GLTF",
                         "source": f"{archive.name}!/{member}",
                         "source_archive_sha256": observed_hash,
                         "source_model_index": model_id,

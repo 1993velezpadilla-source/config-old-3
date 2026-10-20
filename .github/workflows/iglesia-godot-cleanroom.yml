@@ -35,7 +35,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install --quiet Pillow
+          python -m pip install --quiet Pillow trimesh numpy
           sudo apt-get update -qq
           sudo apt-get install -y -qq unzip curl libgl1-mesa-dri libx11-6 libxrandr2 libxcursor1 libxi6 libasound2t64 openjdk-17-jdk
 
