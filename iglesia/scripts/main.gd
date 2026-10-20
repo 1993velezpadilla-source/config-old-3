@@ -5,9 +5,9 @@ const PlayerScript = preload("res://scripts/player.gd")
 const EnemyScript = preload("res://scripts/enemy.gd")
 const HUDScript = preload("res://scripts/hud.gd")
 
-var level: Node3D
-var player: CharacterBody3D
-var hud: CanvasLayer
+var level
+var player
+var hud
 var points: int = 500
 var round_number: int = 1
 var round_remaining: int = 0
