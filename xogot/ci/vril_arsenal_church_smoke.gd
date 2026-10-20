@@ -93,8 +93,17 @@ func _test() -> void:
         _fail("MP40 original source not selectable")
     else:
         var roles: Dictionary = bridge.get("_roles")
-        if roles.get("fire", []) != [1,2] or roles.get("reload", []) != [4,31]:
-            _fail("Original QuakeC MP40 frame ranges not preserved")
+        var original_fire: Array = roles.get("fire", [])
+        var original_reload: Array = roles.get("reload", [])
+        # JSON numeric entries may be parsed as float, so normalize before
+        # comparing exact frame indices; never compare heterogeneous arrays.
+        var fire_ok: bool = (original_fire.size() == 2 and
+            int(original_fire[0]) == 1 and int(original_fire[1]) == 2)
+        var reload_ok: bool = (original_reload.size() == 2 and
+            int(original_reload[0]) == 4 and int(original_reload[1]) == 31)
+        if not fire_ok or not reload_ok:
+            _fail("Original QuakeC MP40 frames incorrect; fire=%s reload=%s" % [
+                str(original_fire), str(original_reload)])
         if roles.has("sprint_out"):
             _fail("Invented out-of-bounds MP40 sprint-out frame 46")
         var shots_before: int = int(weapon.get("_shots_fired"))
