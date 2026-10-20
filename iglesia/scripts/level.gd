@@ -132,7 +132,7 @@ func _import_owner_asset(file_path: String, name_text: String, pos: Vector3, max
             minf(max_size.y / maxf(source_bounds.size.y, 0.01),
                  max_size.z / maxf(source_bounds.size.z, 0.01)))
         root.scale = Vector3.ONE * clampf(ratio, 0.02, 10.0)
-        root.position.y = -source_bounds.position.y * root.scale.y
+        root.position.y = pos.y - source_bounds.position.y * root.scale.y
         # Keep the original mesh as visuals only. Physics proxies are separate.
     for node in root.find_children("*", "CollisionShape3D", true, false):
         (node as CollisionShape3D).disabled = true
