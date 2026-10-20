@@ -18,6 +18,22 @@ func _run() -> void:
 		await process_frame
 		var player := game.get_node_or_null("Player") as CharacterBody3D
 		var ramp := game.get_node_or_null("BalconyStairRamp") as StaticBody3D
+		# The purchasable BalconyGate sits across the ramp at z=7.45*.78.
+		# Open it using the actual door implementation before traversal;
+		# a closed purchasable gate is SUPPOSED to block zombies.
+		var gate := game.get_node_or_null("BalconyGate")
+		if gate == null or not gate.has_method("_open_door"):
+			push_error("STAIR_TRAVERSAL_FAIL: BalconyGate unavailable")
+			quit(6)
+			return
+		gate.call("_open_door")
+		await physics_frame
+		var gate_shape := gate.get_child(gate.get_child_count() - 1) as CollisionShape3D
+		if gate_shape == null or not gate_shape.disabled:
+			push_error("STAIR_TRAVERSAL_FAIL: open balcony gate still collides")
+			quit(7)
+			return
+		print("STAIR_GATE_OPEN_GREEN: purchased gate collision removed")
 		if player == null or ramp == null:
 			push_error("STAIR_TRAVERSAL_FAIL: missing player or ramp")
 			quit(3)
