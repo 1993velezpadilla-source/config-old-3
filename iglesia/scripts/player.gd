@@ -1,8 +1,8 @@
 extends CharacterBody3D
 ## New Godot FPS controller. No imported old Virin/Bukkbeek mechanics.
-var game: Node3D
-var level: Node3D
-var hud: CanvasLayer
+var game
+var level
+var hud
 var head: Node3D
 var camera: Camera3D
 var health: int = 100
