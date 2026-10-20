@@ -110,6 +110,9 @@ jobs:
           assert "0.052f * hs)) return XZ_TOUCH_SWITCH;" in touch
           print("XZIEL_NO_WEAPON_CARDS_SWAP_STILL_WORKS_PREFLIGHT_GREEN")
           print("XZIEL_NATIVE_SOURCE_PATCH_GATE_GREEN",len(scripts))
+          assert "XZIEL_SANCTUM_DEVMENU" in Path("/tmp/xziel-vril-source-probe/source/menu/menu_pause.c").read_text()
+          assert "svs.maxclients == 1" in Path("/tmp/xziel-vril-source-probe/source/menu/menu_pause.c").read_text()
+          print("XZIEL_NATIVE_DEVMENU_SOURCE_PREFLIGHT_GREEN")
           PY
 
       - name: Restore original Sanctum of Ash authored church, remove only placeholder pews and wood altar
@@ -129,6 +132,10 @@ jobs:
           assert d["placeholderPews"]==0 and d["placeholderAltarBrushes"]==0
           assert d["functional_stair_steps"]==40 and d["zombie_windows"]==8
           assert d["paid_doors"]==3 and d["player_spawns"]==4
+          assert d["wallbuys"]==4 and d["altar_collision"]=="BRUSH_CLIP_INSIDE_TRUE_TRIPO_ALTAR"
+          assert d["altar_collision_bounds"]==[[721,-59,24],[787,59,108]]
+          assert d["zombie_spawns"]>=11 and d["zombie_windows"]==8
+          print("SANCTUM_NAVE_WALLBUYS_ALTAR_COLLISION_ZOMBIE_ROUTES_GREEN")
           print("ORIGINAL_SANCTUM_AUTHORING_PRESERVED_NO_PLACEHOLDERS_GREEN")
           PY
           test -s build/church_mini/sanctum_authored.map
@@ -166,7 +173,8 @@ jobs:
           assert abs(bench["yawDegrees"]) in (0.0,90.0,180.0)
           assert altar["orientationMethod"]=="explicit-altar-facing-nave"
           assert abs(altar["yawDegrees"])==180.0, "ALTAR_STILL_END_ON"
-          assert altar["uniformScale"]>250.0, "ALTAR_TOO_SMALL"
+          assert 120.0<altar["uniformScale"]<170.0, "ALTAR_STILL_GIANT_OR_TOO_SMALL"
+          assert altar["lodTrianglesPerInstance"]>22000 and bench["lodTrianglesPerInstance"]>22000
           print("SANCTUM_ALTAR_PLUS_12_REAL_TRIPO_PEW_TRANSFORMS_GREEN",bench["yawDegrees"],altar["yawDegrees"])
           print("USER_TRIPO_MOBILE_XZSM_GREEN",d["triangles"],d["textureCount"])
           PY
@@ -270,6 +278,15 @@ jobs:
           cp build/church_mini/bsp-compile.log sanctum-ash-dist/
           # prepare_android.sh intentionally deletes build/. Keep all evidence outside it.
           bash scripts/prepare_android.sh 2>&1 | tee sanctum-ash-dist/native-build.log
+          grep -q XZIEL_AUTHORITATIVE_RELOAD_WHILE_SPRINTING_GREEN sanctum-ash-dist/native-build.log
+          grep -q XZIEL_SANCTUM_NATIVE_DEVMENU_GREEN sanctum-ash-dist/native-build.log
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("build/deps/quakec/source/server/weapons/weapon_core.qc").read_text()
+          for marker in ("XZIEL_RELOAD_SPRINT_CONTINUITY","XZIEL_SPRINT_STOP_PRESERVES_RELOAD","XZIEL_SPRINT_RELOAD_ALLOWED"):
+              assert p.count(marker)==1, marker
+          print("XZIEL_RELOAD_SPRINT_SERVER_QUAKEC_GREEN")
+          PY
           unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/maps/sanctum_authored.bsp'
           unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/models/xziel/sanctum_ash_tripo/sanctum_ash_tripo.xzsm'
           unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/textures/xziel/sanctum_ash_tripo/'
