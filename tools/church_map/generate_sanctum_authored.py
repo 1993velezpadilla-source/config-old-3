@@ -222,10 +222,16 @@ parts.append("}\n")
 parts.extend(pew_entities)
 
 # TRANSLUCENT GLASS / CLERESTORY.
-parts.append(brush_entity(
-    "func_wall",(920,-100,74),(936,100,266),ART["glass"],
-    {"alpha":"0.42","rendermode":"4","renderamt":"150","spawnflags":"4"}
-))
+if TRIPO_FURNITURE:
+    # In the first emulated Tripo build, unsupported func_wall alpha produced
+    # an opaque WHITE 200x192 rectangle immediately behind our ceremonial altar.
+    # Restore the old stone backdrop here instead of covering the main prop.
+    parts.append(brush_box((920,-110,70),(936,110,270),ART["wall"]))
+else:
+    parts.append(brush_entity(
+        "func_wall",(920,-100,74),(936,100,266),ART["glass"],
+        {"alpha":"0.42","rendermode":"4","renderamt":"150","spawnflags":"4"}
+    ))
 for side in (-1,1):
     yy=(-436,-420) if side==-1 else (420,436)
     for x in window_x:
