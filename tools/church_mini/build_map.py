@@ -33,7 +33,7 @@ def point(name,xyz,**props):
 parts=['// XZIEL CHURCH MINI — original NZ:P gameplay, Tripo PBR furniture visual overlay\n',
        "{\n",kv("mapversion","220"),kv("classname","worldspawn"),
        kv("message","XZIEL CHURCH MINI"),kv("chaptertitle","THE CHAPEL"),
-       kv("wad","../../textures/wad/zhlt.wad;../../textures/wad/Example_02.wad")]
+       kv("wad","../../textures/wad/zhlt.wad;../../textures/wad/Example_02.wad;../../textures/wad/Ju[s]tice_null2.wad")]
 
 # Sealed playable nave. Central aisle runs toward +Y (north).
 parts.extend([
