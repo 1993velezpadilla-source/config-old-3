@@ -84,7 +84,12 @@
           37
         ]
       },
-      "duration_seconds": {},
+      "duration_seconds": {
+        "fire": 0.17,
+        "reload": 2.75,
+        "equip": 0.65,
+        "holster": 0.55
+      },
       "invalid_source_ranges": {},
       "kind": "gameplay_crossover"
     },
@@ -198,7 +203,12 @@
           77
         ]
       },
-      "duration_seconds": {},
+      "duration_seconds": {
+        "fire": 0.104,
+        "reload": 4,
+        "equip": 0.75,
+        "holster": 0.75
+      },
       "invalid_source_ranges": {},
       "kind": "gameplay_crossover"
     },
@@ -239,7 +249,12 @@
           31
         ]
       },
-      "duration_seconds": {},
+      "duration_seconds": {
+        "fire": 0.5,
+        "reload": 3,
+        "equip": 0.65,
+        "holster": 0.5
+      },
       "invalid_source_ranges": {},
       "kind": "gameplay_crossover"
     },
@@ -280,7 +295,12 @@
           37
         ]
       },
-      "duration_seconds": {},
+      "duration_seconds": {
+        "fire": 0.075,
+        "reload": 2.75,
+        "equip": 0.6,
+        "holster": 0.45
+      },
       "invalid_source_ranges": {},
       "kind": "gameplay_crossover"
     },
@@ -436,7 +456,12 @@
           29
         ]
       },
-      "duration_seconds": {},
+      "duration_seconds": {
+        "fire": 0.3,
+        "reload": 2.5,
+        "equip": 0.5,
+        "holster": 0.25
+      },
       "invalid_source_ranges": {},
       "kind": "gameplay_crossover"
     },
@@ -533,7 +558,12 @@
           34
         ]
       },
-      "duration_seconds": {},
+      "duration_seconds": {
+        "fire": 0.1,
+        "reload": 1.9,
+        "equip": 0.3,
+        "holster": 0.4
+      },
       "invalid_source_ranges": {
         "sprint_out": [
           41,
@@ -579,7 +609,12 @@
           37
         ]
       },
-      "duration_seconds": {},
+      "duration_seconds": {
+        "fire": 0.22,
+        "reload": 2.9,
+        "equip": 0.5,
+        "holster": 0.4
+      },
       "invalid_source_ranges": {},
       "kind": "gameplay_crossover"
     },
@@ -654,7 +689,12 @@
           38
         ]
       },
-      "duration_seconds": {},
+      "duration_seconds": {
+        "fire": 0.065,
+        "reload": 4.5,
+        "equip": 0.6,
+        "holster": 0.9
+      },
       "invalid_source_ranges": {},
       "kind": "gameplay_crossover"
     },
@@ -703,7 +743,12 @@
           41
         ]
       },
-      "duration_seconds": {},
+      "duration_seconds": {
+        "fire": 0.12,
+        "reload": 2.3,
+        "equip": 0.3,
+        "holster": 0.4
+      },
       "invalid_source_ranges": {
         "sprint_out": [
           42,
@@ -745,7 +790,12 @@
           64
         ]
       },
-      "duration_seconds": {},
+      "duration_seconds": {
+        "fire": 0.085,
+        "reload": 3.2,
+        "equip": 0.3,
+        "holster": 0.4
+      },
       "invalid_source_ranges": {
         "sprint_out": [
           65,
@@ -829,7 +879,11 @@
           45
         ]
       },
-      "duration_seconds": {},
+      "duration_seconds": {
+        "fire": 0.05,
+        "reload": 2.1,
+        "holster": 0.35
+      },
       "invalid_source_ranges": {
         "equip": [
           49,
@@ -1023,7 +1077,12 @@
           31
         ]
       },
-      "duration_seconds": {},
+      "duration_seconds": {
+        "fire": 0.283,
+        "reload": 2.65,
+        "equip": 0.65,
+        "holster": 0.5
+      },
       "invalid_source_ranges": {},
       "kind": "gameplay_crossover"
     },
@@ -1088,7 +1147,12 @@
           29
         ]
       },
-      "duration_seconds": {},
+      "duration_seconds": {
+        "fire": 0.33,
+        "reload": 2.25,
+        "equip": 0.3,
+        "holster": 0.45
+      },
       "invalid_source_ranges": {},
       "kind": "gameplay_crossover"
     },
@@ -1129,7 +1193,12 @@
           73
         ]
       },
-      "duration_seconds": {},
+      "duration_seconds": {
+        "fire": 0.11,
+        "reload": 2.15,
+        "equip": 0.5,
+        "holster": 0.55
+      },
       "invalid_source_ranges": {},
       "kind": "gameplay_crossover"
     },
@@ -1170,7 +1239,12 @@
           66
         ]
       },
-      "duration_seconds": {},
+      "duration_seconds": {
+        "fire": 1,
+        "reload": 4,
+        "equip": 0.9,
+        "holster": 0.7
+      },
       "invalid_source_ranges": {},
       "kind": "gameplay_crossover"
     },
@@ -1289,7 +1363,12 @@
           40
         ]
       },
-      "duration_seconds": {},
+      "duration_seconds": {
+        "fire": 0.09,
+        "reload": 2.25,
+        "equip": 0.35,
+        "holster": 0.35
+      },
       "invalid_source_ranges": {},
       "kind": "gameplay_crossover"
     }
