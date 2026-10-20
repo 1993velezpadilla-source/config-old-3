@@ -2,6 +2,8 @@ name: Iglesia Godot 4.6 Cleanroom — ARM64 Gauntlet
 
 on:
   push:
+    tags:
+      - iglesia-tripo-originals-v1
     branches:
       - feature/iglesia-godot-cleanroom-20261020
     paths:
