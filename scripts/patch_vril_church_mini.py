@@ -27,6 +27,12 @@ new=('file_len = COM_FOpenFile(strstr(cl.worldmodel->name, "sanctum_mini") != NU
 if old not in s:
     raise SystemExit("Cannot find static mesh loader anchor")
 s=s.replace(old,new,1)
+# The legacy Sanctum bridge calls GL_Bind(), but native Android Vril's SDL
+# translation unit exports no such declaration under clang C99. Bind the
+# Image_LoadImage GLuint directly; this is local to opt-in mini builds.
+if s.count("GL_Bind(b->texture);") != 1:
+    raise SystemExit("Expected one legacy texture binder call")
+s=s.replace("GL_Bind(b->texture);", "glBindTexture(GL_TEXTURE_2D, (GLuint)b->texture);", 1)
 file.write_text(s,encoding="utf-8")
 
 s=renderer.read_text(encoding="utf-8")
