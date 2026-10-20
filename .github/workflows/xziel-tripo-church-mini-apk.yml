@@ -9,6 +9,7 @@ on:
       - ".github/workflows/xziel-tripo-church-mini-apk.yml"
       - "tools/church_mini/**"
       - "scripts/patch_vril_church_mini.py"
+      - "scripts/patch_quakec_modern_movement.py"
       - "scripts/patch_vril_mobile_v018.py"
       - "scripts/prepare_android.sh"
 
