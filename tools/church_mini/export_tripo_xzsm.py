@@ -13,21 +13,36 @@ from pathlib import Path
 from mathutils import Vector
 
 SOURCE=Path(os.environ.get("TRIPO_CHURCH_INPUT","xogot/assets/environment/church"))
+# Preserve old Church Mini untouched. This profile targets the recovered,
+# authored Sanctum of Ash nave and its real Quake-scale layout.
+SANCTUM_ASH=os.environ.get("TRIPO_CHURCH_PROFILE","")=="sanctum_authored"
+ASSET_TAG="sanctum_ash_tripo" if SANCTUM_ASH else "sanctum_mini"
 OUT=Path(os.environ.get("TRIPO_CHURCH_OUTPUT","build/church_mini/nzp"))
-TEXTURE_DIR=OUT/"textures/xziel/sanctum_mini"
-MODEL_DIR=OUT/"models/xziel/sanctum_mini"
+TEXTURE_DIR=OUT/"textures/xziel"/ASSET_TAG
+MODEL_DIR=OUT/"models/xziel"/ASSET_TAG
 TEXTURE_DIR.mkdir(parents=True,exist_ok=True)
 MODEL_DIR.mkdir(parents=True,exist_ok=True)
 META=[]
 BATCHES=[]
 BATCH_LIMIT=10000
-MAX_TOTAL_TRIANGLES=360000
+MAX_TOTAL_TRIANGLES=650000 if SANCTUM_ASH else 360000
 CURRENT_KIND=''  # selects per-asset silhouette-preserving LOD budget
 POSITIONS_BENCH=[(-171,y,27) for y in (-220,-80,60,200)]+[(171,y,27) for y in (-220,-80,60,200)]
 PLACEMENTS={
     "bench":(POSITIONS_BENCH,(180,52,50)),
     "altar":([(0,410,98)],(240,145,160)),
 }
+if SANCTUM_ASH:
+    # Axis of nave = +X (all four co-op starts face +X); altar stands east.
+    # Six REAL Tripo pews on each side, x = row center, y = aisle side.
+    # Long dimension lies along Y. A free central aisle is guaranteed by gate.
+    nave_rows=(-525,-385,-245,-105,35,175)
+    POSITIONS_BENCH=[(x,y,0) for x in nave_rows for y in (-155,155)]
+    PLACEMENTS={
+        "bench":(POSITIONS_BENCH,(74,150,58)),
+        # The authored chancel floor/platform is at z=24 at x=760.
+        "altar":([(754,0,24)],(155,260,160)),
+    }
 
 def reset_scene():
     bpy.ops.object.select_all(action="SELECT")
@@ -115,7 +130,7 @@ def bake_basecolor(kind,idx,material,source_path):
         print("TRIPO_REAL_PBR_TEXTURE",kind,source_name,
               "embeddedBytes",len(data),"sourceWH",source_size,
               "outputWH",tuple(image.size),"bytes",path.stat().st_size)
-        return "textures/xziel/sanctum_mini/"+stem
+        return "textures/xziel/"+ASSET_TAG+"/"+stem
     finally:
         tmp_path.unlink(missing_ok=True)
 
@@ -178,6 +193,59 @@ def export(kind,filename):
     scale=min(target_xyz[i]/max(extent[i],0.001) for i in range(3))
     origin=(lo+hi)*0.5
     centers=PLACEMENTS[kind][0]
+    yaw=0.0
+    orientation_method="legacy-no-rotation"
+    if SANCTUM_ASH:
+        # GLB glTF→Blender may change the long axis. Compute axis in imported
+        # scene world space, not a guessed source rotation.
+        width_axis=0 if extent.x>=extent.y else 1
+        if kind=="bench":
+            depth_axis=1-width_axis
+            # Find which side has the high backrest, from the *real model*
+            # geometry. Seat faces away from that side toward +X (altar).
+            hot=[]
+            all_depth=[]
+            for obj in objects:
+                matrix=obj.matrix_world
+                stride=max(1,len(obj.data.vertices)//25000)
+                for v in obj.data.vertices[::stride]:
+                    pt=matrix @ v.co
+                    coord=pt[depth_axis]
+                    all_depth.append(coord)
+                    if pt.z > lo.z+extent.z*0.67:
+                        hot.append(coord)
+            if not hot or not all_depth:
+                raise RuntimeError("Cannot detect Tripo pew backrest orientation")
+            high_center=sum(hot)/len(hot)
+            mid_depth=(lo[depth_axis]+hi[depth_axis])*0.5
+            if abs(high_center-mid_depth)<extent[depth_axis]*0.025:
+                raise RuntimeError("Pew front/back ambiguous; refusing incorrect yaw")
+            back_sign=1 if high_center>mid_depth else -1
+            front_sign=-back_sign
+            if width_axis==0:
+                yaw=math.pi/2 if front_sign<0 else -math.pi/2
+            else:
+                yaw=0 if front_sign>0 else math.pi
+            orientation_method="backrest-height-detected"
+        else:
+            # Original altar is wide on its native long axis. Rotate its
+            # front toward west (-X), i.e. toward the approaching player.
+            # Source artist forward is -Y after glTF import.
+            yaw=math.radians(float(os.environ.get("SANCTUM_ALTAR_YAW_DEG","-90")))
+            orientation_method="explicit-altar-facing-nave"
+        c=abs(math.cos(yaw))
+        si=abs(math.sin(yaw))
+        rotated_x=extent.x*c+extent.y*si
+        rotated_y=extent.x*si+extent.y*c
+        target_xyz=PLACEMENTS[kind][1]
+        scale=min(target_xyz[0]/max(rotated_x,0.001),
+                  target_xyz[1]/max(rotated_y,0.001),
+                  target_xyz[2]/max(extent.z,0.001))
+        print("SANCTUM_TRIPO_ORIENTATION",kind,"yaw",round(math.degrees(yaw),2),
+              "origin",tuple(round(c,3) for c in origin),
+              "postRotExtent",tuple(round(z,3) for z in (rotated_x,rotated_y,extent.z)),
+              "placements",centers,"method",orientation_method)
+    cos_y=math.cos(yaw);sin_y=math.sin(yaw)
     groups=defaultdict(list)
     tris_kept=0
     mats={}
@@ -194,7 +262,15 @@ def export(kind,filename):
             for li in face.loops:
                 loop=mesh.loops[li]
                 world=obj.matrix_world @ mesh.vertices[loop.vertex_index].co
-                p=(world-origin)*scale
+                if SANCTUM_ASH:
+                    # Native Quake uses X/Y horizontal, Z height.
+                    # Align model BOTTOM (lo.z), not bbox middle, to BSP floor.
+                    dx=(world.x-origin.x)*scale
+                    dy=(world.y-origin.y)*scale
+                    p=(dx*cos_y-dy*sin_y,dx*sin_y+dy*cos_y,
+                       (world.z-lo.z)*scale)
+                else:
+                    p=(world-origin)*scale
                 uv=uv_layer.data[li].uv if uv_layer else (0.0,0.0)
                 tri.append((float(p.x),float(p.y),float(p.z),
                             float(uv[0]),float(1.0-uv[1]),255,255,255,255))
@@ -222,7 +298,11 @@ def export(kind,filename):
             flush(texture,verts,indices)
     META.append({"source":str(path),"kind":kind,"originalMeshObjects":len(objects),
                  "originalPolygons":source_tris,"lodTrianglesPerInstance":tris_kept,
-                 "instances":len(centers),"materials":len(groups),"uniformScale":scale})
+                 "instances":len(centers),"materials":len(groups),"uniformScale":scale,
+                 "profile":"sanctum_authored" if SANCTUM_ASH else "mini",
+                 "yawDegrees":round(math.degrees(yaw),3),
+                 "orientationMethod":orientation_method,
+                 "placements":[list(x) for x in centers]})
     print("TRIPO_BAKED",json.dumps(META[-1]))
 
 export("bench","bench.glb")
@@ -233,7 +313,7 @@ if not 0<len(BATCHES)<=512 or total_vertices>3000000 or total_indices>3500000:
     raise RuntimeError("XZSM capacity overflow")
 if total_indices//3>MAX_TOTAL_TRIANGLES:
     raise RuntimeError("Too many Tripo triangles for mini Android scene")
-fpath=MODEL_DIR/"sanctum_mini.xzsm"
+fpath=MODEL_DIR/(ASSET_TAG+".xzsm")
 with fpath.open("wb") as f:
     f.write(struct.pack("<4sIIII",b"XZSM",2,len(BATCHES),total_vertices,total_indices))
     for b in BATCHES:
@@ -249,5 +329,5 @@ with fpath.open("wb") as f:
 report={"format":"XZSM v2","mesh":str(fpath),"assetSources":META,
         "batchCount":len(BATCHES),"vertices":total_vertices,
         "triangles":total_indices//3,"textureCount":len(list(TEXTURE_DIR.glob("*.png")))}
-(OUT/"tripo_mini_export.json").write_text(json.dumps(report,indent=2)+"\n")
-print("XZIEL_TRIPO_MINI_EXPORT_GREEN",json.dumps(report))
+(OUT/("tripo_sanctum_export.json" if SANCTUM_ASH else "tripo_mini_export.json")).write_text(json.dumps(report,indent=2)+"\n")
+print("XZIEL_TRIPO_SANCTUM_ORIENTED_GREEN" if SANCTUM_ASH else "XZIEL_TRIPO_MINI_EXPORT_GREEN",json.dumps(report))
