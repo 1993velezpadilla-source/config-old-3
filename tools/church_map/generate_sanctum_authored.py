@@ -218,16 +218,16 @@ parts.append(brush_box((842,-590,320),(858,-330,356),ART["wall"]))
 parts.append(brush_box((850,-606,320),(1020,-590,356),ART["wall"]))
 parts.append(brush_box((735,-625,320),(805,-555,390),ART["wall"]))
 
+# BSP world brushes MUST be inside worldspawn. Previous fix appended the
+# stone backdrop after worldspawn's closing brace, yielding an orphan brush
+# (VHLT hlcsg: "Line 1443 is incomplete"). Keep it inside worldspawn.
+if TRIPO_FURNITURE:
+    parts.append(brush_box((920,-110,70),(936,110,270),ART["wall"]))
 parts.append("}\n")
 parts.extend(pew_entities)
 
 # TRANSLUCENT GLASS / CLERESTORY.
-if TRIPO_FURNITURE:
-    # In the first emulated Tripo build, unsupported func_wall alpha produced
-    # an opaque WHITE 200x192 rectangle immediately behind our ceremonial altar.
-    # Restore the old stone backdrop here instead of covering the main prop.
-    parts.append(brush_box((920,-110,70),(936,110,270),ART["wall"]))
-else:
+if not TRIPO_FURNITURE:
     parts.append(brush_entity(
         "func_wall",(920,-100,74),(936,100,266),ART["glass"],
         {"alpha":"0.42","rendermode":"4","renderamt":"150","spawnflags":"4"}
@@ -354,7 +354,33 @@ for p,val in [
 parts.append(point("light",(860,-120,170),{"_light":"180 80 60 180","wait":"1","style":"0"}))
 parts.append(point("light",(860,120,170),{"_light":"60 80 180 180","wait":"1","style":"0"}))
 
-OUT.write_text("".join(parts),encoding="utf-8")
+# Validate the generated Quake MAP entity boundaries BEFORE costly WAD/BSP
+# compilation. Top-level brushes without a classname are invalid entities.
+map_text="".join(parts)
+depth=0
+entity_count=0
+has_classname=False
+for lineno,line in enumerate(map_text.splitlines(),1):
+    stripped=line.strip()
+    if stripped=="{":
+        if depth==0:
+            entity_count+=1
+            has_classname=False
+        depth+=1
+    elif stripped=="}":
+        if depth==0:
+            raise ValueError(f"MAP stray closing brace at line {lineno}")
+        depth-=1
+        if depth==0 and not has_classname:
+            raise ValueError(f"MAP entity {entity_count} lacks classname near line {lineno}")
+    elif depth==1 and stripped.startswith('"classname" "'):
+        has_classname=True
+    elif depth==0 and stripped and not stripped.startswith("//"):
+        raise ValueError(f"MAP text outside entity at line {lineno}: {stripped[:80]}")
+if depth!=0 or entity_count<30:
+    raise ValueError(f"MAP invalid braces/entities depth={depth}, entities={entity_count}")
+print("SANCTUM_MAP_ENTITY_BOUNDARIES_GREEN",entity_count)
+OUT.write_text(map_text,encoding="utf-8")
 
 report={
  "title":TITLE,"map":str(OUT),
