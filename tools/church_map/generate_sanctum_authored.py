@@ -208,8 +208,14 @@ if not TRIPO_FURNITURE:
                 "func_detail",(x-44,y1,0),(x+44,y2,28),ART["wood"],
                 {"zhlt_noclip":"1","zhlt_detaillevel":"2"}
             ))
-# Tripo pews are separate visual XZSM instances, with clean BSP walking
-# lanes and no 12 overlapping placeholder wooden rectangles.
+# Solid invisible hulls for the original Tripo pews, matching the
+# conservative navigation footprints in gauntlet_sanctum_nave.py.
+# These do not replace the meshes or block the center aisle.
+if TRIPO_FURNITURE:
+    for x in (-525,-385,-245,-105,35,175):
+        for y in (-155,155):
+            parts.append(brush_box((x-37,y-75,0),(x+37,y+75,44),"CLIP"))
+
 
 # Doorway framing.
 parts.append(brush_box((-1000,-105,0),(-960,-90,205),ART["wall"]))
@@ -413,6 +419,7 @@ report={
  "wallbuys":4,
  "altar_collision":"BRUSH_CLIP_INSIDE_TRUE_TRIPO_ALTAR" if TRIPO_FURNITURE else "LEGACY_ALTAR_BRUSH",
  "altar_collision_bounds":[[721,-59,24],[787,59,108]] if TRIPO_FURNITURE else None,
+ "pew_collision":"12_BSP_CLIP_HULLS" if TRIPO_FURNITURE else "LEGACY_NOCLIP",
  "ai_design":[
     "wide center aisle",
     "window lanes aligned between columns",
