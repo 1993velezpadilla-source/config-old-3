@@ -10,6 +10,7 @@ on:
       - "tools/church_mini/**"
       - "scripts/patch_vril_church_mini.py"
       - "scripts/patch_quakec_modern_movement.py"
+      - "scripts/patch_quakec_mobile_v022.py"
       - "scripts/patch_vril_mobile_v018.py"
       - "scripts/prepare_android.sh"
 
