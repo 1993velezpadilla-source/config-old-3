@@ -266,6 +266,11 @@ func _tick_chase(delta: float) -> void:
 		velocity.z = 0.0
 		return
 	var target: Vector3 = target_player.global_position
+	# An inclined walkable ramp is a floor, not furniture to dodge.
+	# Floor snap must remain active on the slope and the character must
+	# accept slopes below the authored ramp's 36.91 degree incline.
+	floor_max_angle = deg_to_rad(45.0)
+	floor_snap_length = maxf(floor_snap_length, 0.32)
 	var flat_distance: float = Vector2(global_position.x - target.x, global_position.z - target.z).length()
 	if flat_distance <= 1.25:
 		velocity.x = 0.0
@@ -303,6 +308,8 @@ func _steer_around_furniture(forward: Vector3) -> Vector3:
 		_avoidance_timer = 0.0
 		return forward
 	var obstacle: Object = hit.get("collider")
+	if obstacle is StaticBody3D and (obstacle as StaticBody3D).is_in_group("walkable_stair_ramp"):
+		return forward
 	if not (obstacle is StaticBody3D) and _unstick_seconds <= 0.0:
 		return forward
 	if _avoidance_timer <= 0.0 and _unstick_seconds <= 0.0:
