@@ -52,6 +52,10 @@ python3 "$ROOT/scripts/patch_vril_mobile_v021.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_mobile_v022.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_mobile_v024.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_sanctum_staticmesh.py" "$DEPS/vril"
+if [[ "${XZIEL_CHURCH_MINI:-0}" == "1" ]]; then
+  echo "==> Enabling church mini transparent/Tripo XZSM overlay"
+  python3 "$ROOT/scripts/patch_vril_church_mini.py" "$DEPS/vril"
+fi
 
 echo "==> Patching and compiling Xziel mobile QuakeC"
 python3 -m pip install --quiet colorama==0.4.6 fastcrc==0.3.0 pandas==2.1.4 cairosvg==2.8.2
