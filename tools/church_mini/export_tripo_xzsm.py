@@ -208,8 +208,8 @@ def export(kind,filename):
             for obj in objects:
                 matrix=obj.matrix_world
                 stride=max(1,len(obj.data.vertices)//25000)
-                for v in obj.data.vertices[::stride]:
-                    pt=matrix @ v.co
+                for vi in range(0,len(obj.data.vertices),stride):
+                    pt=matrix @ obj.data.vertices[vi].co
                     coord=pt[depth_axis]
                     all_depth.append(coord)
                     if pt.z > lo.z+extent.z*0.67:
