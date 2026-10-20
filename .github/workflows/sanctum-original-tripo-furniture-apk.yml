@@ -321,6 +321,28 @@ jobs:
             [[ "$STAGE" == "FIRST_FRAME_OK" || "$STAGE" == "SYS_ERROR" ]] && break
             sleep 2
           done
+          # SDL2's first window creation can race the cold Android emulator's
+          # Surface lifecycle. Retry ONCE only for that exact platform failure;
+          # all other engine/game failures remain fatal.
+          if [[ "$STAGE" == "SYS_ERROR" ]]; then
+            WINDOW_ERROR="$("$ADB" shell run-as com.xziel.sanctumash cat files/nzp-runtime/.xziel-last-error 2>/dev/null || true)"
+            if [[ "$WINDOW_ERROR" == *"SDL_CreateWindow: Could not fetch native window"* ]]; then
+              echo "XZIEL_EMULATOR_NATIVE_WINDOW_RACE_RETRY_ONCE"
+              "$ADB" shell am force-stop com.xziel.sanctumash || true
+              "$ADB" shell run-as com.xziel.sanctumash rm -f files/nzp-runtime/.xziel-stage files/nzp-runtime/.xziel-last-error || true
+              sleep 8
+              "$ADB" logcat -c || true
+              "$ADB" shell am start -W -n com.xziel.sanctumash/org.libsdl.app.NZPActivity \
+                  > sanctum-ash-dist/am-retry.txt
+              sleep 3
+              STAGE=""
+              for i in $(seq 1 45); do
+                STAGE="$("$ADB" shell run-as com.xziel.sanctumash cat files/nzp-runtime/.xziel-stage 2>/dev/null | tr -d '\r' || true)"
+                [[ "$STAGE" == "FIRST_FRAME_OK" || "$STAGE" == "SYS_ERROR" ]] && break
+                sleep 2
+              done
+            fi
+          fi
           echo "$STAGE" > sanctum-ash-dist/runtime-stage.txt
           # Always collect the engine's actual failure cause; previous
           # runs aborted before logcat/error-file capture on SYS_ERROR.
