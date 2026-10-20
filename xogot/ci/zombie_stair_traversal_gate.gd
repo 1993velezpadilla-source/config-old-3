@@ -29,6 +29,10 @@ func _run() -> void:
 		var destination: Vector3 = top if ascending else bottom
 		player.global_position = destination
 		player.set_physics_process(false)
+		var rounds := game.get_node_or_null("RoundManager")
+		if rounds != null:
+			rounds.set_process(false)
+			rounds.set_physics_process(false)
 		var zombie := CharacterBody3D.new()
 		zombie.set_script(zombie_script)
 		game.add_child(zombie)
@@ -45,6 +49,8 @@ func _run() -> void:
 				quit(4)
 				return
 			extreme_y = maxf(extreme_y, zombie.global_position.y) if ascending else minf(extreme_y, zombie.global_position.y)
+			if tick % 240 == 0:
+				print("STAIR_TRACE %s tick=%d position=%s floor=%s velocity=%s" % ["up" if ascending else "down", tick, zombie.global_position, zombie.is_on_floor(), zombie.velocity])
 			var horizontal := Vector2(zombie.global_position.x - destination.x, zombie.global_position.z - destination.z).length()
 			if horizontal <= 1.5 and absf(zombie.global_position.y - destination.y) <= 1.7:
 				reached = true
