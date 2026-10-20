@@ -180,6 +180,11 @@ jobs:
           python3 -m pip install --quiet -r /tmp/spawn-zone-tool/requirements.txt
           (
             cd /tmp/nzp-assets
+            # Clone-local copies of the genuine NZ:P masonry and tile artwork.
+            # Avoid Android 255-white floor and high-contrast blown-out stone.
+            python3 "$GITHUB_WORKSPACE/tools/church_map/grade_sanctum_wad.py" \
+              --wad-root source/textures/wad/Loop \
+              --report "$GITHUB_WORKSPACE/build/church_mini/sanctum_material_grade.json"
             bash tools/compile-wads.sh
             mkdir -p source/maps/sanctum_authored
             cp "$GITHUB_WORKSPACE/build/church_mini/sanctum_authored.map" source/maps/sanctum_authored/
@@ -201,6 +206,31 @@ jobs:
           ) 2>&1 | tee build/church_mini/bsp-compile.log
           test -s /tmp/nzp-assets/common/maps/sanctum_authored.bsp
           test -s /tmp/nzp-assets/common/maps/sanctum_authored.nsz
+          # The BSP itself, not just source PNGs, MUST contain correct miptex
+          # data for all three authored material slots.
+          python3 - <<'PY'
+          import struct
+          from pathlib import Path
+          p=Path("/tmp/nzp-assets/common/maps/sanctum_authored.bsp")
+          b=p.read_bytes()
+          assert struct.unpack_from("<I",b,0)[0]==30, "Expected GoldSrc BSP v30"
+          ofs,sz=struct.unpack_from("<II",b,4+2*8)
+          num=struct.unpack_from("<I",b,ofs)[0]
+          offsets=struct.unpack_from(f"<{num}i",b,ofs+4)
+          textures={}
+          for offset in offsets:
+              if offset<0: continue
+              base=ofs+offset
+              name=b[base:base+16].split(b"\\0")[0].decode("ascii")
+              w,h=struct.unpack_from("<II",b,base+16)
+              mip=struct.unpack_from("<4I",b,base+24)
+              if name.startswith("sanctum_"):
+                  assert w>=128 and h>=128 and mip[0]>=40, (name,w,h,mip)
+                  textures[name]=(w,h)
+          expected={"sanctum_floor","sanctum_wall","sanctum_ceiling"}
+          assert expected<=set(textures), (expected,set(textures))
+          print("SANCTUM_ANDROID_BSP_EMBEDDED_ATMOSPHERIC_ART_GREEN",textures)
+          PY
 
       - name: Install Java 17
         uses: actions/setup-java@v4
@@ -233,6 +263,7 @@ jobs:
           mkdir -p sanctum-ash-dist
           cp -a build/church_mini/nzp /tmp/xziel-sanctum-ash-nzp
           cp build/church_mini/map_report.json sanctum-ash-dist/
+          cp build/church_mini/sanctum_material_grade.json sanctum-ash-dist/
           cp build/church_mini/sanctum_tripo_layout.svg sanctum-ash-dist/
           cp build/church_mini/nzp/tripo_sanctum_export.json sanctum-ash-dist/
           cp build/church_mini/tripo-export.log sanctum-ash-dist/
@@ -377,6 +408,14 @@ jobs:
           overlay_white=sum(min(rgb)>225 for rgb in pts)/len(pts)
           print("SANCTUM_ASH_TRIPO_OS_POPUP_WHITE_COVERAGE",round(overlay_white,3))
           assert overlay_white<0.65,"OS_FULLSCREEN_POPUP_NOT_DISMISSED"
+          # First-person floor directly ahead (left of weapon/hand and right of
+          # pew) was (255,255,255) across the entire patch in V2. Do not ship
+          # a technically GREEN render with an untextured-looking white floor.
+          roi=im.crop((int(im.width*.400),int(im.height*.79),
+                       int(im.width*.412),int(im.height*.86)))
+          flat_white=sum(min(px)>=250 for px in roi.getdata())/len(roi.getdata())
+          print("SANCTUM_ASH_FLOOR_CLIPPED_PIXEL_RATIO",round(flat_white,3))
+          assert flat_white<0.50,"SANCTUM_FLOOR_OVEREXPOSED_WHITE_NOT_ACCEPTED"
           PY
           ! grep -Eq 'Fatal signal|FATAL EXCEPTION|XZSM: invalid header|stage=SYS_ERROR' sanctum-ash-dist/logcat.txt
           echo "SANCTUM_ASH_TRIPO_REAL_ANDROID_VISUAL_GREEN" | tee sanctum-ash-dist/runtime-visual-state.txt
