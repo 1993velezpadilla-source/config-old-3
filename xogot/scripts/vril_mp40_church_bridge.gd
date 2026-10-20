@@ -10,6 +10,7 @@ extends Node3D
 const CATALOG := "res://assets/vril_original/weapons/catalog.json"
 const MP40_SOURCE := "mp40/v_mp40.mdl"
 const MP40_GLB := "mp40/v_mp40.glb"
+const SOURCE_FRAME_PROFILE := "res://data/vril_mp40_source_frames.json"
 
 @export var force_mp40_in_test_scene: bool = true
 
@@ -22,6 +23,7 @@ var _original_view: Node3D
 var _frames: Array = []
 var _fps: float = 10.0
 var _source_roles: Dictionary = {}
+var _source_durations: Dictionary = {}
 var _bound: bool = false
 var _last_shots: int = -1
 var _last_reloading: bool = false
@@ -96,7 +98,14 @@ func _bind_original_mp40() -> void:
         mesh.layers = 2
         mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     _camera.cull_mask |= 2
-    _source_roles = _derive_source_roles(_frames)
+    # Labels are frame1...frame46, NOT role names. Recover action ranges
+    # from the exact NZ:P QuakeC GetFrame(W_MP40) implementation.
+    _source_roles = _load_original_roles(_frames.size())
+    if _source_roles.is_empty() or not _source_roles.has("fire") or not _source_roles.has("reload"):
+        push_error("VRIL_CHURCH_RED original source frame role ranges invalid")
+        _source_model.queue_free()
+        _source_model = null
+        return
     if force_mp40_in_test_scene:
         if not bool(_weapon.call("equip_weapon", "mp40", true)):
             push_error("VRIL_CHURCH_RED gameplay MP40 equip failed")
@@ -117,8 +126,8 @@ func _bind_original_mp40() -> void:
           " frames=", _frames.size(),
           " classified_actions=", _source_roles.keys(),
           " originals_only=true")
-    if not _source_roles.has("fire") or not _source_roles.has("reload"):
-        push_warning("VRIL_CHURCH_ROLE_GATE_AMBER: MDL names do not certify all FPS action ranges")
+    if not _source_roles.has("sprint_out"):
+        push_warning("VRIL_CHURCH_SPRINT_OUT_AMBER: QuakeC end frame 46 is beyond imported original 0..45")
 
 
 func _find_animation_player(node: Node) -> AnimationPlayer:
@@ -129,6 +138,50 @@ func _find_animation_player(node: Node) -> AnimationPlayer:
         if found != null:
             return found
     return null
+
+
+func _load_original_roles(count: int) -> Dictionary:
+    if not FileAccess.file_exists(SOURCE_FRAME_PROFILE):
+        push_error("VRIL_CHURCH_RED QuakeC frame authority JSON missing")
+        return {}
+    var raw: Variant = JSON.parse_string(FileAccess.get_file_as_string(SOURCE_FRAME_PROFILE))
+    if not (raw is Dictionary):
+        push_error("VRIL_CHURCH_RED QuakeC frame authority JSON invalid")
+        return {}
+    var spec: Dictionary = raw as Dictionary
+    if int(spec.get("frame_count", -1)) != count or str(spec.get("weapon", "")) != "W_MP40":
+        push_error("VRIL_CHURCH_RED QuakeC frame count/model mismatch")
+        return {}
+    if str(_frames[0]) != "frame1" or str(_frames[count - 1]) != "frame%d" % count:
+        push_error("VRIL_CHURCH_RED expected original MDL numbered frame labels")
+        return {}
+    var selected: Dictionary = {}
+    var declared: Variant = spec.get("roles", {})
+    if not (declared is Dictionary):
+        return {}
+    for key: Variant in declared.keys():
+        var range_value: Variant = declared[key]
+        if not (range_value is Array) or range_value.size() != 2:
+            push_error("VRIL_CHURCH_RED malformed QuakeC role: " + str(key))
+            return {}
+        var start: int = int(range_value[0])
+        var finish: int = int(range_value[1])
+        if start < 0 or finish >= count or start > finish:
+            push_error("VRIL_CHURCH_RED QuakeC out-of-bounds role: " + str(key))
+            return {}
+        selected[str(key)] = [start, finish]
+    _source_durations = spec.get("durations_seconds", {})
+    if not (_source_durations is Dictionary):
+        _source_durations = {}
+    # Strict source discrepancy: QuakeC declares sprint_out END=46,
+    # while the original imported MDL has only 0..45. Never guess it.
+    if selected.has("sprint_out"):
+        push_error("VRIL_CHURCH_RED cannot classify out-of-range sprint_out")
+        return {}
+    print("VRIL_MP40_QUAKEC_ROLES_GREEN ids=", selected,
+          " source=", spec.get("source_commit", ""),
+          " sprint_out=UNAVAILABLE_SOURCE_MISMATCH")
+    return selected
 
 
 func _frame_role(name: String) -> String:
@@ -173,6 +226,7 @@ func _show_frame(index: int) -> void:
     if _source_anim == null or _frames.is_empty():
         return
     _manual_frame = clampi(index, 0, _frames.size() - 1)
+    _source_anim.speed_scale = 1.0
     _source_anim.play(_source_animation_name)
     _source_anim.seek(float(_manual_frame) / _fps + 0.00001, true)
     _source_anim.pause()
@@ -187,6 +241,13 @@ func _play_source_range(role: String) -> bool:
     var section: Array = _source_roles[role]
     if section.size() != 2:
         return false
+    # Animation key positions are the imported original 10 Hz vertex frames.
+    # Normalize playback rate to the real NZ:P QuakeC fire/reload durations.
+    var frame_seconds: float = float(section[1] - section[0] + 1) / _fps
+    var target_seconds: float = float(_source_durations.get(role, frame_seconds))
+    if target_seconds <= 0.0:
+        return false
+    _source_anim.speed_scale = frame_seconds / target_seconds
     _source_anim.play(_source_animation_name)
     _source_anim.seek(float(section[0]) / _fps + 0.00001, true)
     _clip_end_seconds = float(section[1] + 1) / _fps
@@ -258,6 +319,7 @@ func _source_button(action: int) -> void:
         return
     _manual_preview = true
     if action == 2:
+        _source_anim.speed_scale = 1.0
         _source_anim.play(_source_animation_name)
         _source_anim.seek(0.00001, true)
         _playing_role = "original_frames"
