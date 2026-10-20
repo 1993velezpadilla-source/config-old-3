@@ -26,7 +26,7 @@ CURRENT_KIND=''  # selects per-asset silhouette-preserving LOD budget
 POSITIONS_BENCH=[(-171,y,27) for y in (-220,-80,60,200)]+[(171,y,27) for y in (-220,-80,60,200)]
 PLACEMENTS={
     "bench":(POSITIONS_BENCH,(180,52,50)),
-    "altar":([(0,410,67)],(135,78,94)),
+    "altar":([(0,410,98)],(240,145,160)),
 }
 
 def reset_scene():
