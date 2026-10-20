@@ -1,0 +1,177 @@
+name: Vril Original MP40 In Church Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/vril-mp40-church-bridge-20261019
+    paths:
+      - ".github/workflows/vril-mp40-original-church-apk.yml"
+      - "xogot/scripts/vril_mp40_church_bridge.gd"
+      - "xogot/vril_mp40_church_test.tscn"
+      - "xogot/ci/vril_mp40_church_smoke.gd"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  original-mp40-church:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - name: Checkout actual church game and isolated source bridge
+        uses: actions/checkout@v4
+        with:
+          filter: blob:none
+          sparse-checkout: |
+            xogot/
+          sparse-checkout-cone-mode: true
+
+      - name: Recover verified REAL Quake MDL to GLB model bundle
+        uses: actions/download-artifact@v4
+        with:
+          repository: ${{ github.repository }}
+          run-id: 38699922473
+          name: Virin-Original-Weapons-DeadCell-Godot46
+          github-token: ${{ github.token }}
+          path: /tmp/vril-validated
+
+      - name: Mount original MP40 with all retained source frames
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -s /tmp/vril-validated/xogot/assets/vril_original/weapons/catalog.json ]]; then
+            SRC=/tmp/vril-validated/xogot/assets/vril_original
+          elif [[ -s /tmp/vril-validated/assets/vril_original/weapons/catalog.json ]]; then
+            SRC=/tmp/vril-validated/assets/vril_original
+          elif [[ -s /tmp/vril-validated/vril_original/weapons/catalog.json ]]; then
+            SRC=/tmp/vril-validated/vril_original
+          else
+            echo "VRIL_SOURCE_RED: original validated artifact unavailable" >&2
+            exit 2
+          fi
+          mkdir -p xogot/assets/vril_original
+          cp -a "$SRC"/. xogot/assets/vril_original/
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('xogot/assets/vril_original/weapons')
+          cat=json.loads((root/'catalog.json').read_text())
+          assert len(cat['weapons']) == 41 and not cat['failed']
+          entry=next(x for x in cat['weapons'] if x['source']=='mp40/v_mp40.mdl')
+          assert entry['resource']=='mp40/v_mp40.glb'
+          assert entry['frames']==len(entry['frame_names']) and entry['frames']>1
+          assert (root/entry['resource']).stat().st_size>1000
+          print('VRIL_MP40_AUTHENTIC_ASSET_GREEN frame_count=',entry['frames'])
+          print('VRIL_MP40_SOURCE_FRAME_NAMES',entry['frame_names'])
+          PY
+
+      - name: Install Godot 4.6.1 engine and official Android templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          curl --fail --location --retry 3 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_export_templates.tpz \
+            -o /tmp/godot-templates.tpz
+          mkdir -p /tmp/vril-godot /tmp/vril-templates
+          unzip -q /tmp/godot.zip -d /tmp/vril-godot
+          unzip -q /tmp/godot-templates.tpz -d /tmp/vril-templates
+          chmod +x /tmp/vril-godot/Godot_v4.6.1-stable_linux.x86_64
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.6.1.stable"
+          cp -a /tmp/vril-templates/templates/. "$HOME/.local/share/godot/export_templates/4.6.1.stable/"
+          /tmp/vril-godot/Godot_v4.6.1-stable_linux.x86_64 --version
+
+      - name: Select ONLY isolated test scene; do not modify production main
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('xogot/project.godot')
+          text=p.read_text()
+          old='run/main_scene="res://main.tscn"'
+          assert text.count(old)==1
+          text=text.replace(old,'run/main_scene="res://vril_mp40_church_test.tscn"')
+          text=text.replace('window/handheld/orientation=4','window/handheld/orientation=1')
+          p.write_text(text)
+          p=Path('xogot/export_presets.cfg')
+          value=p.read_text()
+          value=value.replace('package/unique_name="com.xziel.youwontwin"',
+                             'package/unique_name="com.xziel.virinmp40churchtest"')
+          value=value.replace('package/name="YOU WON\'T WIN"',
+                             'package/name="Vril MP40 Church Test"')
+          value=value.replace('include_filter=""','include_filter="*.json"')
+          value=value.replace('permissions/internet=true','permissions/internet=false')
+          value=value.replace('permissions/record_audio=true','permissions/record_audio=false')
+          value=value.replace('version/code=1','version/code=44')
+          p.write_text(value)
+          print('VRIL_CHURCH_TEST_SCENE_ONLY_STAGED')
+          PY
+
+      - name: Import actual Xogot church and MP40 MDL frame animation
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/vril-church
+          GODOT=/tmp/vril-godot/Godot_v4.6.1-stable_linux.x86_64
+          timeout 350 "$GODOT" --headless --editor --path xogot --import \
+            2>&1 | tee build/vril-church/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|Failed to load script" build/vril-church/import.log
+          timeout 180 "$GODOT" --headless --path xogot \
+            --script res://ci/vril_mp40_church_smoke.gd \
+            2>&1 | tee build/vril-church/smoke.log
+          grep -q 'VRIL_MP40_CHURCH_RUNTIME_GREEN' build/vril-church/smoke.log
+          ! grep -E "SCRIPT ERROR|Parse Error|VRIL_MP40_CHURCH_RUNTIME_RED" build/vril-church/smoke.log
+
+      - name: Configure Android SDK and independent debug signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.1"
+          KEYSTORE="$RUNNER_TEMP/vril-mp40-church-debug.keystore"
+          keytool -genkeypair -noprompt -keystore "$KEYSTORE" \
+            -storepass android -alias androiddebugkey -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Vril MP40 Church,O=XZIEL,C=US"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$KEYSTORE" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
+
+      - name: Export separate ARM64 real-church preview APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          GODOT=/tmp/vril-godot/Godot_v4.6.1-stable_linux.x86_64
+          APK=build/vril-church/Vril-MP40-Original-Church-ARM64.apk
+          "$GODOT" --headless --path xogot --export-debug "Android ARM64" \
+            "../$APK" 2>&1 | tee build/vril-church/export.log
+          test -s "$APK"
+          AAPT2="$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 | sort -V | tail -n1)"
+          "$AAPT2" dump badging "$APK" > build/vril-church/badging.txt
+          grep -q "package: name='com.xziel.virinmp40churchtest'" build/vril-church/badging.txt
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n1)"
+          "$APKSIGNER" verify --verbose "$APK" > build/vril-church/signature.txt
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' build/vril-church/signature.txt
+          unzip -l "$APK" > build/vril-church/contents.txt
+          grep -q 'lib/arm64-v8a/' build/vril-church/contents.txt
+          sha256sum "$APK" > "$APK.sha256"
+          echo 'VRIL_MP40_ORIGINAL_CHURCH_APK_EXPORTED_GREEN'
+
+      - name: Keep APK and red-gate evidence separate from stable game
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vril-MP40-Original-Church-Android-Preview
+          path: build/vril-church/
+          if-no-files-found: warn
+          retention-days: 30
