@@ -56,6 +56,7 @@ if [[ "${XZIEL_CHURCH_MINI:-0}" == "1" ]]; then
   echo "==> Enabling church mini transparent/Tripo XZSM overlay"
   python3 "$ROOT/scripts/patch_vril_church_mini.py" "$DEPS/vril"
   python3 "$ROOT/scripts/patch_vril_approved_touch_skins.py" "$DEPS/vril"
+  python3 "$ROOT/scripts/patch_vril_church_hide_weapon_cards.py" "$DEPS/vril"
 fi
 
 echo "==> Patching and compiling Xziel mobile QuakeC"
