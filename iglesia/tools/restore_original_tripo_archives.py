@@ -7,6 +7,7 @@ No synthetic models or fallback art. Full restoration required before Android ex
 from __future__ import annotations
 import hashlib
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -23,8 +24,11 @@ def main() -> None:
     if catalog.get("schema") != 1 or len(catalog.get("archives", {})) != 8:
         raise RuntimeError("IGLESIA_REAL_TRIPO_8_ARCHIVE_MANIFEST_INVALID")
     OUT.mkdir(parents=True, exist_ok=True)
+    preview = os.environ.get("IGLESIA_TRIPO_FIRSTROOM_PREVIEW", "0") == "1"
+    wanted = ("chandeliers.zip", "candleholders.zip") if preview else tuple(catalog["archives"])
     rebuilt = 0
-    for filename, item in catalog["archives"].items():
+    for filename in wanted:
+        item = catalog["archives"][filename]
         if filename != Path(filename).name or not filename.endswith(".zip"):
             raise RuntimeError("TRIPO_ARCHIVE_NAME_REJECTED " + filename)
         target = OUT / filename
@@ -50,9 +54,12 @@ def main() -> None:
         tmp.replace(target)
         rebuilt += 1
         print("ORIGINAL_TRIPO_ARCHIVE_REBUILT_GREEN", filename, total, digest.hexdigest())
-    if rebuilt != 8:
+    if rebuilt != len(wanted):
         raise RuntimeError("ORIGINAL_TRIPO_ARCHIVES_REBUILT_INCOMPLETE")
-    print("IGLESIA_TRIPO_8_GENUINE_ZIPS_RESTORED_FROM_GITHUB_GREEN")
+    if preview:
+        print("IGLESIA_TRIPO_2_REAL_FIRSTROOM_ZIPS_RESTORED_FROM_GITHUB_GREEN")
+    else:
+        print("IGLESIA_TRIPO_8_GENUINE_ZIPS_RESTORED_FROM_GITHUB_GREEN")
 
 if __name__ == "__main__":
     try:

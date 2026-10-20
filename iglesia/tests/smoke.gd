@@ -50,9 +50,10 @@ func _run() -> void:
                 if staged_fixtures != in_world:
                     errors.append("TRIPO_FIXTURE_COUNT_RED %d/%d" % [in_world, staged_fixtures])
                 var recovered_count: int = int(fixture_inventory.get("original_split_model_count", 0))
-                if recovered_count != 0 and recovered_count != 104:
-                    errors.append("ORIGINAL_TRIPO_SPLIT_104_INCOMPLETE")
-                if recovered_count == 104:
+                var firstroom_preview: bool = bool(fixture_inventory.get("firstroom_preview", false))
+                if recovered_count != 0 and recovered_count != 104 and not (firstroom_preview and recovered_count == 30):
+                    errors.append("ORIGINAL_TRIPO_SOURCE_CENSUS_INVALID")
+                if recovered_count == 104 or (firstroom_preview and recovered_count == 30):
                     if staged_fixtures != 10:
                         errors.append("ORIGINAL_TRIPO_FIXTURE_STAGING_INCOMPLETE")
                     var practicals := 0

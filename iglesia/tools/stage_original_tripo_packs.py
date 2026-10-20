@@ -8,6 +8,7 @@ from hashlib import sha256
 from pathlib import Path
 from zipfile import ZipFile
 import json
+import os
 import struct
 
 PACK_LOCKS = {
@@ -74,14 +75,17 @@ def _gltf_images(original: bytes) -> list[str]:
             if "uri" in item and not item["uri"].startswith("data:")]
 
 def stage_archived_tripo(repo: Path, assets: Path, previous_fixtures: list[dict]) -> dict:
-    source = archive_paths(repo)
+    available = archive_paths(repo)
+    preview = os.environ.get("IGLESIA_TRIPO_FIRSTROOM_PREVIEW", "0") == "1"
+    requested = ("chandeliers.zip", "candleholders.zip") if preview else tuple(PACK_LOCKS)
+    source = {name: available[name] for name in requested if name in available}
     if not source:
         print("ORIGINAL_TRIPO_104_SOURCE_IN_LIBRARY: packages recovered there, not committed to GitHub")
         return {"packages_found": 0, "models_audited": 0, "assets_staged": 0,
                 "visible_fixtures": previous_fixtures, "archive_entries": []}
     # Treat *partial* recovery as a red gate rather than claiming all 104.
-    if len(source) != len(PACK_LOCKS):
-        missing = sorted(set(PACK_LOCKS) - set(source))
+    if len(source) != len(requested):
+        missing = sorted(set(requested) - set(source))
         raise RuntimeError("TRIPO_LIBRARY_PACKS_PARTIAL_NOT_104 " + ",".join(missing))
 
     # Independently revalidate the *exact original recovered media* so no
@@ -108,7 +112,8 @@ def stage_archived_tripo(repo: Path, assets: Path, previous_fixtures: list[dict]
     all_entries: list[dict] = []
     visible: list[dict] = []
     counts: dict[str, int] = {}
-    for name, (expected_hash, expected_count) in PACK_LOCKS.items():
+    for name in requested:
+        expected_hash, expected_count = PACK_LOCKS[name]
         archive = source[name]
         observed_hash = sha256(archive.read_bytes()).hexdigest()
         if observed_hash != expected_hash:
@@ -168,10 +173,12 @@ def stage_archived_tripo(repo: Path, assets: Path, previous_fixtures: list[dict]
                     "shared_pbr_textures": len(dependencies),
                 })
             counts[category] = len(files)
-    if len(all_entries) != 104:
-        raise RuntimeError("TRIPO_104_COMPLETENESS_RED " + str(len(all_entries)))
+    required_total = 30 if preview else 104
+    if len(all_entries) != required_total:
+        raise RuntimeError("TRIPO_SOURCE_CENSUS_RED " + str(len(all_entries)) + "/" + str(required_total))
     return {"packages_found": len(source), "models_audited": len(all_entries),
             "assets_staged": len(visible),
             "visible_fixtures": visible, "archive_entries": all_entries,
-            "category_counts": counts, "source": "owner_library_8_split_zips",
+            "category_counts": counts, "source": "owner_git_verified_split_zips",
+            "firstroom_preview": preview,
             "no_generated_art": True}

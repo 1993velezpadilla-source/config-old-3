@@ -70,6 +70,7 @@ def stage_fixtures(repo: Path, asset_dest: Path, git_sha: Callable[[bytes], str]
         "source_library_status": restored.get("source", "project_library_recovered_not_in_repository"),
         "original_split_model_count": restored["models_audited"],
         "original_split_archive_count": restored["packages_found"],
+        "firstroom_preview": bool(restored.get("firstroom_preview", False)),
         "archive_entries": restored["archive_entries"],
         "version": 2, "fixture_count": len(catalog),
         "source_roots": list(ROOTS), "fixtures": catalog,
