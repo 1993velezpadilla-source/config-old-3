@@ -39,30 +39,12 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq unzip curl libgl1-mesa-dri libx11-6 libxrandr2 libxcursor1 libxi6 libasound2t64 openjdk-17-jdk
 
-      - name: Retrieve the eight owner Tripo archives from private release
+      - name: Restore 8 original Tripo archives directly from verified GitHub source blobs
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          mkdir -p iglesia/source_tripo_packs
-          if [[ ! -s iglesia/source_tripo_packs/chandeliers.zip ]]; then
-            gh release download iglesia-tripo-originals-v1 --dir iglesia/source_tripo_packs --clobber --pattern '*.zip' || {
-              echo 'TRIPO_BINARY_SOURCE_RED: recovered originals not yet in private GitHub Release iglesia-tripo-originals-v1'
-              exit 1
-            }
-          fi
-          # Accept one complete original source bundle via Android file picker.
-          bundle='iglesia/source_tripo_packs/Iglesia-8-ZIP-Originales-Tripo-104-GLB.zip'
-          if [[ -s "$bundle" ]]; then
-            echo '3dbb9c860106ba907ff7e5ff46fa1dc84f8ef12e93a7f1d503b513103d87265b  iglesia/source_tripo_packs/Iglesia-8-ZIP-Originales-Tripo-104-GLB.zip' | sha256sum -c -
-            unzip -oq "$bundle" -d iglesia/source_tripo_packs
-            echo 'IGLESIA_TRIPO_BUNDLE_104_SOURCE_UNPACKED'
-          fi
-          for f in altar.zip candleholders.zip chandeliers.zip furniture.zip ruins.zip stained_multi.zip stained_single.zip statues.zip; do
-            test -s "iglesia/source_tripo_packs/$f" || { echo "TRIPO_BINARY_SOURCE_RED: $f"; exit 1; }
-          done
-          echo 'IGLESIA_ORIGINAL_TRIPO_ARCHIVES_8_PRESENT'
+          python iglesia/tools/restore_original_tripo_archives.py 2>&1 | tee /tmp/iglesia-original-archive-restore.log
+
       - name: Stage verified ORIGINAL Tripo GLBs, 4K stone, official buttons and MP40 PNGs
         shell: bash
         run: |
