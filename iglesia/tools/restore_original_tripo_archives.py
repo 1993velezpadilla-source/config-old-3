@@ -16,7 +16,7 @@ OUT = ROOT / "iglesia/source_tripo_packs"
 CONFIG = ROOT / "iglesia/tools/ORIGINAL_TRIPO_BINARY_PARTS.json"
 
 def git_blob_sha(data: bytes) -> str:
-    return hashlib.sha1(b"blob " + str(len(data)).encode() + b"\\x00" + data).hexdigest()
+    return hashlib.sha1(b"blob " + str(len(data)).encode() + b"\x00" + data).hexdigest()
 
 def main() -> None:
     catalog = json.loads(CONFIG.read_text(encoding="utf-8"))
