@@ -15,7 +15,7 @@ SOURCES = json.loads((PROJECT / "assets/SOURCES.json").read_text(encoding="utf-8
 ASSETS = PROJECT / "assets"
 
 def git_sha(data: bytes) -> str:
-    return hashlib.sha1(b"blob " + str(len(data)).encode() + b"\\x00" + data).hexdigest()
+    return hashlib.sha1(b"blob " + str(len(data)).encode() + b"\x00" + data).hexdigest()
 
 def check(data: bytes, expected: str, path: str) -> None:
     actual = git_sha(data)
@@ -48,7 +48,7 @@ def stage_hud() -> None:
     folder.mkdir(parents=True, exist_ok=True)
     for name in cfg["names"]:
         blob = fetch(cfg["repo"], cfg["commit"], f'{cfg["path"]}/{name}')
-        if blob[:8] != b"\\x89PNG\\r\\n\\x1a\\n":
+        if blob[:8] != b"\x89PNG\r\n\x1a\n":
             raise ValueError(f"HUD_PNG_RED: {name}")
         (folder / name).write_bytes(blob)
         print(f"HUD_APPROVED_GREEN {name}")
