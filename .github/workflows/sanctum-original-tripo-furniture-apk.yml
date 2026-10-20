@@ -6,7 +6,7 @@ on:
     branches:
       - feature/sanctum-ash-tripo-furniture-swap-20261020
     paths:
-      - ".github/workflows/xziel-tripo-sanctum-ash-apk.yml"
+      - ".github/workflows/sanctum-original-tripo-furniture-apk.yml"
       - "tools/church_mini/**"
       - "tools/church_map/generate_sanctum_authored.py"
       - "scripts/patch_vril_sanctum_authored_tripo.py"
