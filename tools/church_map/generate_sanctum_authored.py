@@ -19,6 +19,10 @@ ART={
  "barricade_rebuild_sfx":"sounds/misc/barricade.wav",
  "barricade_break_sfx":"sounds/misc/barricade_destroy.wav",
 }
+# Grade original NZ:P Loop materials for THIS Tripo Android map only.
+# The legacy church, original WAD art and Tripo PBR meshes remain untouched.
+if TRIPO_FURNITURE:
+    ART.update(floor="sanctum_floor", wall="sanctum_wall", ceiling="sanctum_ceiling")
 
 def kv(k,v):
     return f'"{k}" "{v}"\n'
@@ -385,6 +389,7 @@ OUT.write_text(map_text,encoding="utf-8")
 report={
  "title":TITLE,"map":str(OUT),
  "furniture":"REAL_2x_Tripo_GLB" if TRIPO_FURNITURE else "legacy_wood_brush",
+ "environment_material_profile":"SANCTUM_WAD_GRADED_V1" if TRIPO_FURNITURE else "LEGACY_LOOP_WAD",
  "placeholderPews":len(pew_entities),
  "placeholderAltarBrushes":0 if TRIPO_FURNITURE else 3,
  "design":"authored church, no bbox rooms/no auto bridges",
