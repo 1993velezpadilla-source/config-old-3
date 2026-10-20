@@ -57,6 +57,7 @@ if [[ "${XZIEL_CHURCH_MINI:-0}" == "1" ]]; then
   python3 "$ROOT/scripts/patch_vril_church_mini.py" "$DEPS/vril"
   if [[ "${XZIEL_TRIPO_SANCTUM:-0}" == "1" ]]; then
       python3 "$ROOT/scripts/patch_vril_sanctum_authored_tripo.py" "$DEPS/vril"
+      python3 "$ROOT/scripts/patch_vril_sanctum_dev_menu.py" "$DEPS/vril"
   fi
   python3 "$ROOT/scripts/patch_vril_approved_touch_skins.py" "$DEPS/vril"
   python3 "$ROOT/scripts/patch_vril_church_hide_weapon_cards.py" "$DEPS/vril"
@@ -70,6 +71,9 @@ python3 "$ROOT/scripts/patch_quakec_modern_movement.py" "$DEPS/quakec"
 python3 "$ROOT/scripts/patch_quakec_mobile_v021.py" "$DEPS/quakec"
 python3 "$ROOT/scripts/patch_quakec_mobile_v022.py" "$DEPS/quakec"
 python3 "$ROOT/scripts/patch_quakec_mobile_v024.py" "$DEPS/quakec"
+if [[ "${XZIEL_TRIPO_SANCTUM:-0}" == "1" ]]; then
+  python3 "$ROOT/scripts/patch_quakec_sprint_reload_continuity.py" "$DEPS/quakec"
+fi
 if [[ "${XZIEL_NACHT_BENCHMARK:-0}" == "1" ]]; then
     echo "==> Enabling Nacht golden-reference stress controls"
     python3 "$ROOT/scripts/patch_quakec_nacht_benchmark.py" "$DEPS/quakec"
