@@ -221,7 +221,7 @@ jobs:
           for offset in offsets:
               if offset<0: continue
               base=ofs+offset
-              name=b[base:base+16].split(b"\\0")[0].decode("ascii")
+              name=b[base:base+16].split(bytes([0]))[0].decode("ascii")
               w,h=struct.unpack_from("<II",b,base+16)
               mip=struct.unpack_from("<4I",b,base+24)
               if name.startswith("sanctum_"):
