@@ -44,10 +44,12 @@ func _run() -> void:
                 if absf(y_floor - 0.51) > 0.075:
                     errors.append("ALTAR_FLOOR_CONTACT_WRONG")
         if altar_proxy != null:
-            var collider = altar_proxy.get_node_or_null("CollisionShape3D")
-            if collider == null or not (collider.shape is BoxShape3D):
+            # Procedurally created CollisionShape3D nodes have Godot-generated
+            # unique names; resolve by class, NOT by a guessed node path.
+            var colliders: Array[Node] = altar_proxy.find_children("*", "CollisionShape3D", false, false)
+            if colliders.is_empty() or not ((colliders[0] as CollisionShape3D).shape is BoxShape3D):
                 errors.append("ALTAR_COLLIDER_SHAPE_MISSING")
-            elif absf((collider.shape as BoxShape3D).size.x - 4.1) > 0.02:
+            elif absf(((colliders[0] as CollisionShape3D).shape as BoxShape3D).size.x - 4.1) > 0.02:
                 errors.append("ALTAR_COLLIDER_NOT_RESIZED")
         var nav_path = game.level.nav.get_id_path(
             game.level.world_to_cell(Vector3(-7.0, 0.0, 10.0)),
