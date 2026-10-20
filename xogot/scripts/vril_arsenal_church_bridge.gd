@@ -248,8 +248,11 @@ func _play_role(role: String) -> bool:
     _playing_role = role
     _manual_frame = from_frame
     var playback_speed: float = frame_seconds / duration
-    _anim.speed_scale = playback_speed if _clip_forward else -playback_speed
-    _anim.play(_animation_name, -1.0, _anim.speed_scale, not _clip_forward)
+    # Godot multiplies AnimationPlayer.speed_scale by the play() custom_speed.
+    # Apply source timing exactly ONCE or the 2.3s MP40 reload accelerates twice.
+    _anim.speed_scale = 1.0
+    var custom_speed: float = playback_speed if _clip_forward else -playback_speed
+    _anim.play(_animation_name, -1.0, custom_speed, not _clip_forward)
     _anim.seek(float(from_frame) / _source_fps + 0.00001, true)
     return true
 
