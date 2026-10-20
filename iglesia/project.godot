@@ -1,0 +1,32 @@
+; Godot 4.6 project. New runtime authority: Iglesia, no Virin or old scene dependencies.
+config_version=5
+
+[application]
+config/name="Iglesia"
+run/main_scene="res://scenes/iglesia.tscn"
+config/features=PackedStringArray("4.6", "Mobile")
+
+[display]
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/handheld/orientation=0
+
+[input]
+move_forward={"deadzone":0.15,"events":[Object(InputEventKey,"physical_keycode":87)]}
+move_back={"deadzone":0.15,"events":[Object(InputEventKey,"physical_keycode":83)]}
+move_left={"deadzone":0.15,"events":[Object(InputEventKey,"physical_keycode":65)]}
+move_right={"deadzone":0.15,"events":[Object(InputEventKey,"physical_keycode":68)]}
+jump={"deadzone":0.1,"events":[Object(InputEventKey,"physical_keycode":32)]}
+sprint={"deadzone":0.1,"events":[Object(InputEventKey,"physical_keycode":4194325)]}
+fire={"deadzone":0.1,"events":[Object(InputEventMouseButton,"button_index":1)]}
+ads={"deadzone":0.1,"events":[Object(InputEventMouseButton,"button_index":2)]}
+reload={"deadzone":0.1,"events":[Object(InputEventKey,"physical_keycode":82)]}
+interact={"deadzone":0.1,"events":[Object(InputEventKey,"physical_keycode":69)]}
+slide={"deadzone":0.1,"events":[Object(InputEventKey,"physical_keycode":67)]}
+
+[rendering]
+renderer/rendering_method="mobile"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/default_filters/use_nearest_mipmap_filter=false
+environment/defaults/default_clear_color=Color(0.016, 0.020, 0.027, 1)
