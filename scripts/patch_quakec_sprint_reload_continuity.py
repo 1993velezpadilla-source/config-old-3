@@ -15,7 +15,7 @@ path = Path(sys.argv[1]) / "source/server/weapons/weapon_core.qc"
 src = path.read_text(encoding="utf-8")
 
 def function(name: str) -> tuple[int, int, str]:
-    candidates = (f"void() {name} =", f"void {name} ()")
+    candidates = (f"void() {name} =", f"void(float side) {name} =", f"void {name} ()")
     starts = [src.find(token) for token in candidates if token in src]
     if len(starts) != 1:
         raise RuntimeError(f"Missing or ambiguous QuakeC function {name}: {starts}")
