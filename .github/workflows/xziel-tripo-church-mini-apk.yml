@@ -98,8 +98,15 @@ jobs:
           d=json.load(open("build/church_mini/nzp/tripo_mini_export.json"))
           assert len(d["assetSources"])==2
           assert {x["kind"] for x in d["assetSources"]}=={"bench","altar"}
-          assert d["triangles"]>200 and d["triangles"]<=155000
-          assert d["textureCount"]>0
+          assert d["triangles"]>200 and d["triangles"]<=360000
+          assert d["textureCount"]==2
+          from pathlib import Path
+          atlas=Path("build/church_mini/nzp/textures/xziel/sanctum_mini")
+          for kind in ("bench","altar"):
+              tex=atlas/f"{kind}_000.png"
+              assert tex.stat().st_size>20000, f"{kind}: FLAT_SWATCH_INSTEAD_OF_REAL_TRIPO_PBR"
+              print("USER_TRIPO_ORIGINAL_PBR_GREEN",kind,tex.stat().st_size)
+          assert all(x["lodTrianglesPerInstance"]>22000 for x in d["assetSources"])
           print("USER_TRIPO_MOBILE_XZSM_GREEN",d["triangles"],d["textureCount"])
           PY
 
@@ -230,6 +237,7 @@ jobs:
           test "$("$ADB" shell getprop sys.boot_completed | tr -d '\r')" == "1"
           "$ADB" install -r build/android-project/app/build/outputs/apk/debug/app-debug.apk
           "$ADB" logcat -c
+          "$ADB" shell settings put secure immersive_mode_confirmations confirmed || true
           "$ADB" shell am start -W -n com.xziel.churchmini/org.libsdl.app.NZPActivity \
               > church-mini-dist/am-start.txt
           for i in $(seq 1 40); do
@@ -239,6 +247,9 @@ jobs:
           done
           echo "$STAGE" > church-mini-dist/runtime-stage.txt
           test "$STAGE" = "FIRST_FRAME_OK"
+          # Old CI screen capture was mostly Android's "Viewing full screen"
+          # modal, hiding the altar and making a false screenshot GREEN.
+          "$ADB" shell input tap 1700 500 || true
           sleep 5
           "$ADB" exec-out screencap -p > church-mini-dist/church-mini-real-android.png
           "$ADB" logcat -d -v threadtime > church-mini-dist/logcat.txt
@@ -250,6 +261,13 @@ jobs:
           print("CHURCH_MINI_REAL_ANDROID_FRAME",im.size,round(s.stddev[0],2))
           assert im.width>im.height, "PORTRAIT_ORIENTATION_NOT_ACCEPTED"
           assert s.stddev[0]>6.0, "BLANK_OR_FLAT_FRAME_NOT_ACCEPTED"
+          # An OS permission/immersive overlay must never be advertised as
+          # in-game rendering evidence.
+          pts=[im.getpixel((int(im.width*u/100),int(im.height*v/100)))
+               for v in range(16,48,4) for u in range(32,68,4)]
+          overlay_white=sum(min(rgb)>225 for rgb in pts)/len(pts)
+          print("CHURCH_MINI_OS_POPUP_WHITE_COVERAGE",round(overlay_white,3))
+          assert overlay_white<0.65,"OS_FULLSCREEN_POPUP_NOT_DISMISSED"
           PY
           ! grep -Eq 'Fatal signal|FATAL EXCEPTION|XZSM: invalid header|stage=SYS_ERROR' church-mini-dist/logcat.txt
           echo "CHURCH_MINI_REAL_ANDROID_VISUAL_GREEN" | tee church-mini-dist/runtime-visual-state.txt
