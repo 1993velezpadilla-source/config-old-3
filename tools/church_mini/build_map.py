@@ -9,7 +9,7 @@ OUT.parent.mkdir(parents=True, exist_ok=True)
 def kv(key, value):
     return '"%s" "%s"\n' % (key, value)
 
-def box(a, b, texture="bricks_temple_l"):
+def box(a, b, texture="brick_grey_wol"):
     x1,y1,z1=map(int,a)
     x2,y2,z2=map(int,b)
     assert x1<x2 and y1<y2 and z1<z2, (a,b)
@@ -38,7 +38,7 @@ parts=['// XZIEL CHURCH MINI — original NZ:P gameplay, Tripo PBR furniture vis
 # Sealed playable nave. Central aisle runs toward +Y (north).
 parts.extend([
     box((-340,-520,-16),(340,520,0),"w_wood_floor_dr"),
-    box((-340,-520,312),(340,520,328),"ceilings_y_di2"),
+    box((-340,-520,312),(340,520,328),"brick_grey_wol"),
     box((-356,-520,0),(-340,520,328)),
     box((340,-520,0),(356,520,328)),
     box((-340,-536,0),(340,-520,328)),
@@ -57,7 +57,7 @@ parts.extend([
 for y in (-220,-80,60,200):
     for x in (-171,171):
         parts.append(box((x-93,y-28,0),(x+93,y+28,52),"CLIP"))
-parts.append(box((-75,375,18),(75,460,108),"CLIP"))
+parts.append(box((-119,337,18),(119,482,176),"CLIP"))
 parts.append("}\n")
 
 for i,(x,y) in enumerate(((-42,-395),(42,-395),(-42,-450),(42,-450)),1):
