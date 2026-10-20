@@ -10,6 +10,7 @@ on:
       - "tools/church_mini/**"
       - "scripts/patch_vril_church_mini.py"
       - "scripts/patch_vril_approved_touch_skins.py"
+      - "scripts/patch_vril_church_hide_weapon_cards.py"
       - "scripts/install_approved_touch_skins.py"
       - "xogot/assets/hud/latest_12/**"
       - "scripts/patch_quakec_modern_movement.py"
@@ -96,6 +97,15 @@ jobs:
           for s in scripts:
               print("VRIL_PATCH_PREFLIGHT",s,flush=True)
               subprocess.run(["python3","scripts/"+s,"/tmp/xziel-vril-source-probe"],check=True)
+          from pathlib import Path
+          h=Path("/tmp/xziel-vril-source-probe/source/render/r_hud.c").read_text()
+          touch=Path("/tmp/xziel-vril-source-probe/source/platform/sdl/sys_sdl.c").read_text()
+          assert "CHURCH_MINI: author removed the 3 weapon cards" in h
+          assert "xziel_approved_skin_swap;" in h
+          assert '0.041f, "SWAP", "", xziel_mobile_switch_pressed, editor);' in h
+          assert "no phantom hit areas after card removal" in touch
+          assert "0.052f * hs)) return XZ_TOUCH_SWITCH;" in touch
+          print("XZIEL_NO_WEAPON_CARDS_SWAP_STILL_WORKS_PREFLIGHT_GREEN")
           print("XZIEL_NATIVE_SOURCE_PATCH_GATE_GREEN",len(scripts))
           PY
 
