@@ -1,0 +1,71 @@
+{
+  "project": "Iglesia",
+  "branch": "feature/iglesia-godot-cleanroom-20261020",
+  "policy": "new Godot runtime; reference art only, no old code",
+  "church_art": {
+    "repo": "1993velezpadilla-source/config-old-3",
+    "ref": "feature/sanctum-ash-tripo-furniture-swap-20261020",
+    "items": {
+      "altar.glb": {
+        "source": "xogot/assets/environment/church/altar.glb",
+        "git_blob_sha": "30516ffc82687374793e555fbe66f6f4b325e206"
+      },
+      "bench.glb": {
+        "source": "xogot/assets/environment/church/bench.glb",
+        "git_blob_sha": "12fff5499483ce023803f4460e0b52190d2799be"
+      },
+      "materials/stone_wall_diff_4k.jpg": {
+        "source": "xogot/assets/materials/church/stone_wall_4k/stone_wall_diff_4k.jpg",
+        "git_blob_sha": "77d080a53db66d15a5cbde6fb103700ea333b6a6"
+      },
+      "materials/stone_wall_nor_gl_4k.jpg": {
+        "source": "xogot/assets/materials/church/stone_wall_4k/stone_wall_nor_gl_4k.jpg",
+        "git_blob_sha": "b6aac7fe11a8131b70543a4736d7b1b1af87fa9b"
+      },
+      "materials/stone_wall_rough_4k.jpg": {
+        "source": "xogot/assets/materials/church/stone_wall_4k/stone_wall_rough_4k.jpg",
+        "git_blob_sha": "111801b34155b3733a8f41f179eda54a5019c6a3"
+      }
+    }
+  },
+  "hud": {
+    "repo": "1993velezpadilla-source/config-old-3",
+    "commit": "0119c5b0f9109c4c88dbdd4173a9a2ba523abc3d",
+    "path": "assets/xziel/official_touch_skins_v1",
+    "names": [
+      "aim.png",
+      "aim_fire.png",
+      "crouch.png",
+      "fire.png",
+      "grenade.png",
+      "interact.png",
+      "knife.png",
+      "prone.png",
+      "reload.png",
+      "slide.png",
+      "vault_jump.png",
+      "weapon_swap.png"
+    ]
+  },
+  "mp40": {
+    "repo": "1993velezpadilla-source/XZombie",
+    "commit": "d3a7fd089b",
+    "branch": "experiment/nun-universal-bone2d-hands-v1-20261019",
+    "path": "bukkbeek-mobile/pixel_assets/WWII MP40 Pixel Art Sprite Sheet.png",
+    "size": [
+      1448,
+      1086
+    ],
+    "frames": [
+      "idle_hip_01",
+      "ads_idle",
+      "fire_hip_01",
+      "ads_fire_01",
+      "sprint_01",
+      "reload_01",
+      "reload_02",
+      "reload_03",
+      "reload_04"
+    ]
+  }
+}
