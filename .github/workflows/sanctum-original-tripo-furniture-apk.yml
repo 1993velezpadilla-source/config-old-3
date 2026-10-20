@@ -103,7 +103,7 @@ jobs:
           from pathlib import Path
           h=Path("/tmp/xziel-vril-source-probe/source/render/r_hud.c").read_text()
           touch=Path("/tmp/xziel-vril-source-probe/source/platform/sdl/sys_sdl.c").read_text()
-          assert "SANCTUM_ASH_TRIPO: author removed the 3 weapon cards" in h
+          assert "CHURCH_MINI: author removed the 3 weapon cards" in h
           assert "xziel_approved_skin_swap;" in h
           assert '0.041f, "SWAP", "", xziel_mobile_switch_pressed, editor);' in h
           assert "no phantom hit areas after card removal" in touch
