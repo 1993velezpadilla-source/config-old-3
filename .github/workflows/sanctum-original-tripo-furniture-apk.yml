@@ -165,6 +165,8 @@ jobs:
           assert bench["orientationMethod"]=="backrest-height-detected"
           assert abs(bench["yawDegrees"]) in (0.0,90.0,180.0)
           assert altar["orientationMethod"]=="explicit-altar-facing-nave"
+          assert abs(altar["yawDegrees"])==180.0, "ALTAR_STILL_END_ON"
+          assert altar["uniformScale"]>250.0, "ALTAR_TOO_SMALL"
           print("SANCTUM_ALTAR_PLUS_12_REAL_TRIPO_PEW_TRANSFORMS_GREEN",bench["yawDegrees"],altar["yawDegrees"])
           print("USER_TRIPO_MOBILE_XZSM_GREEN",d["triangles"],d["textureCount"])
           PY
