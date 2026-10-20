@@ -3,6 +3,7 @@ extends CharacterBody3D
 signal died(zombie: Node)
 
 const MONJA_BASICA_PATH := "res://assets/zombies/monja_basica.glb"
+const NUN_ENEMY_01_SPRITE := "res://assets/zombies/nun_enemy_01_master.png"
 
 @export var move_speed: float = 1.85
 @export var health: float = 100.0
@@ -36,12 +37,20 @@ var _attack_timer: float = 0.0
 var _gravity: float = 18.0
 var _hit_reaction_timer: float = 0.0
 var _visual_root: Node3D
+var _avoidance_side: float = 1.0
+var _avoidance_timer: float = 0.0
+var _last_chase_position: Vector3 = Vector3.ZERO
+var _stuck_seconds: float = 0.0
+var _unstick_seconds: float = 0.0
+const OBSTACLE_PROBE_DISTANCE := 1.45
+const OBSTACLE_PROBE_HEIGHT := 0.52
 
 func _ready() -> void:
 	_gravity = float(ProjectSettings.get_setting("physics/3d/default_gravity", 18.0))
 	floor_snap_length = 0.24
 	add_to_group("zombie")
 	_build_body()
+	_last_chase_position = global_position
 	print("XZOGOT_ZOMBIE_GROUND_SNAP_READY 0.24")
 	print("XZOGOT_ZOMBIE_READY")
 
@@ -58,6 +67,9 @@ func _build_body() -> void:
 	cs.shape = capsule
 	cs.position.y = collider_height * 0.5
 	add_child(cs)
+
+	if _build_nun_sprite_visual():
+		return
 
 	if ResourceLoader.exists(MONJA_BASICA_PATH):
 		var packed: PackedScene = load(MONJA_BASICA_PATH) as PackedScene
@@ -90,6 +102,35 @@ func _build_body() -> void:
 
 	_build_fallback_visual()
 	print("XZOGOT_MONJA_BASICA_FALLBACK")
+
+# Optional approved 2.5D visual. Physics, AI, hitboxes and rounds remain unchanged.
+# Keep the existing 3D nun as fallback until the full-resolution PNG is present.
+func _build_nun_sprite_visual() -> bool:
+	if not ResourceLoader.exists(NUN_ENEMY_01_SPRITE):
+		return false
+	var texture := load(NUN_ENEMY_01_SPRITE) as Texture2D
+	if texture == null or texture.get_width() < 512 or texture.get_height() < 1024:
+		push_warning("NUN_01_SPRITE_REJECTED: source must be >= 512x1024")
+		return false
+	var sprite := Sprite3D.new()
+	sprite.name = "NunEnemy01Sprite"
+	sprite.texture = texture
+	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sprite.transparent = true
+	sprite.shaded = true
+	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	sprite.pixel_size = target_visual_height / float(texture.get_height())
+	# Keep the cutout standing on the floor without changing the physics capsule.
+	sprite.position.y = target_visual_height * 0.5
+	sprite.no_depth_test = false
+	add_child(sprite)
+	_visual_root = sprite
+	set_meta("zombie_model", "nun_enemy_01_2_5d")
+	set_meta("zombie_visual_height_m", target_visual_height)
+	set_meta("zombie_visual_centered_on_feet", true)
+	print("XZOGOT_NUN_01_SPRITE_READY ", texture.get_width(), "x", texture.get_height())
+	return true
 
 func _fit_visual_to_gameplay_bounds(
 	wrapper: Node3D,
@@ -189,6 +230,7 @@ func _build_fallback_visual() -> void:
 
 func _physics_process(delta: float) -> void:
 	_update_hit_reaction(delta)
+	_avoidance_timer = maxf(0.0, _avoidance_timer - delta)
 	if phase == Phase.DEAD:
 		return
 	if _attack_timer > 0.0:
@@ -203,7 +245,7 @@ func _physics_process(delta: float) -> void:
 		Phase.ATTACK_BARRICADE:
 			_tick_barricade()
 		Phase.CHASE_PLAYER:
-			_tick_chase()
+			_tick_chase(delta)
 		Phase.CROSS_WINDOW:
 			_tick_cross_window()
 
@@ -251,12 +293,35 @@ func _tick_cross_window() -> void:
 		phase = Phase.CHASE_PLAYER
 		print("XZOGOT_ZOMBIE_ENTERED")
 
-func _tick_chase() -> void:
+func _tick_chase(delta: float) -> void:
 	if target_player == null or not is_instance_valid(target_player):
 		velocity.x = 0.0
 		velocity.z = 0.0
 		return
 	var target: Vector3 = target_player.global_position
+	# Descending from the balcony: keep moving along the ramp rather than
+	# steering sideways into its upper landing. Only activate when the
+	# target is substantially lower and the zombie is within the ramp lane.
+	if global_position.y > target.y + 1.8 and absf(global_position.x + 6.24) < 1.8 and global_position.z > 0.0 and global_position.z < 7.2:
+		# The upper landing overlaps the ramp entry. Drive along the
+		# ramp's downhill tangent, rather than directly at a low target
+		# through the landing's vertical collision face.
+		var ramp_exit := Vector3(-6.24, target.y, 0.20)
+		var downhill := Vector3(0.0, 0.0, -1.0)
+		velocity.x = 0.0
+		velocity.z = downhill.z * move_speed
+		# A grounded CharacterBody3D cannot cross a raised lip by
+		# horizontal motion alone. A tiny upward step assist is allowed
+		# only while blocked at the top of the authored ramp.
+		if is_on_wall() and is_on_floor() and global_position.z > 5.8:
+			velocity.y = maxf(velocity.y, 2.2)
+		move_and_slide()
+		return
+	# An inclined walkable ramp is a floor, not furniture to dodge.
+	# Floor snap must remain active on the slope and the character must
+	# accept slopes below the authored ramp's 36.91 degree incline.
+	floor_max_angle = deg_to_rad(45.0)
+	floor_snap_length = maxf(floor_snap_length, 0.32)
 	var flat_distance: float = Vector2(global_position.x - target.x, global_position.z - target.z).length()
 	if flat_distance <= 1.25:
 		velocity.x = 0.0
@@ -265,17 +330,66 @@ func _tick_chase() -> void:
 			target_player.call("apply_damage", player_damage)
 			_attack_timer = attack_interval
 		return
-	_move_toward_flat(target, 0.0)
+	# Detect genuine lack of progress rather than changing sides every frame.
+	var progress := Vector2(global_position.x - _last_chase_position.x, global_position.z - _last_chase_position.z).length()
+	if progress < 0.015:
+		_stuck_seconds += delta
+	else:
+		_stuck_seconds = 0.0
+	_last_chase_position = global_position
+	if _stuck_seconds > 0.85:
+		_avoidance_side *= -1.0
+		_unstick_seconds = 1.1
+		_stuck_seconds = 0.0
+	_unstick_seconds = maxf(0.0, _unstick_seconds - delta)
+	_move_toward_flat(target, 0.0, true)
 
-func _move_toward_flat(target: Vector3, stop_distance: float) -> bool:
-	return _move_toward_flat_speed(target, stop_distance, move_speed)
+# Local obstacle steering for pews. This is deliberately NOT a navmesh solution:
+# it prevents repeated straight-line collisions while full pathfinding is built.
+func _steer_around_furniture(forward: Vector3) -> Vector3:
+	var space := get_world_3d().direct_space_state
+	if space == null:
+		return forward
+	var origin := global_position + Vector3.UP * OBSTACLE_PROBE_HEIGHT
+	var query := PhysicsRayQueryParameters3D.create(origin, origin + forward * OBSTACLE_PROBE_DISTANCE)
+	query.exclude = [get_rid()]
+	query.collision_mask = collision_mask
+	var hit := space.intersect_ray(query)
+	if hit.is_empty() and _unstick_seconds <= 0.0:
+		_avoidance_timer = 0.0
+		return forward
+	var obstacle: Object = hit.get("collider")
+	if obstacle is StaticBody3D and (obstacle as StaticBody3D).is_in_group("walkable_stair_ramp"):
+		return forward
+	if not (obstacle is StaticBody3D) and _unstick_seconds <= 0.0:
+		return forward
+	if _avoidance_timer <= 0.0 and _unstick_seconds <= 0.0:
+		var right := Vector3(-forward.z, 0.0, forward.x)
+		var left_query := PhysicsRayQueryParameters3D.create(origin, origin + (forward - right * 0.85).normalized() * OBSTACLE_PROBE_DISTANCE)
+		var right_query := PhysicsRayQueryParameters3D.create(origin, origin + (forward + right * 0.85).normalized() * OBSTACLE_PROBE_DISTANCE)
+		left_query.exclude = [get_rid()]
+		right_query.exclude = [get_rid()]
+		left_query.collision_mask = collision_mask
+		right_query.collision_mask = collision_mask
+		var left_clear := space.intersect_ray(left_query).is_empty()
+		var right_clear := space.intersect_ray(right_query).is_empty()
+		if left_clear != right_clear:
+			_avoidance_side = -1.0 if left_clear else 1.0
+		_avoidance_timer = 0.75
+	var lateral := Vector3(-forward.z, 0.0, forward.x) * _avoidance_side
+	return (forward * 0.18 + lateral).normalized()
 
-func _move_toward_flat_speed(target: Vector3, stop_distance: float, speed: float) -> bool:
+func _move_toward_flat(target: Vector3, stop_distance: float, avoid_obstacles: bool = false) -> bool:
+	return _move_toward_flat_speed(target, stop_distance, move_speed, avoid_obstacles)
+
+func _move_toward_flat_speed(target: Vector3, stop_distance: float, speed: float, avoid_obstacles: bool = false) -> bool:
 	var delta_pos := Vector3(target.x - global_position.x, 0.0, target.z - global_position.z)
 	var distance: float = delta_pos.length()
 	if distance <= stop_distance:
 		return true
 	var direction: Vector3 = delta_pos.normalized()
+	if avoid_obstacles:
+		direction = _steer_around_furniture(direction)
 	var target_yaw: float = atan2(-direction.x, -direction.z)
 	rotation.y = lerp_angle(rotation.y, target_yaw, turn_lerp)
 	velocity.x = direction.x * speed

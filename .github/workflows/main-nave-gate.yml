@@ -1,0 +1,47 @@
+name: Main Nave Godot Geometry Gate
+
+on:
+  pull_request:
+    branches:
+      - feature/xogot-port-v1
+    paths:
+      - 'xogot/**'
+      - '.github/workflows/main-nave-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  nave-geometry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot 4.6
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 -o /tmp/godot.zip \
+            https://github.com/godotengine/godot-builds/releases/download/4.6-stable/Godot_v4.6-stable_linux.x86_64.zip
+          unzip -q /tmp/godot.zip -d /tmp
+          chmod +x /tmp/Godot_v4.6-stable_linux.x86_64
+          sudo mv /tmp/Godot_v4.6-stable_linux.x86_64 /usr/local/bin/godot
+          godot --version
+      - name: Import project resources
+        run: godot --headless --path xogot --editor --quit
+      - name: Run Main Nave geometry gate
+        run: godot --headless --path xogot --script res://ci/main_nave_gate.gd
+      - name: Run 10-zombie chase physics smoke
+        run: godot --headless --path xogot --script res://ci/zombie_chase_smoke.gd
+      - name: Verify zombie can cross pew rows
+        run: godot --headless --path xogot --script res://ci/zombie_pew_route_gate.gd
+      - name: Verify left right and center church routes
+        run: godot --headless --path xogot --script res://ci/zombie_multi_route_gate.gd
+      - name: Verify altar and balcony stair ramp geometry
+        run: godot --headless --path xogot --script res://ci/altar_stairs_geometry_gate.gd
+      - name: Verify zombie ascends and descends balcony ramp
+        run: godot --headless --path xogot --script res://ci/zombie_stair_traversal_gate.gd
+
+      - name: Verify Nun Enemy 01 Sprite3D and collider
+        run: godot --headless --path xogot --script res://ci/nun_sprite_gate.gd
