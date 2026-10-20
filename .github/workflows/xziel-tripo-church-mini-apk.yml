@@ -67,7 +67,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq blender
+          sudo apt-get install -y -qq blender python3-numpy
           blender --background --factory-startup --python tools/church_mini/export_tripo_xzsm.py \
             2>&1 | tee build/church_mini/tripo-export.log
           grep -q XZIEL_TRIPO_MINI_EXPORT_GREEN build/church_mini/tripo-export.log
