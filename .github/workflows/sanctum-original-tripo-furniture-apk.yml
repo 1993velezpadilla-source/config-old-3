@@ -190,8 +190,9 @@ jobs:
             cd /tmp/nzp-assets
             # Clone-local copies of the genuine NZ:P masonry and tile artwork.
             # Avoid Android 255-white floor and high-contrast blown-out stone.
-            python3 "$GITHUB_WORKSPACE/tools/church_map/grade_sanctum_wad.py" \
+            python3 "$GITHUB_WORKSPACE/tools/church_map/fetch_sanctum_polyhaven_4k.py" \
               --wad-root source/textures/wad/Loop \
+              --4k-evidence "$GITHUB_WORKSPACE/build/church_mini/cc0_source_4k" \
               --report "$GITHUB_WORKSPACE/build/church_mini/sanctum_material_grade.json"
             bash tools/compile-wads.sh
             mkdir -p source/maps/sanctum_authored
@@ -237,6 +238,7 @@ jobs:
                   textures[name]=(w,h)
           expected={"sanctum_floor","sanctum_wall","sanctum_ceiling"}
           assert expected<=set(textures), (expected,set(textures))
+          assert len(textures)==3
           print("SANCTUM_ANDROID_BSP_EMBEDDED_ATMOSPHERIC_ART_GREEN",textures)
           PY
 
@@ -272,6 +274,19 @@ jobs:
           cp -a build/church_mini/nzp /tmp/xziel-sanctum-ash-nzp
           cp build/church_mini/map_report.json sanctum-ash-dist/
           cp build/church_mini/sanctum_material_grade.json sanctum-ash-dist/
+          mkdir -p sanctum-ash-dist/cc0_source_4k
+          cp build/church_mini/cc0_source_4k/* sanctum-ash-dist/cc0_source_4k/
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("sanctum-ash-dist/sanctum_material_grade.json").read_text())
+          assert d["source_resolution"]=="4096x4096 ORIGINAL CC0"
+          assert d["runtime_bsp_resolution"]=="1024x1024 MOBILE LOD - NOT NATIVE 4K"
+          assert len(d["materials"])==3
+          assert all(tuple(m["source_resolution"])==(4096,4096) for m in d["materials"].values())
+          assert all(tuple(m["bsp_footprint_px"])==(1024,1024) for m in d["materials"].values())
+          print("SANCTUM_THREE_REAL_4K_TEXTURE_MASTERS_EVIDENCE_GREEN")
+          PY
           cp build/church_mini/sanctum_tripo_layout.svg sanctum-ash-dist/
           cp build/church_mini/nzp/tripo_sanctum_export.json sanctum-ash-dist/
           cp build/church_mini/tripo-export.log sanctum-ash-dist/
