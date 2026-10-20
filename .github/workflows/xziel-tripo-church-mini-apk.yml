@@ -64,7 +64,7 @@ jobs:
           from pathlib import Path
           import re, subprocess
           src=Path("scripts/prepare_android.sh").read_text()
-          scripts=re.findall(r'python3 "\\$ROOT/scripts/(patch_vril_[^"]+\\.py)" "\\$DEPS/vril"',src)
+          scripts=[line.split("scripts/")[1].split('"')[0] for line in src.splitlines() if 'python3 "$ROOT/scripts/patch_vril_' in line and '"$DEPS/vril"' in line]
           assert len(scripts)>=10, scripts
           for s in scripts:
               print("VRIL_PATCH_PREFLIGHT",s,flush=True)
