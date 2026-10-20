@@ -41,7 +41,9 @@ if SANCTUM_ASH:
     PLACEMENTS={
         "bench":(POSITIONS_BENCH,(74,150,58)),
         # The authored chancel floor/platform is at z=24 at x=760.
-        "altar":([(754,0,24)],(190,345,240)),
+        # Player-height altar; preserve the original Tripo mesh/PBR, reduce only
+        # uniform scale to leave an actual chancel circulation loop.
+        "altar":([(754,0,24)],(125,220,110)),
     }
 
 def reset_scene():
