@@ -1,4 +1,4 @@
-name: Vril Original MP40 In Church Android
+name: Vril Original Arsenal In Church Android
 
 on:
   workflow_dispatch:
@@ -10,6 +10,10 @@ on:
       - "xogot/scripts/vril_mp40_church_bridge.gd"
       - "xogot/vril_mp40_church_test.tscn"
       - "xogot/ci/vril_mp40_church_smoke.gd"
+      - "xogot/data/vril_arsenal_quakec_contract.json"
+      - "xogot/scripts/vril_arsenal_church_bridge.gd"
+      - "xogot/vril_arsenal_church_test.tscn"
+      - "xogot/ci/vril_arsenal_church_smoke.gd"
 
 permissions:
   contents: read
@@ -37,7 +41,7 @@ jobs:
           github-token: ${{ github.token }}
           path: /tmp/vril-validated
 
-      - name: Mount original MP40 with all retained source frames
+      - name: Mount all 41 original first-person model parts with retained vertex animation
         shell: bash
         run: |
           set -euo pipefail
@@ -95,20 +99,29 @@ jobs:
           text=p.read_text()
           old='run/main_scene="res://main.tscn"'
           assert text.count(old)==1
-          text=text.replace(old,'run/main_scene="res://vril_mp40_church_test.tscn"')
-          text=text.replace('window/handheld/orientation=4','window/handheld/orientation=1')
+          text=text.replace(old,'run/main_scene="res://vril_arsenal_church_test.tscn"')
+          text=text.replace('window/handheld/orientation=4','window/handheld/orientation=4')
+          assert 'window/handheld/orientation=4' in text, 'Android MUST be landscape 4, portrait 1 was confirmed bug'
           p.write_text(text)
           p=Path('xogot/export_presets.cfg')
           value=p.read_text()
           value=value.replace('package/unique_name="com.xziel.youwontwin"',
-                             'package/unique_name="com.xziel.virinmp40churchtest"')
+                             'package/unique_name="com.xziel.virin41churchtest"')
           value=value.replace('package/name="YOU WON\'T WIN"',
-                             'package/name="Vril MP40 Church Test"')
+                             'package/name="Vril 41 Church Test"')
           value=value.replace('include_filter=""','include_filter="*.json"')
           value=value.replace('permissions/internet=true','permissions/internet=false')
           value=value.replace('permissions/record_audio=true','permissions/record_audio=false')
-          value=value.replace('version/code=1','version/code=44')
+          value=value.replace('version/code=1','version/code=45')
           p.write_text(value)
+          profile=Path('xogot/data/vril_arsenal_quakec_contract.json')
+          assert profile.is_file(), 'Missing original QuakeC arsenal mapping'
+          contract=__import__('json').loads(profile.read_text())
+          assert len(contract['entries'])==41, 'Source 41-viewmodel package not mapped'
+          assert sum(x['gameplay_id'] is not None for x in contract['entries'])==23, '23 original weapon ID connections missing'
+          assert sum(x['gameplay_id'] is None for x in contract['entries'])==18, '18 auxiliary views must remain preview-only'
+          print('VRIL_41_CONTRACT_SOURCE_GREEN 23 game + 18 preview')
+          print('VRIL_LANDSCAPE_GODOT_CONFIG_GREEN sensor_landscape=4')
           print('VRIL_CHURCH_TEST_SCENE_ONLY_STAGED')
           PY
 
@@ -122,10 +135,10 @@ jobs:
             2>&1 | tee build/vril-church/import.log
           ! grep -E "SCRIPT ERROR|Parse Error|Failed to load script" build/vril-church/import.log
           timeout 180 "$GODOT" --headless --path xogot \
-            --script res://ci/vril_mp40_church_smoke.gd \
+            --script res://ci/vril_arsenal_church_smoke.gd \
             2>&1 | tee build/vril-church/smoke.log
-          grep -q 'VRIL_MP40_CHURCH_RUNTIME_GREEN' build/vril-church/smoke.log
-          ! grep -E "SCRIPT ERROR|Parse Error|VRIL_MP40_CHURCH_RUNTIME_RED" build/vril-church/smoke.log
+          grep -q 'VRIL_ARSENAL_CHURCH_RUNTIME_GREEN' build/vril-church/smoke.log
+          ! grep -E "SCRIPT ERROR|Parse Error|VRIL_ARSENAL_CHURCH_RUNTIME_RED" build/vril-church/smoke.log
 
       - name: Configure Android SDK and independent debug signature
         shell: bash
@@ -152,26 +165,26 @@ jobs:
         run: |
           set -euo pipefail
           GODOT=/tmp/vril-godot/Godot_v4.6.1-stable_linux.x86_64
-          APK=build/vril-church/Vril-MP40-Original-Church-ARM64.apk
+          APK=build/vril-church/Vril-41-Original-Church-ARM64.apk
           "$GODOT" --headless --path xogot --export-debug "Android ARM64" \
             "../$APK" 2>&1 | tee build/vril-church/export.log
           test -s "$APK"
           AAPT2="$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 | sort -V | tail -n1)"
           "$AAPT2" dump badging "$APK" > build/vril-church/badging.txt
-          grep -q "package: name='com.xziel.virinmp40churchtest'" build/vril-church/badging.txt
+          grep -q "package: name='com.xziel.virin41churchtest'" build/vril-church/badging.txt
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n1)"
           "$APKSIGNER" verify --verbose "$APK" > build/vril-church/signature.txt
           grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' build/vril-church/signature.txt
           unzip -l "$APK" > build/vril-church/contents.txt
           grep -q 'lib/arm64-v8a/' build/vril-church/contents.txt
           sha256sum "$APK" > "$APK.sha256"
-          echo 'VRIL_MP40_ORIGINAL_CHURCH_APK_EXPORTED_GREEN'
+          echo 'VRIL_ARSENAL_CHURCH_APK_EXPORTED_GREEN'
 
       - name: Keep APK and red-gate evidence separate from stable game
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Vril-MP40-Original-Church-Android-Preview
+          name: Vril-41-Original-Church-Android-Preview
           path: build/vril-church/
           if-no-files-found: warn
           retention-days: 30
