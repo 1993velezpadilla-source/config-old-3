@@ -41,7 +41,7 @@ if SANCTUM_ASH:
     PLACEMENTS={
         "bench":(POSITIONS_BENCH,(74,150,58)),
         # The authored chancel floor/platform is at z=24 at x=760.
-        "altar":([(754,0,24)],(155,260,160)),
+        "altar":([(754,0,24)],(190,345,240)),
     }
 
 def reset_scene():
@@ -231,7 +231,12 @@ def export(kind,filename):
             # Original altar is wide on its native long axis. Rotate its
             # front toward west (-X), i.e. toward the approaching player.
             # Source artist forward is -Y after glTF import.
-            yaw=math.radians(float(os.environ.get("SANCTUM_ALTAR_YAW_DEG","-90")))
+            # Original Tripo altar is already long on Blender Y after glTF import.
+            # A -90 degree yaw put its LONG side along the nave and exposed
+            # only the narrow end to the player (seen in GREEN Android V1).
+            # Rotate 180 instead: long ceremonial face spans church Y,
+            # directed toward player at nave -X.
+            yaw=math.radians(float(os.environ.get("SANCTUM_ALTAR_YAW_DEG","180")))
             orientation_method="explicit-altar-facing-nave"
         c=abs(math.cos(yaw))
         si=abs(math.sin(yaw))
