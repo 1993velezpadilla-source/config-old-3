@@ -21,8 +21,8 @@ MODEL_DIR.mkdir(parents=True,exist_ok=True)
 META=[]
 BATCHES=[]
 BATCH_LIMIT=10000
-MAX_TOTAL_TRIANGLES=155000
-SCALE_RATIO=0.006  # mobile ~0.6% LOD on copies; originals never modified
+MAX_TOTAL_TRIANGLES=360000
+CURRENT_KIND=''  # selects per-asset silhouette-preserving LOD budget
 POSITIONS_BENCH=[(-171,y,27) for y in (-220,-80,60,200)]+[(171,y,27) for y in (-220,-80,60,200)]
 PLACEMENTS={
     "bench":(POSITIONS_BENCH,(180,52,50)),
@@ -55,34 +55,69 @@ def get_image(material):
             return node.image
     return None
 
-def bake_basecolor(kind,idx,material):
+def embedded_basecolor_bytes(path):
+    """Recover the exact Tripo PBR base-color JPEG from the embedded GLB chunk.
+    The Blender importer can leave TEX_IMAGE.has_data false in headless CI:
+    never replace the user's original image with a flat color swatch.
+    """
+    with path.open("rb") as f:
+        header=f.read(20)
+        magic,version,full_size,json_size,json_type=struct.unpack("<4sIIII",header)
+        if magic!=b"glTF" or version!=2 or json_type!=0x4e4f534a:
+            raise RuntimeError("Expected original glTF 2.0 binary file")
+        doc=json.loads(f.read(json_size))
+        buf_len,buf_type=struct.unpack("<II",f.read(8))
+        if buf_type!=0x004e4942:
+            raise RuntimeError("Expected embedded GLB BIN chunk")
+        material=doc["materials"][0]
+        tex_index=material["pbrMetallicRoughness"]["baseColorTexture"]["index"]
+        img_index=doc["textures"][tex_index]["source"]
+        img=doc["images"][img_index]
+        view=doc["bufferViews"][img["bufferView"]]
+        offset=view.get("byteOffset",0)
+        length=view["byteLength"]
+        if offset<0 or length<20000 or offset+length>buf_len:
+            raise RuntimeError("Tripo PBR image missing or truncated")
+        f.seek(20+json_size+8+offset)
+        payload=f.read(length)
+        if len(payload)!=length:
+            raise RuntimeError("Tripo PBR image read truncated")
+        fmt=img.get("mimeType","")
+        if fmt not in ("image/jpeg","image/png"):
+            raise RuntimeError("Unsupported Tripo PBR base-color image MIME: "+fmt)
+        return payload,fmt,img.get("name","untitled")
+
+def bake_basecolor(kind,idx,material,source_path):
+    """Reconstruct 1024px actual-color atlas; FLAT COLOR is a build failure."""
+    from tempfile import NamedTemporaryFile
     stem="%s_%03d"%(kind,idx)
     path=TEXTURE_DIR/(stem+".png")
-    texture=get_image(material)
-    if texture is not None and texture.has_data:
-        try:
-            texture=texture.copy()  # preserve source image datablock
-            w,h=texture.size
-            if w<1 or h<1:
-                raise ValueError("empty image")
-            maxsize=512
-            factor=min(1.0,float(maxsize)/max(w,h))
-            if factor<1.0:
-                texture.scale(max(1,round(w*factor)),max(1,round(h*factor)))
-            texture.filepath_raw=str(path.resolve())
-            texture.file_format="PNG"
-            texture.save()
-            assert path.stat().st_size>32
-            return "textures/xziel/sanctum_mini/"+stem
-        except Exception as exc:
-            print("TRIPO_TEXTURE_FALLBACK",kind,idx,str(exc))
-    image=bpy.data.images.new(stem+"_fallback",width=8,height=8,alpha=True)
-    color=(0.30,0.16,0.09,1.0) if kind=="bench" else (0.48,0.39,0.27,1.0)
-    image.pixels[:]=list(color)*64
-    image.filepath_raw=str(path.resolve())
-    image.file_format="PNG"
-    image.save()
-    return "textures/xziel/sanctum_mini/"+stem
+    data,mime,source_name=embedded_basecolor_bytes(source_path)
+    extension=".jpg" if mime=="image/jpeg" else ".png"
+    with NamedTemporaryFile(prefix="xz_church_"+kind+"_",suffix=extension,delete=False) as src:
+        src.write(data)
+        tmp_path=Path(src.name)
+    try:
+        image=bpy.data.images.load(str(tmp_path),check_existing=False)
+        source_size=tuple(image.size)
+        if min(source_size)<16:
+            raise RuntimeError("Invalid original PBR image dimensions")
+        longest=max(source_size)
+        scale=min(1.0,1024/longest)
+        if scale<1:
+            image.scale(max(1,round(source_size[0]*scale)),
+                        max(1,round(source_size[1]*scale)))
+        image.filepath_raw=str(path.resolve())
+        image.file_format="PNG"
+        image.save()
+        if path.stat().st_size<20000:
+            raise RuntimeError("Texture export returned empty/flat file")
+        print("TRIPO_REAL_PBR_TEXTURE",kind,source_name,
+              "embeddedBytes",len(data),"sourceWH",source_size,
+              "outputWH",tuple(image.size),"bytes",path.stat().st_size)
+        return "textures/xziel/sanctum_mini/"+stem
+    finally:
+        tmp_path.unlink(missing_ok=True)
 
 def simplify(obj):
     if obj.type!="MESH" or not obj.data.polygons:
@@ -91,7 +126,7 @@ def simplify(obj):
     if triangles<15:
         return
     modifier=obj.modifiers.new("XZIEL_MOBILE_LOD_COPY","DECIMATE")
-    modifier.ratio=SCALE_RATIO
+    modifier.ratio=(0.016 if CURRENT_KIND == 'bench' else 0.028)
     bpy.ops.object.select_all(action="DESELECT")
     obj.select_set(True)
     bpy.context.view_layer.objects.active=obj
@@ -132,6 +167,8 @@ def export(kind,filename):
     if not objects:
         raise RuntimeError("Empty imported Tripo asset: "+filename)
     source_tris=sum(len(o.data.polygons) for o in objects)
+    global CURRENT_KIND
+    CURRENT_KIND=kind
     for obj in objects:
         simplify(obj)
     lo,hi=bounds(objects)
@@ -163,11 +200,11 @@ def export(kind,filename):
                             float(uv[0]),float(1.0-uv[1]),255,255,255,255))
             groups[key].append(tuple(tri))
             tris_kept+=1
-    if tris_kept==0 or tris_kept>70000:
+    if tris_kept==0 or tris_kept>75000:
         raise RuntimeError("Mobile budget invalid for "+kind+": "+str(tris_kept))
     # Material textures are decoded directly from Tripo GLB, never synthetically textured.
     for idx, material_key in enumerate(sorted(groups)):
-        texture=bake_basecolor(kind,idx,mats[material_key])
+        texture=bake_basecolor(kind,idx,mats[material_key],path)
         for placement in centers:
             verts=[];indices=[];index_of={}
             for triangle in groups[material_key]:
