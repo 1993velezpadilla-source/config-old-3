@@ -83,6 +83,28 @@ def stage_archived_tripo(repo: Path, assets: Path, previous_fixtures: list[dict]
     if len(source) != len(PACK_LOCKS):
         missing = sorted(set(PACK_LOCKS) - set(source))
         raise RuntimeError("TRIPO_LIBRARY_PACKS_PARTIAL_NOT_104 " + ",".join(missing))
+
+    # Independently revalidate the *exact original recovered media* so no
+    # prettified/stock replacement can be shipped with a misleading label.
+    hash_manifest = repo / "iglesia/docs/TRIPO_FIRST_ROOM_SOURCE_SHA256.json"
+    expected = json.loads(hash_manifest.read_text(encoding="utf-8"))
+    locked_models = expected["first_room_original_glb_sha256"]
+    locked_textures = expected["first_room_4096_pbr_sha256"]
+    if len(locked_models) != 10 or len(locked_textures) != 6:
+        raise RuntimeError("TRIPO_FIRST_ROOM_SOURCE_LOCK_MANIFEST_RED")
+    for rel, sha in locked_models.items():
+        group, model = rel.split("/", 1)
+        with ZipFile(source[group + ".zip"]) as locked_zip:
+            actual = sha256(locked_zip.read(group + "/" + model + ".glb")).hexdigest()
+        if actual != sha:
+            raise RuntimeError("TRIPO_FIRST_ROOM_ORIGINAL_MESH_SHA_RED " + rel)
+    for rel, sha in locked_textures.items():
+        group, _ = rel.split("/", 1)
+        with ZipFile(source[group + ".zip"]) as locked_zip:
+            actual = sha256(locked_zip.read(rel)).hexdigest()
+        if actual != sha:
+            raise RuntimeError("TRIPO_FIRST_ROOM_ORIGINAL_PBR_SHA_RED " + rel)
+    print("IGLESIA_USER_ORIGINAL_FIRSTROOM_10_GLB_6_PBR_SOURCE_LOCK_GREEN")
     all_entries: list[dict] = []
     visible: list[dict] = []
     counts: dict[str, int] = {}

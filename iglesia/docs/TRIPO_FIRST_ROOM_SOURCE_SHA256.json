@@ -1,0 +1,26 @@
+{
+  "project": "Iglesia",
+  "version": 1,
+  "origin": "original split Tripo GLBs from 8 verified ZIPs in project Library",
+  "first_room_original_glb_sha256": {
+    "chandeliers/Model_01": "4217c279ad070b59ca2694e5611b048c20499d4cf5b69162b4dc028653a4c3d7",
+    "chandeliers/Model_03": "c9a2b0cc93cecb5ab6a5cc72a1fe9c74cc32f324b1a455ca4ae3723aa1e4ccae",
+    "chandeliers/Model_05": "e58c2ac08d78837e01eff7445e5b403cc4c7a5fa7452a99bc6961734db2a00f2",
+    "chandeliers/Model_07": "b33e6bc2959423e125441b4b71491e5657bd2a34d6c1f2c0961148a18acd4520",
+    "candleholders/Model_01": "ca139377d34d724c0cbb20df6d0a180d38b7a9f64338cab0c96213392d79a1c4",
+    "candleholders/Model_03": "189fe0cb99111d0b19ac2ed68d7ea1f7589d2abe94075ffc513e50bdbf2066c3",
+    "candleholders/Model_06": "9c376e15adda051d2fb6bb59f3cd24e062b78c87fcfd862b2ec4d711d14bda88",
+    "candleholders/Model_08": "47b58bca535a0be445f59dcf86a85cdf141e8dd02732ff0d706a75a6bc15d21b",
+    "candleholders/Model_10": "abc4ef1339c9f1b31088413bed36efe238fc4d730494c37960e15254b91c44bc",
+    "candleholders/Model_12": "959522194f3c05e71d22f3757b6eb95b86bc77d52a880c2979e7d8e712c001e0"
+  },
+  "first_room_4096_pbr_sha256": {
+    "chandeliers/textures/ORM_3c662b29-0d8f-405b-907e-dd85afa18e38.jpg": "f931dade832e6d9ba1654a28bc710fe0f37a46120223cfe768a9c63708b83dd1",
+    "chandeliers/textures/NormalGL_3c662b29-0d8f-405b-907e-dd85afa18e38.png": "6427344ab00b08ad1fd7020bdffb31ebcc1a34a445cba2d7f0369773bc114e15",
+    "chandeliers/textures/Color_3c662b29-0d8f-405b-907e-dd85afa18e38.jpg": "ec6c05ed646353e588309779b7782e27b3bf77a3e80d7a550b2b7e751fdbf659",
+    "candleholders/textures/NormalGL_f84fe721-4702-4fd3-b296-17e079d15fb3.png": "c5ddf21c04436409ae2740d44f7e13be3b668480a3d3c1e883e603a32245b757",
+    "candleholders/textures/ORM_f84fe721-4702-4fd3-b296-17e079d15fb3.jpg": "ab300a086f8f33ed7048a16b7af74a707c25cc21800d57a154fb16051b3b2509",
+    "candleholders/textures/Color_f84fe721-4702-4fd3-b296-17e079d15fb3.jpg": "04e37d6029af4945be6e50782883abd3c04019e808538f7865037bde869b57f1"
+  },
+  "note": "These hashes were computed directly from recovered original binary media; no image generation or stand-in geometry."
+}

@@ -59,3 +59,6 @@ does not ingest local binary ZIPs by path. Consequently, this commit integrates
 the exact-source importer but does **not** make any unsupported claim that all
 GLB media have been shipped to GitHub or the APK. Earlier GitHub-only
 "missing files" reports should be superseded by this source audit.
+
+## Source media forensic locks (first room)
+**Independently verified from project Library binary originals:** the planned 10 meshes contain **1,353,870 triangles** before LOD, and both chandelier and candleholder groups have 4,096×4,096 albedo, normal, and ORM maps (six original PBR files). The exact 10 per-GLB SHA-256 hashes plus six original PBR SHA-256 hashes are in `iglesia/docs/TRIPO_FIRST_ROOM_SOURCE_SHA256.json`. When the eight ZIPs are available to the GitHub runner, `stage_original_tripo_packs.py` checks those hashes **before** any import or Android export. No source GLB binary has yet been transferred to the repository from the project Library; this is the model identity and texture gate, not an APK claim. Original 10 models at full quality alone are 1.35M triangles, so mobile LOD/visual QA is required after real source transfer.
