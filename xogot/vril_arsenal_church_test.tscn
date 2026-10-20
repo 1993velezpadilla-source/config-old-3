@@ -1,0 +1,9 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://main.tscn" id="1_church"]
+[ext_resource type="Script" path="res://scripts/vril_arsenal_church_bridge.gd" id="2_arsenal"]
+
+[node name="YouWontWin" instance=ExtResource("1_church")]
+
+[node name="Vril41OriginalWeaponBridge" type="Node3D" parent="Player/Head/Camera3D"]
+script = ExtResource("2_arsenal")
