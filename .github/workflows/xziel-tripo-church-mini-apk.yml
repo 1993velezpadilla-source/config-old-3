@@ -9,6 +9,7 @@ on:
       - ".github/workflows/xziel-tripo-church-mini-apk.yml"
       - "tools/church_mini/**"
       - "scripts/patch_vril_church_mini.py"
+      - "scripts/patch_vril_mobile_v018.py"
       - "scripts/prepare_android.sh"
 
 permissions:
@@ -52,6 +53,23 @@ jobs:
               print("USER_TRIPO_SOURCE_GLTF_GREEN",name,n)
           data=json.loads((root/"furniture.asset.json").read_text())
           assert {"bench","altar"} <= set(data["assets"])
+          PY
+
+      - name: Preflight every Vril renderer/control patch BEFORE expensive Android build
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/nzp-team/vril-engine.git /tmp/xziel-vril-source-probe
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, subprocess
+          src=Path("scripts/prepare_android.sh").read_text()
+          scripts=re.findall(r'python3 "\\$ROOT/scripts/(patch_vril_[^"]+\\.py)" "\\$DEPS/vril"',src)
+          assert len(scripts)>=10, scripts
+          for s in scripts:
+              print("VRIL_PATCH_PREFLIGHT",s,flush=True)
+              subprocess.run(["python3","scripts/"+s,"/tmp/xziel-vril-source-probe"],check=True)
+          print("XZIEL_NATIVE_SOURCE_PATCH_GATE_GREEN",len(scripts))
           PY
 
       - name: Generate small Quake church from known validated NZP brush rules
@@ -182,6 +200,62 @@ jobs:
         shell: bash
         working-directory: build/android-project
         run: ./gradlew --no-daemon assembleDebug --stacktrace
+
+      - name: Android emulator gameplay smoke and LANDSCAPE screenshot
+        id: mini_smoke
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          ANDROID_AVD_HOME: ${{ runner.temp }}/xziel-church-mini-avd
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$ANDROID_AVD_HOME" church-mini-dist
+          ADB="${ANDROID_HOME}/platform-tools/adb"
+          EMULATOR="${ANDROID_HOME}/emulator/emulator"
+          AVDMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name avdmanager | sort | tail -n1)"
+          printf 'no\n' | "$AVDMANAGER" create avd --force --name xziel-church-mini-ci \
+              --package "system-images;android-35;google_apis;x86_64" --device "pixel_6"
+          if [[ -e /dev/kvm ]]; then sudo chmod 666 /dev/kvm || true; fi
+          nohup "$EMULATOR" @xziel-church-mini-ci -no-window -no-audio \
+              -no-boot-anim -no-snapshot -gpu swiftshader_indirect -memory 2048 \
+              > church-mini-dist/emulator.log 2>&1 &
+          timeout 120 "$ADB" wait-for-device
+          for i in $(seq 1 60); do
+            [[ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]] && break
+            sleep 2
+          done
+          test "$("$ADB" shell getprop sys.boot_completed | tr -d '\r')" == "1"
+          "$ADB" install -r build/android-project/app/build/outputs/apk/debug/app-debug.apk
+          "$ADB" logcat -c
+          "$ADB" shell am start -W -n com.xziel.churchmini/org.libsdl.app.NZPActivity \
+              > church-mini-dist/am-start.txt
+          for i in $(seq 1 40); do
+            STAGE="$("$ADB" shell run-as com.xziel.churchmini cat files/nzp-runtime/.xziel-stage 2>/dev/null | tr -d '\r' || true)"
+            [[ "$STAGE" == "FIRST_FRAME_OK" ]] && break
+            sleep 2
+          done
+          echo "$STAGE" > church-mini-dist/runtime-stage.txt
+          test "$STAGE" = "FIRST_FRAME_OK"
+          sleep 5
+          "$ADB" exec-out screencap -p > church-mini-dist/church-mini-real-android.png
+          "$ADB" logcat -d -v threadtime > church-mini-dist/logcat.txt
+          python3 -m pip install --quiet pillow==11.3.0
+          python3 - <<'PY'
+          from PIL import Image,ImageStat
+          im=Image.open("church-mini-dist/church-mini-real-android.png").convert("RGB")
+          s=ImageStat.Stat(im.convert("L"))
+          print("CHURCH_MINI_REAL_ANDROID_FRAME",im.size,round(s.stddev[0],2))
+          assert im.width>im.height, "PORTRAIT_ORIENTATION_NOT_ACCEPTED"
+          assert s.stddev[0]>6.0, "BLANK_OR_FLAT_FRAME_NOT_ACCEPTED"
+          PY
+          ! grep -Eq 'Fatal signal|FATAL EXCEPTION|XZSM: invalid header|stage=SYS_ERROR' church-mini-dist/logcat.txt
+          echo "CHURCH_MINI_REAL_ANDROID_VISUAL_GREEN" | tee church-mini-dist/runtime-visual-state.txt
+
+      - name: Fail on failed live Android gameplay smoke
+        if: steps.mini_smoke.outcome == 'failure'
+        shell: bash
+        run: exit 1
 
       - name: Preserve native APK and trace evidence
         if: always()
