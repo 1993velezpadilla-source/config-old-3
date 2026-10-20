@@ -41,7 +41,11 @@ def brush_box(mn,mx,texture="null"):
     ]
     s="{\n"
     for p1,p2,p3,t,u,v in planes:
-        s+=f"( {p1[0]} {p1[1]} {p1[2]} ) ( {p2[0]} {p2[1]} {p2[2]} ) ( {p3[0]} {p3[1]} {p3[2]} ) {t} {u} {v} 0 1 1\n"
+        # Mobile BSP LOD1024 comes from original 4096px Poly Haven material.
+        # Match legacy Quake 256-unit physical texture tiling, not a single
+        # giant 1024-unit stretched texture across the entire wall.
+        uv_scale="0.25" if str(t).startswith("sanctum_") else "1"
+        s+=f"( {p1[0]} {p1[1]} {p1[2]} ) ( {p2[0]} {p2[1]} {p2[2]} ) ( {p3[0]} {p3[1]} {p3[2]} ) {t} {u} {v} 0 {uv_scale} {uv_scale}\n"
     return s+"}\n"
 
 def point(cls,origin,props=None):
@@ -396,7 +400,7 @@ OUT.write_text(map_text,encoding="utf-8")
 report={
  "title":TITLE,"map":str(OUT),
  "furniture":"REAL_2x_Tripo_GLB" if TRIPO_FURNITURE else "legacy_wood_brush",
- "environment_material_profile":"SANCTUM_WAD_GRADED_V1" if TRIPO_FURNITURE else "LEGACY_LOOP_WAD",
+ "environment_material_profile":"SANCTUM_POLYHAVEN_CC0_4K_MASTERS_WITH_BSP1024_LOD_V1" if TRIPO_FURNITURE else "LEGACY_LOOP_WAD",
  "placeholderPews":len(pew_entities),
  "placeholderAltarBrushes":0 if TRIPO_FURNITURE else 3,
  "design":"authored church, no bbox rooms/no auto bridges",
