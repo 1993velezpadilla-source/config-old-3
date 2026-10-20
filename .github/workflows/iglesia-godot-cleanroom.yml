@@ -78,15 +78,18 @@ jobs:
           godot --headless --rendering-driver opengl3 --path iglesia --script res://tests/smoke.gd 2>&1 | tee /tmp/iglesia-smoke.log
           grep -q "IGLESIA_HEADLESS_SMOKE_GREEN" /tmp/iglesia-smoke.log
 
-      - name: Android SDK tools
-        uses: android-actions/setup-android@v3
-
       - name: Android 35 / Build tools 35.0.1 / Godot editor paths
         shell: bash
         run: |
           set -euo pipefail
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager --install "platform-tools" "build-tools;35.0.1" "platforms;android-35"
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export JAVA_HOME="${JAVA_HOME_17_X64:-/usr/lib/jvm/java-17-openjdk-amd64}"
+          echo "ANDROID_HOME=${ANDROID_HOME}" >> "$GITHUB_ENV"
+          echo "JAVA_HOME=${JAVA_HOME}" >> "$GITHUB_ENV"
+          sdkmanager_bin="$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | head -1)"
+          test -x "$sdkmanager_bin"
+          yes | "$sdkmanager_bin" --sdk_root="$ANDROID_HOME" --licenses > /dev/null || true
+          "$sdkmanager_bin" --sdk_root="$ANDROID_HOME" --install "platform-tools" "build-tools;35.0.1" "platforms;android-35"
           mkdir -p "$HOME/.config/godot" "$HOME/.android" iglesia/build
           if [ ! -f "$HOME/.android/debug.keystore" ]; then
             keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
@@ -102,7 +105,7 @@ jobs:
       - name: Export debug ARM64 APK (only after smoke GREEN)
         shell: bash
         env:
-          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ format('{0}/.android/debug.keystore', env.HOME) }}
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/.android/debug.keystore
           GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
