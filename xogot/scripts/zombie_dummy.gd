@@ -3,6 +3,7 @@ extends CharacterBody3D
 signal died(zombie: Node)
 
 const MONJA_BASICA_PATH := "res://assets/zombies/monja_basica.glb"
+const NUN_ENEMY_01_SPRITE := "res://assets/zombies/nun_enemy_01_master.png"
 
 @export var move_speed: float = 1.85
 @export var health: float = 100.0
@@ -67,6 +68,9 @@ func _build_body() -> void:
 	cs.position.y = collider_height * 0.5
 	add_child(cs)
 
+	if _build_nun_sprite_visual():
+		return
+
 	if ResourceLoader.exists(MONJA_BASICA_PATH):
 		var packed: PackedScene = load(MONJA_BASICA_PATH) as PackedScene
 		if packed != null:
@@ -98,6 +102,33 @@ func _build_body() -> void:
 
 	_build_fallback_visual()
 	print("XZOGOT_MONJA_BASICA_FALLBACK")
+
+# Optional approved 2.5D visual. Physics, AI, hitboxes and rounds remain unchanged.
+# Keep the existing 3D nun as fallback until the full-resolution PNG is present.
+func _build_nun_sprite_visual() -> bool:
+	if not ResourceLoader.exists(NUN_ENEMY_01_SPRITE):
+		return false
+	var texture := load(NUN_ENEMY_01_SPRITE) as Texture2D
+	if texture == null or texture.get_width() < 512 or texture.get_height() < 1024:
+		push_warning("NUN_01_SPRITE_REJECTED: source must be >= 512x1024")
+		return false
+	var sprite := Sprite3D.new()
+	sprite.name = "NunEnemy01Sprite"
+	sprite.texture = texture
+	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sprite.transparent = true
+	sprite.shaded = true
+	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	sprite.pixel_size = target_visual_height / float(texture.get_height())
+	sprite.position.y = target_visual_height * 0.5
+	sprite.no_depth_test = false
+	add_child(sprite)
+	_visual_root = sprite
+	set_meta("zombie_model", "nun_enemy_01_2_5d")
+	set_meta("zombie_visual_height_m", target_visual_height)
+	set_meta("zombie_visual_centered_on_feet", true)
+	print("XZOGOT_NUN_01_SPRITE_READY ", texture.get_width(), "x", texture.get_height())
+	return true
 
 func _fit_visual_to_gameplay_bounds(
 	wrapper: Node3D,
