@@ -27,7 +27,7 @@ func _run() -> void:
             errors.append("PEW_COLLISION_COUNT %d/14" % pew_colliders)
         if not game.level.has_node("AltarCollisionNoWalkThrough"):
             errors.append("ALTAR_NO_COLLISION")
-        var nav_path: PackedVector2iArray = game.level.nav.get_id_path(
+        var nav_path = game.level.nav.get_id_path(
             game.level.world_to_cell(Vector3(-7.0, 0.0, 10.0)),
             game.level.world_to_cell(Vector3(0.0, 0.0, -10.0)))
         if nav_path.size() < 5:
