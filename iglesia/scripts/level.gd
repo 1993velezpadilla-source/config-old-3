@@ -16,6 +16,7 @@ var debug_missing_art: bool = false
 func _ready() -> void:
     _materials()
     _architecture()
+    _gothic_vault_ribs()
     _pews()
     _altar()
     _tripo_original_fixtures()
@@ -42,7 +43,15 @@ func _materials() -> void:
     if ResourceLoader.exists(rough_path):
         stone.roughness_texture = load(rough_path)
     stone_dark = _mat(Color(0.13, 0.13, 0.14))
-    floor_mat = _mat(Color(0.18, 0.16, 0.16), 0.9)
+    # Wet masonry reflects candle pools with *source* stone PBR, not invented art.
+    floor_mat = _mat(Color(0.37, 0.33, 0.35), 0.33)
+    if ResourceLoader.exists("res://assets/materials/stone_wall_diff_4k.jpg"):
+        floor_mat.albedo_texture = load("res://assets/materials/stone_wall_diff_4k.jpg")
+        floor_mat.uv1_triplanar = true
+        floor_mat.uv1_scale = Vector3(0.55, 0.55, 0.55)
+    if ResourceLoader.exists("res://assets/materials/stone_wall_nor_gl_4k.jpg"):
+        floor_mat.normal_enabled = true
+        floor_mat.normal_texture = load("res://assets/materials/stone_wall_nor_gl_4k.jpg")
     wood = _mat(Color(0.29, 0.13, 0.065))
     altar_mat = _mat(Color(0.52, 0.43, 0.35))
 
@@ -106,6 +115,33 @@ func _architecture() -> void:
     label.position = Vector3(7.95, 1.5, 8.0)
     label.rotation_degrees.y = -90
     add_child(label)
+
+func _gothic_vault_ribs() -> void:
+    # Dark medieval ribs repeat along the nave, one draw call via MultiMesh.
+    # This is structural Godot geometry, not replacement for owner Tripo art.
+    var shape := BoxMesh.new()
+    shape.size = Vector3.ONE
+    shape.material = stone
+    var multi := MultiMesh.new()
+    multi.transform_format = MultiMesh.TRANSFORM_3D
+    multi.mesh = shape
+    multi.instance_count = 8
+    var idx := 0
+    for bay_z in [-10.0, -4.0, 2.0, 8.0]:
+        for side in [-1.0, 1.0]:
+            var from_point := Vector3(side * 7.05, 6.0, bay_z)
+            var tip := Vector3(0.0, 8.10, bay_z)
+            var direction: Vector3 = tip - from_point
+            var mid: Vector3 = (from_point + tip) * 0.5
+            var alignment := Basis(Quaternion(Vector3.UP, direction.normalized()))
+            var basis := alignment.scaled(Vector3(0.24, direction.length(), 0.28))
+            multi.set_instance_transform(idx, Transform3D(basis, mid))
+            idx += 1
+    var ribs_mesh := MultiMeshInstance3D.new()
+    ribs_mesh.name = "GothicVaultRibs_Instanced"
+    ribs_mesh.multimesh = multi
+    ribs_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    add_child(ribs_mesh)
 
 func _import_owner_asset(file_path: String, name_text: String, pos: Vector3, max_size: Vector3, yaw: float) -> void:
     if not ResourceLoader.exists(file_path):

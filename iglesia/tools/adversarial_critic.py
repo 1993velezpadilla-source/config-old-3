@@ -63,6 +63,10 @@ def run(gate: str, android_probe: str) -> int:
           not v.get("source_geometry_glb_sha256") for v in data["fixtures"]):
             issue(issues,"FAIL","SOURCE_MODEL_UNTRUSTED",
                   "Missing one or more real Tripo GLBs", "Stage all 10 source-locked GLBs")
+    if "_gothic_vault_ribs()" not in level or "MultiMesh.new()" not in level:
+        issue(issues,"ART_BLOCKER","GOTHIC_ARCH_STRUCTURE_MISSING",
+              "Nave interior is plain rectangular hall instead of gothic vaulted chapel",
+              "Restore cheaply batched vault ribs, stained glass and candle lit aisle")
     if "shadow_enabled = true" in main:
         issue(issues,"FAIL","FULL_NAVE_SHADOW_OMNI",
               "Dynamic OmniLight renders costly full-scene shadow passes",
