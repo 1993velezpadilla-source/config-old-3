@@ -37,6 +37,9 @@ func _ready() -> void:
     weapon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
     weapon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
     root.add_child(weapon)
+    var nun_palette := ShaderMaterial.new()
+    nun_palette.shader = preload("res://shaders/nun_viewmodel_gothic_ink.gdshader")
+    weapon.material = nun_palette
     for frame_name in ["idle_hip_01", "ads_idle", "fire_hip_01", "ads_fire_01",
         "sprint_01", "reload_01", "reload_02", "reload_03", "reload_04"]:
         var path: String = "res://assets/weapons/mp40/%s.png" % frame_name

@@ -82,6 +82,10 @@ def run(gate: str, android_probe: str) -> int:
     if "ads_active" not in player or 'buttons["fire"]' not in hud and '"fire"' not in hud:
         issue(issues,"FAIL","HUD_FIRE_ADS_RUNTIME_GAP",
               "Missing input routing", "Restore fire and aim touch controls")
+    if "nun_viewmodel_gothic_ink.gdshader" not in hud:
+        issue(issues,"ART_BLOCKER","NUN_ARM_PALETTE_MISSING",
+              "Viewmodel uses default army sleeve colors, not the user's habit palette",
+              "Apply the deterministic dark-habit shader while rebuilding the correct pale hands")
     if "texture_normal" not in hud:
         issue(issues,"FAIL","OFFICIAL_BUTTON_SKINS_ABSENT",
               "HUD not using official images as touch texture",

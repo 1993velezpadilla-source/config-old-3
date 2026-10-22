@@ -61,3 +61,6 @@ The owner provided two references in conversation: `1000244682.png` (real desire
 
 ## Cathedral silhouette refinement
 Instanced Gothic vault ribs (8 ribs in **one MultiMesh draw call**) and wet stone floor using verified original church stone PBR were added. This is hand-authored scene geometry; no invented photos, statues, guns or replacement Tripo assets. It does NOT yet achieve the owner-provided photo: the original references additionally demand authentic stone pointed windows, statuary, altar backdrop and a complete matching nun/MP40 art pack, and the adversarial critic continues to report those gaps.
+
+## First-person Nun palette pass (without any new photo)
+The existing 2D MP40 and arm PNGs now receive a conservative source-preserving Godot canvas shader to shift the outer olive cloth toward charcoal-black nun habit, shift exposed warm skin toward pale ivory, and apply subtle comic ink shading. This code creates *no image files*. It is a provisional compatibility treatment: the glove geometry and conflicting painted reload frame artwork cannot be fixed by color, so the adversarial critic must continue flagging `OLD_MIXED_STYLE_MP40` and the **final release may not pass visual QA** until the owner's accurate bare-hand atlas is rigged. All input states use one shader, no random unrelated skin assets.
