@@ -66,6 +66,12 @@ jobs:
           test -s iglesia/assets/bench.glb
           test -s iglesia/assets/weapons/mp40/ads_idle.png
 
+      - name: Adversarial critic — source art/performance regression audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python iglesia/tools/adversarial_critic.py --gate preview 2>&1 | tee /tmp/iglesia-adversarial-critic.log
+
       - name: Install Godot 4.6 editor and matching export templates
         shell: bash
         run: |
@@ -146,6 +152,19 @@ jobs:
             iglesia/build/iglesia-android-arm64-debug.apk
           if-no-files-found: error
           retention-days: 7
+
+      - name: Preserve adversarial critic evidence even if build is RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Iglesia-Adversarial-Critic
+          path: |
+            iglesia/build/adversarial_critic.json
+            iglesia/build/adversarial_critic.md
+            iglesia/assets/mobile_texture_budget.json
+            /tmp/iglesia-adversarial-critic.log
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Preserve logs on RED
         if: failure()

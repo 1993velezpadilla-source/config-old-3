@@ -1,0 +1,28 @@
+{
+  "id": "iglesia_nun_fmf2_target_v1",
+  "owner_direction_date": "2026-10-22",
+  "reference_images_in_conversation": [
+    "1000244682.png",
+    "1000244353.png"
+  ],
+  "copyright_note": "Reference for art direction only. Do not copy third-party character or weapon assets.",
+  "approved_visual_style": {
+    "rendering": "stylized gothic horror 2.5D, crisp graphic ink-shadows, not realistic military shooter, no mixed pixel/3D styles",
+    "location": "gothic church nave, ribbed stone arches, warm candle pools, blue moonlight through stained glass, legible central aisle",
+    "playable_character": "the owner-selected dark nun: black ripped habit sleeves, pale exposed hands, black veil, ivory wimple, rope belt with cross",
+    "weapon": "WWII MP40 correct geometry and aligned iron sights, consistent gun size across hip/ADS/reload",
+    "arms": "same pale bare hands / black habit sleeves across all frames; NO olive tactical gloves or army jackets",
+    "performance": "Pixel Fold: target stable 30 FPS minimum with touch input responsive; establish real telemetry before claimed GREEN",
+    "screenshots": "Never generate or post synthetic art references as proof of game; screenshots must be captured from the running actual build."
+  },
+  "acceptance_gates": [
+    "Match reference art silhouette of MP40 and bare pale nun hands in hip, ADS, reload, sprint and firing",
+    "Maintain exact left-hand gun support and right-hand firing grip in every animation",
+    "Center iron sights exactly over world reticle in ADS",
+    "No mix of pixel-art reload with photorealistic hip-fire",
+    "Do not introduce stock nun debug rectangles",
+    "Device FPS >= 30 under 10 zombies + full first room for 2 minutes on Pixel Fold",
+    "Source Tripo textures and meshes pinned to original hashes"
+  ],
+  "current_status": "USER_REFERENCE_ACCEPTED; ART_SOURCE_INTEGRATION_NOT_YET_PROVEN"
+}
