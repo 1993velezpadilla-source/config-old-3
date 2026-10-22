@@ -1,0 +1,46 @@
+name: IW4 Android Compatibility Spike
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "research/iw4-android-compat-spike"
+    paths:
+      - "tools/iw4_android_spike/**"
+      - "docs/engine/IW4_ANDROID_COMPAT_SPIKE.md"
+      - ".github/workflows/iw4-android-compat-spike.yml"
+  pull_request:
+    paths:
+      - "tools/iw4_android_spike/**"
+      - "docs/engine/IW4_ANDROID_COMPAT_SPIKE.md"
+      - ".github/workflows/iw4-android-compat-spike.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-owned-install-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Run synthetic IW4 input gate
+        run: python3 tools/iw4_android_spike/test_prepare_owned_install.py
+
+      - name: Run Android launch-profile gate
+        run: python3 tools/iw4_android_spike/test_build_launch_profile.py
+
+      - name: Run church IW4 bridge staging gate
+        run: python3 tools/iw4_android_spike/test_export_church_iw4_bridge.py
+
+      - name: Confirm repository contains no staged proprietary runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find tools/iw4_android_spike -type f \( -iname 'iw4mp.exe' -o -iname 'iw4sp.exe' -o -iname '*.iwd' -o -iname '*.ff' \) | grep -q .; then
+            echo "Proprietary/runtime payload detected in spike tooling."
+            exit 1
+          fi
+          echo "No game runtime payload is stored in the spike tooling."

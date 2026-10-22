@@ -1,0 +1,116 @@
+name: IW4 Real Sanctum Bridge
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "research/iw4-android-compat-spike"
+    paths:
+      - "tools/iw4_android_spike/export_church_iw4_bridge.py"
+      - ".github/workflows/iw4-real-sanctum-bridge.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  export-real-sanctum:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SOURCE_ARTIFACT_ID: "10796146951"
+      SOURCE_ARTIFACT_DIGEST: "sha256:b56ea3c314e39a81320c644915888608fac2410850af6ef0276824ee0e57a415"
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download known-green Sanctum clean source artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p build/source
+          curl --fail --location             --retry 3             -H "Accept: application/vnd.github+json"             -H "Authorization: Bearer ${GH_TOKEN}"             -H "X-GitHub-Api-Version: 2022-11-28"             "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${SOURCE_ARTIFACT_ID}/zip"             -o build/sanctum-clean-source.zip
+          unzip -q build/sanctum-clean-source.zip -d build/source
+
+          XZSM="$(find build/source -type f -name 'sanctum.xzsm' -print -quit)"
+          test -n "$XZSM"
+          echo "XZSM_PATH=$XZSM" >> "$GITHUB_ENV"
+
+          REPORT="$(find build/source -type f -name 'xziel_native_static_mesh_report.json' -print -quit || true)"
+          echo "REPORT_PATH=$REPORT" >> "$GITHUB_ENV"
+
+      - name: Export real Sanctum visual chunks for IW4 staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/iw4_android_spike/export_church_iw4_bridge.py             --xzsm "$XZSM_PATH"             --out-dir build/iw4-sanctum-staging             --map-name xziel_sanctum             > build/iw4-sanctum-export-log.json
+
+      - name: Validate real geometry identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          bridge = json.loads(
+              Path("build/iw4-sanctum-staging/iw4_bridge_manifest.json")
+              .read_text(encoding="utf-8")
+          )
+
+          assert bridge["mapName"] == "xziel_sanctum"
+          assert bridge["containsProprietaryGamePayload"] is False
+          assert bridge["collision"]["required"] is True
+          assert bridge["source"]["batchCount"] == len(bridge["visualChunks"])
+          assert bridge["source"]["totalTriangles"] > 2_700_000
+
+          obj_count = len(list(Path("build/iw4-sanctum-staging").glob("*.obj")))
+          assert obj_count == bridge["source"]["batchCount"]
+
+          report_path = os.environ.get("REPORT_PATH", "")
+          if report_path:
+              report = json.loads(Path(report_path).read_text(encoding="utf-8"))
+              expected = int(report["runtimeTotalTriangles"])
+              actual = int(bridge["source"]["totalTriangles"])
+              assert actual == expected, (actual, expected)
+              assert bridge["source"]["batchCount"] == int(report["batchCount"])
+
+          Path("build/iw4-real-sanctum-summary.json").write_text(
+              json.dumps(
+                  {
+                      "batchCount": bridge["source"]["batchCount"],
+                      "totalVertices": bridge["source"]["totalVertices"],
+                      "totalIndices": bridge["source"]["totalIndices"],
+                      "totalTriangles": bridge["source"]["totalTriangles"],
+                      "objCount": obj_count,
+                      "sourceArtifactId": os.environ["SOURCE_ARTIFACT_ID"],
+                      "sourceArtifactDigest": os.environ["SOURCE_ARTIFACT_DIGEST"],
+                  },
+                  indent=2,
+                  sort_keys=True,
+              ) + "\n",
+              encoding="utf-8",
+          )
+          print(Path("build/iw4-real-sanctum-summary.json").read_text())
+          PY
+
+      - name: Pack IW4 Sanctum staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -C build -caf build/Xziel-Sanctum-IW4-Staging.tar.gz iw4-sanctum-staging
+          ls -lh build/Xziel-Sanctum-IW4-Staging.tar.gz
+
+      - name: Upload real Sanctum IW4 bridge
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xziel-Sanctum-IW4-Staging
+          path: |
+            build/Xziel-Sanctum-IW4-Staging.tar.gz
+            build/iw4-real-sanctum-summary.json
+            build/iw4-sanctum-export-log.json
+          if-no-files-found: error
+          retention-days: 14
