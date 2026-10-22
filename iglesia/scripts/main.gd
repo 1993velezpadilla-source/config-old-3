@@ -4,6 +4,7 @@ const LevelScript = preload("res://scripts/level.gd")
 const PlayerScript = preload("res://scripts/player.gd")
 const EnemyScript = preload("res://scripts/enemy.gd")
 const HUDScript = preload("res://scripts/hud.gd")
+const PerformanceProbeScript = preload("res://scripts/performance_probe.gd")
 
 var level
 var player
@@ -39,6 +40,9 @@ func _ready() -> void:
     hud.game = self
     hud.player = player
     player.hud = hud
+    var probe := PerformanceProbeScript.new()
+    probe.name = "MobilePerformanceTelemetry"
+    add_child(probe)
     _begin_round()
     Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if not OS.has_feature("mobile") else Input.MOUSE_MODE_VISIBLE
 
@@ -49,7 +53,7 @@ func _create_lighting() -> void:
     env.background_color = Color(0.012, 0.018, 0.030)
     env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
     env.ambient_light_color = Color(0.18, 0.21, 0.30)
-    env.ambient_light_energy = 0.42
+    env.ambient_light_energy = 0.62
     env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
     world.environment = env
     add_child(world)
@@ -61,9 +65,11 @@ func _create_lighting() -> void:
     var altar_light := OmniLight3D.new()
     altar_light.position = Vector3(0.0, 5.5, -12.0)
     altar_light.light_color = Color(1.0, 0.51, 0.24)
-    altar_light.light_energy = 2.5
+    altar_light.light_energy = 1.65
     altar_light.omni_range = 10.0
-    altar_light.shadow_enabled = true
+    # The old shadow-casting omni light covered most of the nave and cost
+    # multiple full-scene depth passes on the Pixel Fold.
+    altar_light.shadow_enabled = false
     add_child(altar_light)
 
 func _begin_round() -> void:

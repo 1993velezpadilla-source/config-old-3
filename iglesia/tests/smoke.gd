@@ -84,11 +84,14 @@ func _run() -> void:
                     for obj in game.level.get_children():
                         if obj.name.begins_with("SourceTripoLight_"):
                             practicals += 1
-                    if practicals != 8:
-                        errors.append("ORIGINAL_TRIPO_PRACTICAL_LIGHT_RED %d/8" % practicals)
+                    if practicals != 4:
+                        errors.append("ORIGINAL_TRIPO_PRACTICAL_LIGHT_RED %d/4" % practicals)
                 if staged_fixtures == 0:
                     print("TRIPO_ORIGINALS_FOUND_IN_LIBRARY_NOT_YET_IN_REPOSITORY; NO_SYNTHETIC_CHANDELIERS")
 
+        var perf_probe = game.get_node_or_null("MobilePerformanceTelemetry")
+        if perf_probe == null:
+            errors.append("PERFORMANCE_TELEMETRY_NOT_INSTALLED")
         if game.hud.mp40_frames.size() != 9:
             errors.append("MP40_SOURCE_FRAMES_NOT_9")
         if game.hud.buttons.size() < 6:

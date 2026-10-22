@@ -87,6 +87,8 @@ def main() -> None:
     stage_fixtures(ROOT, ASSETS, git_sha)
     stage_hud()
     stage_mp40()
+    from optimize_mobile_assets import apply_mobile_texture_budget
+    apply_mobile_texture_budget(ASSETS)
     print("IGLESIA_OWNER_ART_STAGED: true; VISUAL_RENDER_AND_APK_NOT_YET_VALIDATED")
 
 if __name__ == "__main__":

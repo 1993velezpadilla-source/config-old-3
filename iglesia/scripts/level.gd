@@ -322,12 +322,16 @@ func _tripo_original_fixtures() -> void:
 
 # Practical photons only. All fixture meshes must come from the original GLBs.
 func _original_tripo_practical_light(kind: String, anchor: Vector3, index: int) -> void:
-    if index > 3 or (kind != "ceiling_chandelier" and kind != "wall_sconce"):
+    # Four dynamic, shadowless practicals instead of eight. Their original
+    # metal fixtures remain visible at every mount point.
+    if kind != "ceiling_chandelier" and kind != "wall_sconce":
+        return
+    if index >= 4 or index % 2 != 0:
         return
     var bulb := OmniLight3D.new()
     bulb.name = "SourceTripoLight_%s_%02d" % [kind, index]
     bulb.light_color = Color(1.0, 0.61, 0.32)
-    bulb.light_energy = 0.65 if kind == "ceiling_chandelier" else 0.35
+    bulb.light_energy = 0.95 if kind == "ceiling_chandelier" else 0.48
     bulb.omni_range = 5.6 if kind == "ceiling_chandelier" else 3.0
     bulb.shadow_enabled = false
     bulb.position = anchor + (Vector3(0, -1.2, 0) if kind == "ceiling_chandelier" else Vector3(-0.4 if anchor.x > 0 else 0.4, 0, 0))
