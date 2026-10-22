@@ -1,0 +1,81 @@
+name: Iglesia Owner Nun 2.5D Source Sprite Bake (Isolated)
+on:
+  push:
+    branches: [feature/iglesia-nun-source-impostor-bake-20261022]
+    paths:
+      - 'iglesia/tools/stage_nun_impostor_source.py'
+      - 'iglesia/tools/bake_nun_impostor.gd'
+      - '.github/workflows/iglesia-nun-source-sprite-bake.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  original-nun-source-bake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - name: Copy only original owner mesh rig for temporary offline render
+        run: |
+          set -euo pipefail
+          python iglesia/tools/stage_nun_impostor_source.py
+
+      - name: Get Godot 4.6 matching runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://github.com/godotengine/godot-builds/releases/download/4.6-stable'
+          curl --fail --location --retry 3 --output /tmp/iglesia-godot.zip "${base}/Godot_v4.6-stable_linux.x86_64.zip"
+          unzip -q /tmp/iglesia-godot.zip -d /tmp/iglesia-editor
+          sudo install -m 0755 /tmp/iglesia-editor/Godot_v4.6-stable_linux.x86_64 /usr/local/bin/godot
+          godot --version
+
+      - name: Import original 24-bone Nun source (NOT for Android pack)
+        run: |
+          set -euo pipefail
+          godot --headless --rendering-driver opengl3 --path iglesia --editor --import --quit 2>&1 | tee /tmp/monja-source-import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:.*Failed loading.*monja' /tmp/monja-source-import.log; then
+            echo 'IGLESIA_ORIGINAL_NUN_IMPORT_RED'
+            exit 1
+          fi
+
+      - name: Bake original authored walk into 16 genuine 2.5D PNG frames
+        run: |
+          set -euo pipefail
+          godot --headless --rendering-driver opengl3 --path iglesia --script res://tools/bake_nun_impostor.gd 2>&1 | tee /tmp/monja-bake.log
+          grep -q 'IGLESIA_NUN_SOURCE_2D_SPRITE_BAKE_GREEN' /tmp/monja-bake.log
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          files=sorted(Path('iglesia/assets/zombies/nun_source_sprite').glob('nun_*_walk_*.png'))
+          assert len(files)==16, len(files)
+          for p in files:
+            with Image.open(p) as image:
+              assert image.size==(384,640)
+              assert image.mode in ('RGBA','RGB')
+              print('VERIFIED_NUN_SPRITE',p.name,p.stat().st_size)
+          PY
+
+      - name: Publish owner-source Nun sprites without heavy animated glTF
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: Iglesia-Real-Nun-2D-16Frames-SourceBake
+          path: |
+            iglesia/assets/zombies/nun_source_sprite/*.png
+            iglesia/assets/zombies/_bake_source/authority.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Preserve forensic logs on failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: Iglesia-SourceNun-Bake-RED-Evidence
+          path: |
+            /tmp/monja-source-import.log
+            /tmp/monja-bake.log
+          if-no-files-found: ignore
+          retention-days: 10
