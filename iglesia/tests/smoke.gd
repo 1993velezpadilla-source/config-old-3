@@ -33,9 +33,11 @@ func _run() -> void:
             errors.append("ALTAR_ORIGINAL_ASSET_MISSING")
         else:
             # Source is permitted art only, no synthetic replacement.
-            # Zero yaw faces down the main aisle, not the altar wall.
-            if absf((altar_art as Node3D).rotation.y) > 0.01:
-                errors.append("ALTAR_FACING_WRONG_WAY")
+            # Godot forward = -Z; yaw 180 points the altar's front toward
+            # the player's +Z main aisle rather than the rear stone wall.
+            var altar_direction: Vector3 = (altar_art as Node3D).global_basis * Vector3.FORWARD
+            if altar_direction.z < 0.98:
+                errors.append("ALTAR_FACE_NOT_TOWARD_MAIN_AISLE")
             var bounds: AABB = game.level._scene_bounds(altar_art)
             if bounds.size.length() < 0.001:
                 errors.append("ALTAR_BOUNDING_BOX_MISSING")
@@ -106,8 +108,9 @@ func _run() -> void:
                 continue
             if touch_button.texture_normal == null:
                 errors.append("TOUCH_OFFICIAL_ART_MISSING_" + action)
-            if not touch_button.visible or touch_button.mouse_filter != Control.MOUSE_FILTER_STOP:
-                errors.append("TOUCH_BUTTON_UNCLICKABLE_" + action)
+            var desired_filter: int = Control.MOUSE_FILTER_IGNORE if OS.has_feature("mobile") else Control.MOUSE_FILTER_STOP
+            if not touch_button.visible or touch_button.mouse_filter != desired_filter:
+                errors.append("TOUCH_BUTTON_RENDER_OR_INPUT_FILTER_BAD_" + action)
         for dims in [Vector2(1280, 720), Vector2(2340, 1080), Vector2(1920, 1440), Vector2(960, 540)]:
             game.hud._layout(dims)
             var fire_btn: Control = game.hud.buttons["fire"]
@@ -119,6 +122,38 @@ func _run() -> void:
             if fire_btn.get_rect().intersects(ads_btn.get_rect()):
                 errors.append("FIRE_ADS_TOUCH_TARGET_OVERLAP_" + str(dims))
         game.hud._layout()
+        # Touch ID routing is tested independent of OS.has_feature("mobile"),
+        # including simultaneous FIRE+ADS and release outside original hitbox.
+        var fire_touch: Vector2 = game.hud.buttons["fire"].get_global_rect().get_center()
+        var ads_touch: Vector2 = game.hud.buttons["ads"].get_global_rect().get_center()
+        Input.action_release("fire")
+        Input.action_release("ads")
+        if game.hud._touch_button_at(Vector2(40, 130)) != "":
+            errors.append("EMPTY_SCREEN_TOUCH_CAPTURED_BY_A_BUTTON")
+        var bullets_before: int = game.player.magazine
+        if not game.hud._route_touch_button(11, true, fire_touch):
+            errors.append("NATIVE_FIRE_TOUCH_NOT_CAPTURED")
+        if not Input.is_action_pressed("fire"):
+            errors.append("NATIVE_FIRE_ACTION_NOT_PRESSED")
+        game.player.ads_toggle_mode = false
+        if not game.hud._route_touch_button(12, true, ads_touch):
+            errors.append("NATIVE_ADS_TOUCH_NOT_CAPTURED")
+        if not Input.is_action_pressed("ads"):
+            errors.append("NATIVE_ADS_ACTION_NOT_PRESSED")
+        if game.hud.touch_actions.size() != 2:
+            errors.append("FIRE_ADS_MULTITOUCH_NOT_INDEPENDENT")
+        game.hud._route_touch_button(11, false, Vector2.ZERO)
+        if Input.is_action_pressed("fire") or not Input.is_action_pressed("ads"):
+            errors.append("FIRE_RELEASE_CANCELS_ADS_OR_STICKS")
+        game.hud._route_touch_button(12, false, Vector2.ZERO)
+        if Input.is_action_pressed("ads") or not game.hud.touch_actions.is_empty():
+            errors.append("ADS_TOUCH_RELEASE_STUCK")
+        if game.player.magazine != bullets_before:
+            errors.append("TOUCH_ROUTING_FIRES_BEFORE_PHYSICS")
+        game.player.ads_toggle_mode = true
+        for action in ["fire", "ads"]:
+            if not game.hud.label_badges.has(action) or not game.hud.label_badges[action].visible:
+                errors.append("MISSING_PERSISTENT_ACTION_LABEL_" + action)
         # A tap on empty space must not activate the MP40's mapped mouse fire.
         if bool(ProjectSettings.get_setting("input_devices/pointing/emulate_mouse_from_touch", true)):
             errors.append("TOUCH_EMULATES_MOUSE_FIRE_REGRESSION")

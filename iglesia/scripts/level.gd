@@ -206,13 +206,14 @@ func _pews() -> void:
 
 func _altar() -> void:
     # This ONE authentic Tripo altar has its own fit profile, not the generic
-    # narrow 1.30 m deep auto-fit which shrank the altar. Facing toward +Z,
-    # the main aisle/player, instead of facing the stone wall at -Z.
+    # narrow 1.30 m deep auto-fit which shrank the altar. In Godot a
+    # model's forward axis is -Z: +180 degrees makes that face +Z, toward
+    # the main aisle/player. User rejected the 0-degree back-facing view.
     const ALTAR_BASE_Y := 0.51  # top of our ChancelTop (0.37 + 0.28 / 2)
     const ALTAR_MAX_SIZE := Vector3(4.10, 2.38, 2.16)
     _proxy("AltarCollisionNoWalkThrough", Vector3(0.0, ALTAR_BASE_Y + ALTAR_MAX_SIZE.y * 0.5, -12.4), ALTAR_MAX_SIZE)
     _import_owner_asset("res://assets/altar.glb", "ApprovedTripoAltar", Vector3(0, ALTAR_BASE_Y, -12.4),
-        ALTAR_MAX_SIZE, deg_to_rad(0.0))
+        ALTAR_MAX_SIZE, deg_to_rad(180.0))
     if debug_missing_art:
         _box("DEBUG_MISSING_ALTAR_ART", Vector3(0, 1.1, -12.4), Vector3(3.15, 1.5, 1.28), _mat(Color(0.88, 0.18, 0.16)), false)
 
