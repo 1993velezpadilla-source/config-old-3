@@ -99,8 +99,9 @@ def run(gate: str, android_probe: str) -> int:
         issue(issues,"FAIL","WEAPON_FRAMES_INCOMPLETE",
               f"Found {sorted(available)}", "Build all 9 states from one art bible")
     # Known visual debt is not hidden by GLB import or smoke success.
-    if "owner_original_sheet.png" in stage or "WWII MP40 Pixel Art Sprite Sheet" in
-       json.loads((ASSETS/"SOURCES.json").read_text())["mp40"].get("path",""):
+    mp40_source = json.loads((ASSETS/"SOURCES.json").read_text(encoding="utf-8"))["mp40"].get("path", "")
+    if ("owner_original_sheet.png" in stage
+            or "WWII MP40 Pixel Art Sprite Sheet" in mp40_source):
         issue(issues,"ART_BLOCKER","OLD_MIXED_STYLE_MP40",
               "Current sheet is the previously rejected military/animated gun/hand source",
               "Replace with one coherent pale-hand/black-sleeve nun MP40 atlas from owner reference")
