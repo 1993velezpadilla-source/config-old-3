@@ -1,0 +1,42 @@
+{
+  "id": "nun_mp40_protagonist_viewmodel_source_v1",
+  "owner_selection": {
+    "character": "dark gothic Nun",
+    "references": [
+      "1000244353.png",
+      "1000244682.png"
+    ],
+    "reference_status": "provided by user in project conversation; not GitHub binary"
+  },
+  "source": {
+    "gun": {
+      "path": "xogot/assets/weapons/aether_waw_real/mp40/viewmodel.glb",
+      "git_blob_sha": "d6344a545d5e46125fb26add71436df0725c5437"
+    },
+    "hands": {
+      "path": "xogot/assets/weapons/aether_waw_hands/t4_marine/mp40/viewhands.glb",
+      "git_blob_sha": "fe1b0735cd4b768ae3a6bfeb731fc61050cdb1f2"
+    },
+    "animation_source": "matched MP40 PSA, 13 real hand actions, 18 gun actions",
+    "source_presentation": "xogot/data/weapon_viewmodel_source_presentation.json row MP40",
+    "hand_skeleton_bones": 113
+  },
+  "rendering": {
+    "pipeline": "Camera3D source GLBs + unified Nun ink shader",
+    "gun": "black aged MP40 silhouette, maintain sightline",
+    "hands": "pale exposed skin and black habit sleeves",
+    "sprinting": "reload must never cancel when sprint active",
+    "ads_duration_source_seconds": 0.2,
+    "old_png_sheets": "retained only as invisible fallback; NOT final protagonist art"
+  },
+  "acceptance": {
+    "real_source_models": true,
+    "real_source_animations": true,
+    "old_mixed_frames_hidden": true,
+    "material_shader_for_nun": true,
+    "hand_and_cuff_anatomy_correct": false,
+    "owner_reference_visual_match": false,
+    "real_pixel_fold_fps_verified": false
+  },
+  "critic_policy": "Automated CI may be source green only. Final art RED until bare hands, cuffs and proportions are verified in actual Android screenshots."
+}
