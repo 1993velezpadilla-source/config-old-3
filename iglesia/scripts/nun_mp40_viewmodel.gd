@@ -15,11 +15,14 @@ var last_role: String = ""
 var ads_fraction: float = 0.0
 var style_surface_roles: Dictionary = {}
 var source_animation_roles: Dictionary = {}
+var weapon_mount: BoneAttachment3D
+var source_hand_skeleton: Skeleton3D
+var viewmodel_diagnostic: Dictionary = {}
 var provenance: String = "GitHub-owned Aether MP40 gun + T4 113-bone skinned hand GLBs"
 
 # Existing MP40 weapon datatable: converted Unreal centimetres to Godot metres.
 # Published: xogot/data/weapon_viewmodel_source_presentation.json / MP40 row 5.
-const HIP_POSITION := Vector3(0.13, -0.27, -0.75)
+const HIP_POSITION := Vector3(0.08, -0.33, -0.68)
 const SOURCE_HAND_TAG := Vector3(-0.05178748, -0.06636865, -0.09194843)
 const ADS_DELTA := Vector3(-0.09142, 0.0604, -0.02045)
 const ADS_IN_SECONDS := 0.20
@@ -37,6 +40,11 @@ func _ready() -> void:
     motion_root = Node3D.new()
     motion_root.name = "SourceAuthoritativeCameraPose"
     motion_root.position = HIP_POSITION
+    # Both ActorX meshes were authored with Unreal's X-forward gun axis.
+    # Convert that SOURCE frame to Godot camera-forward (-Z) ONCE for both
+    # the hands and the MP40. The previous build left its barrel pointing
+    # horizontally across the screen and obscured the iron sights.
+    motion_root.rotation.y = PI * 0.5
     add_child(motion_root)
     gun = (gun_asset as PackedScene).instantiate() as Node3D
     hands = (hand_asset as PackedScene).instantiate() as Node3D
@@ -48,11 +56,25 @@ func _ready() -> void:
     # Authored glTF rigs share metres and skeleton clips; do not independently
     # normalize mesh size per animation, as prior sprite passes did.
     motion_root.add_child(hands)
-    motion_root.add_child(gun)
     hands.position = Vector3.ZERO
-    gun.position = SOURCE_HAND_TAG
-    gun.scale = Vector3.ONE
     hands.scale = Vector3.ONE
+    # The prior fixed offset was copied from a single idle PSA frame, so the
+    # gun stayed detached whenever hands animated. Attach to the actual
+    # tag_weapon bone, which follows the 113-joint hand skeleton in every pose.
+    source_hand_skeleton = _source_skeleton(hands)
+    if source_hand_skeleton == null:
+        push_error("NUN_MP40_HAND_SKELETON_NOT_FOUND")
+        return
+    if source_hand_skeleton.find_bone("tag_weapon") < 0:
+        push_error("NUN_MP40_REAL_TAG_WEAPON_BONE_MISSING")
+        return
+    weapon_mount = BoneAttachment3D.new()
+    weapon_mount.name = "GUN_FOLLOWS_SKINNED_TAG_WEAPON"
+    weapon_mount.bone_name = "tag_weapon"
+    source_hand_skeleton.add_child(weapon_mount)
+    weapon_mount.add_child(gun)
+    gun.position = Vector3.ZERO
+    gun.scale = Vector3.ONE
     var ink: Shader = load("res://shaders/nun_mp40_source_ink.gdshader")
     var gun_atlas: Texture2D = load(ROOT + "gun_color.png")
     var hands_atlas: Texture2D = load(ROOT + "hands_atlas.png")
@@ -72,9 +94,60 @@ func _ready() -> void:
             return
     source_ready = true
     _switch_animation("idle")
+    # Capture evidence from the actual model rather than trusting clip counts.
+    viewmodel_diagnostic = _camera_geometry_diagnostic()
+    print("IGLESIA_MP40_CAMERA_GEOMETRY ", JSON.stringify(viewmodel_diagnostic))
     print("IGLESIA_NUN_MP40_REAL_RIG_READY gun=",gun_animation.get_animation_list().size(),
         " hands=",hands_animation.get_animation_list().size(),
         " surfaces=",style_surface_roles.size())
+
+func _source_skeleton(root_node: Node3D) -> Skeleton3D:
+    for node in root_node.find_children("*", "Skeleton3D", true, false):
+        if node is Skeleton3D:
+            var skeleton := node as Skeleton3D
+            if skeleton.find_bone("tag_weapon") >= 0:
+                return skeleton
+    return null
+
+func _camera_geometry_diagnostic() -> Dictionary:
+    var result: Dictionary = {
+        "bone_attachment_active": weapon_mount != null,
+        "tag_weapon_index": source_hand_skeleton.find_bone("tag_weapon") if source_hand_skeleton != null else -1,
+        "root_yaw_deg": rad_to_deg(motion_root.rotation.y),
+        "gun_mesh_nodes": 0,
+        "hand_mesh_nodes": 0
+    }
+    var camera_node: Camera3D = get_parent() as Camera3D
+    if camera_node == null:
+        return result
+    for piece in [{"root": gun, "key": "gun"}, {"root": hands, "key": "hands"}]:
+        var source_node: Node3D = piece["root"]
+        var bounding_box := AABB()
+        var have_bound := false
+        var count := 0
+        for node in source_node.find_children("*", "MeshInstance3D", true, false):
+            var mesh_item: MeshInstance3D = node as MeshInstance3D
+            if mesh_item.mesh == null:
+                continue
+            count += 1
+            var camera_relative: Transform3D = camera_node.global_transform.affine_inverse() * mesh_item.global_transform
+            var mesh_bound: AABB = camera_relative * mesh_item.get_aabb()
+            if have_bound:
+                bounding_box = bounding_box.merge(mesh_bound)
+            else:
+                bounding_box = mesh_bound
+                have_bound = true
+        result[str(piece["key"]) + "_mesh_nodes"] = count
+        if have_bound:
+            result[str(piece["key"]) + "_camera_aabb"] = {
+                "center_x": snappedf(bounding_box.get_center().x, 0.001),
+                "center_y": snappedf(bounding_box.get_center().y, 0.001),
+                "center_z": snappedf(bounding_box.get_center().z, 0.001),
+                "extent_x": snappedf(bounding_box.size.x, 0.001),
+                "extent_y": snappedf(bounding_box.size.y, 0.001),
+                "extent_z": snappedf(bounding_box.size.z, 0.001)
+            }
+    return result
 
 func _animation_player(node: Node) -> AnimationPlayer:
     for child in node.find_children("*","AnimationPlayer",true,false):
@@ -163,7 +236,8 @@ func _process(delta: float) -> void:
     ads_fraction = move_toward(ads_fraction,target,delta/ADS_IN_SECONDS)
     motion_root.position = HIP_POSITION + ADS_DELTA * ads_fraction
     # The authored source ADS quaternion in the MP40 row is near-identity.
-    motion_root.rotation = Vector3(-0.009857,0.002472,0.012176) * ads_fraction
+    # Preserve the source X-forward-to-camera transform throughout ADS.
+    motion_root.rotation = Vector3(-0.009857, PI * 0.5 + 0.002472, 0.012176) * ads_fraction + Vector3(0.0, PI * 0.5, 0.0) * (1.0 - ads_fraction)
     var role := "idle"
     if player.reload_active:
         role = "reload_empty" if player.magazine == 0 else "reload"

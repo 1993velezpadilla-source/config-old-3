@@ -109,6 +109,19 @@ func _run() -> void:
                 errors.append("NUN_MP40_AUTHORED_ANIMATIONS_MISSING")
             if rig.style_surface_roles.is_empty():
                 errors.append("NUN_HAND_SKIN_MATERIALS_NOT_BOUND")
+            if rig.weapon_mount == null or rig.source_hand_skeleton == null:
+                errors.append("MP40_GUN_IS_NOT_PARENTED_TO_TAG_WEAPON")
+            elif rig.weapon_mount.bone_name != "tag_weapon":
+                errors.append("MP40_WRONG_HAND_BONE_ATTACHMENT")
+            if absf(rig.motion_root.rotation.y - PI * 0.5) > 0.1:
+                errors.append("MP40_UNREAL_X_AXIS_NOT_ALIGNED_WITH_GODOT_CAMERA")
+            var camera_test = rig._camera_geometry_diagnostic()
+            if int(camera_test.get("gun_mesh_nodes", 0)) < 1:
+                errors.append("MP40_CAMERA_HAS_NO_GUN_GEOMETRY")
+            if int(camera_test.get("hand_mesh_nodes", 0)) < 1:
+                errors.append("MP40_CAMERA_HAS_NO_HAND_GEOMETRY")
+            print("IGLESIA_VIEWMODEL_VISUAL_GAUNTLET ", JSON.stringify(camera_test))
+
             if rig.last_role != "idle":
                 errors.append("NUN_MP40_IDLE_CLIP_NOT_SET")
             rig._switch_animation("fire")

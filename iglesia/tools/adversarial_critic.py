@@ -130,6 +130,21 @@ def run(gate: str, android_probe: str) -> int:
                 issue(issues,"FAIL","NUN_SOURCE_ANIMATION_INVALID",
                       "Missing authentic rig/animation in "+name,
                       "Do not generate dummy reload/sprint animation frames")
+    if rig_file.exists():
+        rig_text = rig_file.read_text(encoding="utf-8")
+        if "BoneAttachment3D.new()" not in rig_text or '"tag_weapon"' not in rig_text:
+            issue(issues,"FAIL","DETACHED_MP40_HAND_GRIP",
+                  "Actual camera gun is static while skinned hand animates",
+                  "Attach the same authored MP40 mesh to Skeleton3D tag_weapon")
+        if "PI * 0.5" not in rig_text:
+            issue(issues,"FAIL","MP40_BARREL_SIDEWAYS",
+                  "Weapon retained source Unreal X-forward orientation",
+                  "Map the authored rig axis to Godot FPS -Z direction")
+    shader_code = (ROOT / "shaders" / "nun_mp40_source_ink.gdshader").read_text(encoding="utf-8")
+    if "render_mode unshaded" not in shader_code:
+        issue(issues,"FAIL","MP40_PITCH_BLACK_MATERIAL",
+              "Dark metal palette receives insufficient cathedral lighting",
+              "Use stable cheap camera-viewmodel illumination without dark silhouettes")
     if "weapon.visible = not source_rig_ready" not in hud:
         issue(issues,"FAIL","REJECTED_SPRITE_STILL_ON_TOP",
               "Old pixel/realistic PNG atlas is still dominant visual",
