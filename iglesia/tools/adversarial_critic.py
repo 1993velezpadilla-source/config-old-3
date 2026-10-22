@@ -106,6 +106,45 @@ def run(gate: str, android_probe: str) -> int:
     if available!=required | ({"owner_original_sheet"} if "owner_original_sheet" in available else set()):
         issue(issues,"FAIL","WEAPON_FRAMES_INCOMPLETE",
               f"Found {sorted(available)}", "Build all 9 states from one art bible")
+    # True source-based Nun MP40 rig: this gate must NOT accept a cosmetic
+    # recolor over the rejected 9-frame mixed-art PNG as completed work.
+    rig_file=SCRIPT/"nun_mp40_viewmodel.gd"
+    rig_manifest=ASSETS/"weapons"/"mp40_nun"/"manifest.json"
+    if not rig_file.exists():
+        issue(issues,"FAIL","NUN_VIEWMODEL_SOURCE_CODE_MISSING",
+              "The playable Nun does not load skinned MP40/hands GLB",
+              "Attach the real source rig to the FPS camera")
+    elif "source_ready = true" not in rig_file.read_text(encoding="utf-8"):
+        issue(issues,"FAIL","NUN_VIEWMODEL_NEVER_READY",
+              "New MP40 rig never enters ready state",
+              "Bind gun, hands, shader and real source animations")
+    if not rig_manifest.exists():
+        issue(issues,"FAIL","NUN_SOURCE_BINARY_MANIFEST_MISSING",
+              "No source-verified actual MP40 or skinned hands files",
+              "Run stage_assets.py and SHA-check existing owner source GLBs")
+    else:
+        staged=json.loads(rig_manifest.read_text(encoding="utf-8"))
+        for name in ("gun.glb","viewhands.glb"):
+            row=staged.get("model_files",{}).get(name,{})
+            if not row.get("animations") or not row.get("skins"):
+                issue(issues,"FAIL","NUN_SOURCE_ANIMATION_INVALID",
+                      "Missing authentic rig/animation in "+name,
+                      "Do not generate dummy reload/sprint animation frames")
+    if "weapon.visible = not source_rig_ready" not in hud:
+        issue(issues,"FAIL","REJECTED_SPRITE_STILL_ON_TOP",
+              "Old pixel/realistic PNG atlas is still dominant visual",
+              "Disable old sprite render whenever real Nun source rig is active")
+    if rig_file.exists():
+        actual=rig_file.read_text(encoding="utf-8")
+        if "NunPaleHandsBlackHabit_SourceSkin" not in actual:
+            issue(issues,"ART_BLOCKER","NUN_HAND_PALETTE_NOT_BOUND",
+                  "Nun black habit and pale hand source rig not registered",
+                  "Tint separate genuine source skin/cloth materials")
+    # The recovered hand base was a military marine skeletal mesh. It is
+    # mechanically valuable, but the actual user reference is BARE hands.
+    issue(issues,"ART_BLOCKER","NUN_BARE_HAND_GEOMETRY_PENDING",
+          "Source military 113-bone hands recolored, but uncovered fingers and torn habit cuffs still need verified close-up fidelity",
+          "Retopologize/re-skin bare fingers and Gothic cuffs before final art approval")
     # Known visual debt is not hidden by GLB import or smoke success.
     mp40_source = json.loads((ASSETS/"SOURCES.json").read_text(encoding="utf-8"))["mp40"].get("path", "")
     if ("owner_original_sheet.png" in stage
