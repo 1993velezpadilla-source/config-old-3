@@ -297,8 +297,16 @@ func _process(delta: float) -> void:
         frame = "ads_fire_01" if ads else "fire_hip_01"
     elif Input.is_action_pressed("sprint") and not ads:
         frame = "sprint_01"
+    # The authentic MP40 + actual skinned hands are now the default 2.5D
+    # camera-space viewmodel. Do NOT layer the rejected mismatched sprite
+    # frames on top; this previously caused the gun/hands to change artstyle
+    # between ADS, hip, reload and sprint.
+    var source_rig_ready: bool = (player.nun_viewmodel != null
+        and bool(player.nun_viewmodel.get("source_ready")))
+    weapon.visible = not source_rig_ready
     if frame != last_frame:
-        weapon.texture = mp40_frames.get(frame, null)
+        if not source_rig_ready:
+            weapon.texture = mp40_frames.get(frame, null)
         last_frame = frame
     var screen: Vector2 = get_viewport().get_visible_rect().size
     var s: float = screen.y / 720.0
