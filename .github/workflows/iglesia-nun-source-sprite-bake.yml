@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: iglesia-nun-real-source-sprite-bake-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   original-nun-source-bake:
     runs-on: ubuntu-latest
@@ -20,6 +24,7 @@ jobs:
       - name: Copy only original owner mesh rig for temporary offline render
         run: |
           set -euo pipefail
+          python -m pip install --quiet --disable-pip-version-check Pillow
           python iglesia/tools/stage_nun_impostor_source.py
 
       - name: Get Godot 4.6 matching runtime
