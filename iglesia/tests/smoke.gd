@@ -94,6 +94,37 @@ func _run() -> void:
         var perf_probe = game.get_node_or_null("MobilePerformanceTelemetry")
         if perf_probe == null:
             errors.append("PERFORMANCE_TELEMETRY_NOT_INSTALLED")
+        # Authored Nun source viewmodel: original MP40 model and the original
+        # 113-bone hands must actually instantiate and be animated. Never
+        # consider the old nine PNG files a substitute for this gate.
+        var rig = game.player.nun_viewmodel
+        if rig == null:
+            errors.append("NUN_MP40_CAMERA_RIG_MISSING")
+        elif not rig.source_ready:
+            errors.append("NUN_MP40_REAL_SOURCE_RIG_NOT_READY")
+        else:
+            if rig.gun == null or rig.hands == null:
+                errors.append("NUN_MP40_GUN_OR_SKINNED_HANDS_MISSING")
+            if rig.gun_animation == null or rig.hands_animation == null:
+                errors.append("NUN_MP40_AUTHORED_ANIMATIONS_MISSING")
+            if rig.style_surface_roles.is_empty():
+                errors.append("NUN_HAND_SKIN_MATERIALS_NOT_BOUND")
+            if rig.last_role != "idle":
+                errors.append("NUN_MP40_IDLE_CLIP_NOT_SET")
+            rig._switch_animation("fire")
+            if rig.last_role != "fire":
+                errors.append("NUN_MP40_AUTHORED_FIRE_CLIP_NOT_PLAYING")
+            rig._switch_animation("reload")
+            if rig.last_role != "reload":
+                errors.append("NUN_MP40_AUTHORED_RELOAD_CLIP_NOT_PLAYING")
+            rig._switch_animation("idle")
+            if rig.last_role != "idle":
+                errors.append("NUN_MP40_IDLE_CLIP_NOT_RESUMED")
+            # HUD must not draw old mixed realistic/pixel pictures when this
+            # new source rig is ready. Deferred process lets HUD update it.
+            await process_frame
+            if game.hud.weapon.visible:
+                errors.append("REJECTED_MP40_SPRITES_VISIBLE_OVER_NEW_NUN_RIG")
         if game.hud.mp40_frames.size() != 9:
             errors.append("MP40_SOURCE_FRAMES_NOT_9")
         if game.hud.buttons.size() < 6:
