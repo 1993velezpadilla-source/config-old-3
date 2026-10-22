@@ -36,9 +36,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install --quiet Pillow trimesh numpy
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq unzip curl libgl1-mesa-dri libx11-6 libxrandr2 libxcursor1 libxi6 libasound2t64 openjdk-17-jdk
+          python -m pip install --quiet --disable-pip-version-check --retries 2 --timeout 30 Pillow trimesh numpy
+          # Ubuntu GitHub runners already ship Android SDK, Java 17, curl,
+          # unzip and headless Godot system libraries; repeated apt update has
+          # stalled for 10+ minutes on this job. Only install when truly absent.
+          command -v unzip
+          command -v curl
+          command -v java
+          if ! ldconfig -p | grep -q 'libGL.so.1'; then
+            timeout 180 sudo apt-get update -qq
+            timeout 180 sudo apt-get install -y -qq libgl1-mesa-dri libx11-6 libxrandr2 libxcursor1 libxi6 libasound2t64
+          fi
 
       - name: Restore original chandeliers and candleholders from pinned GitHub blobs
         shell: bash
