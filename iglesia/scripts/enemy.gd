@@ -76,6 +76,10 @@ func _load_clips() -> void:
             push_warning("IGLESIA_NUN_SOURCE_CLIP_INCOMPLETE_%s %d/%d" %
                 [role, images.size(), int(ROLE_COUNTS[role])])
 
+func authored_frame_count(role: String) -> int:
+    var images: Array = cached_clips.get(role, [])
+    return images.size()
+
 func _show_frame(role: String, index: int) -> void:
     var images: Array = cached_clips.get(role, [])
     if images.is_empty() and role != "walk":
