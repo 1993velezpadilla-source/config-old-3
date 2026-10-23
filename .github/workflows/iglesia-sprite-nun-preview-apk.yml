@@ -77,26 +77,29 @@ jobs:
           test ! -e iglesia/assets/weapons/mp40_nun/viewhands.glb
           echo "IGLESIA_REJECTED_MILITARY_MP40_NOT_STAGED"
 
-      - name: Fetch owner-original Nun walk PNGs from verified standalone 16-frame bake
+      - name: Fetch owner-authored 20-frame Nun walk attack death idle PNG artifact
         uses: actions/download-artifact@v4
         with:
-          run-id: 39886161142
+          run-id: 39899606644
           repository: 1993velezpadilla-source/config-old-3
-          name: Iglesia-Real-Nun-2D-16Frames-SourceBake
+          name: Iglesia-Original-Nun-2D-20CombatFrames
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/iglesia-nun-bake
 
-      - name: Verify 16 PNG bake frames and stage only 4 in-game 2.5D frames
+      - name: Verify and integrate all 20 original Nun 2.5D attack death walk idle PNG frames
         shell: bash
         run: |
           set -euo pipefail
-          python iglesia/tools/stage_owner_nun_sprite_artifact.py \
+          python iglesia/tools/stage_owner_nun_combat_artifact.py \
             --artifact "${{ runner.temp }}/iglesia-nun-bake" \
             --assets iglesia/assets 2>&1 | tee /tmp/iglesia-nun-source-staging.log
           test -s iglesia/assets/enemies/gothic_nun_2d/walk_00.png
           test -s iglesia/assets/enemies/gothic_nun_2d/walk_03.png
+          test -s iglesia/assets/enemies/gothic_nun_2d/attack_05.png
+          test -s iglesia/assets/enemies/gothic_nun_2d/death_07.png
+          test -s iglesia/assets/enemies/gothic_nun_2d/idle_01.png
           ! find iglesia/assets -name '*.gltf' -path '*_bake_source*' | grep -q .
-          echo 'IGLESIA_REAL_NUN_2D_PREVIEW_ONLY_NOT_OWNER_APPROVED'
+          echo 'IGLESIA_REAL_NUN_2D_COMBAT_PREVIEW_NOT_OWNER_ART_APPROVED'
 
       - name: Adversarial critic — source art/performance regression audit
         shell: bash
@@ -172,14 +175,14 @@ jobs:
           test -s iglesia/build/iglesia-android-arm64-debug.apk
           unzip -l iglesia/build/iglesia-android-arm64-debug.apk | grep -q "lib/arm64-v8a/libgodot_android.so"
           sha256sum iglesia/build/iglesia-android-arm64-debug.apk
-          echo "IGLESIA_PREVIEW_WITH_REAL_NUN_2D_FOUR_WALK_FRAMES_MP40_ART_MISSING"
+          echo "IGLESIA_PREVIEW_NUN_ALL_20_SOURCE_COMBAT_FRAMES_MP40_ART_PENDING"
           echo "IGLESIA_APK_ARM64_EXPORTED_NOT_PHONE_TESTED"
 
       - name: Publish Android debug artifact and evidence
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Iglesia-OriginalNun-2D-Sprite-Tripo-Firstroom-ARM64-Preview
+          name: Iglesia-OriginalNun-2D-Combat20-Tripo-Firstroom-ARM64-Preview
           path: |
             iglesia/build/iglesia-android-arm64-debug.apk
           if-no-files-found: error
