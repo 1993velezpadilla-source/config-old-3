@@ -1,6 +1,6 @@
 extends CharacterBody3D
 ## 2.5D camera-facing sprite enemy with NEW grid-navigation AI.
-## DEBUG ART is visibly marked until the approved multi-direction nun sprites exist.
+## Only user-approved 2.5D Nun PNG animation. No blocky procedural silhouette.
 signal killed(reward: int)
 var target
 var level
@@ -10,6 +10,9 @@ var chase_tick: float = 0.0
 var next_waypoint: Vector3 = Vector3.ZERO
 var attack_clock: float = 0.0
 var art_sprite: Sprite3D
+var clip_time: float = 0.0
+var clip_role: String = "walk"
+static var cached_clips: Dictionary = {}
 
 func _ready() -> void:
     collision_layer = 4
@@ -27,34 +30,48 @@ func _ready() -> void:
 
 func _set_sprite() -> void:
     art_sprite = Sprite3D.new()
-    art_sprite.name = "Nun25DBillboard"
+    art_sprite.name = "NunEnemy_2D_PNG_Only"
     art_sprite.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-    art_sprite.pixel_size = 0.017
-    art_sprite.position.y = 1.0
-    var owner_frame := "res://assets/zombies/nun_walk_00.png"
-    if ResourceLoader.exists(owner_frame):
-        art_sprite.texture = load(owner_frame)
-    else:
-        # Explicit dev-only stand-in. This is NOT FMF2-quality final zombie art.
-        art_sprite.texture = _debug_texture()
-        push_warning("IGLESIA_ZOMBIE_ART_PENDING: approved HD 2.5D nun sprite sheet")
+    art_sprite.pixel_size = 0.008  # 240 pixels ≈ 1.92 m world height.
+    art_sprite.position.y = 0.96
+    art_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
     add_child(art_sprite)
+    _load_clips()
+    _show_frame("walk", 0)
+    if art_sprite.texture == null:
+        art_sprite.visible = false
+        push_warning("IGLESIA_NUN_ENEMY_ART_BLOCKER: no approved PNGs; forbidden debug rectangle removed")
 
-func _debug_texture() -> Texture2D:
-    var im := Image.create(96, 160, false, Image.FORMAT_RGBA8)
-    im.fill(Color(0.0, 0.0, 0.0, 0.0))
-    _paint(im, Rect2i(29, 11, 38, 35), Color(0.80, 0.77, 0.72))
-    _paint(im, Rect2i(22, 38, 52, 89), Color(0.13, 0.14, 0.16))
-    _paint(im, Rect2i(37, 43, 23, 25), Color(0.64, 0.49, 0.43))
-    _paint(im, Rect2i(30, 73, 9, 65), Color(0.21, 0.20, 0.23))
-    _paint(im, Rect2i(58, 73, 9, 65), Color(0.21, 0.20, 0.23))
-    _paint(im, Rect2i(44, 51, 6, 4), Color(0.90, 0.16, 0.10))
-    return ImageTexture.create_from_image(im)
+func _load_clips() -> void:
+    if not cached_clips.is_empty():
+        return
+    for role in ["idle", "walk", "attack", "death"]:
+        var sequence: Array[Texture2D] = []
+        for index in range(24):
+            var path := "res://assets/enemies/gothic_nun_2d/%s_%02d.png" % [role, index]
+            if not ResourceLoader.exists(path):
+                break
+            var texture := load(path) as Texture2D
+            if texture == null:
+                break
+            sequence.append(texture)
+        cached_clips[role] = sequence
 
-func _paint(im: Image, rect: Rect2i, color: Color) -> void:
-    for x in range(rect.position.x, rect.end.x):
-        for y in range(rect.position.y, rect.end.y):
-            im.set_pixel(x, y, color)
+func _show_frame(role: String, index: int) -> void:
+    var images: Array = cached_clips.get(role, [])
+    if images.is_empty():
+        art_sprite.visible = false
+        return
+    art_sprite.texture = images[index % images.size()]
+    art_sprite.visible = true
+
+func _advance_sprite(delta: float, role: String) -> void:
+    if role != clip_role:
+        clip_time = 0.0
+        clip_role = role
+    clip_time += delta
+    var fps: float = 8.0 if role == "walk" else 6.0
+    _show_frame(role, int(clip_time * fps))
 
 func _physics_process(delta: float) -> void:
     if target == null or not is_instance_valid(target):
@@ -63,6 +80,7 @@ func _physics_process(delta: float) -> void:
     var offset: Vector3 = target.global_position - global_position
     offset.y = 0.0
     if offset.length() < 1.22:
+        _advance_sprite(delta, "attack")
         velocity.x = 0.0
         velocity.z = 0.0
         attack_clock -= delta
@@ -70,6 +88,7 @@ func _physics_process(delta: float) -> void:
             target.apply_zombie_damage(27)
             attack_clock = 1.15
     else:
+        _advance_sprite(delta, "walk")
         chase_tick -= delta
         if chase_tick <= 0.0 and level != null:
             next_waypoint = level.next_step(global_position, target.global_position)
