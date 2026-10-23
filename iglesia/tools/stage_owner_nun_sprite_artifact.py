@@ -4,7 +4,7 @@
 The 16-source-frame artifact was produced by real Godot render from the owner's
 24-bone original model on a dedicated CI branch. Never include 3D source in
 the Android runtime or replace missing images with procedural rectangles.
-Only four front-facing walk PNGs are staged until visual owner approval.
+Only four verified near-front walk PNGs are staged until visual owner approval.
 """
 from __future__ import annotations
 
@@ -48,10 +48,11 @@ def stage(artifact: Path, assets: Path) -> dict:
             if bounds is None or (bounds[2]-bounds[0]) < 70 or (bounds[3]-bounds[1]) < 150:
                 raise RuntimeError(f"NUN_SPRITE_SILHOUETTE_RED: {path.name} {bounds}")
         hashes[path.name] = hashlib.sha256(payload).hexdigest()
-        # Front direction rendered against source camera; runtime uses only
-        # this direction to avoid importing unnecessary alternate PNGs.
-        if path.name.startswith("nun_0_"):
-            name = path.name.removeprefix("nun_0_")
+        # Visual audit of all sixteen REAL render frames: direction 0 shows
+        # the back of the hood; direction 3 is the only camera-facing nun.
+        # Never accidentally ship direction 0 as the front of the enemy.
+        if path.name.startswith("nun_3_"):
+            name = path.name.removeprefix("nun_3_")
             shutil.copyfile(path, target / name)
             print("IGLESIA_AUTHENTIC_NUN_PNG_STAGED",name,len(payload),"bytes")
     if len(list(target.glob("walk_*.png"))) != 4:
@@ -62,6 +63,8 @@ def stage(artifact: Path, assets: Path) -> dict:
         "artifact_frames_verified": 16, "runtime_frames_staged": 4,
         "source_is_offline_animated_owner_nun_render": True,
         "runtime_has_no_nun_mesh_or_skeleton": True,
+        "chosen_source_direction": 3,
+        "selection_evidence": "16-frame contact sheet: direction 0 back, direction 3 front visible",
         "preview_only": True,
         "missing_authored_roles": ["idle", "attack", "death"],
         "art_not_owner_visually_approved": True, "sha256_by_source_frame": hashes,
