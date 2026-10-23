@@ -82,103 +82,78 @@ def run(gate: str, android_probe: str) -> int:
     if "ads_active" not in player or 'buttons["fire"]' not in hud and '"fire"' not in hud:
         issue(issues,"FAIL","HUD_FIRE_ADS_RUNTIME_GAP",
               "Missing input routing", "Restore fire and aim touch controls")
-    if "nun_viewmodel_gothic_ink.gdshader" not in hud:
-        issue(issues,"ART_BLOCKER","NUN_ARM_PALETTE_MISSING",
-              "Viewmodel uses default army sleeve colors, not the user's habit palette",
-              "Apply the deterministic dark-habit shader while rebuilding the correct pale hands")
     if "texture_normal" not in hud:
-        issue(issues,"FAIL","OFFICIAL_BUTTON_SKINS_ABSENT",
-              "HUD not using official images as touch texture",
-              "Restore approved skins, no circles in place of button images")
-    # Audit actual nine staged sprites: validate transparent source and capture
-    # objective differences. Silhouette/character styling requires human review.
-    sprites=list((ASSETS/"weapons"/"mp40").glob("*.png"))
-    for path in sprites:
-        if path.name=="owner_original_sheet.png":
-            continue
-        with Image.open(path) as image:
-            if image.mode!="RGBA" or image.getchannel("A").getbbox() is None:
-                issue(issues,"FAIL","WEAPON_SPRITE_ALPHA", path.name,
-                      "Fix transparent sprite output")
-    required={"idle_hip_01","ads_idle","fire_hip_01","ads_fire_01",
-              "sprint_01","reload_01","reload_02","reload_03","reload_04"}
-    available={p.stem for p in sprites}
-    if available!=required | ({"owner_original_sheet"} if "owner_original_sheet" in available else set()):
-        issue(issues,"FAIL","WEAPON_FRAMES_INCOMPLETE",
-              f"Found {sorted(available)}", "Build all 9 states from one art bible")
-    # True source-based Nun MP40 rig: this gate must NOT accept a cosmetic
-    # recolor over the rejected 9-frame mixed-art PNG as completed work.
-    rig_file=SCRIPT/"nun_mp40_viewmodel.gd"
-    rig_manifest=ASSETS/"weapons"/"mp40_nun"/"manifest.json"
-    if not rig_file.exists():
-        issue(issues,"FAIL","NUN_VIEWMODEL_SOURCE_CODE_MISSING",
-              "The playable Nun does not load skinned MP40/hands GLB",
-              "Attach the real source rig to the FPS camera")
-    elif "source_ready = true" not in rig_file.read_text(encoding="utf-8"):
-        issue(issues,"FAIL","NUN_VIEWMODEL_NEVER_READY",
-              "New MP40 rig never enters ready state",
-              "Bind gun, hands, shader and real source animations")
-    if not rig_manifest.exists():
-        issue(issues,"FAIL","NUN_SOURCE_BINARY_MANIFEST_MISSING",
-              "No source-verified actual MP40 or skinned hands files",
-              "Run stage_assets.py and SHA-check existing owner source GLBs")
-    else:
-        staged=json.loads(rig_manifest.read_text(encoding="utf-8"))
-        for name in ("gun.glb","viewhands.glb"):
-            row=staged.get("model_files",{}).get(name,{})
-            if not row.get("animations") or not row.get("skins"):
-                issue(issues,"FAIL","NUN_SOURCE_ANIMATION_INVALID",
-                      "Missing authentic rig/animation in "+name,
-                      "Do not generate dummy reload/sprint animation frames")
-    if rig_file.exists():
-        rig_text = rig_file.read_text(encoding="utf-8")
-        if "BoneAttachment3D.new()" not in rig_text or '"tag_weapon"' not in rig_text:
-            issue(issues,"FAIL","DETACHED_MP40_HAND_GRIP",
-                  "Actual camera gun is static while skinned hand animates",
-                  "Attach the same authored MP40 mesh to Skeleton3D tag_weapon")
-        if "PI * 0.5" not in rig_text:
-            issue(issues,"FAIL","MP40_BARREL_SIDEWAYS",
-                  "Weapon retained source Unreal X-forward orientation",
-                  "Map the authored rig axis to Godot FPS -Z direction")
-    shader_code = (ROOT / "shaders" / "nun_mp40_source_ink.gdshader").read_text(encoding="utf-8")
-    if "render_mode unshaded" not in shader_code:
-        issue(issues,"FAIL","MP40_PITCH_BLACK_MATERIAL",
-              "Dark metal palette receives insufficient cathedral lighting",
-              "Use stable cheap camera-viewmodel illumination without dark silhouettes")
-    if "weapon.visible = not source_rig_ready" not in hud:
-        issue(issues,"FAIL","REJECTED_SPRITE_STILL_ON_TOP",
-              "Old pixel/realistic PNG atlas is still dominant visual",
-              "Disable old sprite render whenever real Nun source rig is active")
-    if rig_file.exists():
-        actual=rig_file.read_text(encoding="utf-8")
-        if "IGLESIA_MP40_SOURCE_UNITS_CALIBRATED" not in actual:
-            issue(issues,"FAIL","WEAPON_SOURCE_UNIT_SCALE_UNFIXED",
-                  "Owner screenshot shows an MP40 only millimetres long in camera space",
-                  "Scale the source gun alone to actual 0.62 m length and smoke-test its AABB")
-        if "NunPaleHandsBlackHabit_SourceSkin" not in actual:
-            issue(issues,"ART_BLOCKER","NUN_HAND_PALETTE_NOT_BOUND",
-                  "Nun black habit and pale hand source rig not registered",
-                  "Tint separate genuine source skin/cloth materials")
-    # The recovered hand base was a military marine skeletal mesh. It is
-    # mechanically valuable, but the actual user reference is BARE hands.
-    issue(issues,"ART_BLOCKER","NUN_BARE_HAND_GEOMETRY_PENDING",
-          "Source military 113-bone hands recolored, but uncovered fingers and torn habit cuffs still need verified close-up fidelity",
-          "Retopologize/re-skin bare fingers and Gothic cuffs before final art approval")
-    # Known visual debt is not hidden by GLB import or smoke success.
-    mp40_source = json.loads((ASSETS/"SOURCES.json").read_text(encoding="utf-8"))["mp40"].get("path", "")
-    if ("owner_original_sheet.png" in stage
-            or "WWII MP40 Pixel Art Sprite Sheet" in mp40_source):
-        issue(issues,"ART_BLOCKER","OLD_MIXED_STYLE_MP40",
-              "Current sheet is the previously rejected military/animated gun/hand source",
-              "Replace with one coherent pale-hand/black-sleeve nun MP40 atlas from owner reference")
+        issue(issues,"FAIL","OFFICIAL_TOUCH_BUTTON_SKINS_ABSENT",
+              "HUD dropped approved fire/ADS art","Keep official PNG touchscreen assets")
+    if 'nun_mp40_viewmodel.gd' in player or 'nun_mp40_viewmodel.gd' in hud:
+        issue(issues,"FAIL","REJECTED_3D_RIG_REFERENCED",
+              "Old model or skinned military hands still called by FPS",
+              "Only reference weapon_sprite_animator.gd")
+    if "stage_mp40()" in stage or "stage_nun_mp40_source()" in stage:
+        issue(issues,"FAIL","REJECTED_MILITARY_SOURCE_RESTAGED",
+              "CI would re-import the soldier arms or rejected sheet",
+              "Remove all legacy MP40 staging calls")
+    if "reject_legacy_mp40()" not in stage:
+        issue(issues,"FAIL","NO_LEGACY_ART_PURGE",
+              "Stale Godot import cache may keep rejected old art",
+              "Purge stale mp40/ and mp40_nun/ during source stage")
+    spriter = SCRIPT / "weapon_sprite_animator.gd"
+    if not spriter.is_file() or "PROFILES :=" not in spriter.read_text(encoding="utf-8"):
+        issue(issues,"FAIL","SPRITE_ANIMATOR_ABSENT",
+              "No canonical independent PNG state machine","Restore 12/15/24 profile player")
+    if "weapon_sprites.render(player, weapon" not in hud:
+        issue(issues,"FAIL","SPRITE_PLAYER_NOT_IN_HUD",
+              "HUD not drawing new camera-space MP40 frames","Attach PNG animator to actual HUD")
     if "_debug_texture()" in enemy:
-        issue(issues,"ART_BLOCKER","DUMMY_NUN_ENEMY",
-              "Procedural rectangle nun still used when approved sprite missing",
-              "Import genuine 2.5D sprite and animation set; do NOT pass as final art")
-    if "NunPlayerFPS" in main and "nun_protagonist" not in main.lower():
-        issue(issues,"ART_BLOCKER","PLAYABLE_NUN_APPEARANCE_UNVERIFIED",
-              "Main character name exists but model/sleeves have no authority lock",
-              "Attach approved black habit/pale hands as gameplay viewmodel source")
+        issue(issues,"FAIL","REJECTED_RECTANGULAR_NUN_PRESENT",
+              "Old generated block-character zombie still coded",
+              "Require only approved 2.5D Nun source PNGs")
+    from collections import Counter
+    expected_counts = {
+        12: {"idle":1,"ads_idle":1,"fire":2,"ads_fire":1,"reload":5,"sprint":1,"equip":1},
+        15: {"idle":1,"ads_idle":1,"fire":2,"ads_fire":2,"reload":7,"sprint":1,"equip":1},
+        24: {"idle":1,"ads_idle":1,"fire":4,"ads_fire":3,"reload":12,"sprint":1,"equip":2},
+    }
+    src = json.loads((ASSETS / "SOURCES.json").read_text(encoding="utf-8"))
+    if "mp40" in src:
+        issue(issues,"FAIL","REJECTED_OLD_MP40_IN_AUTHORITY",
+              "Legacy sprite sheet still an approved source", "Remove it from SOURCES.json")
+    gun_folder = ASSETS / "weapons" / "mp40_nun_2d"
+    sprite_frames = sorted(gun_folder.glob("*.png"))
+    for requested, spec in expected_counts.items():
+        needed = [f"{role}_{i:02d}.png" for role,num in spec.items()
+                  for i in range(num)]
+        if len(needed) != requested:
+            issue(issues,"FAIL","BAD_SPRITE_BUDGET",
+                  f"{requested} frame variant calculates to {len(needed)}",
+                  "Correct per-action frame allocations")
+        missing_files = [name for name in needed if not (gun_folder/name).is_file()]
+        if missing_files:
+            issue(issues,"ART_BLOCKER",f"MP40_{requested}_PNG_PENDING",
+                  f"{len(missing_files)}/{requested} original hand-drawn frames absent",
+                  "Prepare consistent PNGs from the chosen Nun aesthetic; no soldiers")
+        else:
+            print(f"ADVERSARIAL_MP40_PROFILE_{requested}_FRAMES_PRESENT")
+    for filename in sprite_frames:
+        with Image.open(filename) as im:
+            if im.mode != "RGBA" or im.getchannel("A").getbbox() is None:
+                issue(issues,"FAIL","MP40_ALPHA_INVALID",str(filename),
+                      "Use transparent RGBA PNGs")
+            if im.width>768 or im.height>512:
+                issue(issues,"FAIL","MP40_MOBILE_TEXTURE_OVER_BUDGET",
+                      f"{filename.name} at {im.size}",
+                      "Resize/export viewmodel PNG within 768x512 maximum")
+    enemy_folder = ASSETS / "enemies" / "gothic_nun_2d"
+    required_nun = ["idle_00.png","walk_00.png","attack_00.png","death_00.png"]
+    if any(not (enemy_folder/name).is_file() for name in required_nun):
+        issue(issues,"ART_BLOCKER","GOTHIC_NUN_SPRITES_PENDING",
+              "No complete approved idle/walk/attack/death source PNG sequences",
+              "Bake/draw and integrate the chosen Gothic Nun in 2.5D")
+    # One phone screenshot and human approval are needed for visual parity;
+    # satisfying frame counts alone does not grant fidelity approval.
+    issue(issues,"ART_BLOCKER","ART_VISUAL_FIDELITY_NOT_SIGNED_OFF",
+          "Source PNGs must match the selected Nun, pale bare hands and black sleeves",
+          "Capture actual Pixel Fold screenshot and request owner art approval")
     # No claim of real hardware performance without an actual device sample.
     probe=Path(android_probe) if android_probe else None
     if probe and probe.exists():

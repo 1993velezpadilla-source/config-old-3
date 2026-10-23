@@ -1,0 +1,91 @@
+name: Iglesia Nun MP40 Original 2D Ink PNG Art QA
+on:
+  push:
+    branches: [feature/iglesia-sprite25d-no-legacy-mp40-20261022]
+    paths:
+      - iglesia/tools/draw_original_nun_mp40.py
+      - iglesia/scripts/weapon_sprite_animator.gd
+      - .github/workflows/iglesia-mp40-2d-art.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: iglesia-original-mp40-ink-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ink-export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SVG to PNG toolchain
+        run: python -m pip install --quiet Pillow CairoSVG
+      - name: Author 24 transparent ink-frame PNGs (no soldier source)
+        run: |
+          set -euo pipefail
+          python iglesia/tools/draw_original_nun_mp40.py 2>&1 | tee /tmp/iglesia-original-ink.log
+          grep -q 'IGLESIA_NEW_NUN_MP40_24_INK_SOURCE_FRAMES_READY_CANDIDATE' /tmp/iglesia-original-ink.log
+      - name: Adversarial pixel and memory budget for 12 15 24
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image,ImageChops,ImageDraw,ImageFont
+          folder=Path('iglesia/assets/weapons/mp40_nun_2d')
+          expected={'idle':1,'ads_idle':1,'fire':4,'ads_fire':3,'reload':12,'sprint':1,'equip':2}
+          pngs=sorted(folder.glob('*.png'))
+          assert len(pngs)==24, len(pngs)
+          for role,count in expected.items():
+              selected=[folder/f'{role}_{n:02d}.png' for n in range(count)]
+              assert all(p.is_file() for p in selected),role
+              samples=[]
+              for p in selected:
+                  with Image.open(p) as source:
+                      image=source.convert('RGBA')
+                      assert image.size==(768,512),(p,image.size)
+                      assert image.getchannel('A').getbbox(),p
+                      assert image.getchannel('A').getextrema()[0]<255,p
+                      samples.append(image.copy())
+              if role=='reload':
+                  changed=sum(ImageChops.difference(samples[0],v).getbbox() is not None for v in samples[1:])
+                  assert changed>=6,('RELOAD_NO_REAL_MOTION',changed)
+              print('IGLESIA_NEW_2D_MP40_SOURCE',role,count)
+          # Contact sheets are REAL art PNGs produced by tool, not fake APK screenshots.
+          roles=['idle','ads_idle','fire','ads_fire','reload','sprint','equip']
+          canvas=Image.new('RGB',(768*3,580*8),'#1a1720')
+          draw=ImageDraw.Draw(canvas)
+          row=0
+          for role in roles:
+              for n in range(expected[role]):
+                  if n>=3: continue
+                  src=Image.open(folder/f'{role}_{n:02d}.png').convert('RGBA')
+                  px=n*768
+                  py=row*580
+                  canvas.paste(src,(px,py),src)
+                  draw.text((px+20,py+535),f'{role}_{n:02d}',fill='#e9d7be')
+              row+=1
+          canvas.crop((0,0,2304,row*580)).save('/tmp/iglesia_mp40_png_contact_sheet.jpg',quality=86)
+          for size in (12,15,24):
+              print('IGLESIA_SPRITE_PROFILE_BUDGET_MIB',size,round(size*768*512*4/1048576,2))
+          PY
+      - name: Publish unapproved original 2D art candidate and rendered contact sheet
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Iglesia-Original-2D-MP40-NunHands-24Frame-Candidate
+          path: |
+            iglesia/assets/weapons/mp40_nun_2d/*.png
+            iglesia/assets/weapons/mp40_nun_2d/INK_SOURCE_MANIFEST.json
+            /tmp/iglesia_mp40_png_contact_sheet.jpg
+          if-no-files-found: error
+          retention-days: 14
+      - name: Keep failure report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Iglesia-MP40-2D-ART-RED
+          path: /tmp/iglesia-original-ink.log
+          if-no-files-found: ignore
+          retention-days: 7

@@ -24,9 +24,22 @@ func _process(delta: float) -> void:
     var vram: int = RenderingServer.get_rendering_info(
         RenderingServer.RENDERING_INFO_TEXTURE_MEM_USED)
     samples += 1
+    var sprite_profile: int = 0
+    var missing_weapon_pngs: int = 0
+    var estimated_weapon_rgba8_mib: float = 0.0
+    var scene = get_parent()
+    if scene != null and scene.get("hud") != null:
+        var hud_node = scene.get("hud")
+        var sprite_player = hud_node.get("weapon_sprites")
+        sprite_profile = sprite_player.profile
+        missing_weapon_pngs = sprite_player.missing.size()
+        estimated_weapon_rgba8_mib = sprite_player.estimated_rgba8_mib
     var record := {
         "schema": 1, "device": OS.get_name(), "sample": samples,
         "fps": last_fps, "min_sampled_fps": lowest_fps,
+        "weapon_sprite_profile": sprite_profile,
+        "weapon_pngs_missing": missing_weapon_pngs,
+        "weapon_rgba8_estimate_mib": estimated_weapon_rgba8_mib,
         "draw_calls": draw_calls, "visible_primitives": tris,
         "texture_mem_mb": snappedf(float(vram) / 1048576.0, 0.1),
         "gpu_frame_time_ms": 0.0,

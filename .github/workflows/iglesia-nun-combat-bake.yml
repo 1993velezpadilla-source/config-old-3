@@ -1,0 +1,97 @@
+name: Iglesia Nun 2.5D Attack Death Source Frames
+
+on:
+  push:
+    branches: [feature/iglesia-sprite25d-no-legacy-mp40-20261022]
+    paths:
+      - 'iglesia/tools/bake_nun_combat_2d.gd'
+      - 'iglesia/tools/stage_nun_impostor_source.py'
+      - '.github/workflows/iglesia-nun-combat-bake.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: iglesia-nun-authored-combat-bake-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bake-combat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stage ONLY original authored Nun skeleton for offline baking
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet --disable-pip-version-check Pillow
+          python iglesia/tools/stage_nun_impostor_source.py
+
+      - name: Install Godot 4.6
+        run: |
+          set -euo pipefail
+          base="https://github.com/godotengine/godot-builds/releases/download/4.6-stable"
+          curl -fL --retry 3 -o /tmp/godot.zip "$base/Godot_v4.6-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d /tmp/godot-editor
+          sudo install -m 755 /tmp/godot-editor/Godot_v4.6-stable_linux.x86_64 /usr/local/bin/godot
+          godot --headless --version
+
+      - name: Import source original Nun animations with NO Android bundling
+        run: |
+          set -euo pipefail
+          godot --headless --rendering-driver opengl3 --path iglesia --editor --import --quit 2>&1 | tee /tmp/nun-combat-import.log
+          ! grep -E 'SCRIPT ERROR|Parse Error' /tmp/nun-combat-import.log
+
+      - name: Bake authentic idle 2 walk 4 attack 6 death 8 sprites via actual renderer
+        run: |
+          set -euo pipefail
+          command -v xvfb-run
+          timeout 600 xvfb-run -a -s '-screen 0 1600x900x24' env LIBGL_ALWAYS_SOFTWARE=1 \
+            godot --rendering-method gl_compatibility --rendering-driver opengl3 --path iglesia \
+            --script res://tools/bake_nun_combat_2d.gd 2>&1 | tee /tmp/nun-combat-bake.log
+          grep -q 'IGLESIA_NUN_COMBAT_2D_BAKE_GREEN' /tmp/nun-combat-bake.log
+
+      - name: Inspect real transparency and reject frozen PNG sequences
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image,ImageChops
+          root=Path('iglesia/assets/zombies/nun_combat_sprite')
+          for role,count in {'idle':2,'walk':4,'attack':6,'death':8}.items():
+              files=sorted(root.glob(f'{role}_*.png'))
+              assert len(files)==count,(role,len(files),count)
+              frames=[]
+              for f in files:
+                  with Image.open(f) as im:
+                      x=im.convert('RGBA')
+                      assert x.size==(384,640),(f,x.size)
+                      extrema=x.getchannel('A').getextrema()
+                      assert extrema[0]<255 and extrema[1]>0,(f,extrema)
+                      frames.append(x.copy())
+              variations=sum(ImageChops.difference(frames[0],x).getbbox() is not None for x in frames[1:])
+              if role in ('attack','death') and variations<2:
+                  raise ValueError('AUTHOR_CLIP_FROZEN_OR_IDENTICAL_'+role)
+              print('IGLESIA_VERIFIED_AUTHORED',role,count,'distinct_from_0',variations)
+          PY
+
+      - name: Upload ONLY genuine 2.5D source sprites, NOT glTF/BIN
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: Iglesia-Original-Nun-2D-20CombatFrames
+          path: iglesia/assets/zombies/nun_combat_sprite/*.png
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Preserve debug logs if RED
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Iglesia-Nun-Combat-Bake-RED
+          path: |
+            /tmp/nun-combat-import.log
+            /tmp/nun-combat-bake.log
+          if-no-files-found: ignore
+          retention-days: 10
