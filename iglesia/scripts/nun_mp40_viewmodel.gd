@@ -18,6 +18,7 @@ var source_animation_roles: Dictionary = {}
 var weapon_mount: BoneAttachment3D
 var source_hand_skeleton: Skeleton3D
 var viewmodel_diagnostic: Dictionary = {}
+var source_unit_correction: float = 1.0
 var provenance: String = "GitHub-owned Aether MP40 gun + T4 113-bone skinned hand GLBs"
 
 # Existing MP40 weapon datatable: converted Unreal centimetres to Godot metres.
@@ -89,6 +90,7 @@ func _ready() -> void:
         return
     var unit_correction: float = clampf(0.62 / gun_longest, 10.0, 160.0)
     gun.scale = Vector3.ONE * unit_correction
+    source_unit_correction = unit_correction
     print("IGLESIA_MP40_SOURCE_UNITS_CALIBRATED source_m=", gun_longest,
         " corrected_scale=", unit_correction)
     var ink: Shader = load("res://shaders/nun_mp40_source_ink.gdshader")
@@ -140,7 +142,8 @@ func _camera_geometry_diagnostic() -> Dictionary:
         "tag_weapon_index": source_hand_skeleton.find_bone("tag_weapon") if source_hand_skeleton != null else -1,
         "root_yaw_deg": rad_to_deg(motion_root.rotation.y),
         "gun_mesh_nodes": 0,
-        "hand_mesh_nodes": 0
+        "hand_mesh_nodes": 0,
+        "source_unit_correction": source_unit_correction
     }
     var camera_node: Camera3D = get_parent() as Camera3D
     if camera_node == null:
