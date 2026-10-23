@@ -10,6 +10,17 @@ const PROFILES := {
     24: {"idle": 1, "ads_idle": 1, "fire": 4, "ads_fire": 3, "reload": 12, "sprint": 1, "equip": 2}
 }
 const ACTIONS := ["idle", "ads_idle", "fire", "ads_fire", "reload", "sprint", "equip"]
+# Source atlas has 24 poses total. Lower profiles uniformly sample those
+# authored poses, including FIRST+LAST reload, rather than truncating reload.
+const SOURCE_COUNTS := {"idle":1,"ads_idle":1,"fire":4,"ads_fire":3,
+    "reload":12,"sprint":1,"equip":2}
+
+func source_index(role: String, index: int, count: int) -> int:
+    var total: int = int(SOURCE_COUNTS[role])
+    if count <= 1 or total <= 1:
+        return 0
+    return clampi(roundi(float(index) * float(total - 1) / float(count - 1)), 0, total - 1)
+
 const FIRE_VISUAL_SECONDS := 0.105
 
 var profile: int = 15
@@ -34,7 +45,8 @@ func set_profile(requested: int) -> void:
     for role in ACTIONS:
         var textures: Array[Texture2D] = []
         for index in range(int(PROFILES[profile][role])):
-            var path := "%s%s_%02d.png" % [ROOT, role, index]
+            var source_frame: int = source_index(role, index, int(PROFILES[profile][role]))
+            var path := "%s%s_%02d.png" % [ROOT, role, source_frame]
             if not ResourceLoader.exists(path):
                 missing.append(path)
                 continue
