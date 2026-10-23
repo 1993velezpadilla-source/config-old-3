@@ -29,7 +29,8 @@ func _process(delta: float) -> void:
     var estimated_weapon_rgba8_mib: float = 0.0
     var scene = get_parent()
     if scene != null and scene.get("hud") != null:
-        var sprite_player = scene.hud.weapon_sprites
+        var hud_node = scene.get("hud")
+        var sprite_player = hud_node.get("weapon_sprites")
         sprite_profile = sprite_player.profile
         missing_weapon_pngs = sprite_player.missing.size()
         estimated_weapon_rgba8_mib = sprite_player.estimated_rgba8_mib
