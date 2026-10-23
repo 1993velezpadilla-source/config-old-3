@@ -111,7 +111,7 @@ func _run() -> void:
         else:
             print("IGLESIA_MP40_2D_ART_BLOCKER %d PNGs absent; NO SOLDIER FALLBACK" % game.hud.weapon_sprites.missing.size())
         # Ensure the same source-gated sprite replaces the temporary rectangle.
-        var test_enemy = game.EnemyScript.new()
+        var test_enemy = load("res://scripts/enemy.gd").new()
         game.add_child(test_enemy)
         await process_frame
         if test_enemy.art_sprite == null or test_enemy.art_sprite.name != "NunEnemy_2D_PNG_Only":
