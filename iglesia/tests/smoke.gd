@@ -118,8 +118,15 @@ func _run() -> void:
             var camera_test = rig._camera_geometry_diagnostic()
             if int(camera_test.get("gun_mesh_nodes", 0)) < 1:
                 errors.append("MP40_CAMERA_HAS_NO_GUN_GEOMETRY")
-            if int(camera_test.get("hand_mesh_nodes", 0)) < 1:
+            if int(camera_test.get("hands_mesh_nodes", 0)) < 1:
                 errors.append("MP40_CAMERA_HAS_NO_HAND_GEOMETRY")
+            var gun_dim: Dictionary = camera_test.get("gun_camera_aabb", {})
+            var gun_span: float = maxf(maxf(float(gun_dim.get("extent_x", 0.0)),
+                float(gun_dim.get("extent_y", 0.0))), float(gun_dim.get("extent_z", 0.0)))
+            if gun_span < 0.35 or gun_span > 1.10:
+                errors.append("MP40_WEAPON_TOO_SMALL_OR_TOO_BIG_%0.3f_m" % gun_span)
+            if float(camera_test.get("source_unit_correction", 0.0)) < 10.0:
+                errors.append("MP40_UE_TO_GODOT_SOURCE_UNITS_NOT_CORRECTED")
             print("IGLESIA_VIEWMODEL_VISUAL_GAUNTLET ", JSON.stringify(camera_test))
 
             if rig.last_role != "idle":

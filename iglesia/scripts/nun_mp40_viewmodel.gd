@@ -75,6 +75,22 @@ func _ready() -> void:
     weapon_mount.add_child(gun)
     gun.position = Vector3.ZERO
     gun.scale = Vector3.ONE
+    # Source provenance audit: the original GLB imports in metres but the
+    # imported weapon mesh is about 6 millimetres long on camera. Screenshot
+    # report (build 39842178312) proves it was NOT the intended MP40 scale.
+    # Calibrate the one gun mesh to its approximately 0.62 m source physical
+    # length while never resizing the animated hand skeleton.
+    var source_bounds: Dictionary = _camera_geometry_diagnostic()
+    var unscaled: Dictionary = source_bounds.get("gun_camera_aabb", {})
+    var gun_longest: float = maxf(maxf(float(unscaled.get("extent_x", 0.0)),
+        float(unscaled.get("extent_y", 0.0))), float(unscaled.get("extent_z", 0.0)))
+    if gun_longest < 0.001 or gun_longest > 0.03:
+        push_error("NUN_MP40_SOURCE_UNITS_UNEXPECTED_LENGTH " + str(gun_longest))
+        return
+    var unit_correction: float = clampf(0.62 / gun_longest, 10.0, 160.0)
+    gun.scale = Vector3.ONE * unit_correction
+    print("IGLESIA_MP40_SOURCE_UNITS_CALIBRATED source_m=", gun_longest,
+        " corrected_scale=", unit_correction)
     var ink: Shader = load("res://shaders/nun_mp40_source_ink.gdshader")
     var gun_atlas: Texture2D = load(ROOT + "gun_color.png")
     var hands_atlas: Texture2D = load(ROOT + "hands_atlas.png")
@@ -96,6 +112,15 @@ func _ready() -> void:
     _switch_animation("idle")
     # Capture evidence from the actual model rather than trusting clip counts.
     viewmodel_diagnostic = _camera_geometry_diagnostic()
+    var gun_bounds: Dictionary = viewmodel_diagnostic.get("gun_camera_aabb", {})
+    var gun_visible_length: float = maxf(maxf(float(gun_bounds.get("extent_x", 0.0)),
+        float(gun_bounds.get("extent_y", 0.0))), float(gun_bounds.get("extent_z", 0.0)))
+    if gun_visible_length < 0.35 or gun_visible_length > 1.1:
+        push_error("IGLESIA_MP40_AFTER_SCALE_STILL_NOT_PHYSICAL " + str(gun_visible_length))
+        source_ready = false
+        return
+    viewmodel_diagnostic["source_unit_correction"] = unit_correction
+    viewmodel_diagnostic["calibrated_gun_length_m"] = gun_visible_length
     print("IGLESIA_MP40_CAMERA_GEOMETRY ", JSON.stringify(viewmodel_diagnostic))
     print("IGLESIA_NUN_MP40_REAL_RIG_READY gun=",gun_animation.get_animation_list().size(),
         " hands=",hands_animation.get_animation_list().size(),

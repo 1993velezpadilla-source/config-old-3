@@ -151,6 +151,10 @@ def run(gate: str, android_probe: str) -> int:
               "Disable old sprite render whenever real Nun source rig is active")
     if rig_file.exists():
         actual=rig_file.read_text(encoding="utf-8")
+        if "IGLESIA_MP40_SOURCE_UNITS_CALIBRATED" not in actual:
+            issue(issues,"FAIL","WEAPON_SOURCE_UNIT_SCALE_UNFIXED",
+                  "Owner screenshot shows an MP40 only millimetres long in camera space",
+                  "Scale the source gun alone to actual 0.62 m length and smoke-test its AABB")
         if "NunPaleHandsBlackHabit_SourceSkin" not in actual:
             issue(issues,"ART_BLOCKER","NUN_HAND_PALETTE_NOT_BOUND",
                   "Nun black habit and pale hand source rig not registered",
