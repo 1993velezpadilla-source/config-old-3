@@ -4,7 +4,6 @@ var game
 var level
 var hud
 var head: Node3D
-var nun_viewmodel: Node3D
 var camera: Camera3D
 var health: int = 100
 var magazine: int = 32
@@ -49,13 +48,7 @@ func _ready() -> void:
     camera.fov = 77.0
     camera.current = true
     head.add_child(camera)
-    # Replace the rejected mixed pixel MP40 with one authored 3D rig. Same
-    # skinned hand and actual gun geometry across idle, fire, ADS and reload.
-    var rig_script = preload("res://scripts/nun_mp40_viewmodel.gd")
-    nun_viewmodel = rig_script.new()
-    nun_viewmodel.name = "NunMP40FirstPersonRig"
-    nun_viewmodel.set("player", self)
-    camera.add_child(nun_viewmodel)
+    # Viewmodel is now exclusively the HUD PNG compositor, independent of 3D bones.
     add_to_group("iglesia_player")
 
 func ads_active() -> bool:
@@ -128,7 +121,7 @@ func _try_fire() -> void:
         _start_reload()
         return
     fire_left = fire_interval
-    shot_flash = 0.065
+    shot_flash = 0.105
     magazine -= 1
     var origin: Vector3 = camera.global_transform.origin
     var direction: Vector3 = -camera.global_transform.basis.z
