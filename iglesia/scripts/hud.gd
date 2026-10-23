@@ -12,7 +12,8 @@ var weapon: TextureRect
 var joystick_base: Panel
 var joystick_thumb: Panel
 var buttons: Dictionary = {}  # TextureButtons: artwork fills the real touch hitboxes.
-var mp40_frames: Dictionary = {}
+var weapon_sprites = preload("res://scripts/weapon_sprite_animator.gd").new()
+var profile_label: Label
 var joystick_id: int = -1
 var touch_actions: Dictionary = {}  # touch index -> exactly one HUD action
 var label_badges: Dictionary = {}  # persistent FIRE / ADS labels
@@ -34,24 +35,19 @@ func _ready() -> void:
     hurt_overlay.color = Color(0.85, 0.0, 0.0, 0.0)
     root.add_child(hurt_overlay)
     weapon = TextureRect.new()
-    weapon.name = "ApprovedMP40_2DPixelView"
+    weapon.name = "NunMP40_2D_PNG_Only"
     weapon.mouse_filter = Control.MOUSE_FILTER_IGNORE
     weapon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
     weapon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
     root.add_child(weapon)
-    var nun_palette := ShaderMaterial.new()
-    nun_palette.shader = preload("res://shaders/nun_viewmodel_gothic_ink.gdshader")
-    weapon.material = nun_palette
-    for frame_name in ["idle_hip_01", "ads_idle", "fire_hip_01", "ads_fire_01",
-        "sprint_01", "reload_01", "reload_02", "reload_03", "reload_04"]:
-        var path: String = "res://assets/weapons/mp40/%s.png" % frame_name
-        if ResourceLoader.exists(path):
-            mp40_frames[frame_name] = load(path)
-    if mp40_frames.size() != 9:
-        push_warning("IGLESIA_PIXEL_WEAPON_ART_PENDING: 9 high-res PNG frames required")
+    # No inherited military sheet, no repaint shader and no 3D rig.
+    weapon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
     life_label = _label("VIDA", 29)
     ammo_label = _label("MP40", 29)
     round_label = _label("RONDA", 31)
+    profile_label = _label("", 17)
+    profile_label.visible = OS.is_debug_build()
+    _refresh_sprite_profile_label()
     notice_label = _label("", 34)
     crosshair = _label("+", 30)
     crosshair.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
@@ -165,6 +161,7 @@ func _layout(screen_override: Vector2 = Vector2.ZERO) -> void:
     hurt_overlay.size = screen
     var s: float = clampf(screen.y / 720.0, 0.62, 1.7)
     life_label.position = Vector2(20, 20) * s
+    profile_label.position = Vector2(20, 69) * s
     ammo_label.position = Vector2(screen.x - 250 * s, screen.y - 100 * s)
     round_label.position = Vector2(20 * s, screen.y - 110 * s)
     notice_label.position = Vector2(screen.x * 0.37, 25 * s)
@@ -235,6 +232,10 @@ func _input(event: InputEvent) -> void:
     var screen: Vector2 = get_viewport().get_visible_rect().size
     if event is InputEventScreenTouch:
         var e := event as InputEventScreenTouch
+        if e.pressed and profile_label.visible and Rect2(profile_label.position, Vector2(210, 46) * screen.y / 720.0).has_point(e.position):
+            cycle_sprite_budget()
+            get_viewport().set_input_as_handled()
+            return
         if _route_touch_button(e.index, e.pressed, e.position):
             get_viewport().set_input_as_handled()
             return
@@ -260,6 +261,17 @@ func _input(event: InputEvent) -> void:
         elif d.position.x > screen.x * 0.44 and player != null:
             # Dragging while holding FIRE still moves camera; separate touch ID.
             player.look_delta(d.relative)
+
+func cycle_sprite_budget() -> void:
+    var budgets := [12, 15, 24]
+    var idx: int = budgets.find(weapon_sprites.profile)
+    weapon_sprites.set_profile(budgets[(idx + 1) % budgets.size()])
+    _refresh_sprite_profile_label()
+    print("IGLESIA_SPRITE_BENCHMARK_CHANGE_PROFILE restarting APK recommended for VRAM comparison")
+
+func _refresh_sprite_profile_label() -> void:
+    if profile_label != null:
+        profile_label.text = "SPRITES %d | FALTAN %d" % [weapon_sprites.profile, weapon_sprites.missing.size()]
 
 func get_move_axis() -> Vector2:
     return stick
@@ -289,28 +301,4 @@ func _process(delta: float) -> void:
         return
     var ads: bool = player.ads_active()
     crosshair.visible = not ads
-    var frame: String = "ads_idle" if ads else "idle_hip_01"
-    if player.reload_active:
-        var stage: int = clampi(4 - int(ceil(player.reload_left / (player.reload_seconds / 4.0))), 0, 3)
-        frame = "reload_0%d" % (stage + 1)
-    elif player.shot_flash > 0.0:
-        frame = "ads_fire_01" if ads else "fire_hip_01"
-    elif Input.is_action_pressed("sprint") and not ads:
-        frame = "sprint_01"
-    # The authentic MP40 + actual skinned hands are now the default 2.5D
-    # camera-space viewmodel. Do NOT layer the rejected mismatched sprite
-    # frames on top; this previously caused the gun/hands to change artstyle
-    # between ADS, hip, reload and sprint.
-    var source_rig_ready: bool = (player.nun_viewmodel != null
-        and bool(player.nun_viewmodel.get("source_ready")))
-    weapon.visible = not source_rig_ready
-    if frame != last_frame:
-        if not source_rig_ready:
-            weapon.texture = mp40_frames.get(frame, null)
-        last_frame = frame
-    var screen: Vector2 = get_viewport().get_visible_rect().size
-    var s: float = screen.y / 720.0
-    var zoom: float = 1.08 if ads else 1.0
-    weapon.size = Vector2(550, 360) * s * zoom
-    weapon.position = Vector2(screen.x * 0.5 - weapon.size.x * 0.5,
-        screen.y - weapon.size.y + 25.0 * s)
+    weapon_sprites.render(player, weapon, delta, get_viewport().get_visible_rect().size)
