@@ -47,25 +47,27 @@
       "weapon_swap.png"
     ]
   },
-  "mp40": {
-    "repo": "1993velezpadilla-source/XZombie",
-    "commit": "d3a7fd089b",
-    "branch": "experiment/nun-universal-bone2d-hands-v1-20261019",
-    "path": "bukkbeek-mobile/pixel_assets/WWII MP40 Pixel Art Sprite Sheet.png",
-    "size": [
-      1448,
-      1086
+  "mp40_nun_2d": {
+    "source": "new art only: not 2026-10-19 rejected sheet",
+    "path": "iglesia/assets/weapons/mp40_nun_2d",
+    "profiles": [
+      12,
+      15,
+      24
     ],
-    "frames": [
-      "idle_hip_01",
-      "ads_idle",
-      "fire_hip_01",
-      "ads_fire_01",
-      "sprint_01",
-      "reload_01",
-      "reload_02",
-      "reload_03",
-      "reload_04"
-    ]
+    "status": "ARTWORK_PENDING_OWNER_VISUAL_APPROVAL",
+    "hands": "pale bare fingers and black torn habit sleeves baked into each PNG",
+    "geometry": "MP40 hand-drawn WW2 shape, never copied proprietary FMF2 art"
+  },
+  "enemy_nun_2d": {
+    "path": "iglesia/assets/enemies/gothic_nun_2d",
+    "status": "ARTWORK_PENDING_OWNER_VISUAL_APPROVAL",
+    "clips": [
+      "idle",
+      "walk",
+      "attack",
+      "death"
+    ],
+    "no_debug_rectangle": true
   }
 }
