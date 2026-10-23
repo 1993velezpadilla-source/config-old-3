@@ -1,0 +1,214 @@
+name: Iglesia Sprite 2.5D Nun + Original Tripo Firstroom ARM64 Preview
+
+on:
+  push:
+    tags:
+    branches:
+      - feature/iglesia-sprite25d-no-legacy-mp40-20261022
+    paths:
+      - "iglesia/**"
+      - ".github/workflows/iglesia-sprite-nun-preview-apk.yml"
+      - "iglesia/source_tripo_packs/.parts/**"
+      - "iglesia/tools/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: iglesia-2d-source-nun-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  iglesia-mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    steps:
+      - name: Checkout original church art and new standalone source
+        uses: actions/checkout@v4
+
+      - name: Python and original owner PNG processing
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install basic dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet --disable-pip-version-check --retries 2 --timeout 30 Pillow trimesh numpy
+          # Ubuntu GitHub runners already ship Android SDK, Java 17, curl,
+          # unzip and headless Godot system libraries; repeated apt update has
+          # stalled for 10+ minutes on this job. Only install when truly absent.
+          command -v unzip
+          command -v curl
+          command -v java
+          if ! ldconfig -p | grep -q 'libGL.so.1'; then
+            timeout 180 sudo apt-get update -qq
+            timeout 180 sudo apt-get install -y -qq libgl1-mesa-dri libx11-6 libxrandr2 libxcursor1 libxi6 libasound2t64
+          fi
+
+      - name: Restore original chandeliers and candleholders from pinned GitHub blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          IGLESIA_TRIPO_FIRSTROOM_PREVIEW=1 python iglesia/tools/restore_original_tripo_archives.py 2>&1 | tee /tmp/iglesia-original-archive-restore.log
+
+      - name: Stage verified original Tripo, buttons, and PURGE rejected MP40 assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          IGLESIA_TRIPO_FIRSTROOM_PREVIEW=1 python iglesia/tools/stage_assets.py 2>&1 | tee /tmp/iglesia-source-audit.log
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("iglesia/assets/tripo/fixtures_catalog.json").read_text())
+          assert d["original_split_model_count"] == 30
+          assert d["original_split_archive_count"] == 2
+          assert d["firstroom_preview"] is True
+          assert d["fixture_count"] == 10
+          assert {m["kind"] for m in d["fixtures"]} == {"ceiling_chandelier","wall_sconce","standing_candelabrum"}
+          print("IGLESIA_FIRSTROOM_10_USER_TRIPO_GLB_SOURCE_GREEN_NOT_FULL_104_RELEASE")
+          PY
+          test -s iglesia/assets/altar.glb
+          test -s iglesia/assets/bench.glb
+          test ! -e iglesia/assets/weapons/mp40/owner_original_sheet.png
+          test ! -e iglesia/assets/weapons/mp40_nun/viewhands.glb
+          echo "IGLESIA_REJECTED_MILITARY_MP40_NOT_STAGED"
+
+      - name: Fetch owner-original Nun walk PNGs from verified standalone 16-frame bake
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 39886161142
+          repository: 1993velezpadilla-source/config-old-3
+          name: Iglesia-Real-Nun-2D-16Frames-SourceBake
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/iglesia-nun-bake
+
+      - name: Verify 16 PNG bake frames and stage only 4 in-game 2.5D frames
+        shell: bash
+        run: |
+          set -euo pipefail
+          python iglesia/tools/stage_owner_nun_sprite_artifact.py \
+            --artifact "${{ runner.temp }}/iglesia-nun-bake" \
+            --assets iglesia/assets 2>&1 | tee /tmp/iglesia-nun-source-staging.log
+          test -s iglesia/assets/enemies/gothic_nun_2d/walk_00.png
+          test -s iglesia/assets/enemies/gothic_nun_2d/walk_03.png
+          ! find iglesia/assets -name '*.gltf' -path '*_bake_source*' | grep -q .
+          echo 'IGLESIA_REAL_NUN_2D_PREVIEW_ONLY_NOT_OWNER_APPROVED'
+
+      - name: Adversarial critic — source art/performance regression audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python iglesia/tools/adversarial_critic.py --gate preview 2>&1 | tee /tmp/iglesia-adversarial-critic.log
+
+      - name: Install Godot 4.6 editor and matching export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://github.com/godotengine/godot-builds/releases/download/4.6-stable"
+          curl --fail --location --retry 3 --output /tmp/godot.zip "${base}/Godot_v4.6-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d /tmp/godot-editor
+          sudo install -m 0755 /tmp/godot-editor/Godot_v4.6-stable_linux.x86_64 /usr/local/bin/godot
+          godot --headless --version
+          curl --fail --location --retry 3 --output /tmp/templates.tpz "${base}/Godot_v4.6-stable_export_templates.tpz"
+          mkdir -p /tmp/iglesia-templates "$HOME/.local/share/godot/export_templates/4.6.stable"
+          unzip -q /tmp/templates.tpz -d /tmp/iglesia-templates
+          cp -R /tmp/iglesia-templates/templates/. "$HOME/.local/share/godot/export_templates/4.6.stable/"
+          ls -lh "$HOME/.local/share/godot/export_templates/4.6.stable/android_debug.apk"
+
+      - name: Import all original art and check scripts compile
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --rendering-driver opengl3 --path iglesia --editor --import --quit 2>&1 | tee /tmp/iglesia-import.log
+          if grep -E "SCRIPT ERROR|Parse Error|ERROR:.*Failed loading" /tmp/iglesia-import.log; then
+            echo "IGLESIA_IMPORT_RED"
+            exit 1
+          fi
+
+      - name: Headless gauntlet — original church collisions, 2.5D sprite Nun and official mobile HUD
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --rendering-driver opengl3 --path iglesia --script res://tests/smoke.gd 2>&1 | tee /tmp/iglesia-smoke.log
+          grep -q "IGLESIA_HEADLESS_SMOKE_GREEN" /tmp/iglesia-smoke.log
+
+      - name: Android 35 / Build tools 35.0.1 / Godot editor paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export JAVA_HOME="${JAVA_HOME_17_X64:-/usr/lib/jvm/java-17-openjdk-amd64}"
+          echo "ANDROID_HOME=${ANDROID_HOME}" >> "$GITHUB_ENV"
+          echo "JAVA_HOME=${JAVA_HOME}" >> "$GITHUB_ENV"
+          sdkmanager_bin="$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | head -1)"
+          test -x "$sdkmanager_bin"
+          yes | "$sdkmanager_bin" --sdk_root="$ANDROID_HOME" --licenses > /dev/null || true
+          "$sdkmanager_bin" --sdk_root="$ANDROID_HOME" --install "platform-tools" "build-tools;35.0.1" "platforms;android-35"
+          mkdir -p "$HOME/.config/godot" "$HOME/.android" iglesia/build
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          cat > "$HOME/.config/godot/editor_settings-4.6.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/java_sdk_path = "${JAVA_HOME}"
+          export/android/android_sdk_path = "${ANDROID_HOME}"
+          EOF
+
+      - name: Export debug ARM64 APK (only after smoke GREEN)
+        shell: bash
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/.android/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        run: |
+          set -euo pipefail
+          godot --headless --rendering-driver opengl3 --path iglesia --export-debug "Iglesia Android ARM64" build/iglesia-android-arm64-debug.apk 2>&1 | tee /tmp/iglesia-export.log
+          test -s iglesia/build/iglesia-android-arm64-debug.apk
+          unzip -l iglesia/build/iglesia-android-arm64-debug.apk | grep -q "lib/arm64-v8a/libgodot_android.so"
+          sha256sum iglesia/build/iglesia-android-arm64-debug.apk
+          echo "IGLESIA_PREVIEW_WITH_REAL_NUN_2D_FOUR_WALK_FRAMES_MP40_ART_MISSING"
+          echo "IGLESIA_APK_ARM64_EXPORTED_NOT_PHONE_TESTED"
+
+      - name: Publish Android debug artifact and evidence
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Iglesia-OriginalNun-2D-Sprite-Tripo-Firstroom-ARM64-Preview
+          path: |
+            iglesia/build/iglesia-android-arm64-debug.apk
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Preserve adversarial critic evidence even if build is RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Iglesia-Adversarial-Critic
+          path: |
+            iglesia/build/adversarial_critic.json
+            iglesia/build/adversarial_critic.md
+            iglesia/assets/mobile_texture_budget.json
+            /tmp/iglesia-adversarial-critic.log
+            /tmp/iglesia-nun-source-staging.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Preserve logs on RED
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Iglesia-Gauntlet-RED-Logs
+          path: |
+            /tmp/iglesia-source-audit.log
+            /tmp/iglesia-nun-source-staging.log
+            /tmp/iglesia-import.log
+            /tmp/iglesia-smoke.log
+            /tmp/iglesia-export.log
+          if-no-files-found: ignore
+          retention-days: 7
