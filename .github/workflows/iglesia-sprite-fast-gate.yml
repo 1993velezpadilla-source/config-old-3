@@ -1,0 +1,71 @@
+name: Iglesia 2.5D Sprite Fast Gate (No Tripo Dependency)
+
+on:
+  push:
+    branches:
+      - feature/iglesia-sprite25d-no-legacy-mp40-20261022
+    paths:
+      - "iglesia/scripts/**"
+      - "iglesia/tests/**"
+      - "iglesia/tools/**"
+      - "iglesia/project.godot"
+      - ".github/workflows/iglesia-sprite-fast-gate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: iglesia-sprite-fast-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sprite-parser-and-budget:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert no rejected soldier weapon assets are active
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -q 'preload("res://scripts/nun_mp40_viewmodel.gd")' iglesia/scripts/player.gd
+          ! grep -q 'stage_nun_mp40_source()' iglesia/tools/stage_assets.py
+          ! grep -q 'stage_mp40()' iglesia/tools/stage_assets.py
+          ! grep -q '_debug_texture()' iglesia/scripts/enemy.gd
+          test -s iglesia/scripts/weapon_sprite_animator.gd
+          echo "IGLESIA_LEGACY_SOLDIER_MP40_INACTIVE"
+      - name: Install vanilla Godot 4.6
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 -o /tmp/godot.zip \
+            https://github.com/godotengine/godot-builds/releases/download/4.6-stable/Godot_v4.6-stable_linux.x86_64.zip
+          unzip -q /tmp/godot.zip -d /tmp/iglesia-godot
+          sudo install -m 755 /tmp/iglesia-godot/Godot_v4.6-stable_linux.x86_64 /usr/local/bin/godot
+          godot --headless --version
+      - name: Import and parse in a clean project checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path iglesia --editor --import --quit 2>&1 | tee /tmp/iglesia-sprite-import.log
+          if grep -E 'SCRIPT ERROR|Parse Error' /tmp/iglesia-sprite-import.log; then
+            exit 1
+          fi
+      - name: Exercise 12, 15, 24 without staging any old art
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path iglesia --script res://tests/sprite_only_fast.gd 2>&1 | tee /tmp/iglesia-sprite-fast.log
+          grep -q 'IGLESIA_SPRITE_ONLY_FAST_GATE_GREEN' /tmp/iglesia-sprite-fast.log
+          echo 'ART PENDING: tested code only, not Pixel Fold FPS or artwork'
+      - name: Upload diagnostic logs when RED
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Iglesia-Sprite-Fast-RED-Logs
+          path: |
+            /tmp/iglesia-sprite-import.log
+            /tmp/iglesia-sprite-fast.log
+          if-no-files-found: ignore
+          retention-days: 7
