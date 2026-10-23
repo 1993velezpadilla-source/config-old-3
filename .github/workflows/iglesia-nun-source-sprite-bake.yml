@@ -49,7 +49,9 @@ jobs:
       - name: Bake original authored walk into 16 genuine 2.5D PNG frames
         run: |
           set -euo pipefail
-          godot --headless --rendering-driver opengl3 --path iglesia --script res://tools/bake_nun_impostor.gd 2>&1 | tee /tmp/monja-bake.log
+          command -v xvfb-run || { echo IGLESIA_SOURCE_BAKE_REQUIRES_X_SERVER; exit 1; }
+          # --headless has no drawable SubViewport; use genuine Mesa GL pixels.
+          timeout 480 xvfb-run -a -s '-screen 0 1600x900x24' env LIBGL_ALWAYS_SOFTWARE=1 godot --rendering-method gl_compatibility --rendering-driver opengl3 --path iglesia --script res://tools/bake_nun_impostor.gd 2>&1 | tee /tmp/monja-bake.log
           grep -q 'IGLESIA_NUN_SOURCE_2D_SPRITE_BAKE_GREEN' /tmp/monja-bake.log
           python - <<'PY'
           from pathlib import Path

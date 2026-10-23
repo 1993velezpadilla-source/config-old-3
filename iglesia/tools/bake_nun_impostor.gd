@@ -113,9 +113,8 @@ func _run_bake() -> void:
             var anim: Animation=walker.get_animation(clip)
             walker.seek(float(frame)/float(FRAME_COUNT)*anim.length,true)
             viewport.render_target_update_mode=SubViewport.UPDATE_ALWAYS
-            await process_frame
-            await process_frame
-            await process_frame
+            # Read back AFTER an actual GPU render frame, not SceneTree ticks.
+            await RenderingServer.frame_post_draw
             var picture: Image=viewport.get_texture().get_image()
             if picture==null or picture.is_empty():
                 push_error("IGLESIA_NUN_BAKE_EMPTY_VIEWPORT")
