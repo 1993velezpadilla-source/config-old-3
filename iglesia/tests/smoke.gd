@@ -118,6 +118,31 @@ func _run() -> void:
             errors.append("NUN_ENEMY_LEGACY_DEBUG_SPRITE")
         if test_enemy.art_sprite.texture == null:
             print("IGLESIA_ENEMY_2D_ART_BLOCKER no approved PNGs; NO BOX FAKED")
+        for role in ["idle", "walk", "attack", "death"]:
+            var want: int = int(test_enemy.ROLE_COUNTS[role])
+            var got: int = test_enemy.authored_frame_count(role)
+            if got != want:
+                errors.append("NUN_REAL_SOURCE_CLIP_%s_%d_OF_%d" % [role, got, want])
+        if test_enemy.authored_frame_count("attack") == 6:
+            test_enemy._show_frame("attack", 3)
+            if test_enemy.art_sprite.texture == null:
+                errors.append("NUN_ATTACK_FRAME_03_EMPTY")
+        if test_enemy.authored_frame_count("death") == 8:
+            test_enemy._show_frame("death", 7)
+            if test_enemy.art_sprite.texture == null:
+                errors.append("NUN_DEATH_FRAME_07_EMPTY")
+        var reward_event_count := [0]
+        test_enemy.killed.connect(func(_reward: int): reward_event_count[0] += 1)
+        test_enemy.take_damage(999.0, Vector3.ZERO)
+        if test_enemy.state != test_enemy.CombatState.DEATH:
+            errors.append("NUN_DEATH_STATE_NOT_ENTERED")
+        if test_enemy.is_in_group("iglesia_zombies"):
+            errors.append("NUN_DEAD_STILL_ACTIVE_COMBAT_GROUP")
+        if test_enemy.is_queued_for_deletion():
+            errors.append("NUN_DEATH_SKIPPED_8_FRAMES")
+        test_enemy.take_damage(999.0, Vector3.ZERO)
+        if reward_event_count[0] != 1:
+            errors.append("NUN_DEATH_REWARDED_MULTIPLE_TIMES")
         test_enemy.queue_free()
         if game.hud.buttons.size() < 6:
             errors.append("TOUCH_HUD_INCOMPLETE")
