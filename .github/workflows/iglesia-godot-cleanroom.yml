@@ -6,6 +6,7 @@ on:
       - iglesia-tripo-originals-v1
     branches:
       - feature/iglesia-godot-cleanroom-20261020
+      - feature/iglesia-sprite25d-no-legacy-mp40-20261022
     paths:
       - "iglesia/**"
       - ".github/workflows/iglesia-godot-cleanroom.yml"
@@ -45,7 +46,7 @@ jobs:
           set -euo pipefail
           python iglesia/tools/restore_original_tripo_archives.py 2>&1 | tee /tmp/iglesia-original-archive-restore.log
 
-      - name: Stage verified ORIGINAL Tripo GLBs, 4K stone, official buttons and MP40 PNGs
+      - name: Stage verified Tripo GLBs, 4K stone, official buttons, reject obsolete MP40 assets
         shell: bash
         run: |
           set -euo pipefail
@@ -62,7 +63,10 @@ jobs:
           PY
           test -s iglesia/assets/altar.glb
           test -s iglesia/assets/bench.glb
-          test -s iglesia/assets/weapons/mp40/ads_idle.png
+          test ! -e iglesia/assets/weapons/mp40/owner_original_sheet.png
+          test ! -e iglesia/assets/weapons/mp40_nun/viewhands.glb
+          test -s iglesia/assets/SOURCES.json
+          python iglesia/tools/adversarial_critic.py --gate preview 2>&1 | tee /tmp/iglesia-sprite-critic.log
 
       - name: Install Godot 4.6 editor and matching export templates
         shell: bash
@@ -89,7 +93,7 @@ jobs:
             exit 1
           fi
 
-      - name: Headless gauntlet — real pew collisions, enemy path, MP40 frames and HUD
+      - name: Headless gauntlet — pew collisions, 12/15/24 PNG budget and mobile HUD
         shell: bash
         run: |
           set -euo pipefail
@@ -138,7 +142,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Iglesia-Android-ARM64-Debug
+          name: Iglesia-Android-ARM64-2P5D-ART-PENDING
           path: |
             iglesia/build/iglesia-android-arm64-debug.apk
           if-no-files-found: error
@@ -153,6 +157,7 @@ jobs:
             /tmp/iglesia-source-audit.log
             /tmp/iglesia-import.log
             /tmp/iglesia-smoke.log
+            /tmp/iglesia-sprite-critic.log
             /tmp/iglesia-export.log
           if-no-files-found: ignore
           retention-days: 7
