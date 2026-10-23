@@ -32,9 +32,10 @@ func _set_sprite() -> void:
     art_sprite = Sprite3D.new()
     art_sprite.name = "NunEnemy_2D_PNG_Only"
     art_sprite.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-    art_sprite.pixel_size = 0.008  # 240 pixels ≈ 1.92 m world height.
+    art_sprite.pixel_size = 0.003  # 640 source pixels ≈ 1.92 m world height.
     art_sprite.position.y = 0.96
     art_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+    art_sprite.shaded = false # maintain readable ink/skin in dark Iglesia.
     add_child(art_sprite)
     _load_clips()
     _show_frame("walk", 0)
@@ -59,6 +60,11 @@ func _load_clips() -> void:
 
 func _show_frame(role: String, index: int) -> void:
     var images: Array = cached_clips.get(role, [])
+    if images.is_empty():
+        # The authenticated source bake currently supplies only walk frames.
+        # Render the first valid authored walk frame instead of vanishing during
+        # attack/idle. This is a PREVIEW fallback, never animation approval.
+        images = cached_clips.get("walk", [])
     if images.is_empty():
         art_sprite.visible = false
         return
