@@ -94,59 +94,31 @@ func _run() -> void:
         var perf_probe = game.get_node_or_null("MobilePerformanceTelemetry")
         if perf_probe == null:
             errors.append("PERFORMANCE_TELEMETRY_NOT_INSTALLED")
-        # Authored Nun source viewmodel: original MP40 model and the original
-        # 113-bone hands must actually instantiate and be animated. Never
-        # consider the old nine PNG files a substitute for this gate.
-        var rig = game.player.nun_viewmodel
-        if rig == null:
-            errors.append("NUN_MP40_CAMERA_RIG_MISSING")
-        elif not rig.source_ready:
-            errors.append("NUN_MP40_REAL_SOURCE_RIG_NOT_READY")
+        # User-requested 2.5D-only canonical view. Three profile sizes.
+        if game.player.has_node("NunMP40FirstPersonRig"):
+            errors.append("REJECTED_3D_MILITARY_RIG_STILL_ACTIVE")
+        if game.hud.weapon.material != null:
+            errors.append("REJECTED_MILITARY_RECOLOR_SHADER_ACTIVE")
+        if game.hud.weapon.name != "NunMP40_2D_PNG_Only":
+            errors.append("WRONG_MP40_VISUAL_AUTHORITY")
+        for profile in [12, 15, 24]:
+            game.hud.weapon_sprites.set_profile(profile)
+            if game.hud.weapon_sprites.required_count() != profile:
+                errors.append("BAD_MP40_FRAME_PROFILE_" + str(profile))
+        game.hud.weapon_sprites.set_profile(15)
+        if game.hud.weapon_sprites.missing.is_empty():
+            print("IGLESIA_MP40_2D_ART_STAGED_FOR_REVIEW")
         else:
-            if rig.gun == null or rig.hands == null:
-                errors.append("NUN_MP40_GUN_OR_SKINNED_HANDS_MISSING")
-            if rig.gun_animation == null or rig.hands_animation == null:
-                errors.append("NUN_MP40_AUTHORED_ANIMATIONS_MISSING")
-            if rig.style_surface_roles.is_empty():
-                errors.append("NUN_HAND_SKIN_MATERIALS_NOT_BOUND")
-            if rig.weapon_mount == null or rig.source_hand_skeleton == null:
-                errors.append("MP40_GUN_IS_NOT_PARENTED_TO_TAG_WEAPON")
-            elif rig.weapon_mount.bone_name != "tag_weapon":
-                errors.append("MP40_WRONG_HAND_BONE_ATTACHMENT")
-            if absf(rig.motion_root.rotation.y - PI * 0.5) > 0.1:
-                errors.append("MP40_UNREAL_X_AXIS_NOT_ALIGNED_WITH_GODOT_CAMERA")
-            var camera_test = rig._camera_geometry_diagnostic()
-            if int(camera_test.get("gun_mesh_nodes", 0)) < 1:
-                errors.append("MP40_CAMERA_HAS_NO_GUN_GEOMETRY")
-            if int(camera_test.get("hands_mesh_nodes", 0)) < 1:
-                errors.append("MP40_CAMERA_HAS_NO_HAND_GEOMETRY")
-            var gun_dim: Dictionary = camera_test.get("gun_camera_aabb", {})
-            var gun_span: float = maxf(maxf(float(gun_dim.get("extent_x", 0.0)),
-                float(gun_dim.get("extent_y", 0.0))), float(gun_dim.get("extent_z", 0.0)))
-            if gun_span < 0.35 or gun_span > 1.10:
-                errors.append("MP40_WEAPON_TOO_SMALL_OR_TOO_BIG_%0.3f_m" % gun_span)
-            if float(camera_test.get("source_unit_correction", 0.0)) < 10.0:
-                errors.append("MP40_UE_TO_GODOT_SOURCE_UNITS_NOT_CORRECTED")
-            print("IGLESIA_VIEWMODEL_VISUAL_GAUNTLET ", JSON.stringify(camera_test))
-
-            if rig.last_role != "idle":
-                errors.append("NUN_MP40_IDLE_CLIP_NOT_SET")
-            rig._switch_animation("fire")
-            if rig.last_role != "fire":
-                errors.append("NUN_MP40_AUTHORED_FIRE_CLIP_NOT_PLAYING")
-            rig._switch_animation("reload")
-            if rig.last_role != "reload":
-                errors.append("NUN_MP40_AUTHORED_RELOAD_CLIP_NOT_PLAYING")
-            rig._switch_animation("idle")
-            if rig.last_role != "idle":
-                errors.append("NUN_MP40_IDLE_CLIP_NOT_RESUMED")
-            # HUD must not draw old mixed realistic/pixel pictures when this
-            # new source rig is ready. Deferred process lets HUD update it.
-            await process_frame
-            if game.hud.weapon.visible:
-                errors.append("REJECTED_MP40_SPRITES_VISIBLE_OVER_NEW_NUN_RIG")
-        if game.hud.mp40_frames.size() != 9:
-            errors.append("MP40_SOURCE_FRAMES_NOT_9")
+            print("IGLESIA_MP40_2D_ART_BLOCKER %d PNGs absent; NO SOLDIER FALLBACK" % game.hud.weapon_sprites.missing.size())
+        # Ensure the same source-gated sprite replaces the temporary rectangle.
+        var test_enemy = game.EnemyScript.new()
+        game.add_child(test_enemy)
+        await process_frame
+        if test_enemy.art_sprite == null or test_enemy.art_sprite.name != "NunEnemy_2D_PNG_Only":
+            errors.append("NUN_ENEMY_LEGACY_DEBUG_SPRITE")
+        if test_enemy.art_sprite.texture == null:
+            print("IGLESIA_ENEMY_2D_ART_BLOCKER no approved PNGs; NO BOX FAKED")
+        test_enemy.queue_free()
         if game.hud.buttons.size() < 6:
             errors.append("TOUCH_HUD_INCOMPLETE")
         for action in ["fire", "ads", "reload", "jump", "slide", "interact"]:
