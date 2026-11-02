@@ -51,6 +51,8 @@ jobs:
           PY
           (cd build/android-project && ./gradlew --no-daemon :app:assembleDebug)
           test -s build/android-project/app/build/outputs/apk/debug/app-debug.apk
+      - name: Install screenshot pixel validator before Android boot
+        run: python3 -m pip install --quiet 'Pillow>=11,<13'
       - name: Accelerate emulator startup
         run: |
           test ! -e /dev/kvm || sudo chmod 666 /dev/kvm
@@ -78,9 +80,10 @@ jobs:
             echo 'GREEN: original Vril FPS gun viewport submitted SYNTHETIC textured 3D triangles to GLES2'
       - name: Adversarial screenshot QA — no giant centered placeholder
         run: |
-          python3 -m pip install --quiet 'Pillow>=11,<13'
           python3 scripts/iw3_synthetic_frame_qa.py \
             "$RUNNER_TEMP/viril-iw3-synthetic-screens/01-first-live-frame.png"
+          python3 scripts/iw3_synthetic_frame_qa.py \
+            "$RUNNER_TEMP/viril-iw3-synthetic-screens/02-live-look.png"
       - name: Preserve real Android emulator screenshot of synthetic model only
         if: always()
         uses: actions/upload-artifact@v4
