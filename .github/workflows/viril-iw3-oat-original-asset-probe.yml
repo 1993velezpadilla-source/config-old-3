@@ -10,7 +10,9 @@ on:
       - scripts/iw3_match_oat_assets.py
       - scripts/iw3_glb_to_iwvm.py
       - scripts/iw3_xanim_header_probe.py
+      - scripts/iw3_xanim_bones_v17.py
       - tests/test_viril_iw3_xanim_header.py
+      - tests/test_viril_iw3_xanim_bones_v17.py
 permissions:
   contents: read
   actions: read
@@ -192,6 +194,22 @@ jobs:
           print("Original COD4 XAnim v17 header evidence is real; skeletal playback NOT claimed.")
           PY
 
+      - name: Decode real original CoD4 per-bone animation keyframes and notifications
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p test_viril_iw3_xanim_bones_v17.py -v
+          python3 scripts/iw3_xanim_bones_v17.py \
+            /tmp/viril-iw3-licensed-original/converted \
+            | tee dist/iw3-xanim-v17-decoded-bones.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open("dist/iw3-xanim-v17-decoded-bones.json"))
+          if d["decoded_full_bones_without_rootdelta"] < 100:
+              raise SystemExit("Did not decode >=100 real CoD4 bone animations")
+          print("Decoded actual CoD4 per-bone XAnim keyframes and notifies, in temporary runner only.")
+          PY
+
       - name: Match official CoD4 weapons to real OAT GLB and XAnim assets
         shell: bash
         run: |
@@ -219,6 +237,7 @@ jobs:
             dist/iw3-weapon-model-animation-match-report.json
             dist/iw3-original-native-geometry-conversion.json
             dist/iw3-xanim-v17-structure-report.json
+            dist/iw3-xanim-v17-decoded-bones.json
           if-no-files-found: warn
           retention-days: 14
       - name: Delete local copyrighted test materials
