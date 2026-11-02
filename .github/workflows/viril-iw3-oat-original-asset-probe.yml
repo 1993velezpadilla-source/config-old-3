@@ -15,6 +15,8 @@ on:
       - scripts/iw3_glb_skin_probe.py
       - scripts/iw3_glb_to_iwsk.py
       - scripts/iw3_xanim_pose_sample.py
+      - scripts/iw3_xanim_to_iwsf.py
+      - tests/test_viril_iw3_source_motion_iwsf.py
       - tests/test_viril_iw3_xanim_pose_sample.py
       - tests/test_viril_iw3_skin_transport.py
       - scripts/iw3_match_skeleton_animation.py
@@ -367,6 +369,38 @@ jobs:
           PY
           rm -rf /tmp/viril-iw3-licensed-original/private-motion-probe
 
+      - name: Verify genuine original COD4 USP reload XAnim to native animated skin frame preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p test_viril_iw3_source_motion_iwsf.py -v
+          python3 - <<'PY' | tee dist/iw3-original-usp-skeletal-preview-proof.json
+          import json,sys
+          from pathlib import Path
+          sys.path.insert(0,"scripts")
+          from iw3_bind_private_weapon import bind_weapon
+          from iw3_match_oat_assets import parse_fields
+          from iw3_xanim_to_iwsf import pack_original_preview,FRAME_HEADER
+          root=Path("/tmp/viril-iw3-licensed-original/converted")
+          gun=sorted(root.rglob("viewmodel_usp*_lod0.glb"))[0]
+          out=Path("/tmp/viril-iw3-licensed-original/original-motion-private")
+          bind_weapon(root,gun.name,"models/weapons/m1911/v_colt.mdl",out)
+          fields=parse_fields(out/"current.weapon")
+          files={p.name.lower():p for p in root.rglob("*")
+                 if p.is_file() and p.parent.name=="xanim"}
+          for name in ("reloadAnim","reloadEmptyAnim","fireAnim"):
+              wanted=fields.get(name,"").lower()
+              if wanted in files:
+                  clip=files[wanted]
+                  break
+          else:raise RuntimeError("No real USP XAnim reload/fire reference")
+          matrices,counts=pack_original_preview(gun,clip)
+          assert FRAME_HEADER.unpack_from(matrices)[2]>2
+          assert counts["joints_animated_from_original_keyframes"]>0
+          print(json.dumps(counts,indent=2))
+          PY
+          rm -rf /tmp/viril-iw3-licensed-original/original-motion-private
+
       - name: Match official CoD4 weapons to real OAT GLB and XAnim assets
         shell: bash
         run: |
@@ -399,6 +433,7 @@ jobs:
             dist/iw3-original-skeletal-rig-capability.json
             dist/iw3-usp-skeleton-binary-transport-counts.json
             dist/iw3-usp-source-keyframe-motion-report.json
+            dist/iw3-original-usp-skeletal-preview-proof.json
             dist/iw3-usp-real-skin-animation-join.json
             dist/iw3-usp-iwd-image-match-counts.json
           if-no-files-found: warn
