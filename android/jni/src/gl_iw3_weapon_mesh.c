@@ -38,6 +38,34 @@ static iwvm_mesh_t iwvm_mesh;
 static int iwvm_reported_draw;
 static GLuint iwvm_color_texture;
 static int iwvm_color_attempted;
+/* Explicit, reversible first-person calibration for user-provided original
+ * IW3 XModels. All values default to identity so a correct model is never
+ * silently rotated or resized. Local X points forward, Y left, Z up.
+ * The forward-axis rotation is the gun-roll correction (9->12 o'clock).
+ * This is a developer calibration layer, not verified CoD4 1:1 pose. */
+static cvar_t iw3_vm_roll = {"iw3_vm_roll", "0"};
+static cvar_t iw3_vm_scale = {"iw3_vm_scale", "1"};
+static cvar_t iw3_vm_forward = {"iw3_vm_forward", "0"};
+static cvar_t iw3_vm_right = {"iw3_vm_right", "0"};
+static cvar_t iw3_vm_up = {"iw3_vm_up", "0"};
+
+void IW3_WeaponMesh_RegisterCvars(void)
+{
+    Cvar_RegisterVariable(&iw3_vm_roll);
+    Cvar_RegisterVariable(&iw3_vm_scale);
+    Cvar_RegisterVariable(&iw3_vm_forward);
+    Cvar_RegisterVariable(&iw3_vm_right);
+    Cvar_RegisterVariable(&iw3_vm_up);
+}
+
+static float IWVM_Bounded(float value, float lo, float hi, float fallback)
+{
+    if (!isfinite(value)) return fallback;
+    if (value < lo) return lo;
+    if (value > hi) return hi;
+    return value;
+}
+
 
 extern void R_RotateForEntity(entity_t *e, unsigned char scale);
 extern cvar_t gl_cull;
@@ -144,6 +172,23 @@ static int IWVM_Load(const char *path)
             goto cleanup;
     iwvm_mesh.vertex_count=count;
     iwvm_mesh.index_count=n_indices;
+#ifdef __ANDROID__
+    {
+        float low[3] = {1e30f,1e30f,1e30f};
+        float high[3] = {-1e30f,-1e30f,-1e30f};
+        for (i=0;i<count;++i) {
+            int k;
+            for(k=0;k<3;++k) {
+                const float p=iwvm_mesh.vertices[i].xyz[k];
+                if(p<low[k]) low[k]=p;
+                if(p>high[k]) high[k]=p;
+            }
+        }
+        __android_log_print(ANDROID_LOG_INFO,"VIRIL_IW3",
+          "IW3_MESH_BOUNDS model=%s min=%.3f,%.3f,%.3f max=%.3f,%.3f,%.3f",
+          path,low[0],low[1],low[2],high[0],high[1],high[2]);
+    }
+#endif
     ok=1;
 cleanup:
     fclose(f);
@@ -250,6 +295,18 @@ int IW3_WeaponMesh_Draw(entity_t *view)
     glGetIntegerv(GL_TEXTURE_BINDING_2D, &old_texture);
     glPushMatrix();
     R_RotateForEntity(view,view->scale);
+    /* Quake forward model basis: X forward, Y left, Z up. Keep controls
+     * specific to optional IW3 geometry; original NZ:P MDL unchanged. */
+    glTranslatef(
+        IWVM_Bounded(iw3_vm_forward.value, -40.f, 40.f, 0.f),
+        -IWVM_Bounded(iw3_vm_right.value, -40.f, 40.f, 0.f),
+        IWVM_Bounded(iw3_vm_up.value, -40.f, 40.f, 0.f));
+    glRotatef(IWVM_Bounded(iw3_vm_roll.value, -180.f, 180.f, 0.f),
+              1.f, 0.f, 0.f);
+    {
+        const float sc=IWVM_Bounded(iw3_vm_scale.value, 0.05f, 5.f, 1.f);
+        glScalef(sc, sc, sc);
+    }
     glEnable(GL_DEPTH_TEST);
     if (iwvm_color_texture) {
         glEnable(GL_TEXTURE_2D);
