@@ -42,6 +42,7 @@ def report(root: Path) -> dict:
     weapon_defs=[p for p in root.rglob("*")
                  if p.is_file() and p.parent.name=="weapons"]
     xmodels={p.stem.lower() for p in root.rglob("*.glb")}
+    glb_sample=sorted(xmodels)[:18]
     anims={p.name.lower() for p in root.rglob("*")
            if p.is_file() and p.parent.name=="xanim"}
     guns=0
@@ -51,12 +52,21 @@ def report(root: Path) -> dict:
     model_references=0
     anim_references=0
     sample=[]
+    raw_model_values=[]
+    cleaned_models=set()
+    cleaned_matches=0
     for p in weapon_defs:
         fields=parse_fields(p)
         model=(fields.get("gunModel") or "").strip()
         if model:
             guns+=1
-            key=model.split("/")[-1].lower().removesuffix(".glb")
+            key=model.replace("\\\\", "/").split("/")[-1].lower().removesuffix(".glb")
+            if len(raw_model_values)<18 and model not in raw_model_values:
+                raw_model_values.append(model[:90])
+            canonical=key.replace("viewmodel_", "").replace("viewmodel", "")
+            cleaned_models.add(canonical)
+            if any(canonical and canonical in x for x in xmodels):
+                cleaned_matches += 1
             gun_names.add(key)
             model_references+=1
             ok=key in xmodels
@@ -78,6 +88,9 @@ def report(root: Path) -> dict:
         "animation_links_attempted":anim_references,
         "animation_links_resolved":anims_linked,
         "individual_matched_weapon_names_sample":sample,
+        "debug_weapon_gunModel_values":raw_model_values,
+        "debug_GLBS_basename_sample":glb_sample,
+        "candidate_substring_matches":cleaned_matches,
         "native_vril_GL_render_tested":False,
         "copyrighted_files_uploaded":False,
     }
