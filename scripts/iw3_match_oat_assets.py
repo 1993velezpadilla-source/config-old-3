@@ -15,6 +15,13 @@ ANIMATION_FIELDS=("reloadAnim","reloadEmptyAnim","reloadStartAnim","reloadEndAni
                   "fireAnim","adsUpAnim","adsDownAnim","adsFireAnim",
                   "meleeAnim","raiseAnim","dropAnim")
 MESH_FIELDS=("gunModel","gunModel2","handModel","worldModel")
+LOD_RE = re.compile(r"_lod([0-9]+)$",re.I)
+
+def model_key(name: str) -> str:
+    base = name.replace("\\\\", "/").split("/")[-1].lower()
+    base = base.removesuffix(".glb")
+    return LOD_RE.sub("", base)
+
 
 
 def parse_fields(path: Path) -> dict[str,str]:
@@ -42,6 +49,9 @@ def report(root: Path) -> dict:
     weapon_defs=[p for p in root.rglob("*")
                  if p.is_file() and p.parent.name=="weapons"]
     xmodels={p.stem.lower() for p in root.rglob("*.glb")}
+    # OAT GLB exporter appends _lod0 to an IW3 WeaponDef gunModel name.
+    lod0_models={model_key(p.stem) for p in root.rglob("*.glb")
+                 if re.search(r"_lod0\.glb$",p.name,re.I)}
     glb_sample=sorted(xmodels)[:18]
     anims={p.name.lower() for p in root.rglob("*")
            if p.is_file() and p.parent.name=="xanim"}
@@ -69,7 +79,7 @@ def report(root: Path) -> dict:
                 cleaned_matches += 1
             gun_names.add(key)
             model_references+=1
-            ok=key in xmodels
+            ok=key in lod0_models
             if ok:
                 matched+=1
                 if len(sample)<10: sample.append(p.name)
@@ -84,7 +94,8 @@ def report(root: Path) -> dict:
         "weapon_definitions":len(weapon_defs),
         "weapon_definitions_with_gunModel":guns,
         "unique_viewmodel_references":len(gun_names),
-        "referenced_models_found_as_GLBS":matched,
+        "referenced_models_found_as_LOD0_GLBS":matched,
+        "lod0_unique_xmodels":len(lod0_models),
         "animation_links_attempted":anim_references,
         "animation_links_resolved":anims_linked,
         "individual_matched_weapon_names_sample":sample,
