@@ -57,7 +57,7 @@ def parse_weapon_file(path: Path) -> dict[str, float]:
 
 def render_header(rows: list[tuple[str, dict[str, float]]]) -> str:
     lines = [
-        "/* IW3 pose metadata only; exported from caller-supplied .weapon files. */",
+        "/* IW3 pose metadata only; exported from caller-supplied IW3 weapon definition files. */",
         "#ifndef VIRIL_IW3_GENERATED_PROFILES_H",
         "#define VIRIL_IW3_GENERATED_PROFILES_H",
         "static const iw3_weapon_pose_t iw3_pose_table[] = {",
@@ -90,7 +90,7 @@ def generate(definitions: Path, mapping: Path) -> str:
         definition = item.get("definition", "")
         viewmodel = item.get("viewmodel", "")
         if not isinstance(definition, str) or not re.fullmatch(
-                r"[A-Za-z0-9_/-]+\.weapon", definition):
+                r"[A-Za-z0-9_/-]+(?:\.weapon)?", definition):
             raise ValueError("Invalid .weapon definition path")
         if ".." in Path(definition).parts:
             raise ValueError("Path traversal in weapon mapping")
