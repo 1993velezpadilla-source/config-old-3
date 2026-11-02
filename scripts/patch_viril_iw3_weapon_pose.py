@@ -41,12 +41,9 @@ text = replace_once(
 text = replace_once(
     text, 'cvar_t\tr_drawviewmodel = {"r_drawviewmodel","1"};',
     'cvar_t\tr_drawviewmodel = {"r_drawviewmodel","1"};\n'
-    'cvar_t iw3_weapon_bridge = {"iw3_weapon_bridge","1",true};',
+    'cvar_t iw3_weapon_bridge = {"iw3_weapon_bridge","1",true};\n'
+    'static entity_t iw3_viewent_copy;',
     "renderer cvar declaration")
-text = replace_once(
-    text, 'void R_DrawViewModel (void)\n{',
-    'void R_DrawViewModel (void)\n{\n\tentity_t iw3_viewent_copy;',
-    "viewmodel entity copy declaration")
 original = '''\tcurrententity = &cl.viewent;
 \tif (!currententity->model)
 \t\treturn;
