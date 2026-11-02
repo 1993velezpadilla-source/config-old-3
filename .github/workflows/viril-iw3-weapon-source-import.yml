@@ -1,0 +1,90 @@
+name: VIRIL IW3 experimental IW3 weapon source import
+
+on:
+  push:
+    branches:
+      - feature/viril-iw3-native-weapon-bridge-20261102
+    paths:
+      - .github/workflows/viril-iw3-weapon-source-import.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: viril-iw3-weapon-source-import
+  cancel-in-progress: false
+
+jobs:
+  import-iw3:
+    name: Import exact KisakCOD IW3 weapon and renderer SOURCE - do not run native D3D
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/viril-iw3-native-weapon-bridge-20261102
+          fetch-depth: 1
+          persist-credentials: true
+      - name: Pin audited KisakCOD source from ZOMBIES-2026 PR 4
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/viril-iw3-source
+          git clone -q --no-checkout --filter=blob:none \
+            https://github.com/1993velezpadilla-source/ZOMBIES-2026.git \
+            /tmp/viril-iw3-source/zombies
+          git -C /tmp/viril-iw3-source/zombies fetch -q --depth 1 origin \
+            48008edb098a389545b357f001732613da5bfc36
+          git -C /tmp/viril-iw3-source/zombies checkout -q --detach \
+            48008edb098a389545b357f001732613da5bfc36
+          SRC=/tmp/viril-iw3-source/zombies/third_party/KisakCOD
+          DST=third_party/viril-iw3-iw3-reference
+          test -s "$SRC/src/cgame/cg_weapons.cpp"
+          test -s "$SRC/src/bgame/bg_weapons_load_obj.cpp"
+          test -s "$SRC/src/xanim/xanim.h"
+          test -s "$SRC/src/gfx_d3d/r_scene.cpp"
+          test -s "$SRC/LICENSE"
+          mkdir -p "$DST"
+          # Preserve all original engine C++ sources and public declarations
+          # including renderer, animation, weapon, model and asset-loading
+          # dependencies as unmodified GPL-3 reference material. Avoid
+          # upstream Windows DLLs, binary libraries and game assets.
+          cp -a "$SRC/src" "$DST/src"
+          cp "$SRC/LICENSE" "$DST/LICENSE"
+          cp "$SRC/README.md" "$DST/README.upstream.md"
+          cat > "$DST/PROVENANCE.md" <<'EOF'
+          # KisakCOD IW3 original-source reference for experimental VIRIL IW3
+
+          Exact origin: `1993velezpadilla-source/ZOMBIES-2026` PR #4,
+          `third_party/KisakCOD/src/` at
+          `48008edb098a389545b357f001732613da5bfc36`.
+
+          The entire available C++ engine **source** subtree is imported,
+          including the weapons, XModel/XAnim, registration, transforms,
+          renderer, asset handling and supporting code.
+          It is preserved *unmodified* under GPL-3.0, not linked into
+          Android Vril yet. Windows Direct3D, Steam, third-party binary DLLs
+          and proprietary Call of Duty data are **not** imported here.
+
+          Source alone is not CoD4 assets: .ff / .iwd bundles, XModels,
+          animation data, hands, textures and sounds require separately
+          sourced, rightfully used game data and a genuine asset pipeline.
+          EOF
+          echo "Imported original C++ source files:"
+          find "$DST/src" -type f | wc -l
+          test -s "$DST/src/xanim/xmodel.cpp"
+          test -s "$DST/src/bgame/bg_weapons.cpp"
+      - name: Commit isolated source import only
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "$(git status --porcelain third_party/viril-iw3-iw3-reference)" ]]; then
+            git add third_party/viril-iw3-iw3-reference
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'source(iw3): import KisakCOD weapon, model, animation and renderer code as pinned source reference'
+            git push origin HEAD:feature/viril-iw3-native-weapon-bridge-20261102
+          else
+            echo "Already imported exact IW3 source into experimental branch."
+          fi
