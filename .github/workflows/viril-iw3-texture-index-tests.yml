@@ -7,10 +7,12 @@ on:
       - .github/workflows/viril-iw3-texture-index-tests.yml
       - scripts/iw3_gltf_material_probe.py
       - scripts/iw3_iwd_texture_inventory.py
-      - scripts/iw3_iwi_to_iwvt.py
+      - scripts/iw3_iwi_to_iwvt.py scripts/iw3_extract_private_iwds.py
+      - scripts/iw3_extract_private_iwds.py
       - tests/test_viril_iw3_material_probe.py
       - tests/test_viril_iw3_iwd_texture_inventory.py
       - tests/test_viril_iw3_texture_transport.py
+      - tests/test_viril_iw3_extract_private_iwds.py
   workflow_dispatch:
 permissions:
   contents: read
@@ -35,4 +37,5 @@ jobs:
           python3 -m unittest discover -s tests -p test_viril_iw3_material_probe.py -v
           python3 -m unittest discover -s tests -p test_viril_iw3_iwd_texture_inventory.py -v
           python3 -m unittest discover -s tests -p test_viril_iw3_texture_transport.py -v
+          python3 -m unittest discover -s tests -p test_viril_iw3_extract_private_iwds.py -v
           echo "Texture namespace / DDS -> GLES RGBA path proven with synthetic assets; no COD4 bytes distributed."
