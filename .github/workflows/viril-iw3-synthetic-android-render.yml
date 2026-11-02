@@ -7,6 +7,7 @@ on:
       - .github/workflows/viril-iw3-synthetic-android-render.yml
       - scripts/iw3_synthetic_mesh_smoke.py
       - scripts/iw3_synthetic_frame_qa.py
+      - scripts/iw3_capture_live_viewmodel.py
       - tests/test_viril_iw3_viewmodel_fov.py
   workflow_dispatch:
 permissions:
@@ -68,15 +69,7 @@ jobs:
             adb install -r build/android-project/app/build/outputs/apk/debug/app-debug.apk
             adb logcat -c
             adb shell settings put secure immersive_mode_confirmations confirmed
-            adb shell am start -n com.xziel.viriliw3/org.libsdl.app.NZPActivity --ez xziel_ci_hud_preview true
-            sleep 70
-            adb shell input tap 800 665
-            sleep 4
-            mkdir -p "$RUNNER_TEMP/viril-iw3-synthetic-screens"
-            adb exec-out screencap -p > "$RUNNER_TEMP/viril-iw3-synthetic-screens/01-synthetic-geometry-in-game.png"
-            adb shell input swipe 1850 470 1540 500 450
-            sleep 5
-            adb exec-out screencap -p > "$RUNNER_TEMP/viril-iw3-synthetic-screens/02-synthetic-look.png"
+            python3 scripts/iw3_capture_live_viewmodel.py --out "$RUNNER_TEMP/viril-iw3-synthetic-screens" --timeout 90
             adb shell pidof com.xziel.viriliw3
             adb shell run-as com.xziel.viriliw3 cat files/nzp-runtime/.xziel-stage
             adb logcat -d -s VIRIL_IW3:I '*:S'
@@ -87,7 +80,7 @@ jobs:
         run: |
           python3 -m pip install --quiet 'Pillow>=11,<13'
           python3 scripts/iw3_synthetic_frame_qa.py \
-            "$RUNNER_TEMP/viril-iw3-synthetic-screens/01-synthetic-geometry-in-game.png"
+            "$RUNNER_TEMP/viril-iw3-synthetic-screens/01-first-live-frame.png"
       - name: Preserve real Android emulator screenshot of synthetic model only
         if: always()
         uses: actions/upload-artifact@v4
