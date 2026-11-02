@@ -73,7 +73,7 @@ def export(path:Path,scale:float=1.,axis:str="gltf_yup_to_quake_zup"):
         name=node.get("name","")
         if not isinstance(name,str):raise ValueError("Invalid joint name")
         encoded=name.encode("utf-8")
-        if not encoded or len(encoded)>=64 or b"\\0" in encoded:
+        if not encoded or len(encoded)>=64 or b"\0" in encoded:
             raise ValueError("Unsupported original joint name")
         parent=parents.get(node_index)
         if parent is not None and parent not in indices:
@@ -82,7 +82,7 @@ def export(path:Path,scale:float=1.,axis:str="gltf_yup_to_quake_zup"):
         inv=basis_convert(inverse[index],axis)
         if not all(math.isfinite(v) for v in bind+inv):
             raise ValueError("Corrupt IW3 bind matrices")
-        bone_bytes+=BONE.pack(encoded.ljust(64,b"\\0"),
+        bone_bytes+=BONE.pack(encoded.ljust(64,b"\0"),
                               indices[parent] if parent is not None else -1,
                               *bind,*inv)
     meshes=doc.get("meshes",[])
