@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/viril-iw3-oat-original-asset-probe.yml
       - scripts/iw3_collect_original_fastfiles.py
+      - scripts/iw3_match_oat_assets.py
 permissions:
   contents: read
   actions: read
@@ -140,6 +141,21 @@ jobs:
           PY
           cat dist/iw3-asset-export-evidence.json
 
+      - name: Match official CoD4 weapons to real OAT GLB and XAnim assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/iw3_match_oat_assets.py \
+            /tmp/viril-iw3-licensed-original/converted \
+            | tee dist/iw3-weapon-model-animation-match-report.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open("dist/iw3-weapon-model-animation-match-report.json"))
+          if d["weapon_definitions"] < 10:
+              raise SystemExit("OAT did not extract genuine CoD4 weapon definitions")
+          print("Real original IW3 WeaponDef extraction verified")
+          PY
+
       - name: Upload ONLY anonymized counts / no game models or animation assets
         if: always()
         uses: actions/upload-artifact@v4
@@ -149,6 +165,7 @@ jobs:
             dist/original-archive-metadata.json
             dist/iw3-asset-type-inventory.json
             dist/iw3-asset-export-evidence.json
+            dist/iw3-weapon-model-animation-match-report.json
           if-no-files-found: warn
           retention-days: 14
       - name: Delete local copyrighted test materials
