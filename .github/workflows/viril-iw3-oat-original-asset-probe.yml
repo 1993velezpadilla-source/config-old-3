@@ -12,6 +12,9 @@ on:
       - scripts/iw3_xanim_header_probe.py
       - scripts/iw3_xanim_bones_v17.py
       - scripts/iw3_gltf_material_probe.py
+      - scripts/iw3_extract_private_iwds.py
+      - scripts/iw3_iwd_texture_inventory.py
+      - tests/test_viril_iw3_extract_private_iwds.py
       - tests/test_viril_iw3_xanim_header.py
       - tests/test_viril_iw3_xanim_bones_v17.py
       - tests/test_viril_iw3_material_probe.py
@@ -234,6 +237,25 @@ jobs:
           print(json.dumps(agg,indent=2))
           PY
 
+      - name: Resolve actual original COD4 USP material IWI files in user IWD archives (temporary)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p test_viril_iw3_extract_private_iwds.py -v
+          GLB="$(find /tmp/viril-iw3-licensed-original/converted -type f -name 'viewmodel_usp*_lod0.glb' | head -1)"
+          test -n "$GLB"
+          python3 scripts/iw3_extract_private_iwds.py \
+            --parts-dir /tmp/viril-iw3-licensed-original/parts \
+            --selected-glb "$GLB" \
+            --temporary-output /tmp/viril-iw3-licensed-original/original-iwi-assets \
+            | tee dist/iw3-usp-iwd-image-match-counts.json
+          python3 - <<'PY'
+          import json
+          a=json.load(open('dist/iw3-usp-iwd-image-match-counts.json'))
+          print('Original user-owned original IWD material files found:',a["original_material_iwi_found"])
+          PY
+          rm -rf /tmp/viril-iw3-licensed-original/original-iwi-assets
+
       - name: Match official CoD4 weapons to real OAT GLB and XAnim assets
         shell: bash
         run: |
@@ -263,6 +285,7 @@ jobs:
             dist/iw3-xanim-v17-structure-report.json
             dist/iw3-xanim-v17-decoded-bones.json
             dist/iw3-original-material-link-evidence.json
+            dist/iw3-usp-iwd-image-match-counts.json
           if-no-files-found: warn
           retention-days: 14
       - name: Delete local copyrighted test materials
