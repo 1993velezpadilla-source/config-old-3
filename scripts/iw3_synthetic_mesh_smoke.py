@@ -12,6 +12,8 @@ import struct
 import zipfile
 
 MODEL="nzp/models/iw3/v_colt.iwvm"
+TEXTURE="nzp/models/iw3/v_colt.iwvt"
+
 
 
 def cube():
@@ -30,16 +32,26 @@ def cube():
     return struct.pack("<4sIII",b"IWVM",1,len(points),len(faces)*3)+vertices+idx
 
 
+def synthetic_rgba():
+    # Four synthetic texels, not original Call of Duty image data.
+    return (struct.pack("<4sIII",b"IWVT",1,2,2)
+            +bytes([230,30,70,255,  245,245,245,255,
+                    50,150,230,255,  50,50,50,255]))
+
+
 def inject(package:Path):
     if not package.is_file():raise FileNotFoundError(package)
     with zipfile.ZipFile(package,"a",compression=zipfile.ZIP_DEFLATED) as z:
         assert "nzp/progs.dat" in z.namelist(), "Missing real NZP gamedir"
-        if MODEL in z.namelist():raise RuntimeError("Probe target already present")
+        if MODEL in z.namelist() or TEXTURE in z.namelist():
+            raise RuntimeError("Synthetic probe target already present")
         z.writestr(MODEL,cube())
+        z.writestr(TEXTURE,synthetic_rgba())
     digest=hashlib.sha256(package.read_bytes()).hexdigest()
     package.with_suffix(".version").write_text(digest+"\n",encoding="ascii")
     with zipfile.ZipFile(package) as z:
         assert z.read(MODEL)==cube()
+        assert z.read(TEXTURE)==synthetic_rgba()
     return digest
 
 
