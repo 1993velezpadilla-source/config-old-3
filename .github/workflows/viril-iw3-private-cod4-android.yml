@@ -156,7 +156,7 @@ jobs:
               assert "nzp/models/iw3/v_colt.iwsk" not in z.namelist()
               z.writestr("nzp/models/iw3/v_colt.iwsk",skin)
           archive.with_suffix(".version").write_text(
-              hashlib.sha256(archive.read_bytes()).hexdigest()+"\\n",encoding="ascii")
+              hashlib.sha256(archive.read_bytes()).hexdigest()+"\n",encoding="ascii")
           print("Original COD4 IWSK source joint and skin-weight payload private:",
                 summary["original_glb_joints"],"bones,",
                 summary["original_rigged_vertices"],"weighted vertices")
