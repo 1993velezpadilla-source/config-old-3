@@ -15,7 +15,10 @@ import zipfile
 PREFIX = "Call of Duty 4 Modern Warfare/"
 NEEDED = (
     "zone/spanish/common.ff",
+    "zone/spanish/common_mp.ff",
     "zone/spanish/code_post_gfx.ff",
+    "zone/spanish/code_post_gfx_mp.ff",
+    "zone/spanish/mp_crash.ff",
 )
 EXPECTED_PART_SIZES = (1887436800, 1887436800, 1887436800, 1359075957)
 
