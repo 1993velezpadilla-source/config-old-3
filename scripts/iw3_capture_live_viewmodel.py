@@ -34,8 +34,37 @@ def screenshot(path):
     print(f"ANDROID_LIVE_FRAME {path.name} {w}x{h} bytes={len(data)}",flush=True)
 
 
+def dismiss_os_fullscreen_dialog(image:Image.Image):
+    """Clear Android's immersive-mode 'Viewing full screen / Got it' once.
+
+    A prior original-COD4 screenshot was 100% covered by this operating-
+    system popup even though GLES gun/texture logging passed. Detect the
+    dialog's distinctive blue confirmation button; never blindly tap GUI.
+    """
+    w,h=image.size
+    if w<900 or h<600:
+        return False
+    r,g,b=image.getpixel((int(w*.71),int(h*.47)))
+    center=image.getpixel((int(w*.5),int(h*.4)))
+    button_is_blue=(48<=r<=120 and 60<=g<=145 and 110<=b<=195 and b>g*1.25)
+    card_is_pale=min(center)>215
+    if not (button_is_blue and card_is_pale):
+        return False
+    print("ANDROID_OS_OVERLAY: immersive first-launch confirmation; dismiss",flush=True)
+    adb("shell","input","tap",str(int(w*.71)),str(int(h*.47)))
+    time.sleep(1)
+    # This Android emulator also presents an app-not-responding 'Wait'
+    # dialog behind the fullscreen tip under software graphics load.
+    # A secondary tap is only attempted in this known two-dialog state.
+    adb("shell","input","tap",str(int(w*.29)),str(int(h*.63)))
+    time.sleep(1)
+    return True
+
+
 def capture(output:Path,timeout:int=90):
     output.mkdir(parents=True,exist_ok=True)
+    adb("shell","settings","put","secure","immersive_mode_confirmations",
+        "confirmed",timeout=12,check=False)
     adb("shell","am","start","-n",PACKAGE+"/"+ACTIVITY,
         "--ez","xziel_ci_hud_preview","true",timeout=25)
     ready=False
@@ -57,6 +86,9 @@ def capture(output:Path,timeout:int=90):
         screenshot(first)
         with Image.open(first) as img:
             img=img.convert("RGB")
+            if dismiss_os_fullscreen_dialog(img):
+                first.unlink(missing_ok=True)
+                continue
             img.thumbnail((128,72))
             palette={(r//12,g//12,b//12) for r,g,b in img.getdata()}
         if len(palette)>50:
