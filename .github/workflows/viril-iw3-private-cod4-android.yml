@@ -69,7 +69,21 @@ jobs:
             --selected-glb "$GLB" \
             --temporary-output "$D/private-iwi"
           rm -rf "$D/parts" "$D/data" "$D/converted" "$D/oat.tar.gz"
-          test -x "$D/oat/ImageConverter"
+          CONVERTER="$(find "$D/oat" -maxdepth 3 -type f -iname 'ImageConverter*' | head -1)"
+          if [ -z "$CONVERTER" ]; then
+            echo "OAT release does not contain expected official ImageConverter:"
+            find "$D/oat" -maxdepth 3 -type f -printf '%P\n' | head -35
+            exit 1
+          fi
+          chmod +x "$CONVERTER"
+          echo "XZIEL_IW3_OAT_IMAGE_CONVERTER=$CONVERTER" >> "$GITHUB_ENV"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Enable OpenAssetTools 32-bit native image decoder dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libc6-i386 lib32stdc++6 lib32gcc-s1
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -103,7 +117,7 @@ jobs:
           assert original.is_file(), "Authentic first COD4 USP color not found in IWDs"
           archive=Path("build/android-project/app/src/main/assets/nzp-data.zip")
           result=convert_extracted_private_color(glb,original,
-              root/"oat/ImageConverter",archive,"v_colt")
+              Path(__import__("os").environ["XZIEL_IW3_OAT_IMAGE_CONVERTER"]),archive,"v_colt")
           with zipfile.ZipFile(archive) as z:
               data=z.read("nzp/models/iw3/v_colt.iwvt")
               assert data[:4]==b"IWVT" and len(data)>16
