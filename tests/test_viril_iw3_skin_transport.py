@@ -54,7 +54,7 @@ class OriginalIWSKTransportTests(unittest.TestCase):
         self.assertEqual(HEADER.unpack_from(data),(b"IWSK",1,3,1,0))
         self.assertEqual(len(data),HEADER.size+BONE.size+3*VERTEX.size)
         bone=BONE.unpack_from(data,HEADER.size)
-        self.assertEqual(bone[0].split(b"\\0",1)[0],b"tag_weapon")
+        self.assertEqual(bone[0].split(b"\0",1)[0],b"tag_weapon")
         self.assertEqual(bone[1],-1)
         for offset in range(3):
             x=VERTEX.unpack_from(data,HEADER.size+BONE.size+offset*VERTEX.size)
