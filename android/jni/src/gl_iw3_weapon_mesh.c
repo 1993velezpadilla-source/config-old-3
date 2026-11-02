@@ -3,9 +3,10 @@
  * GPL-3.0 source. Compatible with portable IWVM v1 generated from user-
  * supplied glTF 2.0 GLB; never embeds any Call of Duty game data here.
  *
- * IWVM v1 is static rest-pose mesh geometry + UV only. CoD4 skeletal
- * XAnim, skinning, materials, exact hand attachment, muzzle/shell tags
- * and all official behaviors are NOT implemented by this module.
+ * IWVM v1 is static rest-pose mesh geometry + UVs. Optional IWVT v1
+ * uploads ONE RGBA base-color texture, when privately supplied.
+ * Multi-material, skeletal XAnim, hand rigging and original CoD4
+ * gameplay behavior are NOT YET implemented.
  */
 #include "../../../nzportable_def.h"
 #include <stdint.h>
@@ -35,6 +36,8 @@ typedef char iwvm_vertex_stride_check[(sizeof(iwvm_vertex_t)==20) ? 1 : -1];
 
 static iwvm_mesh_t iwvm_mesh;
 static int iwvm_reported_draw;
+static GLuint iwvm_color_texture;
+static int iwvm_color_attempted;
 
 extern void R_RotateForEntity(entity_t *e, unsigned char scale);
 extern cvar_t gl_cull;
@@ -43,6 +46,11 @@ static void IWVM_ResetGeometry(void)
 {
     free(iwvm_mesh.vertices);
     free(iwvm_mesh.indices);
+    if (iwvm_color_texture) {
+        glDeleteTextures(1, &iwvm_color_texture);
+        iwvm_color_texture = 0;
+    }
+    iwvm_color_attempted = 0;
     iwvm_mesh.vertices = NULL;
     iwvm_mesh.indices = NULL;
     iwvm_mesh.vertex_count = 0;
@@ -144,6 +152,72 @@ cleanup:
     return ok;
 }
 
+/* Optional RGBA color map. Private packer writes an IWVT file with the same
+ * gun stem as IWVM in the NZ:P gamedir. Missing IWVT leaves flat geometry. */
+static void IWVT_TryLoad(const char *mesh_path)
+{
+    FILE *f = NULL;
+    uint8_t header[16];
+    uint8_t *pixels = NULL;
+    char texture_path[160];
+    char *suffix;
+    long length;
+    uint32_t w, h;
+    uint64_t bytes;
+    GLint old_texture = 0;
+    GLenum err;
+    GLuint texture = 0;
+    if (iwvm_color_attempted)
+        return;
+    iwvm_color_attempted = 1;
+    if (snprintf(texture_path, sizeof(texture_path), "%s", mesh_path) >=
+        (int)sizeof(texture_path)) return;
+    suffix = strrchr(texture_path, '.');
+    if (!suffix || strcmp(suffix, ".iwvm") != 0) return;
+    strcpy(suffix, ".iwvt");
+    length = COM_FOpenFile(texture_path, &f);
+    if (length < 16 || !f) return;
+    if (fread(header, 1, 16, f) != 16 ||
+        memcmp(header, "IWVT", 4) != 0 || IWVM_Read32(header + 4) != 1)
+        goto cleanup;
+    w = IWVM_Read32(header + 8);
+    h = IWVM_Read32(header + 12);
+    if (!w || !h || w > 4096 || h > 4096) goto cleanup;
+    bytes = 4ull * w * h;
+    if (bytes + 16ull != (uint64_t)length || bytes > 64ull*1024*1024)
+        goto cleanup;
+    pixels = (uint8_t *)malloc((size_t)bytes);
+    if (!pixels || fread(pixels, 1, (size_t)bytes, f) != (size_t)bytes)
+        goto cleanup;
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &old_texture);
+    glGenTextures(1, &texture);
+    if (!texture) goto cleanup;
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)w, (GLsizei)h,
+                 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    err = glGetError();
+    glBindTexture(GL_TEXTURE_2D, (GLuint)old_texture);
+    if (err != GL_NO_ERROR) {
+        glDeleteTextures(1, &texture);
+        texture = 0;
+    } else {
+        iwvm_color_texture = texture;
+#ifdef __ANDROID__
+        __android_log_print(ANDROID_LOG_INFO, "VIRIL_IW3",
+            "IW3_COLOR_TEXTURE loaded=%s width=%u height=%u glerr=0",
+            texture_path, (unsigned)w, (unsigned)h);
+#endif
+    }
+cleanup:
+    if (f) fclose(f);
+    free(pixels);
+}
+
 /* Returns 1 when an optional properly converted IW3 viewmodel was actually
  * submitted as 3D geometry, 0 when the untouched Vril MDL must be drawn. */
 int IW3_WeaponMesh_Draw(entity_t *view)
@@ -168,12 +242,23 @@ int IW3_WeaponMesh_Draw(entity_t *view)
     }
     if (!iwvm_mesh.vertex_count)
         return 0;
+    IWVT_TryLoad(path);
     /* World/view GL projection and clipped viewmodel depth range are
      * inherited from Vril's existing R_DrawViewModel, never IW3 Direct3D. */
+    GLint old_texture = 0;
+    const GLboolean texture_was_enabled = glIsEnabled(GL_TEXTURE_2D);
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &old_texture);
     glPushMatrix();
     R_RotateForEntity(view,view->scale);
     glEnable(GL_DEPTH_TEST);
-    glDisable(GL_TEXTURE_2D); /* geometry proof only: skins pending */
+    if (iwvm_color_texture) {
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, iwvm_color_texture);
+        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+        glTexCoordPointer(2,GL_FLOAT,sizeof(iwvm_vertex_t),&iwvm_mesh.vertices[0].uv[0]);
+    } else {
+        glDisable(GL_TEXTURE_2D);
+    }
     glDisable(GL_ALPHA_TEST);
     glDisable(GL_BLEND);
     glDisable(GL_CULL_FACE);
@@ -193,10 +278,16 @@ int IW3_WeaponMesh_Draw(entity_t *view)
     }
 #endif
     glDisableClientState(GL_VERTEX_ARRAY);
+    if (iwvm_color_texture)
+        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glBindTexture(GL_TEXTURE_2D, (GLuint)old_texture);
+    if (!texture_was_enabled)
+        glDisable(GL_TEXTURE_2D);
     glColor4f(1,1,1,1);
     if (gl_cull.value)
         glEnable(GL_CULL_FACE);
-    glEnable(GL_TEXTURE_2D);
+    if (texture_was_enabled)
+        glEnable(GL_TEXTURE_2D);
     glEnable(GL_ALPHA_TEST);
     glPopMatrix();
     return 1;
