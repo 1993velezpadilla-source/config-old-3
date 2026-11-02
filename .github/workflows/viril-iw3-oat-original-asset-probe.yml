@@ -113,8 +113,19 @@ jobs:
           for ext in (".glb",".gltf",".weapon",".xanim",".json"):
               files=list(root.rglob("*"+ext))
               result[ext]={"count":len(files),"bytes":sum(p.stat().st_size for p in files)}
+          weapon_files=[p for p in root.rglob("*") if p.is_file()
+                        and "weapons" in p.parts and not p.suffix]
+          glb_models=[p for p in root.rglob("*.glb")]
+          glb_viewmodels=[p for p in glb_models if "viewmodel" in p.name.lower()
+                          or p.name.lower().startswith("v_")]
+          anim_json=[p for p in root.rglob("*.json") if "anim" in str(p).lower()]
+          details={"extensionless_iw3_weapon_defs":len(weapon_files),
+                   "viewmodel_glb_files":len(glb_viewmodels),
+                   "xanim_json_files":len(anim_json),
+                   "weapon_definitions_named_example":[p.name for p in sorted(weapon_files)[:8]]}
           print(json.dumps({"source":"COD4 IW3 common.ff",
                             "local_export_types":result,
+                            "source_asset_details":details,
                             "copyrighted_files_uploaded":False,
                             "rendered_by_android_vril":False},indent=2))
           PY
