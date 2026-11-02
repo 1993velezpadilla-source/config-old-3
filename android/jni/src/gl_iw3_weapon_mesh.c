@@ -157,8 +157,14 @@ int IW3_WeaponMesh_Draw(entity_t *view)
         iwvm_mesh.attempted=0;
     }
     if (!iwvm_mesh.attempted) {
+        int loaded;
         iwvm_mesh.attempted=1;
-        (void)IWVM_Load(path);
+        loaded=IWVM_Load(path);
+#ifdef __ANDROID__
+        __android_log_print(ANDROID_LOG_INFO,"VIRIL_IW3",
+            "IW3_MESH_LOAD_REQUEST view=%s target=%s loaded=%d",
+            view->model->name,path,loaded);
+#endif
     }
     if (!iwvm_mesh.vertex_count)
         return 0;
