@@ -239,6 +239,7 @@ jobs:
             grep -q 'IW3_ORIGINAL_SKIN_DATA_LOADED file=models/iw3/v_colt.iwsk.*animated=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             grep -q 'IW3_ORIGINAL_XANIM_PREVIEW_LOADED file=models/iw3/v_colt.iwsf.*exact_graph=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             grep -q 'IW3_ORIGINAL_XANIM_SKELETAL_FRAME rendered=1 source=original_IW3.*exact_official=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            grep -q 'IW3_ORIGINAL_XANIM_SKIN_DEFORMED frame=.*vertices=[1-9].*exact_official=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             grep -q 'IW3_MESH_BOUNDS model=models/iw3/v_colt.iwvm' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             echo 'GREEN: ORIGINAL COD4 USP GUN PLUS ORIGINAL IWI COLOR TEXTURE SUBMITTED WITH GLES_NO_ERROR (private screenshot not published)'
       - name: Preserve original COD4 USP screenshots only for user visual review
