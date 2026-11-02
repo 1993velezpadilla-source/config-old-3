@@ -59,6 +59,13 @@ static iwsk_joint_t *iwsk_joints;
 static iwsk_influence_t *iwsk_weights;
 static uint32_t iwsk_joint_count;
 static int iwsk_attempted;
+/* Optional private IWSF baked from genuine original IW3 XAnim v17. */
+static float *iwsk_frame_matrices;
+static iwvm_vertex_t *iwvm_skinned_vertices;
+static uint32_t iwsk_frame_count;
+static float iwsk_frame_rate;
+static int iwsk_frames_attempted;
+static int iwsk_logged_motion;
 /* Explicit, reversible first-person calibration for user-provided original
  * IW3 XModels. All values default to identity so a correct model is never
  * silently rotated or resized. Local X points forward, Y left, Z up.
@@ -69,6 +76,9 @@ static cvar_t iw3_vm_scale = {"iw3_vm_scale", "1"};
 /* Original OAT GLB meshes are centered at X ~0, behind Vril near clip.\n * 12 units moves the genuine gun in front of the FPS near plane. */\nstatic cvar_t iw3_vm_forward = {"iw3_vm_forward", "12"};
 static cvar_t iw3_vm_right = {"iw3_vm_right", "0"};
 static cvar_t iw3_vm_up = {"iw3_vm_up", "0"};
+/* Applies ONLY when a user-supplied original IWSF animation is present. */
+static cvar_t iw3_vm_anim_preview = {"iw3_vm_anim_preview", "1"};
+static cvar_t iw3_vm_anim_speed = {"iw3_vm_anim_speed", "1"};
 
 void IW3_WeaponMesh_RegisterCvars(void)
 {
@@ -77,6 +87,8 @@ void IW3_WeaponMesh_RegisterCvars(void)
     Cvar_RegisterVariable(&iw3_vm_forward);
     Cvar_RegisterVariable(&iw3_vm_right);
     Cvar_RegisterVariable(&iw3_vm_up);
+    Cvar_RegisterVariable(&iw3_vm_anim_preview);
+    Cvar_RegisterVariable(&iw3_vm_anim_speed);
 }
 
 static float IWVM_Bounded(float value, float lo, float hi, float fallback)
@@ -97,6 +109,14 @@ static void IWVM_ResetGeometry(void)
     free(iwvm_mesh.indices);
     free(iwsk_joints);
     free(iwsk_weights);
+    free(iwsk_frame_matrices);
+    free(iwvm_skinned_vertices);
+    iwsk_frame_matrices=NULL;
+    iwvm_skinned_vertices=NULL;
+    iwsk_frame_count=0;
+    iwsk_frame_rate=0.f;
+    iwsk_frames_attempted=0;
+    iwsk_logged_motion=0;
     iwsk_joints = NULL;
     iwsk_weights = NULL;
     iwsk_joint_count = 0;
@@ -309,6 +329,128 @@ cleanup:
 #endif
 }
 
+/* Original XAnim frame matrices, privately baked against the source GLB
+ * bind pose. Fixed-size, bounded CPU skinning for an experimental preview.
+ * XAnim->bone blending is DELTA-on-bind; not yet official CoD4 state graph. */
+static void IWSF_TryLoad(const char *mesh_path)
+{
+    char path[160];
+    char *suffix;
+    FILE *f=NULL;
+    uint8_t header[20];
+    uint32_t frames,joints,i;
+    uint64_t needed;
+    long len;
+    float fps;
+    float *matrices=NULL;
+    iwvm_vertex_t *skinned=NULL;
+    if(iwsk_frames_attempted) return;
+    iwsk_frames_attempted=1;
+    if(!iwsk_joint_count || !iwsk_weights) return;
+    if(snprintf(path,sizeof(path),"%s",mesh_path)>=(int)sizeof(path))
+        return;
+    suffix=strrchr(path,'.');
+    if(!suffix || strcmp(suffix,".iwvm")!=0) return;
+    strcpy(suffix,".iwsf");
+    len=COM_FOpenFile(path,&f);
+    if(len<20 || !f) return;
+    if(fread(header,1,sizeof(header),f)!=sizeof(header) ||
+       memcmp(header,"IWSF",4)!=0 || IWVM_Read32(header+4)!=1)
+        goto cleanup;
+    frames=IWVM_Read32(header+8);
+    joints=IWVM_Read32(header+12);
+    memcpy(&fps,header+16,sizeof(fps));
+    if(frames<2 || frames>600 || joints!=iwsk_joint_count ||
+       !isfinite(fps) || fps<1.f || fps>300.f)
+        goto cleanup;
+    needed=20ull+(uint64_t)frames*joints*16ull*sizeof(float);
+    if(needed!=(uint64_t)len || needed>64ull*1024*1024)
+        goto cleanup;
+    matrices=(float *)malloc((size_t)needed-20u);
+    skinned=(iwvm_vertex_t *)malloc((size_t)iwvm_mesh.vertex_count*sizeof(*skinned));
+    if(!matrices || !skinned ||
+       fread(matrices,1,(size_t)needed-20u,f)!=(size_t)needed-20u)
+        goto cleanup;
+    for(i=0;i<frames*joints*16u;++i) {
+        if(!isfinite(matrices[i]) || fabsf(matrices[i])>1000000.f)
+            goto cleanup;
+    }
+    /* F0 must be original rest pose. Reject wrong skeleton / transform. */
+    for(i=0;i<joints;++i) {
+        uint32_t j;
+        const float *m=matrices+i*16u;
+        for(j=0;j<16u;++j) {
+            const float id=(j==0u || j==5u || j==10u || j==15u)?1.f:0.f;
+            if(fabsf(m[j]-id)>0.08f) goto cleanup;
+        }
+    }
+    iwsk_frame_matrices=matrices;
+    iwvm_skinned_vertices=skinned;
+    iwsk_frame_count=frames;
+    iwsk_frame_rate=fps;
+    matrices=NULL;
+    skinned=NULL;
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_INFO,"VIRIL_IW3",
+       "IW3_ORIGINAL_XANIM_PREVIEW_LOADED file=%s frames=%u joints=%u fps=%.3f exact_graph=0",
+       path,(unsigned)frames,(unsigned)joints,fps);
+#endif
+cleanup:
+    if(f) fclose(f);
+    free(matrices);
+    free(skinned);
+}
+
+static const iwvm_vertex_t *IWSF_SkinFrame(void)
+{
+    uint32_t frame,i;
+    float clock,rate;
+    if(!iwsk_frame_matrices || !iwvm_skinned_vertices ||
+       !iwsk_weights || iwsk_frame_count<2 || iwsk_joint_count==0 ||
+       iw3_vm_anim_preview.value<0.5f)
+        return iwvm_mesh.vertices;
+    rate=iwsk_frame_rate*IWVM_Bounded(iw3_vm_anim_speed.value,0.05f,4.f,1.f);
+    clock=(float)cl.time*rate;
+    if(!isfinite(clock)) return iwvm_mesh.vertices;
+    frame=(uint32_t)fmodf(fabsf(clock),(float)iwsk_frame_count);
+    for(i=0;i<iwvm_mesh.vertex_count;++i) {
+        uint32_t k;
+        const iwvm_vertex_t *original=&iwvm_mesh.vertices[i];
+        iwvm_vertex_t *dst=&iwvm_skinned_vertices[i];
+        const iwsk_influence_t *w=&iwsk_weights[i];
+        float xyz[3]={0.f,0.f,0.f};
+        for(k=0;k<4u;++k) {
+            const float weight=w->weight[k];
+            const uint32_t b=w->bone[k];
+            const float *m;
+            uint32_t axis;
+            if(weight<=0.f) continue;
+            if(b>=iwsk_joint_count) return iwvm_mesh.vertices;
+            m=iwsk_frame_matrices+((frame*iwsk_joint_count+b)*16u);
+            for(axis=0;axis<3u;++axis)
+                xyz[axis]+=weight*(m[axis]*original->xyz[0]+
+                   m[4u+axis]*original->xyz[1]+
+                   m[8u+axis]*original->xyz[2]+m[12u+axis]);
+        }
+        if(!isfinite(xyz[0]) || !isfinite(xyz[1]) || !isfinite(xyz[2]))
+            return iwvm_mesh.vertices;
+        dst->xyz[0]=xyz[0];
+        dst->xyz[1]=xyz[1];
+        dst->xyz[2]=xyz[2];
+        dst->uv[0]=original->uv[0];
+        dst->uv[1]=original->uv[1];
+    }
+#ifdef __ANDROID__
+    if(!iwsk_logged_motion) {
+        iwsk_logged_motion=1;
+        __android_log_print(ANDROID_LOG_INFO,"VIRIL_IW3",
+          "IW3_ORIGINAL_XANIM_SKELETAL_FRAME rendered=1 source=original_IW3 frame=%u weighted_vertices=%u exact_official=0",
+          (unsigned)frame,(unsigned)iwvm_mesh.vertex_count);
+    }
+#endif
+    return iwvm_skinned_vertices;
+}
+
 /* Optional RGBA color map. Private packer writes an IWVT file with the same
  * gun stem as IWVM in the NZ:P gamedir. Missing IWVT leaves flat geometry. */
 static void IWVT_TryLoad(const char *mesh_path)
@@ -401,6 +543,8 @@ int IW3_WeaponMesh_Draw(entity_t *view)
         return 0;
     IWVT_TryLoad(path);
     IWSK_TryLoad(path);
+    IWSF_TryLoad(path);
+    const iwvm_vertex_t *draw_vertices=IWSF_SkinFrame();
     /* World/view GL projection and clipped viewmodel depth range are
      * inherited from Vril's existing R_DrawViewModel, never IW3 Direct3D. */
     GLint old_texture = 0;
@@ -425,7 +569,7 @@ int IW3_WeaponMesh_Draw(entity_t *view)
         glEnable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, iwvm_color_texture);
         glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-        glTexCoordPointer(2,GL_FLOAT,sizeof(iwvm_vertex_t),&iwvm_mesh.vertices[0].uv[0]);
+        glTexCoordPointer(2,GL_FLOAT,sizeof(iwvm_vertex_t),&draw_vertices[0].uv[0]);
     } else {
         glDisable(GL_TEXTURE_2D);
     }
@@ -439,7 +583,7 @@ int IW3_WeaponMesh_Draw(entity_t *view)
     else
         glColor4f(0.82f,0.82f,0.82f,1.f);
     glEnableClientState(GL_VERTEX_ARRAY);
-    glVertexPointer(3,GL_FLOAT,sizeof(iwvm_vertex_t),&iwvm_mesh.vertices[0].xyz[0]);
+    glVertexPointer(3,GL_FLOAT,sizeof(iwvm_vertex_t),&draw_vertices[0].xyz[0]);
     glDrawElements(GL_TRIANGLES,iwvm_mesh.index_count,GL_UNSIGNED_SHORT,iwvm_mesh.indices);
 #ifdef __ANDROID__
     if (!iwvm_reported_draw) {
