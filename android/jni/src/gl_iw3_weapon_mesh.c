@@ -66,6 +66,7 @@ static uint32_t iwsk_frame_count;
 static float iwsk_frame_rate;
 static int iwsk_frames_attempted;
 static int iwsk_logged_motion;
+static int iwsk_logged_actual_deformation;
 /* Explicit, reversible first-person calibration for user-provided original
  * IW3 XModels. All values default to identity so a correct model is never
  * silently rotated or resized. Local X points forward, Y left, Z up.
@@ -119,6 +120,7 @@ static void IWVM_ResetGeometry(void)
     iwsk_frame_rate=0.f;
     iwsk_frames_attempted=0;
     iwsk_logged_motion=0;
+    iwsk_logged_actual_deformation=0;
     iwsk_joints = NULL;
     iwsk_weights = NULL;
     iwsk_joint_count = 0;
@@ -406,7 +408,9 @@ cleanup:
 static const iwvm_vertex_t *IWSF_SkinFrame(void)
 {
     uint32_t frame,i;
+    uint32_t deformed_vertices=0;
     float clock,rate;
+    float max_source_deformation=0.f;
     if(!iwsk_frame_matrices || !iwvm_skinned_vertices ||
        !iwsk_weights || iwsk_frame_count<2 || iwsk_joint_count==0 ||
        iw3_vm_anim_preview.value<0.5f)
@@ -439,10 +443,22 @@ static const iwvm_vertex_t *IWSF_SkinFrame(void)
         dst->xyz[0]=xyz[0];
         dst->xyz[1]=xyz[1];
         dst->xyz[2]=xyz[2];
+        {
+            const float distance=fmaxf(fabsf(xyz[0]-original->xyz[0]),
+                 fmaxf(fabsf(xyz[1]-original->xyz[1]),fabsf(xyz[2]-original->xyz[2])));
+            if(distance>0.001f) ++deformed_vertices;
+            if(distance>max_source_deformation) max_source_deformation=distance;
+        }
         dst->uv[0]=original->uv[0];
         dst->uv[1]=original->uv[1];
     }
 #ifdef __ANDROID__
+    if(deformed_vertices && !iwsk_logged_actual_deformation) {
+        iwsk_logged_actual_deformation=1;
+        __android_log_print(ANDROID_LOG_INFO,"VIRIL_IW3",
+          "IW3_ORIGINAL_XANIM_SKIN_DEFORMED frame=%u vertices=%u max_quake_units=%.4f exact_official=0",
+          (unsigned)frame,(unsigned)deformed_vertices,max_source_deformation);
+    }
     if(!iwsk_logged_motion) {
         iwsk_logged_motion=1;
         __android_log_print(ANDROID_LOG_INFO,"VIRIL_IW3",
