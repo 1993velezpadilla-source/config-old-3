@@ -101,16 +101,15 @@ jobs:
             set -e
             adb install -r build/android-project/app/build/outputs/apk/debug/app-debug.apk
             adb logcat -c
-            adb shell am start -W -n \
-              com.xziel.viriliw3/org.libsdl.app.NZPActivity \
-              --ez xziel_ci_hud_preview true
-            sleep 30
+            adb shell am start -W -n com.xziel.viriliw3/org.libsdl.app.NZPActivity --ez xziel_ci_hud_preview true
+            sleep 40
             adb logcat -d -v brief > "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
-            if grep -q "IW3_NATIVE_MESH_DRAW submitted model=models/iw3/v_colt.iwvm" \
-                "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"; then
+            if grep -q "IW3_NATIVE_MESH_DRAW submitted model=models/iw3/v_colt.iwvm" "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"; then
               echo "Genuine CoD4 first-person static mesh SUBMITTED to Vril GLES: GREEN"
             else
-              echo "BLOCKED: Authentic model in APK but no visible first-person model draw confirmed."
+              echo "BLOCKED: Authentic model in APK but no native GLES draw submission confirmed."
+              echo "View-model diagnostic lines:"
+              grep -E 'IW3_NATIVE|VIRIL_IW3|FIRST_FRAME|FATAL EXCEPTION|Fatal signal' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt" | tail -30 || true
               exit 1
             fi
       - name: Delete ALL extracted game data and private APK without publishing
