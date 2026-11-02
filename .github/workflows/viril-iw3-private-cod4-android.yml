@@ -88,7 +88,7 @@ jobs:
           python3 - <<'PY'
           import zipfile
           with zipfile.ZipFile("build/android-project/app/src/main/assets/nzp-data.zip") as z:
-              iwvm=z.read("models/iw3/v_colt.iwvm")
+              iwvm=z.read("nzp/models/iw3/v_colt.iwvm")
               assert iwvm.startswith(b"IWVM") and len(iwvm)>100
               print("REAL COD4 GUN INCLUDED IN TEMPORARY ANDROID BUILD (NOT PUBLISHED).")
           PY
