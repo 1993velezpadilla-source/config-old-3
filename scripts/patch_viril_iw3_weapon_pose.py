@@ -44,8 +44,8 @@ text = replace_once(
     'cvar_t iw3_weapon_bridge = {"iw3_weapon_bridge","1",true};',
     "renderer cvar declaration")
 text = replace_once(
-    text, 'void R_DrawViewModel (void)\\n{',
-    'void R_DrawViewModel (void)\\n{\\n\\tentity_t iw3_viewent_copy;',
+    text, 'void R_DrawViewModel (void)\n{',
+    'void R_DrawViewModel (void)\n{\n\tentity_t iw3_viewent_copy;',
     "viewmodel entity copy declaration")
 original = '''\tcurrententity = &cl.viewent;
 \tif (!currententity->model)
@@ -89,11 +89,11 @@ text = replace_once(text, original, bridge, "first-person render dispatch")
 before, after = text.split("void R_DrawViewModel (void)", 1)
 after = replace_once(
     after,
-    'R_DrawAliasModel (currententity);\\n\\tglDepthRange (gldepthmin, gldepthmax);',
-    'if (!(iw3_weapon_bridge.value && IW3_WeaponMesh_Draw(currententity)))\\n'
-    '\\t\\tR_DrawAliasModel (currententity);\\n'
-    '\\tglDepthRange (gldepthmin, gldepthmax);\\n'
-    '\\tcurrententity = &cl.viewent;',
+    'R_DrawAliasModel (currententity);\n\tglDepthRange (gldepthmin, gldepthmax);',
+    'if (!(iw3_weapon_bridge.value && IW3_WeaponMesh_Draw(currententity)))\n'
+    '\t\tR_DrawAliasModel (currententity);\n'
+    '\tglDepthRange (gldepthmin, gldepthmax);\n'
+    '\tcurrententity = &cl.viewent;',
     "Vril native GLES 3D weapon draw dispatch")
 text = before + "void R_DrawViewModel (void)" + after
 rmain.write_text(text, encoding="utf-8")
