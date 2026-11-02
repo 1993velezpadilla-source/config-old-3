@@ -44,6 +44,18 @@ PY
 # Must ship an entire NZ:P game, not a minimal engine-only shell.
 DATA="$ROOT/build/android-project/app/src/main/assets/nzp-data.zip"
 test -s "$DATA"
+
+# If (and only if) user supplies a private CoD4 GLB copy, bind real geometry
+# to the selected NZP weapon. NEVER embed commercial CoD4 content in public CI.
+if [[ -n "${XZIEL_IW3_PRIVATE_GLB_DIR:-}" ]]; then
+  test -d "$XZIEL_IW3_PRIVATE_GLB_DIR"
+  test -s "${XZIEL_IW3_MODEL_REMAP_JSON:-}"
+  python3 "$ROOT/scripts/iw3_private_weapon_pack.py" \
+    --game-data-zip "$DATA" \
+    --glb-dir "$XZIEL_IW3_PRIVATE_GLB_DIR" \
+    --manifest "$XZIEL_IW3_MODEL_REMAP_JSON"
+fi
+
 python3 - "$DATA" <<'PY'
 import sys, zipfile
 path=sys.argv[1]
