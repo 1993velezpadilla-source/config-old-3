@@ -183,10 +183,12 @@ int IW3_WeaponMesh_Draw(entity_t *view)
     glDrawElements(GL_TRIANGLES,iwvm_mesh.index_count,GL_UNSIGNED_SHORT,iwvm_mesh.indices);
 #ifdef __ANDROID__
     if (!iwvm_reported_draw) {
-        __android_log_print(ANDROID_LOG_INFO,"VIRIL_IW3",
-            "IW3_NATIVE_MESH_DRAW submitted model=%s vertices=%u triangles=%u",
+        const GLenum iwvm_draw_error = glGetError();
+        __android_log_print(iwvm_draw_error == GL_NO_ERROR ?
+            ANDROID_LOG_INFO : ANDROID_LOG_ERROR, "VIRIL_IW3",
+            "IW3_NATIVE_MESH_DRAW submitted model=%s vertices=%u triangles=%u glerr=%u",
             iwvm_mesh.name,(unsigned)iwvm_mesh.vertex_count,
-            (unsigned)(iwvm_mesh.index_count/3));
+            (unsigned)(iwvm_mesh.index_count/3),(unsigned)iwvm_draw_error);
         iwvm_reported_draw = 1;
     }
 #endif
