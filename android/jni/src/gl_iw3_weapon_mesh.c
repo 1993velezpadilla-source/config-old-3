@@ -262,7 +262,12 @@ int IW3_WeaponMesh_Draw(entity_t *view)
     glDisable(GL_ALPHA_TEST);
     glDisable(GL_BLEND);
     glDisable(GL_CULL_FACE);
-    glColor4f(0.82f,0.82f,0.82f,1.f);
+    /* Preserve original COD4 base-color texels without 18% grey tint.
+     * The flat untextured fallback remains subdued. */
+    if (iwvm_color_texture)
+        glColor4f(1.f,1.f,1.f,1.f);
+    else
+        glColor4f(0.82f,0.82f,0.82f,1.f);
     glEnableClientState(GL_VERTEX_ARRAY);
     glVertexPointer(3,GL_FLOAT,sizeof(iwvm_vertex_t),&iwvm_mesh.vertices[0].xyz[0]);
     glDrawElements(GL_TRIANGLES,iwvm_mesh.index_count,GL_UNSIGNED_SHORT,iwvm_mesh.indices);
