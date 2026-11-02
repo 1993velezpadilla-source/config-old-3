@@ -67,7 +67,10 @@ bridge = '''\tcurrententity = &cl.viewent;
 \t\t\tfloat axes[3][3], dxyz[3], dpyr[3];
 \t\t\tfloat speed = sqrtf(cl.velocity[0]*cl.velocity[0] +
 \t\t\t\tcl.velocity[1]*cl.velocity[1]) / 320.0f;
-\t\t\tfloat ads = cl.stats[STAT_ZOOM] ? 1.0f : 0.0f;
+\t\t\t/* NZ:P STAT_ZOOM 1=iron ADS, 2=scope ADS, 3=sprint.
+\t\t\t * A nonzero test incorrectly snaps to ADS while sprinting. */
+\t\t\tfloat ads = (cl.stats[STAT_ZOOM] == 1 ||
+\t\t\t\tcl.stats[STAT_ZOOM] == 2) ? 1.0f : 0.0f;
 \t\t\tint j;
 \t\t\tAngleVectors(r_refdef.viewangles, axes[0], axes[1], axes[2]);
 \t\t\tIW3_WeaponPoseDelta(iw3_pose, axes, 0, speed, ads,
