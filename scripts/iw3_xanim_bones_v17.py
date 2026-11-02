@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """Strict partial decoder for ORIGINAL CoD4 IW3 XAnim v17 bone tracks.
 
-Supports full per-bone rotation/translation tracks when root-delta is absent.
-Records frame timing/notify indices. Root-delta v17 tracks are deliberately
-rejected until their two-track layout is implemented (rather than invented).
+Supports complete per-bone rotation/translation tracks and original IW3 v17\nroot-delta quaternion2 + translation track. Records frame timing/notifies.
 No original CoD4 animation bytes may be committed or published by this tool.
 
 Ported from the documented data layout in OpenAssetTools
@@ -110,8 +108,6 @@ def read_trans(c:Cursor,nframes:int,use_byte:bool):
 
 def decode(path:Path):
     h=header(path)
-    if h["root_delta"]:
-        raise BrokenXAnim("IW3 root-delta XAnim requires separate decoder")
     data=path.read_bytes()
     if len(data)>64*1024*1024:
         raise BrokenXAnim("Original animation too large for bounded decoder")
@@ -120,6 +116,14 @@ def decode(path:Path):
     count=h["bones"]
     nframes=h["frames"]+1 if h["loop"] else h["frames"]
     use_byte=(nframes-1)<256
+    root_delta=None
+    if h["root_delta"]:
+        # Original CoD4 IW3 v17 only has 2D root quaternions, never a
+        # fabricated 3D root quaternion. See OAT LoadDeltaQuat2Track.
+        root_delta={
+            "rotation":read_quat(cursor,nframes,use_byte,True,False),
+            "position":read_trans(cursor,nframes,use_byte),
+        }
     mask_bytes=(count+7)//8
     flip=cursor.raw(mask_bytes)
     half=cursor.raw(mask_bytes)
@@ -141,7 +145,7 @@ def decode(path:Path):
         notes.append(dict(name=name,frame=frame))
     if cursor.pos!=len(data):
         raise BrokenXAnim("Unexpected trailing XAnim data (wrong stream layout)")
-    return dict(frames=nframes,bones=bones,looped=h["loop"],
+    return dict(frames=nframes,bones=bones,root_delta=root_delta,looped=h["loop"],
                 fps=h["fps"],notifications=notes)
 
 
@@ -157,10 +161,9 @@ def census(root:Path):
         inspected+=1
         try:
             h=header(p)
+            a=decode(p)
             if h["root_delta"]:
                 rootdelta+=1
-                continue
-            a=decode(p)
             decoded+=1
             if len(samples)<8:
                 samples.append(dict(frames=a["frames"],
@@ -169,8 +172,8 @@ def census(root:Path):
         except (ValueError,OSError,struct.error,UnicodeError):
             failed+=1
     return dict(original_iw3_v17_files=inspected,
-                decoded_full_bones_without_rootdelta=decoded,
-                delta_tracks_waiting_implementation=rootdelta,
+                decoded_all_bones_and_root_delta=decoded,
+                decoded_root_delta_tracks=rootdelta,
                 rejected_due_to_schema=failed,
                 anonymized_decoded_samples=samples,
                 native_android_playback=False)
