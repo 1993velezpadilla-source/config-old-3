@@ -8,6 +8,7 @@ on:
       - .github/workflows/viril-iw3-private-cod4-android.yml
       - scripts/iw3_capture_live_viewmodel.py
       - scripts/iw3_synthetic_frame_qa.py
+      - tests/test_viril_iw3_capture_overlay.py
 permissions:
   contents: read
 concurrency:
@@ -116,6 +117,7 @@ jobs:
                     "min=",bounds["min"],"max=",bounds["max"])
           PY
           python3 -m pip install --quiet 'Pillow>=11,<13'
+          python3 -m unittest discover -s tests -p test_viril_iw3_capture_overlay.py -v
           python3 - "$D" <<'PY'
           import sys,zipfile,json
           from pathlib import Path
