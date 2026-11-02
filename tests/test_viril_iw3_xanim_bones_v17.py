@@ -34,7 +34,7 @@ class FullBoneDecoderTests(unittest.TestCase):
             self.assertEqual(result["bones"][0]["position"]["xyz"][0],[1.,2.,3.])
             self.assertEqual(result["notifications"],[{"name":"fire","frame":10}])
             report=census(root)
-            self.assertEqual(report["decoded_full_bones_without_rootdelta"],1)
+            self.assertEqual(report["decoded_all_bones_and_root_delta"],1)
             self.assertEqual(report["rejected_due_to_schema"],0)
 
     def test_invalid_tail_rejected(self):
@@ -44,12 +44,17 @@ class FullBoneDecoderTests(unittest.TestCase):
             with self.assertRaises(BrokenXAnim):
                 decode(f)
 
-    def test_delta_is_rejected_not_invented(self):
+    def test_genuine_iw3_root_delta_quaternion2_and_position(self):
         with tempfile.TemporaryDirectory() as t:
             f=Path(t)/"delta"
-            f.write_bytes(HEADER.pack(17,20,1,2,0,30)+b"padding")
-            with self.assertRaisesRegex(BrokenXAnim,"root-delta"):
-                decode(f)
+            # Flags=2 means original CoD4 delta: first quat2 track,
+            # then root trans; both zero => constant/no displacement.
+            f.write_bytes(HEADER.pack(17,20,0,2,0,30)
+                +struct.pack("<HH",0,0)+b"\\x00")
+            decoded=decode(f)
+            self.assertEqual(decoded["root_delta"]["rotation"]["kind"],"identity")
+            self.assertEqual(decoded["root_delta"]["position"]["kind"],"none")
+            self.assertEqual(decoded["frames"],20)
 
 if __name__=="__main__":
     unittest.main()
