@@ -10,6 +10,8 @@ on:
       - scripts/iw3_synthetic_frame_qa.py
       - tests/test_viril_iw3_capture_overlay.py
       - scripts/iw3_glb_to_iwsk.py
+      - scripts/iw3_xanim_to_iwsf.py
+      - tests/test_viril_iw3_source_motion_iwsf.py
       - tests/test_viril_iw3_skin_transport.py
       - android/jni/src/gl_iw3_weapon_mesh.c
 permissions:
@@ -67,6 +69,20 @@ jobs:
               "models/weapons/m1911/v_colt.mdl",root/"private_pose")
           print("Original IW3 WeaponDef pose matched:",pose["matched"],
                 "numeric pose fields:",pose["numeric_pose_fields"])
+          from iw3_match_oat_assets import parse_fields
+          source_fields=parse_fields(root/"private_pose/current.weapon")
+          candidates={p.name.lower():p for p in (root/"converted").rglob("*")
+                      if p.is_file() and p.parent.name=="xanim"}
+          selected_reload=None
+          for k in ("reloadAnim","reloadEmptyAnim","fireAnim"):
+              val=source_fields.get(k)
+              if isinstance(val,str) and val.lower() in candidates:
+                  selected_reload=candidates[val.lower()]
+                  print("Original IW3 animation selected from WeaponDef:",k)
+                  break
+          if selected_reload is None:
+              raise SystemExit("Original COD4 USP reload/fire XAnim not available")
+          shutil.copy2(selected_reload,root/"selected/original_weapon_motion.xanim")
           PY
           GLB="$(find "$D/selected" -maxdepth 1 -type f -name '*.glb' | head -1)"
           test -n "$GLB"
@@ -161,6 +177,25 @@ jobs:
                 summary["original_glb_joints"],"bones,",
                 summary["original_rigged_vertices"],"weighted vertices")
           PY
+          python3 -m unittest discover -s tests -p test_viril_iw3_source_motion_iwsf.py -v
+          python3 - "$D" <<'PY'
+          from pathlib import Path
+          import json,hashlib,sys,zipfile
+          sys.path.insert(0,"scripts")
+          from iw3_xanim_to_iwsf import pack_original_preview
+          root=Path(sys.argv[1])
+          gun=next((root/"selected").glob("*.glb"))
+          anim=root/"selected/original_weapon_motion.xanim"
+          frames,stats=pack_original_preview(gun,anim)
+          assert stats["joints_animated_from_original_keyframes"]>=1
+          archive=Path("build/android-project/app/src/main/assets/nzp-data.zip")
+          with zipfile.ZipFile(archive,"a",compression=zipfile.ZIP_DEFLATED) as z:
+              assert "nzp/models/iw3/v_colt.iwsf" not in z.namelist()
+              z.writestr("nzp/models/iw3/v_colt.iwsf",frames)
+          archive.with_suffix(".version").write_text(
+              hashlib.sha256(archive.read_bytes()).hexdigest()+"\\n",encoding="ascii")
+          print("GENUINE COD4 RELOAD/BONE SOURCE-XANIM PRIVATELY BAKED",json.dumps(stats,sort_keys=True))
+          PY
           python3 - <<'PY'
           import zipfile
           with zipfile.ZipFile("build/android-project/app/src/main/assets/nzp-data.zip") as z:
@@ -168,6 +203,7 @@ jobs:
               assert iwvm.startswith(b"IWVM") and len(iwvm)>100
               assert z.read("nzp/models/iw3/v_colt.iwvt")[:4] == b"IWVT"
               assert z.read("nzp/models/iw3/v_colt.iwsk")[:4] == b"IWSK"
+              assert z.read("nzp/models/iw3/v_colt.iwsf")[:4] == b"IWSF"
               print("REAL COD4 GUN AND FIRST ORIGINAL BASE COLOR INCLUDED IN TEMPORARY ANDROID BUILD (NOT PUBLISHED).")
           PY
           (cd build/android-project && ./gradlew --no-daemon :app:assembleDebug)
@@ -201,6 +237,8 @@ jobs:
             grep -q 'IW3_NATIVE_MESH_DRAW submitted model=models/iw3/v_colt.iwvm.*glerr=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             grep -q 'IW3_COLOR_TEXTURE loaded=models/iw3/v_colt.iwvt.*glerr=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             grep -q 'IW3_ORIGINAL_SKIN_DATA_LOADED file=models/iw3/v_colt.iwsk.*animated=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            grep -q 'IW3_ORIGINAL_XANIM_PREVIEW_LOADED file=models/iw3/v_colt.iwsf.*exact_graph=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            grep -q 'IW3_ORIGINAL_XANIM_SKELETAL_FRAME rendered=1 source=original_IW3.*exact_official=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             grep -q 'IW3_MESH_BOUNDS model=models/iw3/v_colt.iwvm' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             echo 'GREEN: ORIGINAL COD4 USP GUN PLUS ORIGINAL IWI COLOR TEXTURE SUBMITTED WITH GLES_NO_ERROR (private screenshot not published)'
       - name: Preserve original COD4 USP screenshots only for user visual review
