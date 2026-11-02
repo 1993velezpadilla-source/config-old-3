@@ -9,7 +9,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: viril-iw3-private-cod4-android
+  group: viril-iw3-private-cod4-android-kvm-v2
   cancel-in-progress: false
 jobs:
   first-original-gun:
@@ -94,6 +94,10 @@ jobs:
           PY
           (cd build/android-project && ./gradlew --no-daemon :app:assembleDebug)
           test -s build/android-project/app/build/outputs/apk/debug/app-debug.apk
+      - name: Enable KVM hardware acceleration for Android emulator
+        run: |
+          if test -e /dev/kvm; then sudo chmod 666 /dev/kvm; fi
+          ls -l /dev/kvm || true
       - name: Android GLES native original COD4 first-person viewmodel test
         uses: reactivecircus/android-emulator-runner@v2
         with:
