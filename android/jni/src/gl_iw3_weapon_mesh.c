@@ -10,6 +10,9 @@
 #include "../../../nzportable_def.h"
 #include <stdint.h>
 #include <math.h>
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
 
 #define IWVM_MAX_VERTICES 65535u
 #define IWVM_MAX_INDICES 360000u
@@ -31,6 +34,7 @@ typedef struct {
 typedef char iwvm_vertex_stride_check[(sizeof(iwvm_vertex_t)==20) ? 1 : -1];
 
 static iwvm_mesh_t iwvm_mesh;
+static int iwvm_reported_draw;
 
 extern void R_RotateForEntity(entity_t *e, unsigned char scale);
 extern cvar_t gl_cull;
@@ -43,6 +47,7 @@ static void IWVM_ResetGeometry(void)
     iwvm_mesh.indices = NULL;
     iwvm_mesh.vertex_count = 0;
     iwvm_mesh.index_count = 0;
+    iwvm_reported_draw = 0;
 }
 
 static uint32_t IWVM_Read32(const uint8_t *p)
@@ -170,6 +175,15 @@ int IW3_WeaponMesh_Draw(entity_t *view)
     glEnableClientState(GL_VERTEX_ARRAY);
     glVertexPointer(3,GL_FLOAT,sizeof(iwvm_vertex_t),&iwvm_mesh.vertices[0].xyz[0]);
     glDrawElements(GL_TRIANGLES,iwvm_mesh.index_count,GL_UNSIGNED_SHORT,iwvm_mesh.indices);
+#ifdef __ANDROID__
+    if (!iwvm_reported_draw) {
+        __android_log_print(ANDROID_LOG_INFO,"VIRIL_IW3",
+            "IW3_NATIVE_MESH_DRAW submitted model=%s vertices=%u triangles=%u",
+            iwvm_mesh.name,(unsigned)iwvm_mesh.vertex_count,
+            (unsigned)(iwvm_mesh.index_count/3));
+        iwvm_reported_draw = 1;
+    }
+#endif
     glDisableClientState(GL_VERTEX_ARRAY);
     glColor4f(1,1,1,1);
     if (gl_cull.value)
