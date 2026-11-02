@@ -66,7 +66,7 @@ static int iwsk_attempted;
  * This is a developer calibration layer, not verified CoD4 1:1 pose. */
 static cvar_t iw3_vm_roll = {"iw3_vm_roll", "0"};
 static cvar_t iw3_vm_scale = {"iw3_vm_scale", "1"};
-static cvar_t iw3_vm_forward = {"iw3_vm_forward", "0"};
+/* Original OAT GLB meshes are centered at X ~0, behind Vril near clip.\n * 12 units moves the genuine gun in front of the FPS near plane. */\nstatic cvar_t iw3_vm_forward = {"iw3_vm_forward", "12"};
 static cvar_t iw3_vm_right = {"iw3_vm_right", "0"};
 static cvar_t iw3_vm_up = {"iw3_vm_up", "0"};
 
