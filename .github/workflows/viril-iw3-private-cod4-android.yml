@@ -31,7 +31,6 @@ jobs:
             --repo 1993velezpadilla-source/ZOMBIES-2026 \
             --pattern 'C4-Mocs.zip.part-*' --dir "$D/parts"
           python3 scripts/iw3_collect_original_fastfiles.py "$D/parts" "$D/data" > "$D/manifest.json"
-          rm -rf "$D/parts"
           curl -fLsS --retry 4 \
             https://github.com/Laupetin/OpenAssetTools/releases/download/v0.34.0/oat-linux.tar.gz \
             -o "$D/oat.tar.gz"
@@ -63,7 +62,14 @@ jobs:
           print("Original IW3 WeaponDef pose matched:",pose["matched"],
                 "numeric pose fields:",pose["numeric_pose_fields"])
           PY
-          rm -rf "$D/data" "$D/converted" "$D/oat" "$D/oat.tar.gz"
+          GLB="$(find "$D/selected" -maxdepth 1 -type f -name '*.glb' | head -1)"
+          test -n "$GLB"
+          python3 scripts/iw3_extract_private_iwds.py \
+            --parts-dir "$D/parts" \
+            --selected-glb "$GLB" \
+            --temporary-output "$D/private-iwi"
+          rm -rf "$D/parts" "$D/data" "$D/converted" "$D/oat.tar.gz"
+          test -x "$D/oat/ImageConverter"
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -85,12 +91,33 @@ jobs:
             --game-data-zip build/android-project/app/src/main/assets/nzp-data.zip \
             --glb-dir "$D/selected" \
             --manifest "$D/mapping.json" > "$D/private-geometry-report.json"
+          python3 -m pip install --quiet 'Pillow>=11,<13'
+          python3 - "$D" <<'PY'
+          import sys,zipfile,json
+          from pathlib import Path
+          sys.path.insert(0,"scripts")
+          from iw3_iwi_to_iwvt import first_color_iwi,convert_extracted_private_color
+          root=Path(sys.argv[1])
+          glb=next((root/"selected").glob("*.glb"))
+          original=root/"private-iwi"/first_color_iwi(glb)
+          assert original.is_file(), "Authentic first COD4 USP color not found in IWDs"
+          archive=Path("build/android-project/app/src/main/assets/nzp-data.zip")
+          result=convert_extracted_private_color(glb,original,
+              root/"oat/ImageConverter",archive,"v_colt")
+          with zipfile.ZipFile(archive) as z:
+              data=z.read("nzp/models/iw3/v_colt.iwvt")
+              assert data[:4]==b"IWVT" and len(data)>16
+          print("GENUINE COD4 IWD -> OAT IWI -> DDS -> RGBA -> NATIVE GLES IWVT PASSED")
+          print("Genuine original USPs color pixels bytes:",result["texture_RGBA_bytes"],
+                "material slots:",result["original_source_materials"])
+          PY
           python3 - <<'PY'
           import zipfile
           with zipfile.ZipFile("build/android-project/app/src/main/assets/nzp-data.zip") as z:
               iwvm=z.read("nzp/models/iw3/v_colt.iwvm")
               assert iwvm.startswith(b"IWVM") and len(iwvm)>100
-              print("REAL COD4 GUN INCLUDED IN TEMPORARY ANDROID BUILD (NOT PUBLISHED).")
+              assert z.read("nzp/models/iw3/v_colt.iwvt")[:4] == b"IWVT"
+              print("REAL COD4 GUN AND FIRST ORIGINAL BASE COLOR INCLUDED IN TEMPORARY ANDROID BUILD (NOT PUBLISHED).")
           PY
           (cd build/android-project && ./gradlew --no-daemon :app:assembleDebug)
           test -s build/android-project/app/build/outputs/apk/debug/app-debug.apk
@@ -123,7 +150,8 @@ jobs:
             adb logcat -d -s VIRIL_IW3:I '*:S' | tail -35
             grep -q 'IW3_NATIVE_MESH_DRAW submitted model=models/iw3/v_colt.iwvm' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             grep -q 'IW3_NATIVE_MESH_DRAW submitted model=models/iw3/v_colt.iwvm.*glerr=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
-            echo 'GREEN: ORIGINAL COD4 GUN RENDER SUBMITTED with GLES_NO_ERROR and actual private gameplay screenshot captured'
+            grep -q 'IW3_COLOR_TEXTURE loaded=models/iw3/v_colt.iwvt.*glerr=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            echo 'GREEN: ORIGINAL COD4 USP GUN PLUS ORIGINAL IWI COLOR TEXTURE SUBMITTED WITH GLES_NO_ERROR (private screenshot not published)'
       - name: Delete ALL extracted game data and private APK without publishing
         if: always()
         run: |
