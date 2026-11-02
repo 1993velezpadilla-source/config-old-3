@@ -31,6 +31,14 @@ class IW3WeaponTests(unittest.TestCase):
             self.assertIn("-3.0f",header)
             self.assertIn("1.75f",header)
 
+    def test_original_nzp_sprint_is_not_treated_as_aim_down_sights(self):
+        # STAT_ZOOM 3 is sprint, unlike CoD ADS; the bridge must not
+        # force original IW3 ADS offsets onto the sprint pose.
+        bridge=(ROOT/"scripts/patch_viril_iw3_weapon_pose.py").read_text()
+        self.assertIn("cl.stats[STAT_ZOOM] == 1",bridge)
+        self.assertIn("cl.stats[STAT_ZOOM] == 2",bridge)
+        self.assertNotIn("cl.stats[STAT_ZOOM] ? 1.0f",bridge)
+
     def test_empty_explicit(self):
         with tempfile.TemporaryDirectory() as tmp:
             d=Path(tmp)
