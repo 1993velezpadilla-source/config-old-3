@@ -111,7 +111,7 @@ jobs:
             mkdir -p "$OUT/$zone"
             timeout 350 "$IW3_OAT_UNLINKER" \
               --no-color --model-format glb \
-              --include-assets xmodel,xanim,weapon \
+              --include-assets xmodel,xanim,weapon,image,material \
               --output-folder "$OUT/$zone" \
               "$BASE/zone/spanish/$zone.ff" \
               > "/tmp/iw3-private-$zone-oat-export.log" 2>&1
