@@ -78,6 +78,10 @@ rmain.write_text(text, encoding="utf-8")
 rmisc = vril / "gl_rmisc.c"
 text = rmisc.read_text(encoding="utf-8")
 text = replace_once(
+    text, 'void R_Init (void)',
+    'extern cvar_t iw3_weapon_bridge;\\n\\nvoid R_Init (void)',
+    "renderer bridge extern")
+text = replace_once(
     text, 'Cvar_RegisterVariable (&r_drawviewmodel);',
     'Cvar_RegisterVariable (&r_drawviewmodel);\n'
     '\tCvar_RegisterVariable (&iw3_weapon_bridge);',
