@@ -6,6 +6,8 @@ on:
     paths:
       - .github/workflows/viril-iw3-synthetic-android-render.yml
       - scripts/iw3_synthetic_mesh_smoke.py
+      - scripts/iw3_synthetic_frame_qa.py
+      - tests/test_viril_iw3_viewmodel_fov.py
   workflow_dispatch:
 permissions:
   contents: read
@@ -32,6 +34,7 @@ jobs:
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018"
+          python3 -m unittest discover -s tests -p test_viril_iw3_viewmodel_fov.py -v
           bash scripts/prepare_viril_iw3_android.sh
           python3 scripts/iw3_synthetic_mesh_smoke.py build/android-project/app/src/main/assets/nzp-data.zip
           python3 - <<'PY'
@@ -80,6 +83,11 @@ jobs:
             adb logcat -d -s VIRIL_IW3:I '*:S' | grep -q 'IW3_NATIVE_MESH_DRAW submitted model=models/iw3/v_colt.iwvm'
             adb logcat -d -s VIRIL_IW3:I '*:S' | grep -q 'IW3_COLOR_TEXTURE loaded=models/iw3/v_colt.iwvt width=2 height=2 glerr=0'
             echo 'GREEN: original Vril FPS gun viewport submitted SYNTHETIC textured 3D triangles to GLES2'
+      - name: Adversarial screenshot QA — no giant centered placeholder
+        run: |
+          python3 -m pip install --quiet 'Pillow>=11,<13'
+          python3 scripts/iw3_synthetic_frame_qa.py \
+            "$RUNNER_TEMP/viril-iw3-synthetic-screens/01-synthetic-geometry-in-game.png"
       - name: Preserve real Android emulator screenshot of synthetic model only
         if: always()
         uses: actions/upload-artifact@v4
