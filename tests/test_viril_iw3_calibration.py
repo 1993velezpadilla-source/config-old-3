@@ -34,9 +34,12 @@ class OriginalWeaponCalibrationTest(unittest.TestCase):
 
     def test_legacy_cvar_defaults_are_identity(self):
         s=RENDER.read_text()
-        for name in ("iw3_vm_roll","iw3_vm_forward","iw3_vm_right","iw3_vm_up"):
+        for name in ("iw3_vm_roll","iw3_vm_right","iw3_vm_up"):
             self.assertIn('{"'+name+'", "0"}',s)
         self.assertIn('{"iw3_vm_scale", "1"}',s)
+        # Original GLB origin is behind the near clip; only optional IW3
+        # models have a forward default, never original NZ:P MDL.
+        self.assertIn('{"iw3_vm_forward", "12"}',s)
 
 if __name__=="__main__":
     unittest.main()
