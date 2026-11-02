@@ -61,6 +61,29 @@ def dismiss_os_fullscreen_dialog(image:Image.Image):
     return True
 
 
+def dismiss_os_anr_dialog(image:Image.Image):
+    """Detect the *different* Android Pixel Launcher 'Wait' dialog.
+
+    This is often revealed only AFTER the fullscreen confirmation is
+    dismissed. Older code tapped 'Wait' before it was interactable and
+    accepted its high-color screenshot as gameplay. Never do that.
+    """
+    w,h=image.size
+    if w<900 or h<600: return False
+    center=image.getpixel((int(w*.50),int(h*.45)))
+    edge=image.getpixel((int(w*.10),int(h*.50)))
+    low=image.getpixel((int(w*.50),int(h*.85)))
+    right=image.getpixel((int(w*.70),int(h*.45)))
+    # Pixel launcher ANR: broad pale card over a very dark rendered map.
+    is_card=(min(center)>215 and min(right)>215 and
+             max(edge)<90 and max(low)<90)
+    if not is_card: return False
+    print("ANDROID_OS_OVERLAY: Pixel Launcher ANR Wait; dismiss",flush=True)
+    adb("shell","input","tap",str(int(w*.32)),str(int(h*.61)))
+    time.sleep(2)
+    return True
+
+
 def capture(output:Path,timeout:int=90):
     output.mkdir(parents=True,exist_ok=True)
     adb("shell","settings","put","secure","immersive_mode_confirmations",
@@ -86,7 +109,7 @@ def capture(output:Path,timeout:int=90):
         screenshot(first)
         with Image.open(first) as img:
             img=img.convert("RGB")
-            if dismiss_os_fullscreen_dialog(img):
+            if dismiss_os_fullscreen_dialog(img) or dismiss_os_anr_dialog(img):
                 first.unlink(missing_ok=True)
                 continue
             img.thumbnail((128,72))
