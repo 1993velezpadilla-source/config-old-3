@@ -1,0 +1,139 @@
+name: VIRIL IW3 original CoD4 XModel-XAnim extraction probe
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/viril-iw3-native-weapon-bridge-20261102
+    paths:
+      - .github/workflows/viril-iw3-oat-original-asset-probe.yml
+      - scripts/iw3_collect_original_fastfiles.py
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: viril-iw3-oat-model-probe
+  cancel-in-progress: false
+jobs:
+  genuine-cod4-asset-probe:
+    name: Verify original COD4 IW3 .ff XModel/XAnim/WeaponDef reader; export no game assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/viril-iw3-native-weapon-bridge-20261102
+      - name: Confirm known original CoD4 corpus and download only owner's original 7 GB source data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/viril-iw3-licensed-original/parts
+          gh release download gofile-p2DdQHsz \
+            --repo 1993velezpadilla-source/ZOMBIES-2026 \
+            --pattern 'C4-Mocs.zip.part-*' \
+            --dir /tmp/viril-iw3-licensed-original/parts
+          test "$(find /tmp/viril-iw3-licensed-original/parts -name 'C4-Mocs.zip.part-*' | wc -l)" -eq 4
+          python3 scripts/iw3_collect_original_fastfiles.py \
+            /tmp/viril-iw3-licensed-original/parts \
+            /tmp/viril-iw3-licensed-original/data | tee /tmp/iw3-original-source-manifest.json
+          test -s /tmp/viril-iw3-licensed-original/data/zone/spanish/common.ff
+          test -s /tmp/viril-iw3-licensed-original/data/zone/spanish/code_post_gfx.ff
+          mkdir -p dist
+          cp /tmp/iw3-original-source-manifest.json dist/original-archive-metadata.json
+          # Keep OAT tools and raw original files on the ephemeral runner only.
+
+      - name: Get OpenAssetTools 0.34.0 original IW3 asset reader
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libc6-i386 lib32stdc++6 lib32gcc-s1
+          mkdir -p /tmp/oat-viril-iw3
+          curl -fL --retry 5 --retry-delay 3 \
+            https://github.com/Laupetin/OpenAssetTools/releases/download/v0.34.0/oat-linux.tar.gz \
+            -o /tmp/oat-linux-v034.tar.gz
+          tar -xzf /tmp/oat-linux-v034.tar.gz -C /tmp/oat-viril-iw3
+          find /tmp/oat-viril-iw3 -type f -iname '*unlinker*' -print
+          UNLINKER="$(find /tmp/oat-viril-iw3 -type f -name 'Unlinker' | head -1)"
+          if [[ -z "$UNLINKER" ]]; then
+            echo "No official OpenAssetTools Unlinker binary" >&2
+            exit 1
+          fi
+          chmod +x "$UNLINKER"
+          echo "IW3_OAT_UNLINKER=$UNLINKER" >> "$GITHUB_ENV"
+          "$UNLINKER" --version
+
+      - name: List actual CoD4 in-fastfile weapon, XModel and XAnim entries
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=/tmp/viril-iw3-licensed-original/data
+          for zone in common code_post_gfx; do
+            echo "Reading IW3: $zone.ff (temporary, original copyrighted game data)"
+            timeout 260 "$IW3_OAT_UNLINKER" --list --no-color \
+              "$BASE/zone/spanish/$zone.ff" \
+              > "/tmp/iw3-$zone-list.txt" 2>&1
+            test -s "/tmp/iw3-$zone-list.txt"
+          done
+          python3 - <<'PY' > dist/iw3-asset-type-inventory.json
+          import json, pathlib, re
+          zones={}
+          for zone in ("common","code_post_gfx"):
+              contents=pathlib.Path(f"/tmp/iw3-{zone}-list.txt").read_text(errors="replace")
+              found={}
+              for label in ("xmodel","xanim","weapon","material","image"):
+                  found[label]=len(re.findall(label,contents,re.I))
+              zones[zone]={"list_lines":len(contents.splitlines()),"type_mentions":found}
+          print(json.dumps({"engine":"IW3","source":"user-stored original COD4 fastfiles",
+                            "zone_metadata":zones,"models_exported":False},indent=2))
+          PY
+          cat dist/iw3-asset-type-inventory.json
+
+      - name: Export available actual IW3 weapon models as GLB and native animations privately
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=/tmp/viril-iw3-licensed-original/data
+          OUT=/tmp/viril-iw3-licensed-original/converted
+          mkdir -p "$OUT"
+          # OAT source supports IW3 XModel -> GLB, XAnimParts and WeaponDef
+          # dumping. NEVER publish or cache the dumped proprietary content.
+          timeout 350 "$IW3_OAT_UNLINKER" \
+            --no-color --model-format glb \
+            --include-assets xmodel,xanimparts,weapondef \
+            --output-folder "$OUT" \
+            "$BASE/zone/spanish/common.ff" \
+            > /tmp/iw3-private-oat-export.log 2>&1
+          python3 - <<'PY' > dist/iw3-asset-export-evidence.json
+          from pathlib import Path
+          import json
+          root=Path("/tmp/viril-iw3-licensed-original/converted")
+          result={}
+          for ext in (".glb",".gltf",".weapon",".xanim",".json"):
+              files=list(root.rglob("*"+ext))
+              result[ext]={"count":len(files),"bytes":sum(p.stat().st_size for p in files)}
+          print(json.dumps({"source":"COD4 IW3 common.ff",
+                            "local_export_types":result,
+                            "copyrighted_files_uploaded":False,
+                            "rendered_by_android_vril":False},indent=2))
+          PY
+          cat dist/iw3-asset-export-evidence.json
+
+      - name: Upload ONLY anonymized counts / no game models or animation assets
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: VIRIL-IW3-ORIGINAL-WEAPON-ASSET-COUNTS-ONLY
+          path: |
+            dist/original-archive-metadata.json
+            dist/iw3-asset-type-inventory.json
+            dist/iw3-asset-export-evidence.json
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Delete local copyrighted test materials
+        if: always()
+        shell: bash
+        run: |
+          rm -rf /tmp/viril-iw3-licensed-original /tmp/oat-viril-iw3 /tmp/oat-linux-v034.tar.gz
+          echo "Original COD4 models, animations and fastfiles were not published."
