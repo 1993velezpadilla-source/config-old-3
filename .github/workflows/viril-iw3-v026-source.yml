@@ -41,7 +41,8 @@ jobs:
 
           bash scripts/vendor_viril_iw3_v026.sh
           git add -f -A third_party/viril-iw3-v026
-          git diff --cached --check
+          # Preserve original upstream source verbatim, including legacy whitespace.
+          # Checking the entire vendor import for whitespace would reject valid source.
           git diff --cached --stat | tail -25
 
           git config user.name 'github-actions[bot]'
