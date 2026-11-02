@@ -63,10 +63,16 @@ jobs:
           script: |
             adb install -r build/android-project/app/build/outputs/apk/debug/app-debug.apk
             adb logcat -c
+            adb shell settings put secure immersive_mode_confirmations confirmed
             adb shell am start -n com.xziel.viriliw3/org.libsdl.app.NZPActivity --ez xziel_ci_hud_preview true
-            sleep 65
+            sleep 70
+            adb shell input tap 800 665
+            sleep 4
             mkdir -p "$RUNNER_TEMP/viril-iw3-synthetic-screens"
             adb exec-out screencap -p > "$RUNNER_TEMP/viril-iw3-synthetic-screens/01-synthetic-geometry-in-game.png"
+            adb shell input swipe 1850 470 1540 500 450
+            sleep 5
+            adb exec-out screencap -p > "$RUNNER_TEMP/viril-iw3-synthetic-screens/02-synthetic-look.png"
             adb shell pidof com.xziel.viriliw3
             adb shell run-as com.xziel.viriliw3 cat files/nzp-runtime/.xziel-stage
             adb logcat -d -s VIRIL_IW3:I '*:S'
