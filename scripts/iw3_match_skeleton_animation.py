@@ -40,13 +40,22 @@ def probe(original_glb:Path,original_weapon_file:Path,extracted_animations:Path)
         name=val.replace("\\","/").split("/")[-1]
         if name not in source_anims and len(name)<128:
             source_anims.append(name)
+    # OAT exports some IW3 XAnim files with exporter suffixes. Match
+    # case-insensitively, just as the verified global 977/977 asset audit:
+    # exact asset name or original name followed by a dot-extension.
+    animations={p.name.lower():p for p in extracted_animations.rglob("*")
+                if p.is_file() and p.parent.name=="xanim"}
     scores=[]
     for name in source_anims:
-        candidates=list(extracted_animations.rglob("xanim/"+name))
-        if not candidates:
+        key=name.lower()
+        source=animations.get(key)
+        if source is None:
+            source=next((p for label,p in animations.items()
+                         if label.startswith(key+".")),None)
+        if source is None:
             scores.append((0,0,False))
             continue
-        anim=decode(candidates[0])
+        anim=decode(source)
         keys={str(b["name"]).lower() for b in anim["bones"]}
         scores.append((len(joints.intersection(keys)),len(keys),True))
     return {
