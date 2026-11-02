@@ -9,6 +9,18 @@ cd "$ROOT"
 # gameplay, HUD and 12 button skins are all assembled by this script.
 bash scripts/prepare_android.sh
 
+# Experimental IW3-compatible pose transport; never touches the stable v0.26.
+# Only locally supplied, rights-cleared .weapon metadata can create profiles.
+if [[ -n "${XZIEL_IW3_WEAPON_DEFS_DIR:-}" ]]; then
+  test -d "$XZIEL_IW3_WEAPON_DEFS_DIR"
+  test -n "${XZIEL_IW3_WEAPON_MODEL_MAP:-}"
+  python3 "$ROOT/scripts/iw3_weapon_profiles.py" \
+    --definitions "$XZIEL_IW3_WEAPON_DEFS_DIR" \
+    --mapping "$XZIEL_IW3_WEAPON_MODEL_MAP" \
+    --output "$ROOT/android/jni/src/iw3_weapon_profiles_generated.h"
+fi
+python3 "$ROOT/scripts/patch_viril_iw3_weapon_pose.py" "$ROOT"
+
 APP_GRADLE="$ROOT/build/android-project/app/build.gradle"
 APP_STRINGS="$ROOT/build/android-project/app/src/main/res/values/strings.xml"
 python3 - "$APP_GRADLE" "$APP_STRINGS" <<'PY'
