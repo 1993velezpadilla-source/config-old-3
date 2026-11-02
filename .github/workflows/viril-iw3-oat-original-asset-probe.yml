@@ -12,6 +12,8 @@ on:
       - scripts/iw3_xanim_header_probe.py
       - scripts/iw3_xanim_bones_v17.py
       - scripts/iw3_gltf_material_probe.py
+      - scripts/iw3_glb_skin_probe.py
+      - tests/test_viril_iw3_glb_skin_probe.py
       - scripts/iw3_extract_private_iwds.py
       - scripts/iw3_iwd_texture_inventory.py
       - tests/test_viril_iw3_extract_private_iwds.py
@@ -256,6 +258,22 @@ jobs:
           PY
           rm -rf /tmp/viril-iw3-licensed-original/original-iwi-assets
 
+      - name: Audit real COD4 original weapon skin joints and per-vertex weights
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p test_viril_iw3_glb_skin_probe.py -v
+          python3 scripts/iw3_glb_skin_probe.py \
+            /tmp/viril-iw3-licensed-original/converted --max-models 120 \
+            | tee dist/iw3-original-skeletal-rig-capability.json
+          python3 - <<'PY'
+          import json
+          a=json.load(open("dist/iw3-original-skeletal-rig-capability.json"))
+          assert a["examined"]>=10
+          print("Genuine original IW3 glTF rig model count:",a["aggregate"].get("usable_skin_models",0))
+          print("No skeletal animation playback claimed.")
+          PY
+
       - name: Match official CoD4 weapons to real OAT GLB and XAnim assets
         shell: bash
         run: |
@@ -285,6 +303,7 @@ jobs:
             dist/iw3-xanim-v17-structure-report.json
             dist/iw3-xanim-v17-decoded-bones.json
             dist/iw3-original-material-link-evidence.json
+            dist/iw3-original-skeletal-rig-capability.json
             dist/iw3-usp-iwd-image-match-counts.json
           if-no-files-found: warn
           retention-days: 14
