@@ -8,12 +8,16 @@ on:
       - .github/workflows/viril-iw3-weapon-bridge-android.yml
       - android/jni/src/iw3_weapon_pose.c
       - android/jni/src/iw3_weapon_pose.h
+      - android/jni/src/gl_iw3_weapon_mesh.c
       - android/jni/src/iw3_weapon_profiles_generated.h
       - scripts/patch_viril_iw3_weapon_pose.py
       - scripts/prepare_viril_iw3_android.sh
       - scripts/iw3_weapon_profiles.py
+      - scripts/iw3_glb_to_iwvm.py
+      - scripts/iw3_private_weapon_pack.py
       - tests/iw3_pose_host.c
       - tests/test_viril_iw3_weapon_pose.py
+      - tests/test_viril_iw3_glb_converter.py
 permissions:
   contents: read
 concurrency:
@@ -54,9 +58,13 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m py_compile scripts/patch_viril_iw3_weapon_pose.py \
-            scripts/iw3_weapon_profiles.py
+            scripts/iw3_weapon_profiles.py \
+            scripts/iw3_glb_to_iwvm.py \
+            scripts/iw3_private_weapon_pack.py
           python3 -m unittest discover -s tests \
             -p test_viril_iw3_weapon_pose.py -v
+          python3 -m unittest discover -s tests \
+            -p test_viril_iw3_glb_converter.py -v
       - name: Java 17
         uses: actions/setup-java@v4
         with:
@@ -76,6 +84,9 @@ jobs:
           set -euo pipefail
           bash scripts/prepare_viril_iw3_android.sh
           grep -q 'IW3_WeaponPoseDelta' build/deps/vril/source/platform/sdl/gl/gl_rmain.c
+          grep -q 'IW3_WeaponMesh_Draw' build/deps/vril/source/platform/sdl/gl/gl_rmain.c
+          test -s build/deps/vril/source/platform/sdl/gl/gl_iw3_weapon_mesh.c
+          grep -q 'IWVM_BuildPath' build/deps/vril/source/platform/sdl/gl/gl_iw3_weapon_mesh.c
           grep -q 'Cvar_RegisterVariable (&iw3_weapon_bridge)' \
             build/deps/vril/source/platform/sdl/gl/gl_rmisc.c
           grep -q 'iw3_weapon_pose.c' build/android-project/app/jni/src/Android.mk
@@ -106,7 +117,10 @@ jobs:
           Source: original XZIEL v0.26 native gameplay + complete official NZP
           weapons, models, maps and animations; experimental portable IW3
           WeaponDef position adapter compiled into renderer.
-          CoD4 XModel/XAnim runtime rendering: NOT IMPLEMENTED.
+          CoD4 XModel -> GLB -> IWVM static rest-pose mesh rendering: IMPLEMENTED
+          via optional user-provided local 3D models under models/iw3/v_*.iwvm.
+          Original COD4 materials, hand skeletal skinning and XAnim gameplay:
+          NOT IMPLEMENTED. This public APK contains no original COD4 meshes.
           CoD4 data files (.iwd, .ff): NOT PRESENT in source repositories.
           WeaponDef pose table: zero official profiles until real .weapon metadata
           and converted 3D models are provided and mapped.
