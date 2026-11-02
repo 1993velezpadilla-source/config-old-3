@@ -56,6 +56,12 @@ jobs:
                     "iw3_glb":selected.name,"scale":1.0}]
           (root/"mapping.json").write_text(json.dumps(mapping))
           print("Official COD4 3D selected:",selected.name,selected.stat().st_size,"bytes")
+          sys.path.insert(0,"scripts")
+          from iw3_bind_private_weapon import bind_weapon
+          pose=bind_weapon(root/"converted",selected.name,
+              "models/weapons/m1911/v_colt.mdl",root/"private_pose")
+          print("Original IW3 WeaponDef pose matched:",pose["matched"],
+                "numeric pose fields:",pose["numeric_pose_fields"])
           PY
           rm -rf "$D/data" "$D/converted" "$D/oat" "$D/oat.tar.gz"
       - uses: actions/setup-java@v4
@@ -71,8 +77,10 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platform-tools" "platforms;android-35" \
             "build-tools;35.0.0" "ndk;27.2.12479018"
-          bash scripts/prepare_viril_iw3_android.sh
           D="$RUNNER_TEMP/viril-iw3-private"
+          XZIEL_IW3_WEAPON_DEFS_DIR="$D/private_pose" \
+          XZIEL_IW3_WEAPON_MODEL_MAP="$D/private_pose/pose_mapping.json" \
+          bash scripts/prepare_viril_iw3_android.sh
           python3 scripts/iw3_private_weapon_pack.py \
             --game-data-zip build/android-project/app/src/main/assets/nzp-data.zip \
             --glb-dir "$D/selected" \
