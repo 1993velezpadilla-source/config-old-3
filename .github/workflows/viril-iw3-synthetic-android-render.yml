@@ -1,0 +1,77 @@
+name: VIRIL IW3 synthetic GLES viewmodel proof (no COD4 content)
+on:
+  push:
+    branches:
+      - feature/viril-iw3-native-weapon-bridge-20261102
+    paths:
+      - .github/workflows/viril-iw3-synthetic-android-render.yml
+      - scripts/iw3_synthetic_mesh_smoke.py
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: viril-iw3-synthetic-gles-smoke
+  cancel-in-progress: false
+jobs:
+  isolated-synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out protected experimental branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/viril-iw3-native-weapon-bridge-20261102
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android build toolchain and patch native renderer
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018"
+          bash scripts/prepare_viril_iw3_android.sh
+          python3 scripts/iw3_synthetic_mesh_smoke.py build/android-project/app/src/main/assets/nzp-data.zip
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,zipfile
+          z=Path("build/android-project/app/src/main/assets/nzp-data.zip")
+          with zipfile.ZipFile(z) as v:
+              assert v.read("nzp/models/iw3/v_colt.iwvm")[:4] == b"IWVM"
+              assert "nzp/progs.dat" in v.namelist()
+          assert hashlib.sha256(z.read_bytes()).hexdigest()==z.with_suffix(".version").read_text().strip()
+          print("SYNTHE​TIC_ONLY: all weapon assets are programmatically made")
+          PY
+          (cd build/android-project && ./gradlew --no-daemon :app:assembleDebug)
+          test -s build/android-project/app/build/outputs/apk/debug/app-debug.apk
+      - name: Accelerate emulator startup
+        run: |
+          test ! -e /dev/kvm || sudo chmod 666 /dev/kvm
+      - name: Verify original pistol triggers actual GLES 3D mesh submission
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 3072M
+          disk-size: 7000M
+          disable-animations: true
+          emulator-options: -no-snapshot-load -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            adb install -r build/android-project/app/build/outputs/apk/debug/app-debug.apk
+            adb logcat -c
+            adb shell am start -n com.xziel.viriliw3/org.libsdl.app.NZPActivity --ez xziel_ci_hud_preview true
+            sleep 65
+            adb shell pidof com.xziel.viriliw3
+            adb shell run-as com.xziel.viriliw3 cat files/nzp-runtime/.xziel-stage
+            adb logcat -d -s VIRIL_IW3:I '*:S'
+            adb logcat -d -s VIRIL_IW3:I '*:S' | grep -q 'IW3_NATIVE_MESH_DRAW submitted model=models/iw3/v_colt.iwvm'
+            echo 'GREEN: original Vril FPS gun viewport submitted standalone SYNTHETIC 3D triangles to GLES2'
+      - name: Do not distribute any APKs or game binaries from this diagnostic
+        if: always()
+        run: |
+          rm -rf build
+          echo "SYNTHETIC test only; no COD4 assets or APKs published."
