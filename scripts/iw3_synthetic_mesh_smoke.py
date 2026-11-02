@@ -17,19 +17,43 @@ TEXTURE="nzp/models/iw3/v_colt.iwvt"
 
 
 def cube():
-    # Front of camera; Quake coords X forward, Z up.
-    points = [
-      (7.,-2.,-2.),(12.,-2.,-2.),(12.,2.,-2.),(7.,2.,-2.),
-      (7.,-2.,2.),(12.,-2.,2.),(12.,2.,2.),(7.,2.,2.),
+    """Small color-grid test prism in the LOWER-RIGHT first-person view.
+
+    Previously 7..12 forward, +/-2 across/height: a giant white/red
+    rectangle blocked the player's entire aim reticle. This mesh is a
+    **diagnostic shape**, never a replacement for genuine COD4 guns.
+    Quake local axes: +X forward, +Y left, +Z up.
+    """
+    corner={
+        "near_low_right": (12.0,-4.0,-3.5),
+        "near_low_left": (12.0,-2.6,-3.5),
+        "near_up_right": (12.0,-4.0,-2.7),
+        "near_up_left": (12.0,-2.6,-2.7),
+        "far_low_right": (19.0,-4.0,-3.5),
+        "far_low_left": (19.0,-2.6,-3.5),
+        "far_up_right": (19.0,-4.0,-2.7),
+        "far_up_left": (19.0,-2.6,-2.7),
+    }
+    # Separate UVs per face and orientation; intentional 24 vertices
+    # ensures the GLES texture-array path is exercised, not solid color.
+    faces=[
+        ("near_low_right","near_low_left","near_up_left","near_up_right"),
+        ("far_low_left","far_low_right","far_up_right","far_up_left"),
+        ("near_low_left","far_low_left","far_up_left","near_up_left"),
+        ("far_low_right","near_low_right","near_up_right","far_up_right"),
+        ("near_up_right","near_up_left","far_up_left","far_up_right"),
+        ("far_low_right","far_low_left","near_low_left","near_low_right"),
     ]
-    faces = [
-      (0,1,2),(0,2,3), (4,6,5),(4,7,6),
-      (0,4,5),(0,5,1), (1,5,6),(1,6,2),
-      (2,6,7),(2,7,3), (3,7,4),(3,4,0),
-    ]
-    vertices = b"".join(struct.pack("<5f",*p,0.,0.) for p in points)
-    idx = b"".join(struct.pack("<3H",*f) for f in faces)
-    return struct.pack("<4sIII",b"IWVM",1,len(points),len(faces)*3)+vertices+idx
+    uv=((0.0,0.0),(1.0,0.0),(1.0,1.0),(0.0,1.0))
+    vertices=[]
+    indices=[]
+    for face in faces:
+        start=len(vertices)
+        vertices.extend((*corner[name],*tex) for name,tex in zip(face,uv))
+        indices.extend(start+i for i in (0,1,2,0,2,3))
+    packed=b"".join(struct.pack("<5f",*v) for v in vertices)
+    face_data=struct.pack("<"+"H"*len(indices),*indices)
+    return struct.pack("<4sIII",b"IWVM",1,len(vertices),len(indices))+packed+face_data
 
 
 def synthetic_rgba():
@@ -60,4 +84,4 @@ if __name__ == "__main__":
     ap.add_argument("game_data_zip",type=Path)
     args=ap.parse_args()
     digest=inject(args.game_data_zip)
-    print(f"SYNTHETIC IWVM cube mounted under NZP gamedir; data version SHA256 {digest}")
+    print(f"SYNTHETIC reduced lower-right IWVM test prism mounted under NZP gamedir; data version SHA256 {digest}")
