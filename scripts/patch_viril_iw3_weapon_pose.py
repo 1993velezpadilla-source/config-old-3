@@ -21,6 +21,8 @@ for name in ("iw3_weapon_pose.c", "iw3_weapon_pose.h",
     (buildsrc / name).write_bytes((src / name).read_bytes())
 (vril / "iw3_weapon_pose.h").write_bytes(
     (src / "iw3_weapon_pose.h").read_bytes())
+(vril / "gl_iw3_weapon_mesh.c").write_bytes(
+    (src / "gl_iw3_weapon_mesh.c").read_bytes())
 
 rmain = vril / "gl_rmain.c"
 text = rmain.read_text(encoding="utf-8")
@@ -33,13 +35,18 @@ def replace_once(text, before, after, label):
 
 text = replace_once(
     text, '#include "../../../nzportable_def.h"',
-    '#include "../../../nzportable_def.h"\n#include "iw3_weapon_pose.h"',
+    '#include "../../../nzportable_def.h"\n#include "iw3_weapon_pose.h"\n'
+    'extern int IW3_WeaponMesh_Draw(entity_t *view);',
     "renderer source include")
 text = replace_once(
     text, 'cvar_t\tr_drawviewmodel = {"r_drawviewmodel","1"};',
     'cvar_t\tr_drawviewmodel = {"r_drawviewmodel","1"};\n'
     'cvar_t iw3_weapon_bridge = {"iw3_weapon_bridge","1",true};',
     "renderer cvar declaration")
+text = replace_once(
+    text, 'void R_DrawViewModel (void)\\n{',
+    'void R_DrawViewModel (void)\\n{\\n\\tentity_t iw3_viewent_copy;',
+    "viewmodel entity copy declaration")
 original = '''\tcurrententity = &cl.viewent;
 \tif (!currententity->model)
 \t\treturn;
@@ -56,6 +63,10 @@ bridge = '''\tcurrententity = &cl.viewent;
 \t\tconst iw3_weapon_pose_t *iw3_pose =
 \t\t\tIW3_WeaponFindPose(currententity->model->name);
 \t\tif (iw3_pose) {
+\t\t\t/* Do not mutate cl.viewent every frame: the original pose
+\t\t\t * must be restored after draw, or offsets accumulate. */
+\t\t\tiw3_viewent_copy = *currententity;
+\t\t\tcurrententity = &iw3_viewent_copy;
 \t\t\tfloat axes[3][3], dxyz[3], dpyr[3];
 \t\t\tfloat speed = sqrtf(cl.velocity[0]*cl.velocity[0] +
 \t\t\t\tcl.velocity[1]*cl.velocity[1]) / 320.0f;
@@ -73,6 +84,18 @@ bridge = '''\tcurrententity = &cl.viewent;
 
 \tj = R_LightPoint (currententity->origin);'''
 text = replace_once(text, original, bridge, "first-person render dispatch")
+# Replace viewmodel draw only. The second viewmodel (cl.viewent2) must remain
+# the original NZP renderer unless explicitly supported in a later pass.
+before, after = text.split("void R_DrawViewModel (void)", 1)
+after = replace_once(
+    after,
+    'R_DrawAliasModel (currententity);\\n\\tglDepthRange (gldepthmin, gldepthmax);',
+    'if (!(iw3_weapon_bridge.value && IW3_WeaponMesh_Draw(currententity)))\\n'
+    '\\t\\tR_DrawAliasModel (currententity);\\n'
+    '\\tglDepthRange (gldepthmin, gldepthmax);\\n'
+    '\\tcurrententity = &cl.viewent;',
+    "Vril native GLES 3D weapon draw dispatch")
+text = before + "void R_DrawViewModel (void)" + after
 rmain.write_text(text, encoding="utf-8")
 
 rmisc = vril / "gl_rmisc.c"
