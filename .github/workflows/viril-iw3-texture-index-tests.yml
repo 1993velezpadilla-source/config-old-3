@@ -7,8 +7,10 @@ on:
       - .github/workflows/viril-iw3-texture-index-tests.yml
       - scripts/iw3_gltf_material_probe.py
       - scripts/iw3_iwd_texture_inventory.py
+      - scripts/iw3_iwi_to_iwvt.py
       - tests/test_viril_iw3_material_probe.py
       - tests/test_viril_iw3_iwd_texture_inventory.py
+      - tests/test_viril_iw3_texture_transport.py
   workflow_dispatch:
 permissions:
   contents: read
@@ -24,7 +26,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile scripts/iw3_gltf_material_probe.py scripts/iw3_iwd_texture_inventory.py
+          python3 -m py_compile scripts/iw3_gltf_material_probe.py scripts/iw3_iwd_texture_inventory.py scripts/iw3_iwi_to_iwvt.py
           python3 -m unittest discover -s tests -p test_viril_iw3_material_probe.py -v
           python3 -m unittest discover -s tests -p test_viril_iw3_iwd_texture_inventory.py -v
-          echo "Texture namespace discovery proven using entirely synthetic data; original COD4 textures NOT distributed."
+          python3 -m unittest discover -s tests -p test_viril_iw3_texture_transport.py -v
+          echo "Texture namespace / DDS -> GLES RGBA path proven with synthetic assets; no COD4 bytes distributed."
