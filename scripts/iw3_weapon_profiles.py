@@ -55,6 +55,19 @@ def parse_weapon_file(path: Path) -> dict[str, float]:
     return result
 
 
+def c_float(number: float) -> str:
+    """Emit C99 floating literals, including exact integers (3.0f, never 3f)."""
+    x=float(number)
+    if not math.isfinite(x):
+        raise ValueError("Non-finite IW3 weapon pose field")
+    if x==0:
+        return "0.0f"
+    txt=format(x,".9g")
+    if "." not in txt and "e" not in txt and "E" not in txt:
+        txt += ".0"
+    return txt+"f"
+
+
 def render_header(rows: list[tuple[str, dict[str, float]]]) -> str:
     lines = [
         "/* IW3 pose metadata only; exported from caller-supplied IW3 weapon definition files. */",
@@ -66,9 +79,9 @@ def render_header(rows: list[tuple[str, dict[str, float]]]) -> str:
         parts = []
         for key in FIELDS:
             xyz = (fields.get(v, 0.0) for v in FIELDS[key])
-            parts.append("{" + ", ".join(f"{x:.9g}f" if x else "0.0f" for x in xyz) + "}")
+            parts.append("{" + ", ".join(c_float(x) for x in xyz) + "}")
         parts.extend(
-            (f"{fields.get(k, 0.0):.9g}f" if fields.get(k, 0.0) else "0.0f")
+            c_float(fields.get(k, 0.0))
             for k in SCALARS
         )
         lines.append("    {" + json.dumps(mdl) + ", " + ", ".join(parts) + "},")
