@@ -8,6 +8,7 @@ Images are directly from adb screencap, never simulated/rendered artwork.
 from __future__ import annotations
 import argparse
 from pathlib import Path
+from PIL import Image
 import struct
 import subprocess
 import time
@@ -47,10 +48,27 @@ def capture(output:Path,timeout:int=90):
         time.sleep(1)
     if not ready:
         raise RuntimeError("No original Vril 3D frame before timeout")
-    # Capture promptly: game contains hostile zombies, the player is idle.
-    time.sleep(2)
-    screenshot(output/"01-first-live-frame.png")
-    # Do not swipe UI for longer than needed. Preserve original hand/HUD.
+    # FIRST_FRAME_OK can precede Android's first SWAP_BUFFERS: a genuine
+    # black 2400x1080 PNG has been observed even when GLES draw succeeded.
+    # Do not claim a black screen as real gameplay evidence. Read pixels.
+    first=output/"01-first-live-frame.png"
+    for attempt in range(20):
+        time.sleep(1)
+        screenshot(first)
+        with Image.open(first) as img:
+            img=img.convert("RGB")
+            img.thumbnail((128,72))
+            palette={(r//12,g//12,b//12) for r,g,b in img.getdata()}
+        if len(palette)>50:
+            print("ANDROID_LIVE_FRAME_VERIFIED visible_palette_bins=",len(palette),
+                  "frame_attempt=",attempt+1,flush=True)
+            break
+        print("ANDROID_LIVE_FRAME_RETRY blank buffer before SWAP_BUFFERS",
+              "frame_attempt=",attempt+1,flush=True)
+        first.unlink(missing_ok=True)
+    else:
+        raise RuntimeError("Actual Android 3D frame remained black/blank; no screenshot accepted")
+    # User gameplay evidence: second distinct camera look while alive.
     adb("shell","input","swipe","1950","530","1670","535","250",timeout=12)
     time.sleep(1)
     screenshot(output/"02-live-look.png")
