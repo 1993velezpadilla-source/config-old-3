@@ -27,7 +27,8 @@ class IW3WeaponTests(unittest.TestCase):
             self.assertIn("#define IW3_POSE_TABLE_SIZE 1u",header)
             self.assertIn("models/weapons/iw3/v_ak47.mdl",header)
             self.assertIn("2.5f",header)
-            self.assertIn("-3f",header)
+            self.assertNotIn(" -3f",header)
+            self.assertIn("-3.0f",header)
             self.assertIn("1.75f",header)
 
     def test_empty_explicit(self):
