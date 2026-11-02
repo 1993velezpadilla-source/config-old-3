@@ -13,6 +13,7 @@ Manifest e.g.
 """
 from __future__ import annotations
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -59,6 +60,16 @@ def prepare(zipfile_path:Path, sources:Path, manifest:Path, dry_run=False):
             for dest,b in outputs.items():
                 if dest in present:raise ValueError("Refusing duplicated source: "+dest)
                 z.writestr(dest,b)
+        # NZPActivity uses nzp-data.version to decide whether to extract
+        # game files. Without a new checksum, installing a new private
+        # weapon build over an existing test APK silently retains the old
+        # files, so the rendered gun is never found by COM_FOpenFile().
+        digest=hashlib.sha256()
+        with zipfile_path.open("rb") as package:
+            for block in iter(lambda: package.read(1<<20),b""):
+                digest.update(block)
+        zipfile_path.with_suffix(".version").write_text(
+            digest.hexdigest()+"\\n",encoding="ascii")
     return evidence
 
 
