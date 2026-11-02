@@ -94,8 +94,9 @@ def generate(definitions: Path, mapping: Path) -> str:
             raise ValueError("Invalid .weapon definition path")
         if ".." in Path(definition).parts:
             raise ValueError("Path traversal in weapon mapping")
-        if not isinstance(viewmodel, str) or not ASCII_NAME.fullmatch(viewmodel):
-            raise ValueError("Require .mdl converted path under models/weapons/iw3/")
+        if (not isinstance(viewmodel, str) or not ASCII_NAME.fullmatch(viewmodel)
+                or ".." in Path(viewmodel).parts):
+            raise ValueError("Require safe existing Quake .mdl path under models/weapons/")
         if viewmodel in seen:
             raise ValueError("Duplicate converted weapon model path")
         seen.add(viewmodel)
@@ -113,7 +114,7 @@ def main():
     header = generate(args.definitions, args.mapping)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(header, encoding="utf-8")
-    print(f"Converted IW3 weapon profile source: {header.count('models/weapons/iw3/')} models")
+    print(f"IW3 weapon profile count: {len(json.loads(args.mapping.read_text()))} mapped models")
 
 
 if __name__ == "__main__":
