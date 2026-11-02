@@ -39,6 +39,46 @@ def iwvt_from_dds(path:Path) -> bytes:
         return struct.pack("<4sIII",b"IWVT",1,rgba.width,rgba.height)+data
 
 
+def convert_extracted_private_color(glb:Path,source_iwi:Path,converter:Path,
+                                   archive:Path,viewmodel:str):
+    """Encode the exact original first glTF material, found in own IWD.
+
+    The input file must match the source original glTF material's IWI
+    reference; rejects substituting an unrelated or invented texture.
+    This runs only in an ephemeral private job with real user data.
+    """
+    if not (viewmodel.startswith("v_") and len(viewmodel)<70 and
+            all(c.isalnum() or c=="_" for c in viewmodel)):
+        raise ValueError("Unsafe Quake weapon stem")
+    expected=Path(first_color_iwi(glb)).name
+    if source_iwi.name.lower()!=expected.lower() or not source_iwi.is_file():
+        raise FileNotFoundError("Missing original IWD baseColor source")
+    if source_iwi.stat().st_size<12 or source_iwi.stat().st_size>64*1024*1024:
+        raise ValueError("Unreasonable original IWI source size")
+    if not converter.is_file():
+        raise FileNotFoundError("Original OAT ImageConverter binary missing")
+    with tempfile.TemporaryDirectory(prefix="iw3-color-private-") as temp:
+        source=Path(temp)/expected
+        source.write_bytes(source_iwi.read_bytes())
+        result=subprocess.run([str(converter.resolve()),str(source)],
+                              cwd=temp,capture_output=True,check=False,
+                              timeout=90)
+        decoded=source.with_suffix(".dds")
+        if result.returncode!=0 or not decoded.is_file():
+            raise ValueError("OpenAssetTools ImageConverter failed original IW3 IWI")
+        pixels=iwvt_from_dds(decoded)
+    target=f"nzp/models/iw3/{viewmodel}.iwvt"
+    with zipfile.ZipFile(archive,"a",compression=zipfile.ZIP_DEFLATED) as z:
+        if target in z.namelist():
+            raise ValueError("Duplicate original-color native texture asset")
+        z.writestr(target,pixels)
+    archive.with_suffix(".version").write_text(
+        hashlib.sha256(archive.read_bytes()).hexdigest()+"\n",encoding="ascii")
+    return {"native_texture":target,"texture_RGBA_bytes":len(pixels),
+            "original_source_materials":len(load_glb(glb)[0].get("materials",[])),
+            "exact_multi_material":False,"user_owned_image_uploaded":False}
+
+
 def convert_private(glb:Path,iwds:list[Path],converter:Path,archive:Path,viewmodel:str):
     if not (viewmodel.startswith("v_") and len(viewmodel)<70 and
             all(c.isalnum() or c=="_" for c in viewmodel)):
