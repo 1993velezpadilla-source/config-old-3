@@ -1,0 +1,63 @@
+name: VIRIL IW3 - snapshot full XZIEL Vril v0.26 source
+
+on:
+  push:
+    branches:
+      - feature/viril-iw3-v026
+    paths:
+      - .github/workflows/viril-iw3-v026-source.yml
+      - scripts/vendor_viril_iw3_v026.sh
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: viril-iw3-v026-source-snapshot
+  cancel-in-progress: false
+
+jobs:
+  vendor-original-v026:
+    name: Clone pinned originals, apply XZIEL v0.26 patches, commit full source
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout isolated Viril IW3 branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/viril-iw3-v026
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Copy and verify entire v0.26 engine sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -s third_party/viril-iw3-v026/vril/source/view.c &&
+                -s third_party/viril-iw3-v026/quakec/source/shared/weapon_stats.qc ]]; then
+            echo "Full engine snapshot already committed; no change required."
+            exit 0
+          fi
+
+          bash scripts/vendor_viril_iw3_v026.sh
+          git add -f -A third_party/viril-iw3-v026
+          git diff --cached --check
+          git diff --cached --stat | tail -25
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'source: snapshot full original patched XZIEL Vril v0.26 engine for Viril IW3'
+          git push origin HEAD:feature/viril-iw3-v026
+
+      - name: Verify sources committed
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s third_party/viril-iw3-v026/vril/source/view.c
+          test -s third_party/viril-iw3-v026/quakec/source/shared/weapon_stats.qc
+          test -s third_party/viril-iw3-v026/SDL/src/sensor/android/SDL_androidsensor.c
+          test -s third_party/viril-iw3-v026/SDL2_mixer/LICENSE.txt || find third_party/viril-iw3-v026/SDL2_mixer -maxdepth 1 -iname '*license*' | grep -q .
+          test -s third_party/viril-iw3-v026/gl4es/Android.mk
+          git ls-files third_party/viril-iw3-v026/vril/source/view.c | grep -q .
+          git ls-files third_party/viril-iw3-v026/quakec/source/shared/weapon_stats.qc | grep -q .
+          echo "Viril IW3 v0.26 source snapshot complete and committed."
