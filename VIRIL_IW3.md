@@ -1,26 +1,47 @@
-# VIRIL IW3 — XZIEL NZ:P v0.26 source baseline
+# VIRIL IW3 - protected copy of XZIEL / Vril v0.26
 
-This is an isolated experimental branch named **Viril IW3**.
+This experimental branch is independent of the stable **XZIEL v0.26**
+recovery branch and `main`. Do not merge or overwrite the stable recovery
+branch without the owner's explicit instruction.
 
-**Purpose:** snapshot the complete and precisely pinned source-code baseline used to
-produce the original Android XZIEL/Vril v0.26, before attempting any IW3 integration.
-**No IW3 renderer, weapon assets, gameplay changes or engine merge is performed here.**
+## Complete baseline
 
-Base branch:
-`recovery/xziel-nzp-v026-official-buttons-20261011`
+- Full original Vril, QuakeC, SDL, SDL_mixer and GL4ES source trees:
+  `third_party/viril-iw3-v026/`.
+- Original v0.26 gameplay, 3D weapon loader, gun positions, ADS, reload,
+  original maps, round mechanics and Android touch-control patches retained.
+- Original Android launcher, build files, maps tooling, multiplayer support,
+  official 12-button PNG skins and source patch scripts retained in this branch.
+- Exact original native code pins: Vril
+  `aaa474061bff5d0e3aa471ac01f5f0e01b4fca31`; QuakeC
+  `8a77f1ce45f1a2b9aa0afb301446954fda40e696`.
 
-Verified original v0.26 source pins from `scripts/prepare_android.sh`:
-- Vril: `aaa474061bff5d0e3aa471ac01f5f0e01b4fca31`
-- QuakeC: `8a77f1ce45f1a2b9aa0afb301446954fda40e696`
-- SDL (SDL2 branch): `b90ac95029d801c5abc59472ba8e2200dff31e1e`
-- SDL2_mixer: `34370d92840d5aa32b4369dc56c6735ef7adf1a8`
-- gl4es: `81547d986798e876de8b434193920b606a72363f`
+## Assets: runtime + original editable 3D source
 
-The original XZIEL v0.26 patch series from `scripts/prepare_android.sh` must
-be applied **in its documented order** to those pinned sources, without changing
-game behavior. The vendor source import workflow copies these full trees into
-`third_party/viril-iw3-v026/` and records their provenance. The original
-recovery branch and `main` are not modified.
+The full NZ:P game data (weapons, models, frames, maps, audio, textures) is
+assembled from the upstream official release by
+`scripts/prepare_android.sh`; XZIEL's own touch skins and newly compiled
+QuakeC are added before packaging. The data is inside the generated APK.
+Separately, the VIRIL IW3 workflow archives the upstream assets repository
+with its Blender and other model/map authoring sources.
 
-**Important:** Code is separate from distributable art/game assets. Retain each
-upstream license. Do not mistake imported sources for a validated Android APK.
+**Runtime assets and full original 3D authoring assets are not stored as
+thousands of new Git blobs inside this branch.** They are packaged separately
+with the complete-game APK/source archives via the GitHub Actions workflow
+`.github/workflows/viril-iw3-v026-full-game.yml`. When successful, that
+workflow uploads CI artifacts and publishes a persistent prerelease backup.
+
+## Protect the existing stable Android installation
+
+Build with `bash scripts/prepare_viril_iw3_android.sh`, then run
+`./gradlew :app:assembleDebug` inside `build/android-project`.
+
+- Original stable APK: `com.xziel.nzp`.
+- VIRIL IW3 APK: **`com.xziel.viriliw3`**.
+- Two Android package IDs mean the VIRIL IW3 APK can be installed alongside
+  the original, with separate app-internal storage and saves.
+- No original gameplay change or IW3 renderer integration in this baseline.
+- A successful package build is not proof of real-device gameplay testing.
+
+Only edit this experimental branch for the next idea. Do not apply
+experiments to the stable XZIEL v0.26 release.
