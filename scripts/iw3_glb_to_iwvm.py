@@ -88,7 +88,7 @@ def read_accessor(doc,blob,idx,components):
         raise ValueError("Missing accessor")
     a=accessors[idx]
     if "sparse" in a:raise ValueError("Sparse glTF accessors unsupported")
-    vt={"SCALAR":1,"VEC2":2,"VEC3":3}
+    vt={"SCALAR":1,"VEC2":2,"VEC3":3,"VEC4":4,"MAT4":16}
     if vt.get(a["type"])!=components:raise ValueError("Unexpected accessor dimension")
     formats={5121:("B",1),5123:("H",2),5125:("I",4),5126:("f",4)}
     field= a["componentType"]
