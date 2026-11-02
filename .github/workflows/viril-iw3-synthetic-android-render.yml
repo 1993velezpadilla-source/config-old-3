@@ -65,11 +65,21 @@ jobs:
             adb logcat -c
             adb shell am start -n com.xziel.viriliw3/org.libsdl.app.NZPActivity --ez xziel_ci_hud_preview true
             sleep 65
+            mkdir -p "$RUNNER_TEMP/viril-iw3-synthetic-screens"
+            adb exec-out screencap -p > "$RUNNER_TEMP/viril-iw3-synthetic-screens/01-synthetic-geometry-in-game.png"
             adb shell pidof com.xziel.viriliw3
             adb shell run-as com.xziel.viriliw3 cat files/nzp-runtime/.xziel-stage
             adb logcat -d -s VIRIL_IW3:I '*:S'
             adb logcat -d -s VIRIL_IW3:I '*:S' | grep -q 'IW3_NATIVE_MESH_DRAW submitted model=models/iw3/v_colt.iwvm'
             echo 'GREEN: original Vril FPS gun viewport submitted standalone SYNTHETIC 3D triangles to GLES2'
+      - name: Preserve real Android emulator screenshot of synthetic model only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: VIRIL-IW3-SYNTHETIC-ANDROID-IN-GAME-SCREENSHOT
+          path: ${{ runner.temp }}/viril-iw3-synthetic-screens/*.png
+          if-no-files-found: warn
+          retention-days: 14
       - name: Do not distribute any APKs or game binaries from this diagnostic
         if: always()
         run: |
