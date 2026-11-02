@@ -205,9 +205,9 @@ jobs:
           python3 - <<'PY'
           import json
           d=json.load(open("dist/iw3-xanim-v17-decoded-bones.json"))
-          if d["decoded_full_bones_without_rootdelta"] < 100:
-              raise SystemExit("Did not decode >=100 real CoD4 bone animations")
-          print("Decoded actual CoD4 per-bone XAnim keyframes and notifies, in temporary runner only.")
+          if d["decoded_all_bones_and_root_delta"] < 2000:
+              raise SystemExit("Did not decode >=2000 real CoD4 bone+root delta animations")
+          print("Decoded actual COD4 per-bone + original root-delta XAnim keyframes/notifies in temporary runner only.")
           PY
 
       - name: Match official CoD4 weapons to real OAT GLB and XAnim assets
