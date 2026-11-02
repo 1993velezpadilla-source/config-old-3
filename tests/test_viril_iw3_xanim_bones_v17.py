@@ -50,7 +50,7 @@ class FullBoneDecoderTests(unittest.TestCase):
             # Flags=2 means original CoD4 delta: first quat2 track,
             # then root trans; both zero => constant/no displacement.
             f.write_bytes(HEADER.pack(17,20,0,2,0,30)
-                +struct.pack("<HH",0,0)+b"\\x00")
+                +struct.pack("<HH",0,0)+b"\x00")
             decoded=decode(f)
             self.assertEqual(decoded["root_delta"]["rotation"]["kind"],"identity")
             self.assertEqual(decoded["root_delta"]["position"]["kind"],"none")
