@@ -69,7 +69,7 @@ def prepare(zipfile_path:Path, sources:Path, manifest:Path, dry_run=False):
             for block in iter(lambda: package.read(1<<20),b""):
                 digest.update(block)
         zipfile_path.with_suffix(".version").write_text(
-            digest.hexdigest()+"\\n",encoding="ascii")
+            digest.hexdigest()+"\n",encoding="ascii")
     return evidence
 
 
