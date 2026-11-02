@@ -20,7 +20,7 @@ FIELDS = {
 }
 SCALARS = ("adsAimPitch", "posMoveRate")
 NUMBERS = {x for group in FIELDS.values() for x in group} | set(SCALARS)
-ASCII_NAME = re.compile(r"^models/weapons/iw3/[a-zA-Z0-9_./-]+\.mdl$")
+ASCII_NAME = re.compile(r"^models/weapons/[a-zA-Z0-9_./-]+\.mdl$")
 
 
 def parse_weapon_file(path: Path) -> dict[str, float]:
