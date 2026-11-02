@@ -14,6 +14,8 @@ on:
       - scripts/iw3_gltf_material_probe.py
       - scripts/iw3_glb_skin_probe.py
       - scripts/iw3_glb_to_iwsk.py
+      - scripts/iw3_xanim_pose_sample.py
+      - tests/test_viril_iw3_xanim_pose_sample.py
       - tests/test_viril_iw3_skin_transport.py
       - scripts/iw3_match_skeleton_animation.py
       - tests/test_viril_iw3_glb_skin_probe.py
@@ -321,6 +323,50 @@ jobs:
           print("Original COD4 USP skeleton/weights validated entirely in RAM; no binary uploaded")
           PY
 
+      - name: Sample original COD4 USP reload ADS and fire bone motion from real XAnim
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p test_viril_iw3_xanim_pose_sample.py -v
+          python3 - <<'PY' | tee dist/iw3-usp-source-keyframe-motion-report.json
+          import json,sys
+          from pathlib import Path
+          sys.path.insert(0,"scripts")
+          from iw3_bind_private_weapon import bind_weapon
+          from iw3_match_oat_assets import parse_fields
+          from iw3_xanim_bones_v17 import decode
+          from iw3_xanim_pose_sample import source_animation_pose
+          root=Path("/tmp/viril-iw3-licensed-original/converted")
+          glb=sorted(root.rglob("viewmodel_usp*_lod0.glb"))[0]
+          folder=Path("/tmp/viril-iw3-licensed-original/private-motion-probe")
+          bind_weapon(root,glb.name,"models/weapons/m1911/v_colt.mdl",folder)
+          defs=parse_fields(folder/"current.weapon")
+          all_anims={p.name.lower():p for p in root.rglob("*") if p.is_file() and p.parent.name=="xanim"}
+          count=0; rotated=0; moved=0
+          kinds={}
+          for label in ("reloadAnim","reloadEmptyAnim","fireAnim","adsDownAnim","adsUpAnim"):
+              value=defs.get(label)
+              if not value:continue
+              path=all_anims.get(value.lower())
+              if path is None:continue
+              anim=decode(path)
+              a=source_animation_pose(anim,0)["bones"]
+              b=source_animation_pose(anim,max(1,anim["frames"]//2))["bones"]
+              count+=1
+              kinds[label]=True
+              rotated+=sum(x["source_quaternion"]!=y["source_quaternion"] for x,y in zip(a,b))
+              moved+=sum(x["source_translation"]!=y["source_translation"] for x,y in zip(a,b))
+          assert count>=2, "Cannot evaluate genuine original CoD4 gun motion"
+          print(json.dumps({"original_animation_samples":count,
+                "bone_rotation_tracks_moving":rotated,
+                "bone_translation_tracks_moving":moved,
+                "original_reload_frame_evaluation":bool(kinds.get("reloadAnim") or kinds.get("reloadEmptyAnim")),
+                "original_source_fire_frame_evaluation":bool(kinds.get("fireAnim")),
+                "original_pose_bytes_uploaded":False,
+                "native_runtime_skeletal_playback":False},indent=2))
+          PY
+          rm -rf /tmp/viril-iw3-licensed-original/private-motion-probe
+
       - name: Match official CoD4 weapons to real OAT GLB and XAnim assets
         shell: bash
         run: |
@@ -352,6 +398,7 @@ jobs:
             dist/iw3-original-material-link-evidence.json
             dist/iw3-original-skeletal-rig-capability.json
             dist/iw3-usp-skeleton-binary-transport-counts.json
+            dist/iw3-usp-source-keyframe-motion-report.json
             dist/iw3-usp-real-skin-animation-join.json
             dist/iw3-usp-iwd-image-match-counts.json
           if-no-files-found: warn
