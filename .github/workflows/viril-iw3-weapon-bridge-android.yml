@@ -121,6 +121,12 @@ jobs:
             grep -q 'assets/nzp-data.zip'
           unzip -Z1 dist/VIRIL-IW3-weapon-bridge-experimental.apk | \
             grep -q 'lib/arm64-v8a/libmain.so'
+          unzip -p dist/VIRIL-IW3-weapon-bridge-experimental.apk \
+            lib/arm64-v8a/libmain.so > /tmp/viril-iw3-arm64.so
+          strings /tmp/viril-iw3-arm64.so > /tmp/viril-iw3-arm64-strings.txt
+          grep -q 'IW3_MESH_LOAD_REQUEST' /tmp/viril-iw3-arm64-strings.txt
+          grep -q 'IW3_NATIVE_MESH_DRAW' /tmp/viril-iw3-arm64-strings.txt
+          echo "Verified actual arm64 APK contains native IW3 3D gun geometry loader and rendering telemetry."
           cat > dist/VALIDATION.txt <<'EOF'
           Source: original XZIEL v0.26 native gameplay + complete official NZP
           weapons, models, maps and animations; experimental portable IW3
