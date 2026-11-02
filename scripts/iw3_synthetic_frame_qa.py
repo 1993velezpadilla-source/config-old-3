@@ -19,6 +19,7 @@ def audit(path):
         mid=im.crop((int(w*.15),int(h*.12),int(w*.77),int(h*.88)))
         total=mid.width*mid.height
         pink=0
+        pale=0
         colors=set()
         step=max(1,int(total**.5)//130)
         for y in range(0,mid.height,step):
@@ -26,11 +27,16 @@ def audit(path):
                 r,g,b=mid.getpixel((x,y))
                 if r>170 and g<90 and b<145 and r>g*2:
                     pink+=1
+                if r>207 and g>207 and b>207 and max(r,g,b)-min(r,g,b)<28:
+                    pale+=1
                 colors.add((r//12,g//12,b//12))
         sampled=len(range(0,mid.height,step))*len(range(0,mid.width,step))
         ratio=pink/sampled
+        pale_ratio=pale/sampled
         return {"width":w,"height":h,"center_saturated_red_fraction":round(ratio,6),
                 "scene_palette_bins":len(colors),
+                "center_neutral_bright_fraction":round(pale_ratio,6),
+                "android_launcher_anr_popup_rejected":pale_ratio<.18,
                 "old_center_occluding_quad_rejected":ratio<.085,
                 "nonblank_gameplay":len(colors)>50}
 if __name__=="__main__":
@@ -41,3 +47,4 @@ if __name__=="__main__":
     print(json.dumps(out,indent=2))
     assert out["old_center_occluding_quad_rejected"],"Large center red weapon placeholder still obscures screen"
     assert out["nonblank_gameplay"],"Android screenshot is blank or monochromatic"
+    assert out["android_launcher_anr_popup_rejected"],"Android launcher/ANR popup obscures gameplay"
