@@ -22,6 +22,23 @@ class IW3OverlayCaptureTests(unittest.TestCase):
         self.assertEqual(len(calls),2)
         self.assertEqual(calls[0][0:3],("shell","input","tap"))
 
+    def test_revealed_pixel_launcher_anr_dialog(self):
+        canvas=Image.new("RGB",(2400,1080),(8,8,8))
+        draw=ImageDraw.Draw(canvas)
+        draw.rounded_rectangle((525,330,2000,750),radius=55,
+                               fill=(241,240,247))
+        calls=[]
+        with patch.object(capture,"adb",side_effect=lambda *a,**k:calls.append(a)),patch.object(capture.time,"sleep"):
+            handled=capture.dismiss_os_anr_dialog(canvas)
+        self.assertTrue(handled)
+        self.assertEqual(calls[0][0:3],("shell","input","tap"))
+        self.assertEqual(calls[0][3:],("768","658"))
+
+    def test_no_anr_when_only_dark_3d_gameplay(self):
+        canvas=Image.new("RGB",(2400,1080),(18,11,7))
+        with patch.object(capture,"adb",side_effect=AssertionError("unexpected tap")):
+            self.assertFalse(capture.dismiss_os_anr_dialog(canvas))
+
     def test_never_tap_actual_3d_frame(self):
         canvas=Image.new("RGB",(1200,700),(15,9,7))
         calls=[]
