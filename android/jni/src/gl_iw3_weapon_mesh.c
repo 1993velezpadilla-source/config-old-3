@@ -17,6 +17,23 @@
 
 #define IWVM_MAX_VERTICES 65535u
 #define IWVM_MAX_INDICES 360000u
+#define IWVM_MAX_JOINTS 255u
+
+/* Native IWSK v1 preserves real original CoD4 GLB skin, not playback yet.
+ * Public source contains only binary format, no proprietary bone names. */
+typedef struct {
+    char name[64];
+    int32_t parent;
+    float local_bind[16];
+    float inverse_bind[16];
+} iwsk_joint_t;
+typedef struct {
+    uint8_t bone[4];
+    float weight[4];
+} iwsk_influence_t;
+typedef char iwsk_bone_stride_check[(sizeof(iwsk_joint_t)==196) ? 1 : -1];
+typedef char iwsk_weight_stride_check[(sizeof(iwsk_influence_t)==20) ? 1 : -1];
+
 
 typedef struct {
     float xyz[3];
@@ -38,6 +55,10 @@ static iwvm_mesh_t iwvm_mesh;
 static int iwvm_reported_draw;
 static GLuint iwvm_color_texture;
 static int iwvm_color_attempted;
+static iwsk_joint_t *iwsk_joints;
+static iwsk_influence_t *iwsk_weights;
+static uint32_t iwsk_joint_count;
+static int iwsk_attempted;
 /* Explicit, reversible first-person calibration for user-provided original
  * IW3 XModels. All values default to identity so a correct model is never
  * silently rotated or resized. Local X points forward, Y left, Z up.
@@ -74,6 +95,12 @@ static void IWVM_ResetGeometry(void)
 {
     free(iwvm_mesh.vertices);
     free(iwvm_mesh.indices);
+    free(iwsk_joints);
+    free(iwsk_weights);
+    iwsk_joints = NULL;
+    iwsk_weights = NULL;
+    iwsk_joint_count = 0;
+    iwsk_attempted = 0;
     if (iwvm_color_texture) {
         glDeleteTextures(1, &iwvm_color_texture);
         iwvm_color_texture = 0;
@@ -197,6 +224,91 @@ cleanup:
     return ok;
 }
 
+/* Native optional rig transport; one real joint set from the original
+ * CoD4 GLB. Invalid/missing data safely preserves existing static IWVM.
+ * Actual GL skinning or XAnim pose playback will use these same arrays in
+ * the next dedicated implementation and is NOT claimed here. */
+static void IWSK_TryLoad(const char *mesh_path)
+{
+    char rig_path[160];
+    char *suffix;
+    FILE *f = NULL;
+    uint8_t header[20];
+    iwsk_joint_t *bones = NULL;
+    iwsk_influence_t *weights = NULL;
+    uint32_t joints,vertices,i;
+    uint64_t expected;
+    long file_length;
+    int ok=0;
+    if (iwsk_attempted) return;
+    iwsk_attempted=1;
+    if (snprintf(rig_path,sizeof(rig_path),"%s",mesh_path) >=
+        (int)sizeof(rig_path)) return;
+    suffix=strrchr(rig_path,'.');
+    if (!suffix || strcmp(suffix,".iwvm")!=0) return;
+    strcpy(suffix,".iwsk");
+    file_length=COM_FOpenFile(rig_path,&f);
+    if (file_length<20 || !f) return;
+    if (fread(header,1,sizeof(header),f)!=sizeof(header) ||
+        memcmp(header,"IWSK",4)!=0 ||
+        IWVM_Read32(header+4)!=1 || IWVM_Read32(header+16)!=0)
+        goto cleanup;
+    vertices=IWVM_Read32(header+8);
+    joints=IWVM_Read32(header+12);
+    if (vertices!=iwvm_mesh.vertex_count || !joints ||
+        joints>IWVM_MAX_JOINTS) goto cleanup;
+    expected=20ull+196ull*joints+20ull*vertices;
+    if (expected!=(uint64_t)file_length) goto cleanup;
+    bones=(iwsk_joint_t*)malloc(sizeof(*bones)*joints);
+    weights=(iwsk_influence_t*)malloc(sizeof(*weights)*vertices);
+    if (!bones || !weights) goto cleanup;
+    if (fread(bones,sizeof(*bones),joints,f)!=joints ||
+        fread(weights,sizeof(*weights),vertices,f)!=vertices)
+        goto cleanup;
+    for(i=0;i<joints;++i) {
+        int k;
+        if (!memchr(bones[i].name,0,sizeof(bones[i].name))) goto cleanup;
+        if (bones[i].parent>=0 &&
+            (uint32_t)bones[i].parent>=joints) goto cleanup;
+        if (bones[i].parent==(int32_t)i) goto cleanup;
+        for(k=0;k<16;++k)
+            if(!isfinite(bones[i].local_bind[k]) ||
+               !isfinite(bones[i].inverse_bind[k])) goto cleanup;
+    }
+    for(i=0;i<vertices;++i) {
+        int k;
+        float sum=0.f;
+        for(k=0;k<4;++k) {
+            if(weights[i].bone[k]>=joints ||
+               !isfinite(weights[i].weight[k]) ||
+               weights[i].weight[k]<0.f || weights[i].weight[k]>1.f)
+                goto cleanup;
+            sum+=weights[i].weight[k];
+        }
+        if(fabsf(sum-1.f)>0.02f) goto cleanup;
+    }
+    iwsk_joints=bones;
+    iwsk_weights=weights;
+    iwsk_joint_count=joints;
+    bones=NULL;
+    weights=NULL;
+    ok=1;
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_INFO,"VIRIL_IW3",
+        "IW3_ORIGINAL_SKIN_DATA_LOADED file=%s joints=%u weighted_vertices=%u animated=0",
+        rig_path,(unsigned)joints,(unsigned)vertices);
+#endif
+cleanup:
+    if(f) fclose(f);
+    free(bones);
+    free(weights);
+#ifdef __ANDROID__
+    if(!ok)
+        __android_log_print(ANDROID_LOG_ERROR,"VIRIL_IW3",
+           "IW3_ORIGINAL_SKIN_DATA_INVALID file=%s",rig_path);
+#endif
+}
+
 /* Optional RGBA color map. Private packer writes an IWVT file with the same
  * gun stem as IWVM in the NZ:P gamedir. Missing IWVT leaves flat geometry. */
 static void IWVT_TryLoad(const char *mesh_path)
@@ -288,6 +400,7 @@ int IW3_WeaponMesh_Draw(entity_t *view)
     if (!iwvm_mesh.vertex_count)
         return 0;
     IWVT_TryLoad(path);
+    IWSK_TryLoad(path);
     /* World/view GL projection and clipped viewmodel depth range are
      * inherited from Vril's existing R_DrawViewModel, never IW3 Direct3D. */
     GLint old_texture = 0;
