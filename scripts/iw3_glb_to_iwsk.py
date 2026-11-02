@@ -76,14 +76,15 @@ def export(path:Path,scale:float=1.,axis:str="gltf_yup_to_quake_zup"):
         if not encoded or len(encoded)>=64 or b"\0" in encoded:
             raise ValueError("Unsupported original joint name")
         parent=parents.get(node_index)
-        if parent is not None and parent not in indices:
-            raise ValueError("Joint's parent missing from skin")
+        # OAT attaches root joints below a non-joint glTF scene root.
+        # Only a parent that is also a skin joint is a bone parent.
+        # Non-joint scene roots are valid and map to -1.
         bind=basis_convert(mat_trs(node),axis)
         inv=basis_convert(inverse[index],axis)
         if not all(math.isfinite(v) for v in bind+inv):
             raise ValueError("Corrupt IW3 bind matrices")
         bone_bytes+=BONE.pack(encoded.ljust(64,b"\0"),
-                              indices[parent] if parent is not None else -1,
+                              indices.get(parent,-1),
                               *bind,*inv)
     meshes=doc.get("meshes",[])
     if not nodes:nodes=[{"mesh":i,"skin":0} for i in range(len(meshes))]
