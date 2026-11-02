@@ -38,7 +38,7 @@ def synth_skinned_glb():
     d["buffers"][0]["byteLength"]=len(blob)
     raw=json.dumps(d,separators=(",",":")).encode()
     raw+=b" "*((-len(raw))%4)
-    payload=struct.pack("<I4s",len(raw),b"JSON")+raw+struct.pack("<I4s",len(blob),b"BIN\\0")+blob
+    payload=struct.pack("<I4s",len(raw),b"JSON")+raw+struct.pack("<I4s",len(blob),b"BIN\0")+blob
     return struct.pack("<4sII",b"glTF",2,12+len(payload))+payload
 
 
