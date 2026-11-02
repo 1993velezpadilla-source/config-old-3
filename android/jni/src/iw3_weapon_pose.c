@@ -14,7 +14,7 @@ const iw3_weapon_pose_t *IW3_WeaponFindPose(const char *model)
 {
     unsigned i;
     if (!model || !*model) return 0;
-    for (i = 0; i < IW3_POSE_TABLE_SIZE; ++i) {
+    for (i = 0; i != IW3_POSE_TABLE_SIZE; ++i) {
         if (iw3_pose_table[i].viewmodel &&
             strcmp(iw3_pose_table[i].viewmodel, model) == 0)
             return &iw3_pose_table[i];
