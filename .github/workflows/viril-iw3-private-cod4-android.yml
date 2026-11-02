@@ -114,11 +114,16 @@ jobs:
             adb install -r build/android-project/app/build/outputs/apk/debug/app-debug.apk
             adb logcat -c
             adb shell am start -n com.xziel.viriliw3/org.libsdl.app.NZPActivity --ez xziel_ci_hud_preview true
-            sleep 60
+            sleep 70
+            adb shell pidof com.xziel.viriliw3
+            adb shell run-as com.xziel.viriliw3 cat files/nzp-runtime/.xziel-stage
+            adb exec-out screencap -p > "$RUNNER_TEMP/viril-iw3-private/gameplay-private.png"
+            python3 -c 'from pathlib import Path; import struct,os; p=Path(os.environ["RUNNER_TEMP"])/"viril-iw3-private/gameplay-private.png"; d=p.read_bytes(); assert d[:8]==bytes.fromhex("89504e470d0a1a0a") and len(d)>10000; print("Private Android screenshot metadata, size:",len(d),"resolution:",struct.unpack(">II",d[16:24]))'
             adb logcat -d -v brief > "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
-            grep -E 'VIRIL_IW3|FIRST_FRAME|FATAL EXCEPTION|Fatal signal|ActivityManager' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt" | tail -40 || true
+            adb logcat -d -s VIRIL_IW3:I '*:S' | tail -35
             grep -q 'IW3_NATIVE_MESH_DRAW submitted model=models/iw3/v_colt.iwvm' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
-            echo 'GREEN: authentic original COD4 3D viewmodel submitted to Vril GLES2 in Android emulator'
+            grep -q 'IW3_NATIVE_MESH_DRAW submitted model=models/iw3/v_colt.iwvm.*glerr=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            echo 'GREEN: ORIGINAL COD4 GUN RENDER SUBMITTED with GLES_NO_ERROR and actual private gameplay screenshot captured'
       - name: Delete ALL extracted game data and private APK without publishing
         if: always()
         run: |
