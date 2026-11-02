@@ -13,6 +13,7 @@ on:
       - scripts/iw3_xanim_bones_v17.py
       - scripts/iw3_gltf_material_probe.py
       - scripts/iw3_glb_skin_probe.py
+      - scripts/iw3_match_skeleton_animation.py
       - tests/test_viril_iw3_glb_skin_probe.py
       - scripts/iw3_extract_private_iwds.py
       - scripts/iw3_iwd_texture_inventory.py
@@ -274,6 +275,30 @@ jobs:
           print("No skeletal animation playback claimed.")
           PY
 
+      - name: Check genuine COD4 USP original bone tracks against original XAnim names
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/iw3_match_skeleton_animation.py
+          python3 - <<'PY' | tee dist/iw3-usp-real-skin-animation-join.json
+          import sys,json
+          from pathlib import Path
+          sys.path.insert(0,"scripts")
+          from iw3_bind_private_weapon import bind_weapon
+          from iw3_match_skeleton_animation import probe
+          root=Path("/tmp/viril-iw3-licensed-original/converted")
+          models=sorted(root.rglob("viewmodel_usp*_lod0.glb"))
+          if not models:raise SystemExit("No original USP GLB extracted")
+          chosen=models[0]
+          private=Path("/tmp/viril-iw3-licensed-original/original-bone-join")
+          result=bind_weapon(root,chosen.name,"models/weapons/m1911/v_colt.mdl",private)
+          report=probe(chosen,private/"current.weapon",root)
+          print(json.dumps(report,indent=2))
+          if report["original_gun_skeleton_joint_count"]==0:
+              raise SystemExit("Original CoD4 USP GLB was stripped of its skeleton")
+          PY
+          rm -rf /tmp/viril-iw3-licensed-original/original-bone-join
+
       - name: Match official CoD4 weapons to real OAT GLB and XAnim assets
         shell: bash
         run: |
@@ -304,6 +329,7 @@ jobs:
             dist/iw3-xanim-v17-decoded-bones.json
             dist/iw3-original-material-link-evidence.json
             dist/iw3-original-skeletal-rig-capability.json
+            dist/iw3-usp-real-skin-animation-join.json
             dist/iw3-usp-iwd-image-match-counts.json
           if-no-files-found: warn
           retention-days: 14
