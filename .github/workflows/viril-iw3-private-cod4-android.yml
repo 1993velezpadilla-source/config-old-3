@@ -9,6 +9,9 @@ on:
       - scripts/iw3_capture_live_viewmodel.py
       - scripts/iw3_synthetic_frame_qa.py
       - tests/test_viril_iw3_capture_overlay.py
+      - scripts/iw3_glb_to_iwsk.py
+      - tests/test_viril_iw3_skin_transport.py
+      - android/jni/src/gl_iw3_weapon_mesh.c
 permissions:
   contents: read
 concurrency:
@@ -137,12 +140,34 @@ jobs:
           print("Genuine original USPs color pixels bytes:",result["texture_RGBA_bytes"],
                 "material slots:",result["original_source_materials"])
           PY
+          python3 -m unittest discover -s tests -p test_viril_iw3_skin_transport.py -v
+          python3 - "$D" <<'PY'
+          import hashlib,sys,zipfile,json
+          from pathlib import Path
+          sys.path.insert(0,"scripts")
+          from iw3_glb_to_iwsk import export,HEADER
+          root=Path(sys.argv[1])
+          original=next((root/"selected").glob("*.glb"))
+          skin,summary=export(original)
+          assert summary["original_glb_joints"]>0
+          assert summary["original_rigged_vertices"]>0
+          archive=Path("build/android-project/app/src/main/assets/nzp-data.zip")
+          with zipfile.ZipFile(archive,"a",compression=zipfile.ZIP_DEFLATED) as z:
+              assert "nzp/models/iw3/v_colt.iwsk" not in z.namelist()
+              z.writestr("nzp/models/iw3/v_colt.iwsk",skin)
+          archive.with_suffix(".version").write_text(
+              hashlib.sha256(archive.read_bytes()).hexdigest()+"\\n",encoding="ascii")
+          print("Original COD4 IWSK source joint and skin-weight payload private:",
+                summary["original_glb_joints"],"bones,",
+                summary["original_rigged_vertices"],"weighted vertices")
+          PY
           python3 - <<'PY'
           import zipfile
           with zipfile.ZipFile("build/android-project/app/src/main/assets/nzp-data.zip") as z:
               iwvm=z.read("nzp/models/iw3/v_colt.iwvm")
               assert iwvm.startswith(b"IWVM") and len(iwvm)>100
               assert z.read("nzp/models/iw3/v_colt.iwvt")[:4] == b"IWVT"
+              assert z.read("nzp/models/iw3/v_colt.iwsk")[:4] == b"IWSK"
               print("REAL COD4 GUN AND FIRST ORIGINAL BASE COLOR INCLUDED IN TEMPORARY ANDROID BUILD (NOT PUBLISHED).")
           PY
           (cd build/android-project && ./gradlew --no-daemon :app:assembleDebug)
@@ -175,6 +200,7 @@ jobs:
             grep -q 'IW3_NATIVE_MESH_DRAW submitted model=models/iw3/v_colt.iwvm' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             grep -q 'IW3_NATIVE_MESH_DRAW submitted model=models/iw3/v_colt.iwvm.*glerr=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             grep -q 'IW3_COLOR_TEXTURE loaded=models/iw3/v_colt.iwvt.*glerr=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            grep -q 'IW3_ORIGINAL_SKIN_DATA_LOADED file=models/iw3/v_colt.iwsk.*animated=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             grep -q 'IW3_MESH_BOUNDS model=models/iw3/v_colt.iwvm' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             echo 'GREEN: ORIGINAL COD4 USP GUN PLUS ORIGINAL IWI COLOR TEXTURE SUBMITTED WITH GLES_NO_ERROR (private screenshot not published)'
       - name: Preserve original COD4 USP screenshots only for user visual review
