@@ -13,6 +13,8 @@ on:
       - scripts/iw3_xanim_bones_v17.py
       - scripts/iw3_gltf_material_probe.py
       - scripts/iw3_glb_skin_probe.py
+      - scripts/iw3_glb_to_iwsk.py
+      - tests/test_viril_iw3_skin_transport.py
       - scripts/iw3_match_skeleton_animation.py
       - tests/test_viril_iw3_glb_skin_probe.py
       - scripts/iw3_extract_private_iwds.py
@@ -299,6 +301,26 @@ jobs:
           PY
           rm -rf /tmp/viril-iw3-licensed-original/original-bone-join
 
+      - name: Validate authentic COD4 USP vertex skin transport, no source files uploaded
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p test_viril_iw3_skin_transport.py -v
+          python3 - <<'PY' | tee dist/iw3-usp-skeleton-binary-transport-counts.json
+          import json,sys
+          from pathlib import Path
+          sys.path.insert(0,"scripts")
+          from iw3_glb_to_iwsk import export,HEADER
+          root=Path("/tmp/viril-iw3-licensed-original/converted")
+          glbs=sorted(root.rglob("viewmodel_usp*_lod0.glb"))
+          assert glbs
+          binary,summary=export(glbs[0])
+          assert HEADER.unpack_from(binary)[2]==summary["native_viewmodel_vertex_count"]
+          assert summary["original_glb_joints"]>0
+          print(json.dumps(summary,indent=2))
+          print("Original COD4 USP skeleton/weights validated entirely in RAM; no binary uploaded")
+          PY
+
       - name: Match official CoD4 weapons to real OAT GLB and XAnim assets
         shell: bash
         run: |
@@ -329,6 +351,7 @@ jobs:
             dist/iw3-xanim-v17-decoded-bones.json
             dist/iw3-original-material-link-evidence.json
             dist/iw3-original-skeletal-rig-capability.json
+            dist/iw3-usp-skeleton-binary-transport-counts.json
             dist/iw3-usp-real-skin-animation-join.json
             dist/iw3-usp-iwd-image-match-counts.json
           if-no-files-found: warn
