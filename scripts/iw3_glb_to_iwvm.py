@@ -172,7 +172,10 @@ def convert(path,scale=1.0,axis="gltf_yup_to_quake_zup"):
     header=struct.pack("<4sIII",b"IWVM",1,len(vertices),len(indices))
     payload=b"".join(struct.pack("<5f",*v) for v in vertices)
     faces=struct.pack("<"+"H"*len(indices),*indices)
+    bounds={"min":[round(min(v[i] for v in vertices),5) for i in range(3)],
+            "max":[round(max(v[i] for v in vertices),5) for i in range(3)]}
     evidence={"vertices":len(vertices),"triangles":len(indices)//3,
+              "bounds_quake_units":bounds,
               "skin_meshes_not_animated":skin_meshes,
               "output_bytes":len(header)+len(payload)+len(faces),
               "axis":axis,"scale":scale,
