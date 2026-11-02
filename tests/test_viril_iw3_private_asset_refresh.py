@@ -40,8 +40,12 @@ class IW3PrivateAssetInstallTests(unittest.TestCase):
             self.assertEqual(len(report),1)
             with zipfile.ZipFile(package) as z:
                 self.assertEqual(z.read("nzp/progs.dat"),b"original")
-                converted=z.read("models/iw3/v_colt.iwvm")
+                converted=z.read("nzp/models/iw3/v_colt.iwvm")
                 self.assertEqual(converted[:4],b"IWVM")
+            self.assertEqual(report[0]["archive_entry"],
+                             "nzp/models/iw3/v_colt.iwvm")
+            self.assertNotIn("models/iw3/v_colt.iwvm",
+                             zipfile.ZipFile(package).namelist())
             sha=hashlib.sha256(package.read_bytes()).hexdigest()
             self.assertNotEqual(sha,original_hash)
             self.assertEqual(sha,version.read_text().strip())
