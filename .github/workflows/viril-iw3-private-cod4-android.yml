@@ -6,6 +6,8 @@ on:
       - feature/viril-iw3-native-weapon-bridge-20261102
     paths:
       - .github/workflows/viril-iw3-private-cod4-android.yml
+      - scripts/iw3_capture_live_viewmodel.py
+      - scripts/iw3_synthetic_frame_qa.py
 permissions:
   contents: read
 concurrency:
@@ -154,18 +156,25 @@ jobs:
             set -e
             adb install -r build/android-project/app/build/outputs/apk/debug/app-debug.apk
             adb logcat -c
-            adb shell am start -n com.xziel.viriliw3/org.libsdl.app.NZPActivity --ez xziel_ci_hud_preview true
-            sleep 70
+            python3 scripts/iw3_capture_live_viewmodel.py --out "$RUNNER_TEMP/viril-iw3-private/screenshots" --timeout 95
             adb shell pidof com.xziel.viriliw3
             adb shell run-as com.xziel.viriliw3 cat files/nzp-runtime/.xziel-stage
-            adb exec-out screencap -p > "$RUNNER_TEMP/viril-iw3-private/gameplay-private.png"
-            python3 -c 'from pathlib import Path; import struct,os; p=Path(os.environ["RUNNER_TEMP"])/"viril-iw3-private/gameplay-private.png"; d=p.read_bytes(); assert d[:8]==bytes.fromhex("89504e470d0a1a0a") and len(d)>10000; print("Private Android screenshot metadata, size:",len(d),"resolution:",struct.unpack(">II",d[16:24]))'
+            python3 scripts/iw3_synthetic_frame_qa.py "$RUNNER_TEMP/viril-iw3-private/screenshots/01-first-live-frame.png"
             adb logcat -d -v brief > "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             adb logcat -d -s VIRIL_IW3:I '*:S' | tail -35
             grep -q 'IW3_NATIVE_MESH_DRAW submitted model=models/iw3/v_colt.iwvm' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             grep -q 'IW3_NATIVE_MESH_DRAW submitted model=models/iw3/v_colt.iwvm.*glerr=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             grep -q 'IW3_COLOR_TEXTURE loaded=models/iw3/v_colt.iwvt.*glerr=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             echo 'GREEN: ORIGINAL COD4 USP GUN PLUS ORIGINAL IWI COLOR TEXTURE SUBMITTED WITH GLES_NO_ERROR (private screenshot not published)'
+      - name: Preserve original COD4 USP screenshots only for user visual review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: VIRIL-IW3-COD4-USP-REAL-ANDROID-SCREENSHOTS
+          path: ${{ runner.temp }}/viril-iw3-private/screenshots/*.png
+          if-no-files-found: warn
+          retention-days: 14
+          compression-level: 6
       - name: Delete ALL extracted game data and private APK without publishing
         if: always()
         run: |
