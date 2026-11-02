@@ -7,7 +7,7 @@ on:
       - .github/workflows/viril-iw3-texture-index-tests.yml
       - scripts/iw3_gltf_material_probe.py
       - scripts/iw3_iwd_texture_inventory.py
-      - scripts/iw3_iwi_to_iwvt.py scripts/iw3_extract_private_iwds.py
+      - scripts/iw3_iwi_to_iwvt.py
       - scripts/iw3_extract_private_iwds.py
       - tests/test_viril_iw3_material_probe.py
       - tests/test_viril_iw3_iwd_texture_inventory.py
