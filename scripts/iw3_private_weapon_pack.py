@@ -43,15 +43,19 @@ def prepare(zipfile_path:Path, sources:Path, manifest:Path, dry_run=False):
         if ".." in Path(model).parts:raise ValueError("Path traversal in GLB")
         stem=Path(old).stem
         native="models/iw3/"+stem+".iwvm"
-        if native in outputs:raise ValueError("Duplicate native gun target")
+        # NZ:P searches its "nzp/" gamedir (baseDir/nzp/), not the
+        # extraction ZIP root. A root-level models/ entry passes ZIP
+        # existence tests but is completely invisible to COM_FOpenFile.
+        archive_name="nzp/"+native
+        if archive_name in outputs:raise ValueError("Duplicate native gun target")
         candidate=(sources/model).resolve()
         if not candidate.is_relative_to(sources.resolve()):
             raise ValueError("Weapon path escapes private input directory")
         if not candidate.is_file():
             raise ValueError(f"Missing privately supplied GLB: {model}")
         binary,info=convert(candidate,scale=scale)
-        outputs[native]=binary
-        evidence.append({"target":old,"native_mesh":native,"source_model":Path(model).stem,
+        outputs[archive_name]=binary
+        evidence.append({"target":old,"native_mesh":native,"archive_entry":archive_name,"source_model":Path(model).stem,
                          **info})
     if not dry_run:
         if not zipfile_path.exists():raise ValueError("NZP runtime asset archive missing")
