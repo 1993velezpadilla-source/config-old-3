@@ -8,6 +8,7 @@ on:
       - .github/workflows/viril-iw3-oat-original-asset-probe.yml
       - scripts/iw3_collect_original_fastfiles.py
       - scripts/iw3_match_oat_assets.py
+      - scripts/iw3_glb_to_iwvm.py
 permissions:
   contents: read
   actions: read
@@ -141,6 +142,38 @@ jobs:
           PY
           cat dist/iw3-asset-export-evidence.json
 
+      - name: Convert authentic COD4 viewmodels into portable Vril-native 3D mesh format
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' | tee dist/iw3-original-native-geometry-conversion.json
+          import json, pathlib, sys
+          sys.path.insert(0,"scripts")
+          from iw3_glb_to_iwvm import convert
+          base=pathlib.Path("/tmp/viril-iw3-licensed-original/converted")
+          names=sorted(p for p in base.rglob("*.glb")
+                       if "viewmodel" in p.name.lower() and "_lod0" in p.name.lower())
+          # Test up to 4 distinct first-person viewmodel geometry files.
+          # Any copyright-protected output bytes remain in memory, never uploaded.
+          result={"candidate_GLBS":len(names),"converted":0,"errors":[],"models":[]}
+          for model in names[:10]:
+              if result["converted"]>=4:
+                  break
+              try:
+                  mesh,meta=convert(model)
+                  assert mesh[:4]==b"IWVM" and meta["triangles"]>0
+                  result["converted"]+=1
+                  result["models"].append({"source":model.name,
+                                           "vertices":meta["vertices"],
+                                           "triangles":meta["triangles"],
+                                           "had_skin":meta["skin_meshes_not_animated"]>0})
+              except Exception as e:
+                  result["errors"].append(type(e).__name__+": "+str(e)[:140])
+          print(json.dumps(result,indent=2))
+          if not result["converted"]:
+              raise SystemExit("No authentic IW3 viewmodel could be converted")
+          PY
+
       - name: Match official CoD4 weapons to real OAT GLB and XAnim assets
         shell: bash
         run: |
@@ -166,6 +199,7 @@ jobs:
             dist/iw3-asset-type-inventory.json
             dist/iw3-asset-export-evidence.json
             dist/iw3-weapon-model-animation-match-report.json
+            dist/iw3-original-native-geometry-conversion.json
           if-no-files-found: warn
           retention-days: 14
       - name: Delete local copyrighted test materials
