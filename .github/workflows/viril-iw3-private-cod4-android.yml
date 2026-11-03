@@ -229,10 +229,12 @@ jobs:
             set -e
             adb install -r build/android-project/app/build/outputs/apk/debug/app-debug.apk
             adb logcat -c
-            python3 scripts/iw3_capture_live_viewmodel.py --out "$RUNNER_TEMP/viril-iw3-private/screenshots" --timeout 95 --tap-reload
+            python3 scripts/iw3_capture_live_viewmodel.py --out "$RUNNER_TEMP/viril-iw3-private/screenshots" --timeout 95 --tap-reload --capture-ads
             adb shell pidof com.xziel.viriliw3
             adb shell run-as com.xziel.viriliw3 cat files/nzp-runtime/.xziel-stage
             python3 scripts/iw3_synthetic_frame_qa.py "$RUNNER_TEMP/viril-iw3-private/screenshots/01-first-live-frame.png"
+            python3 scripts/iw3_synthetic_frame_qa.py "$RUNNER_TEMP/viril-iw3-private/screenshots/02a-live-ADS-held.png"
+            test -s "$RUNNER_TEMP/viril-iw3-private/screenshots/02b-live-HIP-return.png"
             test -s "$RUNNER_TEMP/viril-iw3-private/screenshots/03-fullmag-reload-rejected.png"
             test -s "$RUNNER_TEMP/viril-iw3-private/screenshots/04-after-fire.png"
             test -s "$RUNNER_TEMP/viril-iw3-private/screenshots/05-real-reload-source-moving.png"
@@ -241,6 +243,8 @@ jobs:
             adb logcat -d -s VIRIL_IW3:I '*:S' | tail -35
             grep -q 'IW3_NATIVE_MESH_DRAW submitted model=models/iw3/v_colt.iwvm' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             grep -q 'IW3_NATIVE_MESH_DRAW submitted model=models/iw3/v_colt.iwvm.*glerr=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            grep -q 'IW3_VM_MOUNT state=HIP camera_anchor=1' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            grep -q 'IW3_VM_MOUNT state=ADS camera_anchor=1' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             grep -q 'IW3_COLOR_TEXTURE loaded=models/iw3/v_colt.iwvt.*glerr=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             grep -q 'IW3_ORIGINAL_SKIN_DATA_LOADED file=models/iw3/v_colt.iwsk.*animated=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             grep -q 'IW3_ORIGINAL_XANIM_PREVIEW_LOADED file=models/iw3/v_colt.iwsf.*exact_graph=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
