@@ -82,13 +82,22 @@ static int iwsk_reload_input_weapon;
  * original Vril/NZ:P MDL rendering is unaffected and all values are editable. */
 static cvar_t iw3_vm_roll = {"iw3_vm_roll", "0"};
 static cvar_t iw3_vm_yaw = {"iw3_vm_yaw", "90"};
-static cvar_t iw3_vm_scale = {"iw3_vm_scale", "0.65"};
+static cvar_t iw3_vm_scale = {"iw3_vm_scale", "0.55"};
 /* Original OAT GLB meshes are centered at X ~0, behind Vril near clip.
  * 12 units moves the genuine gun in front of the FPS near plane. */
-static cvar_t iw3_vm_forward = {"iw3_vm_forward", "12"};
-static cvar_t iw3_vm_right = {"iw3_vm_right", "3"};
-static cvar_t iw3_vm_up = {"iw3_vm_up", "-2"};
+static cvar_t iw3_vm_forward = {"iw3_vm_forward", "16"};
+static cvar_t iw3_vm_right = {"iw3_vm_right", "2.3"};
+static cvar_t iw3_vm_up = {"iw3_vm_up", "-2.5"};
 /* Applies ONLY when a user-supplied original IWSF animation is present. */
+/* Optional genuine IW3 mesh only: smooth, independently bounded ADS framing.
+ * These defaults are experimental, not exact original Call of Duty ADS. */
+static cvar_t iw3_vm_ads_forward = {"iw3_vm_ads_forward", "21"};
+static cvar_t iw3_vm_ads_right = {"iw3_vm_ads_right", "0"};
+static cvar_t iw3_vm_ads_up = {"iw3_vm_ads_up", "-1"};
+static cvar_t iw3_vm_ads_scale = {"iw3_vm_ads_scale", "0.48"};
+static float iwvm_ads_blend;
+static float iwvm_ads_prev_time = -1.f;
+static int iwvm_logged_mount_state = -1;
 static cvar_t iw3_vm_anim_preview = {"iw3_vm_anim_preview", "1"};
 static cvar_t iw3_vm_anim_speed = {"iw3_vm_anim_speed", "1"};
 
@@ -100,6 +109,10 @@ void IW3_WeaponMesh_RegisterCvars(void)
     Cvar_RegisterVariable(&iw3_vm_forward);
     Cvar_RegisterVariable(&iw3_vm_right);
     Cvar_RegisterVariable(&iw3_vm_up);
+    Cvar_RegisterVariable(&iw3_vm_ads_forward);
+    Cvar_RegisterVariable(&iw3_vm_ads_right);
+    Cvar_RegisterVariable(&iw3_vm_ads_up);
+    Cvar_RegisterVariable(&iw3_vm_ads_scale);
     Cvar_RegisterVariable(&iw3_vm_anim_preview);
     Cvar_RegisterVariable(&iw3_vm_anim_speed);
 }
@@ -648,24 +661,63 @@ int IW3_WeaponMesh_Draw(entity_t *view)
     GLint old_texture = 0;
     const GLboolean texture_was_enabled = glIsEnabled(GL_TEXTURE_2D);
     glGetIntegerv(GL_TEXTURE_BINDING_2D, &old_texture);
+    /* Do not inherit the old Quake MDL viewmodel origin/zoom. That
+     * displacement puts the original IW3 gun/hands against the near plane
+     * during ADS. Anchor optional geometry at the actual camera and retain
+     * only the genuine WeaponDef deltas added to the bridge's view copy. */
+    entity_t mount = *view;
+    int axis;
+    float blend, forward, right, up, scale;
+    const float now = (float)cl.time;
+    const int aiming = (cl.stats[STAT_ZOOM] == 1 || cl.stats[STAT_ZOOM] == 2);
+    if (iwvm_ads_prev_time < 0.f || !isfinite(now) ||
+        now < iwvm_ads_prev_time) {
+        iwvm_ads_blend = 0.f;
+        iwvm_ads_prev_time = now;
+    }
+    {
+        const float dt = IWVM_Bounded(now-iwvm_ads_prev_time, 0.f, 0.08f, 0.f);
+        const float step = dt / 0.16f;
+        iwvm_ads_blend += aiming ?
+            fminf(step, 1.f-iwvm_ads_blend) :
+            -fminf(step, iwvm_ads_blend);
+        iwvm_ads_prev_time = now;
+    }
+    blend = IWVM_Bounded(iwvm_ads_blend, 0.f, 1.f, 0.f);
+    for (axis=0; axis<3; ++axis) {
+        mount.origin[axis] = r_refdef.vieworg[axis] +
+            (view->origin[axis]-cl.viewent.origin[axis]);
+        mount.angles[axis] = r_refdef.viewangles[axis] +
+            (view->angles[axis]-cl.viewent.angles[axis]);
+    }
+    forward = IWVM_Bounded(iw3_vm_forward.value, -40.f, 40.f, 16.f);
+    right = IWVM_Bounded(iw3_vm_right.value, -40.f, 40.f, 2.3f);
+    up = IWVM_Bounded(iw3_vm_up.value, -40.f, 40.f, -2.5f);
+    scale = IWVM_Bounded(iw3_vm_scale.value, 0.05f, 5.f, 0.55f);
+    forward += (IWVM_Bounded(iw3_vm_ads_forward.value, -40.f, 40.f, 21.f)-forward)*blend;
+    right += (IWVM_Bounded(iw3_vm_ads_right.value, -40.f, 40.f, 0.f)-right)*blend;
+    up += (IWVM_Bounded(iw3_vm_ads_up.value, -40.f, 40.f, -1.f)-up)*blend;
+    scale += (IWVM_Bounded(iw3_vm_ads_scale.value, 0.05f, 5.f, 0.48f)-scale)*blend;
     glPushMatrix();
-    R_RotateForEntity(view,view->scale);
-    /* Quake forward model basis: X forward, Y left, Z up. Keep controls
-     * specific to optional IW3 geometry; original NZ:P MDL unchanged. */
-    glTranslatef(
-        IWVM_Bounded(iw3_vm_forward.value, -40.f, 40.f, 0.f),
-        -IWVM_Bounded(iw3_vm_right.value, -40.f, 40.f, 0.f),
-        IWVM_Bounded(iw3_vm_up.value, -40.f, 40.f, 0.f));
+    R_RotateForEntity(&mount,mount.scale);
+    glTranslatef(forward,-right,up);
+#ifdef __ANDROID__
+    if (iwvm_logged_mount_state != aiming &&
+        (aiming ? blend > 0.98f : blend < 0.02f)) {
+        __android_log_print(ANDROID_LOG_INFO,"VIRIL_IW3",
+          "IW3_VM_MOUNT state=%s camera_anchor=1 blend=%.3f forward=%.2f right=%.2f up=%.2f scale=%.3f",
+          aiming ? "ADS" : "HIP", (double)blend, (double)forward,
+          (double)right, (double)up, (double)scale);
+        iwvm_logged_mount_state = aiming;
+    }
+#endif
     /* Source barrel originally points along -Y in the real Android USP
      * capture. Apply yaw before per-gun roll; never to legacy Quake MDL. */
     glRotatef(IWVM_Bounded(iw3_vm_yaw.value, -180.f, 180.f, 90.f),
               0.f, 0.f, 1.f);
     glRotatef(IWVM_Bounded(iw3_vm_roll.value, -180.f, 180.f, 0.f),
               1.f, 0.f, 0.f);
-    {
-        const float sc=IWVM_Bounded(iw3_vm_scale.value, 0.05f, 5.f, 1.f);
-        glScalef(sc, sc, sc);
-    }
+    glScalef(scale,scale,scale);
     glEnable(GL_DEPTH_TEST);
     if (iwvm_color_texture) {
         glEnable(GL_TEXTURE_2D);
