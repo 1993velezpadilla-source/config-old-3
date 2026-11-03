@@ -84,7 +84,7 @@ def dismiss_os_anr_dialog(image:Image.Image):
     return True
 
 
-def capture(output:Path,timeout:int=90,tap_reload:bool=False):
+def capture(output:Path,timeout:int=90,tap_reload:bool=False,capture_ads:bool=False):
     output.mkdir(parents=True,exist_ok=True)
     adb("shell","settings","put","secure","immersive_mode_confirmations",
         "confirmed",timeout=12,check=False)
@@ -127,6 +127,28 @@ def capture(output:Path,timeout:int=90,tap_reload:bool=False):
     adb("shell","input","swipe","1950","530","1670","535","250",timeout=12)
     time.sleep(1)
     screenshot(output/"02-live-look.png")
+    if capture_ads:
+        # The default dedicated ADS button is HOLD, not toggle. Taking a
+        # screencap after a tap tests HIP rather than ADS. Hold a genuine
+        # Android touchscreen pointer while separately capturing the frame.
+        with Image.open(first) as img:
+            w,h=img.size
+        ax,ay=int(w*.695),int(h*.575)
+        print(f"ANDROID_REAL_ADS_HOLD x={ax} y={ay} display={w}x{h}",flush=True)
+        cmd=["adb","shell","input","swipe",str(ax),str(ay),
+             str(ax),str(ay),"2200"]
+        hold=subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        try:
+            time.sleep(1.1)  # > 160 ms transition, while touch remains DOWN
+            if hold.poll() is not None:
+                raise RuntimeError("ADS touch was released before screenshot")
+            screenshot(output/"02a-live-ADS-held.png")
+        finally:
+            stdout,stderr=hold.communicate(timeout=10)
+            if hold.returncode:
+                raise RuntimeError(f"ADS hold failed: {stderr[-300:]!r}")
+        time.sleep(.35)
+        screenshot(output/"02b-live-HIP-return.png")
     if tap_reload:
         # v0.26 default normalized reload HUD center. Proof must come from
         # native input and vertex deformation logs, not just this screenshot.
@@ -158,5 +180,6 @@ if __name__=="__main__":
     parser.add_argument("--out",type=Path,required=True)
     parser.add_argument("--timeout",type=int,default=90)
     parser.add_argument("--tap-reload",action="store_true")
+    parser.add_argument("--capture-ads",action="store_true")
     a=parser.parse_args()
-    capture(a.out,a.timeout,a.tap_reload)
+    capture(a.out,a.timeout,a.tap_reload,a.capture_ads)
