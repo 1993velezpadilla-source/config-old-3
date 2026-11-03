@@ -1,0 +1,41 @@
+name: VIRIL IW3 original texture mapping unit tests (clean room)
+on:
+  push:
+    branches:
+      - feature/viril-iw3-native-weapon-bridge-20261102
+    paths:
+      - .github/workflows/viril-iw3-texture-index-tests.yml
+      - scripts/iw3_gltf_material_probe.py
+      - scripts/iw3_iwd_texture_inventory.py
+      - scripts/iw3_iwi_to_iwvt.py
+      - scripts/iw3_extract_private_iwds.py
+      - tests/test_viril_iw3_material_probe.py
+      - tests/test_viril_iw3_iwd_texture_inventory.py
+      - tests/test_viril_iw3_texture_transport.py
+      - tests/test_viril_iw3_extract_private_iwds.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/viril-iw3-native-weapon-bridge-20261102
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install DDS decoder dependency for texture tests
+        run: python3 -m pip install --quiet 'Pillow>=11,<13'
+      - name: Static check portable GLB + IWD original texture path resolvers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/iw3_gltf_material_probe.py scripts/iw3_iwd_texture_inventory.py scripts/iw3_iwi_to_iwvt.py
+          python3 -m unittest discover -s tests -p test_viril_iw3_material_probe.py -v
+          python3 -m unittest discover -s tests -p test_viril_iw3_iwd_texture_inventory.py -v
+          python3 -m unittest discover -s tests -p test_viril_iw3_texture_transport.py -v
+          python3 -m unittest discover -s tests -p test_viril_iw3_extract_private_iwds.py -v
+          echo "Texture namespace / DDS -> GLES RGBA path proven with synthetic assets; no COD4 bytes distributed."

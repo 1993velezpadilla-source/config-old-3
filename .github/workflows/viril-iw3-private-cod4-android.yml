@@ -1,0 +1,274 @@
+name: VIRIL IW3 actual COD4 gun private Android render probe
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/viril-iw3-native-weapon-bridge-20261102
+    paths:
+      - .github/workflows/viril-iw3-private-cod4-android.yml
+      - scripts/iw3_capture_live_viewmodel.py
+      - scripts/iw3_synthetic_frame_qa.py
+      - tests/test_viril_iw3_capture_overlay.py
+      - tests/test_viril_iw3_reload_trigger.py
+      - scripts/iw3_glb_to_iwsk.py
+      - scripts/iw3_xanim_to_iwsf.py
+      - tests/test_viril_iw3_source_motion_iwsf.py
+      - tests/test_viril_iw3_skin_transport.py
+      - android/jni/src/gl_iw3_weapon_mesh.c
+permissions:
+  contents: read
+concurrency:
+  group: viril-iw3-private-cod4-android-kvm-v2
+  cancel-in-progress: false
+jobs:
+  first-original-gun:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/viril-iw3-native-weapon-bridge-20261102
+      - name: Recover user's authentic original COD4 files in runner only
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          D="$RUNNER_TEMP/viril-iw3-private"
+          mkdir -p "$D/parts" "$D/oat" "$D/converted"
+          gh release download gofile-p2DdQHsz \
+            --repo 1993velezpadilla-source/ZOMBIES-2026 \
+            --pattern 'C4-Mocs.zip.part-*' --dir "$D/parts"
+          python3 scripts/iw3_collect_original_fastfiles.py "$D/parts" "$D/data" > "$D/manifest.json"
+          curl -fLsS --retry 4 \
+            https://github.com/Laupetin/OpenAssetTools/releases/download/v0.34.0/oat-linux.tar.gz \
+            -o "$D/oat.tar.gz"
+          tar -xf "$D/oat.tar.gz" -C "$D/oat"
+          chmod +x "$D/oat/Unlinker"
+          "$D/oat/Unlinker" --no-color --model-format glb \
+            --include-assets xmodel,weapon,xanim \
+            --output-folder "$D/converted" "$D/data/zone/spanish/common_mp.ff" \
+            > "$D/oat.log" 2>&1
+          python3 - "$D" <<'PY'
+          from pathlib import Path
+          import shutil,sys,json
+          root=Path(sys.argv[1])
+          models=list((root/"converted").rglob("*.glb"))
+          candidates=[p for p in models if p.stem.startswith("viewmodel_") and p.stem.endswith("_lod0")]
+          candidates.sort(key=lambda p:(0 if "usp" in p.name else 1 if "beretta" in p.name else 2,p.name))
+          if not candidates:raise SystemExit("Original CoD4 model list contains no weapon LOD0")
+          selected=candidates[0]
+          (root/"selected").mkdir(exist_ok=True)
+          shutil.copy2(selected,root/"selected"/selected.name)
+          mapping=[{"vril_viewmodel":"models/weapons/m1911/v_colt.mdl",
+                    "iw3_glb":selected.name,"scale":1.0}]
+          (root/"mapping.json").write_text(json.dumps(mapping))
+          print("Official COD4 3D selected:",selected.name,selected.stat().st_size,"bytes")
+          sys.path.insert(0,"scripts")
+          from iw3_bind_private_weapon import bind_weapon
+          pose=bind_weapon(root/"converted",selected.name,
+              "models/weapons/m1911/v_colt.mdl",root/"private_pose")
+          print("Original IW3 WeaponDef pose matched:",pose["matched"],
+                "numeric pose fields:",pose["numeric_pose_fields"])
+          from iw3_match_oat_assets import parse_fields
+          source_fields=parse_fields(root/"private_pose/current.weapon")
+          candidates={p.name.lower():p for p in (root/"converted").rglob("*")
+                      if p.is_file() and p.parent.name=="xanim"}
+          selected_reload=None
+          for k in ("reloadAnim","reloadEmptyAnim"):
+              val=source_fields.get(k)
+              if isinstance(val,str) and val.lower() in candidates:
+                  selected_reload=candidates[val.lower()]
+                  print("Original IW3 animation selected from WeaponDef:",k)
+                  break
+          if selected_reload is None:
+              raise SystemExit("Original COD4 USP reload XAnim not available; never substitute fire")
+          shutil.copy2(selected_reload,root/"selected/original_weapon_motion.xanim")
+          PY
+          GLB="$(find "$D/selected" -maxdepth 1 -type f -name '*.glb' | head -1)"
+          test -n "$GLB"
+          python3 scripts/iw3_extract_private_iwds.py \
+            --parts-dir "$D/parts" \
+            --selected-glb "$GLB" \
+            --temporary-output "$D/private-iwi"
+          rm -rf "$D/parts" "$D/data" "$D/converted" "$D/oat.tar.gz"
+          CONVERTER="$(find "$D/oat" -maxdepth 3 -type f -iname 'ImageConverter*' | head -1)"
+          if [ -z "$CONVERTER" ]; then
+            echo "OAT release does not contain expected official ImageConverter:"
+            find "$D/oat" -maxdepth 3 -type f -printf '%P\n' | head -35
+            exit 1
+          fi
+          chmod +x "$CONVERTER"
+          echo "XZIEL_IW3_OAT_IMAGE_CONVERTER=$CONVERTER" >> "$GITHUB_ENV"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Enable OpenAssetTools 32-bit native image decoder dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libc6-i386 lib32stdc++6 lib32gcc-s1
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android native SDK and build private first 3D gun
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" \
+            "build-tools;35.0.0" "ndk;27.2.12479018"
+          D="$RUNNER_TEMP/viril-iw3-private"
+          XZIEL_IW3_WEAPON_DEFS_DIR="$D/private_pose" \
+          XZIEL_IW3_WEAPON_MODEL_MAP="$D/private_pose/pose_mapping.json" \
+          bash scripts/prepare_viril_iw3_android.sh
+          python3 scripts/iw3_private_weapon_pack.py \
+            --game-data-zip build/android-project/app/src/main/assets/nzp-data.zip \
+            --glb-dir "$D/selected" \
+            --manifest "$D/mapping.json" > "$D/private-geometry-report.json"
+          python3 - "$D/private-geometry-report.json" <<'PY'
+          import json,sys
+          data=json.load(open(sys.argv[1]))
+          for model in data["entries"]:
+              bounds=model["bounds_quake_units"]
+              print("IW3_ORIGINAL_3D_BOUNDS", model["target"],
+                    "min=",bounds["min"],"max=",bounds["max"])
+          PY
+          python3 -m pip install --quiet 'Pillow>=11,<13'
+          python3 -m unittest discover -s tests -p test_viril_iw3_capture_overlay.py -v
+          python3 -m unittest discover -s tests -p test_viril_iw3_reload_trigger.py -v
+          python3 - "$D" <<'PY'
+          import sys,zipfile,json
+          from pathlib import Path
+          sys.path.insert(0,"scripts")
+          from iw3_iwi_to_iwvt import first_color_iwi,convert_extracted_private_color
+          root=Path(sys.argv[1])
+          glb=next((root/"selected").glob("*.glb"))
+          original=root/"private-iwi"/first_color_iwi(glb)
+          assert original.is_file(), "Authentic first COD4 USP color not found in IWDs"
+          archive=Path("build/android-project/app/src/main/assets/nzp-data.zip")
+          result=convert_extracted_private_color(glb,original,
+              Path(__import__("os").environ["XZIEL_IW3_OAT_IMAGE_CONVERTER"]),archive,"v_colt")
+          with zipfile.ZipFile(archive) as z:
+              data=z.read("nzp/models/iw3/v_colt.iwvt")
+              assert data[:4]==b"IWVT" and len(data)>16
+          print("GENUINE COD4 IWD -> OAT IWI -> DDS -> RGBA -> NATIVE GLES IWVT PASSED")
+          print("Genuine original USPs color pixels bytes:",result["texture_RGBA_bytes"],
+                "material slots:",result["original_source_materials"])
+          PY
+          python3 -m unittest discover -s tests -p test_viril_iw3_skin_transport.py -v
+          python3 - "$D" <<'PY'
+          import hashlib,sys,zipfile,json
+          from pathlib import Path
+          sys.path.insert(0,"scripts")
+          from iw3_glb_to_iwsk import export,HEADER
+          root=Path(sys.argv[1])
+          original=next((root/"selected").glob("*.glb"))
+          skin,summary=export(original)
+          assert summary["original_glb_joints"]>0
+          assert summary["original_rigged_vertices"]>0
+          archive=Path("build/android-project/app/src/main/assets/nzp-data.zip")
+          with zipfile.ZipFile(archive,"a",compression=zipfile.ZIP_DEFLATED) as z:
+              assert "nzp/models/iw3/v_colt.iwsk" not in z.namelist()
+              z.writestr("nzp/models/iw3/v_colt.iwsk",skin)
+          archive.with_suffix(".version").write_text(
+              hashlib.sha256(archive.read_bytes()).hexdigest()+"\n",encoding="ascii")
+          print("Original COD4 IWSK source joint and skin-weight payload private:",
+                summary["original_glb_joints"],"bones,",
+                summary["original_rigged_vertices"],"weighted vertices")
+          PY
+          python3 -m unittest discover -s tests -p test_viril_iw3_source_motion_iwsf.py -v
+          python3 - "$D" <<'PY'
+          from pathlib import Path
+          import json,hashlib,sys,zipfile
+          sys.path.insert(0,"scripts")
+          from iw3_xanim_to_iwsf import pack_original_preview
+          root=Path(sys.argv[1])
+          gun=next((root/"selected").glob("*.glb"))
+          anim=root/"selected/original_weapon_motion.xanim"
+          frames,stats=pack_original_preview(gun,anim)
+          assert stats["joints_animated_from_original_keyframes"]>=1
+          archive=Path("build/android-project/app/src/main/assets/nzp-data.zip")
+          with zipfile.ZipFile(archive,"a",compression=zipfile.ZIP_DEFLATED) as z:
+              assert "nzp/models/iw3/v_colt.iwsf" not in z.namelist()
+              z.writestr("nzp/models/iw3/v_colt.iwsf",frames)
+          archive.with_suffix(".version").write_text(
+              hashlib.sha256(archive.read_bytes()).hexdigest()+"\\n",encoding="ascii")
+          print("GENUINE COD4 RELOAD/BONE SOURCE-XANIM PRIVATELY BAKED",json.dumps(stats,sort_keys=True))
+          PY
+          python3 - <<'PY'
+          import zipfile
+          with zipfile.ZipFile("build/android-project/app/src/main/assets/nzp-data.zip") as z:
+              iwvm=z.read("nzp/models/iw3/v_colt.iwvm")
+              assert iwvm.startswith(b"IWVM") and len(iwvm)>100
+              assert z.read("nzp/models/iw3/v_colt.iwvt")[:4] == b"IWVT"
+              assert z.read("nzp/models/iw3/v_colt.iwsk")[:4] == b"IWSK"
+              assert z.read("nzp/models/iw3/v_colt.iwsf")[:4] == b"IWSF"
+              print("REAL COD4 GUN AND FIRST ORIGINAL BASE COLOR INCLUDED IN TEMPORARY ANDROID BUILD (NOT PUBLISHED).")
+          PY
+          (cd build/android-project && ./gradlew --no-daemon :app:assembleDebug)
+          test -s build/android-project/app/build/outputs/apk/debug/app-debug.apk
+      - name: Enable KVM hardware acceleration for Android emulator
+        run: |
+          if test -e /dev/kvm; then sudo chmod 666 /dev/kvm; fi
+          ls -l /dev/kvm || true
+      - name: Android GLES native original COD4 first-person viewmodel test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 3072M
+          disk-size: 9000M
+          disable-animations: true
+          emulator-options: -no-snapshot-load -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            set -e
+            adb install -r build/android-project/app/build/outputs/apk/debug/app-debug.apk
+            adb logcat -c
+            python3 scripts/iw3_capture_live_viewmodel.py --out "$RUNNER_TEMP/viril-iw3-private/screenshots" --timeout 95 --tap-reload --capture-ads
+            adb shell pidof com.xziel.viriliw3
+            adb shell run-as com.xziel.viriliw3 cat files/nzp-runtime/.xziel-stage
+            python3 scripts/iw3_synthetic_frame_qa.py "$RUNNER_TEMP/viril-iw3-private/screenshots/01-first-live-frame.png"
+            python3 scripts/iw3_synthetic_frame_qa.py "$RUNNER_TEMP/viril-iw3-private/screenshots/02a-live-ADS-held.png"
+            test -s "$RUNNER_TEMP/viril-iw3-private/screenshots/02b-live-HIP-return.png"
+            test -s "$RUNNER_TEMP/viril-iw3-private/screenshots/03-fullmag-reload-rejected.png"
+            test -s "$RUNNER_TEMP/viril-iw3-private/screenshots/04-after-fire.png"
+            test -s "$RUNNER_TEMP/viril-iw3-private/screenshots/05-real-reload-source-moving.png"
+            test -s "$RUNNER_TEMP/viril-iw3-private/screenshots/06-real-reload-finished.png"
+            adb logcat -d -v brief > "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            adb logcat -d -s VIRIL_IW3:I '*:S' | tail -35
+            grep -q 'IW3_NATIVE_MESH_DRAW submitted model=models/iw3/v_colt.iwvm' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            grep -q 'IW3_NATIVE_MESH_DRAW submitted model=models/iw3/v_colt.iwvm.*glerr=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            grep -q 'IW3_VM_MOUNT state=HIP camera_anchor=1' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            grep -q 'IW3_VM_MOUNT state=ADS camera_anchor=1' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            grep -q 'IW3_COLOR_TEXTURE loaded=models/iw3/v_colt.iwvt.*glerr=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            grep -q 'IW3_ORIGINAL_SKIN_DATA_LOADED file=models/iw3/v_colt.iwsk.*animated=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            grep -q 'IW3_ORIGINAL_XANIM_PREVIEW_LOADED file=models/iw3/v_colt.iwsf.*exact_graph=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            grep -q 'IW3_ORIGINAL_XANIM_RELOAD_INPUT source=native_plus_reload.*mag=8 reserve=32' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            grep -q 'IW3_ORIGINAL_XANIM_RELOAD_REJECTED reason=no_server_frame_ack' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            grep -q 'IW3_ORIGINAL_XANIM_RELOAD_INPUT source=native_plus_reload.*mag=7 reserve=32' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            grep -q 'IW3_ORIGINAL_XANIM_RELOAD_ACK source=server_weaponframe' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            grep -q 'IW3_ORIGINAL_XANIM_RELOAD_TRIGGERED frames=40 fps=24.000 loop=0 exact_official=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            grep -q 'IW3_ORIGINAL_XANIM_SKELETAL_FRAME rendered=1 source=original_IW3.*exact_official=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            grep -q 'IW3_ORIGINAL_XANIM_SKIN_DEFORMED frame=.*vertices=[1-9].*exact_official=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            grep -q 'IW3_ORIGINAL_XANIM_RELOAD_COMPLETE restored=bind_pose loop=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            grep -q 'IW3_MESH_BOUNDS model=models/iw3/v_colt.iwvm' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            echo 'GREEN: ORIGINAL COD4 USP GUN PLUS ORIGINAL IWI COLOR TEXTURE SUBMITTED WITH GLES_NO_ERROR (private screenshot not published)'
+      - name: Preserve original COD4 USP screenshots only for user visual review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: VIRIL-IW3-COD4-USP-REAL-ANDROID-SCREENSHOTS
+          path: ${{ runner.temp }}/viril-iw3-private/screenshots/*.png
+          if-no-files-found: warn
+          retention-days: 14
+          compression-level: 6
+      - name: Delete ALL extracted game data and private APK without publishing
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/viril-iw3-private" build
+          echo "All original CoD4 game data and private APK destroyed. No redistribution."

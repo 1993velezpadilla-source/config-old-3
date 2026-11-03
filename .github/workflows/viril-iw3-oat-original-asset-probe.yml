@@ -1,0 +1,446 @@
+name: VIRIL IW3 original CoD4 XModel-XAnim extraction probe
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/viril-iw3-native-weapon-bridge-20261102
+    paths:
+      - .github/workflows/viril-iw3-oat-original-asset-probe.yml
+      - scripts/iw3_collect_original_fastfiles.py
+      - scripts/iw3_match_oat_assets.py
+      - scripts/iw3_glb_to_iwvm.py
+      - scripts/iw3_xanim_header_probe.py
+      - scripts/iw3_xanim_bones_v17.py
+      - scripts/iw3_gltf_material_probe.py
+      - scripts/iw3_glb_skin_probe.py
+      - scripts/iw3_glb_to_iwsk.py
+      - scripts/iw3_xanim_pose_sample.py
+      - scripts/iw3_xanim_to_iwsf.py
+      - tests/test_viril_iw3_source_motion_iwsf.py
+      - tests/test_viril_iw3_xanim_pose_sample.py
+      - tests/test_viril_iw3_skin_transport.py
+      - scripts/iw3_match_skeleton_animation.py
+      - tests/test_viril_iw3_glb_skin_probe.py
+      - scripts/iw3_extract_private_iwds.py
+      - scripts/iw3_iwd_texture_inventory.py
+      - tests/test_viril_iw3_extract_private_iwds.py
+      - tests/test_viril_iw3_xanim_header.py
+      - tests/test_viril_iw3_xanim_bones_v17.py
+      - tests/test_viril_iw3_material_probe.py
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: viril-iw3-oat-model-probe
+  cancel-in-progress: false
+jobs:
+  genuine-cod4-asset-probe:
+    name: Verify original COD4 IW3 .ff XModel/XAnim/WeaponDef reader; export no game assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/viril-iw3-native-weapon-bridge-20261102
+      - name: Confirm known original CoD4 corpus and download only owner's original 7 GB source data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/viril-iw3-licensed-original/parts
+          gh release download gofile-p2DdQHsz \
+            --repo 1993velezpadilla-source/ZOMBIES-2026 \
+            --pattern 'C4-Mocs.zip.part-*' \
+            --dir /tmp/viril-iw3-licensed-original/parts
+          test "$(find /tmp/viril-iw3-licensed-original/parts -name 'C4-Mocs.zip.part-*' | wc -l)" -eq 4
+          python3 scripts/iw3_collect_original_fastfiles.py \
+            /tmp/viril-iw3-licensed-original/parts \
+            /tmp/viril-iw3-licensed-original/data | tee /tmp/iw3-original-source-manifest.json
+          test -s /tmp/viril-iw3-licensed-original/data/zone/spanish/common.ff
+          test -s /tmp/viril-iw3-licensed-original/data/zone/spanish/code_post_gfx.ff
+          mkdir -p dist
+          cp /tmp/iw3-original-source-manifest.json dist/original-archive-metadata.json
+          # Keep OAT tools and raw original files on the ephemeral runner only.
+
+      - name: Get OpenAssetTools 0.34.0 original IW3 asset reader
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libc6-i386 lib32stdc++6 lib32gcc-s1
+          mkdir -p /tmp/oat-viril-iw3
+          curl -fL --retry 5 --retry-delay 3 \
+            https://github.com/Laupetin/OpenAssetTools/releases/download/v0.34.0/oat-linux.tar.gz \
+            -o /tmp/oat-linux-v034.tar.gz
+          tar -xzf /tmp/oat-linux-v034.tar.gz -C /tmp/oat-viril-iw3
+          find /tmp/oat-viril-iw3 -type f -iname '*unlinker*' -print
+          UNLINKER="$(find /tmp/oat-viril-iw3 -type f -name 'Unlinker' | head -1)"
+          if [[ -z "$UNLINKER" ]]; then
+            echo "No official OpenAssetTools Unlinker binary" >&2
+            exit 1
+          fi
+          chmod +x "$UNLINKER"
+          echo "IW3_OAT_UNLINKER=$UNLINKER" >> "$GITHUB_ENV"
+          "$UNLINKER" --version
+
+      - name: List actual CoD4 in-fastfile weapon, XModel and XAnim entries
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=/tmp/viril-iw3-licensed-original/data
+          for zone in common common_mp code_post_gfx code_post_gfx_mp mp_crash; do
+            echo "Reading IW3: $zone.ff (temporary, original copyrighted game data)"
+            timeout 260 "$IW3_OAT_UNLINKER" --list --no-color \
+              "$BASE/zone/spanish/$zone.ff" \
+              > "/tmp/iw3-$zone-list.txt" 2>&1
+            test -s "/tmp/iw3-$zone-list.txt"
+          done
+          python3 - <<'PY' > dist/iw3-asset-type-inventory.json
+          import json, pathlib, re
+          zones={}
+          for zone in ("common","common_mp","code_post_gfx","code_post_gfx_mp","mp_crash"):
+              contents=pathlib.Path(f"/tmp/iw3-{zone}-list.txt").read_text(errors="replace")
+              found={}
+              for label in ("xmodel","xanim","weapon","material","image"):
+                  found[label]=len(re.findall(label,contents,re.I))
+              zones[zone]={"list_lines":len(contents.splitlines()),"type_mentions":found}
+          print(json.dumps({"engine":"IW3","source":"user-stored original COD4 fastfiles",
+                            "zone_metadata":zones,"models_exported":False},indent=2))
+          PY
+          cat dist/iw3-asset-type-inventory.json
+
+      - name: Export available actual IW3 weapon models as GLB and native animations privately
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=/tmp/viril-iw3-licensed-original/data
+          OUT=/tmp/viril-iw3-licensed-original/converted
+          mkdir -p "$OUT"
+          # OAT IW3 asset names are xmodel,xanim,weapon (GameIW3.cpp).
+          # Dumps remain private. NEVER publish or cache copyrighted game data.
+          for zone in common common_mp code_post_gfx code_post_gfx_mp mp_crash; do
+            mkdir -p "$OUT/$zone"
+            timeout 350 "$IW3_OAT_UNLINKER" \
+              --no-color --model-format glb \
+              --include-assets xmodel,xanim,weapon,image,material \
+              --output-folder "$OUT/$zone" \
+              "$BASE/zone/spanish/$zone.ff" \
+              > "/tmp/iw3-private-$zone-oat-export.log" 2>&1
+          done
+          python3 - <<'PY' > dist/iw3-asset-export-evidence.json
+          from pathlib import Path
+          import json
+          root=Path("/tmp/viril-iw3-licensed-original/converted")
+          result={}
+          for ext in (".glb",".gltf",".weapon",".xanim",".json"):
+              files=list(root.rglob("*"+ext))
+              result[ext]={"count":len(files),"bytes":sum(p.stat().st_size for p in files)}
+          weapon_files=[p for p in root.rglob("*") if p.is_file()
+                        and "weapons" in p.parts and not p.suffix]
+          glb_models=[p for p in root.rglob("*.glb")]
+          glb_viewmodels=[p for p in glb_models if "viewmodel" in p.name.lower()
+                          or p.name.lower().startswith("v_")]
+          anim_json=[p for p in root.rglob("*.json") if "anim" in str(p).lower()]
+          from collections import Counter
+          folder_counts=dict(Counter(p.parent.name for p in root.rglob("*") if p.is_file()).most_common(20))
+          zone_glb_counts={zone:len(list((root/zone).rglob("*.glb"))) for zone
+                           in ("common","common_mp","code_post_gfx","code_post_gfx_mp","mp_crash")}
+          details={"extensionless_iw3_weapon_defs":len(weapon_files),
+                   "viewmodel_glb_files":len(glb_viewmodels),
+                   "model_files_per_zone":zone_glb_counts,
+                   "top_output_folders":folder_counts,
+                   "xanim_json_files":len(anim_json),
+                   "weapon_definitions_named_example":[p.name for p in sorted(weapon_files)[:8]]}
+          print(json.dumps({"source":"COD4 IW3 global+MP+map .ff files",
+                            "local_export_types":result,
+                            "source_asset_details":details,
+                            "copyrighted_files_uploaded":False,
+                            "rendered_by_android_vril":False},indent=2))
+          PY
+          cat dist/iw3-asset-export-evidence.json
+
+      - name: Convert authentic COD4 viewmodels into portable Vril-native 3D mesh format
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' | tee dist/iw3-original-native-geometry-conversion.json
+          import json, pathlib, sys
+          sys.path.insert(0,"scripts")
+          from iw3_glb_to_iwvm import convert
+          base=pathlib.Path("/tmp/viril-iw3-licensed-original/converted")
+          names=sorted(p for p in base.rglob("*.glb")
+                       if "viewmodel" in p.name.lower() and "_lod0" in p.name.lower())
+          # Test up to 4 distinct first-person viewmodel geometry files.
+          # Any copyright-protected output bytes remain in memory, never uploaded.
+          result={"candidate_GLBS":len(names),"converted":0,"errors":[],"models":[]}
+          for model in names[:10]:
+              if result["converted"]>=4:
+                  break
+              try:
+                  mesh,meta=convert(model)
+                  assert mesh[:4]==b"IWVM" and meta["triangles"]>0
+                  result["converted"]+=1
+                  result["models"].append({"source":model.name,
+                                           "vertices":meta["vertices"],
+                                           "triangles":meta["triangles"],
+                                           "had_skin":meta["skin_meshes_not_animated"]>0})
+              except Exception as e:
+                  result["errors"].append(type(e).__name__+": "+str(e)[:140])
+          print(json.dumps(result,indent=2))
+          if not result["converted"]:
+              raise SystemExit("No authentic IW3 viewmodel could be converted")
+          PY
+
+      - name: Validate true IW3 XAnim v17 binary track headers and original reload/fire families
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p test_viril_iw3_xanim_header.py -v
+          python3 scripts/iw3_xanim_header_probe.py \
+            /tmp/viril-iw3-licensed-original/converted \
+            | tee dist/iw3-xanim-v17-structure-report.json
+          python3 - <<'PY'
+          import json
+          r=json.load(open("dist/iw3-xanim-v17-structure-report.json"))
+          assert r["files_examined"] > 100, "No real CoD4 XAnim files extracted"
+          assert r["totals"]["valid_compiled_iw3_v17"] > 100, "Original CoD4 v17 parser failed"
+          print("Original COD4 XAnim v17 header evidence is real; skeletal playback NOT claimed.")
+          PY
+
+      - name: Decode real original CoD4 per-bone animation keyframes and notifications
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p test_viril_iw3_xanim_bones_v17.py -v
+          python3 scripts/iw3_xanim_bones_v17.py \
+            /tmp/viril-iw3-licensed-original/converted \
+            | tee dist/iw3-xanim-v17-decoded-bones.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open("dist/iw3-xanim-v17-decoded-bones.json"))
+          if d["decoded_all_bones_and_root_delta"] < 2000:
+              raise SystemExit("Did not decode >=2000 real CoD4 bone+root delta animations")
+          print("Decoded actual COD4 per-bone + original root-delta XAnim keyframes/notifies in temporary runner only.")
+          PY
+
+      - name: Diagnose original OAT glTF material to DDS texture links
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p test_viril_iw3_material_probe.py -v
+          python3 - <<'PY' | tee dist/iw3-original-material-link-evidence.json
+          import json,sys
+          from pathlib import Path
+          sys.path.insert(0,"scripts")
+          from iw3_gltf_material_probe import probe
+          root=Path("/tmp/viril-iw3-licensed-original/converted")
+          files=sorted(p for p in root.rglob("*.glb") if "viewmodel" in p.name and "_lod0" in p.name)
+          sample=[probe(p,root) for p in files[:12]]
+          agg={"models_examined":len(sample),"material_total":sum(r["glb_materials"] for r in sample),
+            "original_dds_links":sum(r["statistics"].get("valid_original_material_uri",0) for r in sample),
+            "original_dds_present":sum(r["statistics"].get("original_texture_file_present",0) for r in sample),
+            "original_dds_missing":sum(r["statistics"].get("texture_file_missing",0) for r in sample),
+            "original_images_or_models_uploaded":False,
+            "runtime_original_material_textures_implemented":False}
+          print(json.dumps(agg,indent=2))
+          PY
+
+      - name: Resolve actual original COD4 USP material IWI files in user IWD archives (temporary)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p test_viril_iw3_extract_private_iwds.py -v
+          GLB="$(find /tmp/viril-iw3-licensed-original/converted -type f -name 'viewmodel_usp*_lod0.glb' | head -1)"
+          test -n "$GLB"
+          python3 scripts/iw3_extract_private_iwds.py \
+            --parts-dir /tmp/viril-iw3-licensed-original/parts \
+            --selected-glb "$GLB" \
+            --temporary-output /tmp/viril-iw3-licensed-original/original-iwi-assets \
+            | tee dist/iw3-usp-iwd-image-match-counts.json
+          python3 - <<'PY'
+          import json
+          a=json.load(open('dist/iw3-usp-iwd-image-match-counts.json'))
+          print('Original user-owned original IWD material files found:',a["original_material_iwi_found"])
+          PY
+          rm -rf /tmp/viril-iw3-licensed-original/original-iwi-assets
+
+      - name: Audit real COD4 original weapon skin joints and per-vertex weights
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p test_viril_iw3_glb_skin_probe.py -v
+          python3 scripts/iw3_glb_skin_probe.py \
+            /tmp/viril-iw3-licensed-original/converted --max-models 120 \
+            | tee dist/iw3-original-skeletal-rig-capability.json
+          python3 - <<'PY'
+          import json
+          a=json.load(open("dist/iw3-original-skeletal-rig-capability.json"))
+          assert a["examined"]>=10
+          print("Genuine original IW3 glTF rig model count:",a["aggregate"].get("usable_skin_models",0))
+          print("No skeletal animation playback claimed.")
+          PY
+
+      - name: Check genuine COD4 USP original bone tracks against original XAnim names
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/iw3_match_skeleton_animation.py
+          python3 - <<'PY' | tee dist/iw3-usp-real-skin-animation-join.json
+          import sys,json
+          from pathlib import Path
+          sys.path.insert(0,"scripts")
+          from iw3_bind_private_weapon import bind_weapon
+          from iw3_match_skeleton_animation import probe
+          root=Path("/tmp/viril-iw3-licensed-original/converted")
+          models=sorted(root.rglob("viewmodel_usp*_lod0.glb"))
+          if not models:raise SystemExit("No original USP GLB extracted")
+          chosen=models[0]
+          private=Path("/tmp/viril-iw3-licensed-original/original-bone-join")
+          result=bind_weapon(root,chosen.name,"models/weapons/m1911/v_colt.mdl",private)
+          report=probe(chosen,private/"current.weapon",root)
+          print(json.dumps(report,indent=2))
+          if report["original_gun_skeleton_joint_count"]==0:
+              raise SystemExit("Original CoD4 USP GLB was stripped of its skeleton")
+          PY
+          rm -rf /tmp/viril-iw3-licensed-original/original-bone-join
+
+      - name: Validate authentic COD4 USP vertex skin transport, no source files uploaded
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p test_viril_iw3_skin_transport.py -v
+          python3 - <<'PY' | tee dist/iw3-usp-skeleton-binary-transport-counts.json
+          import json,sys
+          from pathlib import Path
+          sys.path.insert(0,"scripts")
+          from iw3_glb_to_iwsk import export,HEADER
+          root=Path("/tmp/viril-iw3-licensed-original/converted")
+          glbs=sorted(root.rglob("viewmodel_usp*_lod0.glb"))
+          assert glbs
+          binary,summary=export(glbs[0])
+          assert HEADER.unpack_from(binary)[2]==summary["native_viewmodel_vertex_count"]
+          assert summary["original_glb_joints"]>0
+          print(json.dumps(summary,indent=2))
+          print("Original COD4 USP skeleton/weights validated entirely in RAM; no binary uploaded")
+          PY
+
+      - name: Sample original COD4 USP reload ADS and fire bone motion from real XAnim
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p test_viril_iw3_xanim_pose_sample.py -v
+          python3 - <<'PY' | tee dist/iw3-usp-source-keyframe-motion-report.json
+          import json,sys
+          from pathlib import Path
+          sys.path.insert(0,"scripts")
+          from iw3_bind_private_weapon import bind_weapon
+          from iw3_match_oat_assets import parse_fields
+          from iw3_xanim_bones_v17 import decode
+          from iw3_xanim_pose_sample import source_animation_pose
+          root=Path("/tmp/viril-iw3-licensed-original/converted")
+          glb=sorted(root.rglob("viewmodel_usp*_lod0.glb"))[0]
+          folder=Path("/tmp/viril-iw3-licensed-original/private-motion-probe")
+          bind_weapon(root,glb.name,"models/weapons/m1911/v_colt.mdl",folder)
+          defs=parse_fields(folder/"current.weapon")
+          all_anims={p.name.lower():p for p in root.rglob("*") if p.is_file() and p.parent.name=="xanim"}
+          count=0; rotated=0; moved=0
+          kinds={}
+          for label in ("reloadAnim","reloadEmptyAnim","fireAnim","adsDownAnim","adsUpAnim"):
+              value=defs.get(label)
+              if not value:continue
+              path=all_anims.get(value.lower())
+              if path is None:continue
+              anim=decode(path)
+              a=source_animation_pose(anim,0)["bones"]
+              b=source_animation_pose(anim,max(1,anim["frames"]//2))["bones"]
+              count+=1
+              kinds[label]=True
+              rotated+=sum(x["source_quaternion"]!=y["source_quaternion"] for x,y in zip(a,b))
+              moved+=sum(x["source_translation"]!=y["source_translation"] for x,y in zip(a,b))
+          assert count>=2, "Cannot evaluate genuine original CoD4 gun motion"
+          print(json.dumps({"original_animation_samples":count,
+                "bone_rotation_tracks_moving":rotated,
+                "bone_translation_tracks_moving":moved,
+                "original_reload_frame_evaluation":bool(kinds.get("reloadAnim") or kinds.get("reloadEmptyAnim")),
+                "original_source_fire_frame_evaluation":bool(kinds.get("fireAnim")),
+                "original_pose_bytes_uploaded":False,
+                "native_runtime_skeletal_playback":False},indent=2))
+          PY
+          rm -rf /tmp/viril-iw3-licensed-original/private-motion-probe
+
+      - name: Verify genuine original COD4 USP reload XAnim to native animated skin frame preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p test_viril_iw3_source_motion_iwsf.py -v
+          python3 - <<'PY' | tee dist/iw3-original-usp-skeletal-preview-proof.json
+          import json,sys
+          from pathlib import Path
+          sys.path.insert(0,"scripts")
+          from iw3_bind_private_weapon import bind_weapon
+          from iw3_match_oat_assets import parse_fields
+          from iw3_xanim_to_iwsf import pack_original_preview,FRAME_HEADER
+          root=Path("/tmp/viril-iw3-licensed-original/converted")
+          gun=sorted(root.rglob("viewmodel_usp*_lod0.glb"))[0]
+          out=Path("/tmp/viril-iw3-licensed-original/original-motion-private")
+          bind_weapon(root,gun.name,"models/weapons/m1911/v_colt.mdl",out)
+          fields=parse_fields(out/"current.weapon")
+          files={p.name.lower():p for p in root.rglob("*")
+                 if p.is_file() and p.parent.name=="xanim"}
+          for name in ("reloadAnim","reloadEmptyAnim","fireAnim"):
+              wanted=fields.get(name,"").lower()
+              if wanted in files:
+                  clip=files[wanted]
+                  break
+          else:raise RuntimeError("No real USP XAnim reload/fire reference")
+          matrices,counts=pack_original_preview(gun,clip)
+          assert FRAME_HEADER.unpack_from(matrices)[2]>2
+          assert counts["joints_animated_from_original_keyframes"]>0
+          print(json.dumps(counts,indent=2))
+          PY
+          rm -rf /tmp/viril-iw3-licensed-original/original-motion-private
+
+      - name: Match official CoD4 weapons to real OAT GLB and XAnim assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/iw3_match_oat_assets.py \
+            /tmp/viril-iw3-licensed-original/converted \
+            | tee dist/iw3-weapon-model-animation-match-report.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open("dist/iw3-weapon-model-animation-match-report.json"))
+          if d["weapon_definitions"] < 10:
+              raise SystemExit("OAT did not extract genuine CoD4 weapon definitions")
+          print("Real original IW3 WeaponDef extraction verified")
+          PY
+
+      - name: Upload ONLY anonymized counts / no game models or animation assets
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: VIRIL-IW3-ORIGINAL-WEAPON-ASSET-COUNTS-ONLY
+          path: |
+            dist/original-archive-metadata.json
+            dist/iw3-asset-type-inventory.json
+            dist/iw3-asset-export-evidence.json
+            dist/iw3-weapon-model-animation-match-report.json
+            dist/iw3-original-native-geometry-conversion.json
+            dist/iw3-xanim-v17-structure-report.json
+            dist/iw3-xanim-v17-decoded-bones.json
+            dist/iw3-original-material-link-evidence.json
+            dist/iw3-original-skeletal-rig-capability.json
+            dist/iw3-usp-skeleton-binary-transport-counts.json
+            dist/iw3-usp-source-keyframe-motion-report.json
+            dist/iw3-original-usp-skeletal-preview-proof.json
+            dist/iw3-usp-real-skin-animation-join.json
+            dist/iw3-usp-iwd-image-match-counts.json
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Delete local copyrighted test materials
+        if: always()
+        shell: bash
+        run: |
+          rm -rf /tmp/viril-iw3-licensed-original /tmp/oat-viril-iw3 /tmp/oat-linux-v034.tar.gz
+          echo "Original COD4 models, animations and fastfiles were not published."

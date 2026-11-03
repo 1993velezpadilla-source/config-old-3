@@ -1,0 +1,161 @@
+name: VIRIL IW3 hybrid Android native weapon bridge
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/viril-iw3-native-weapon-bridge-20261102
+    paths:
+      - .github/workflows/viril-iw3-weapon-bridge-android.yml
+      - android/jni/src/iw3_weapon_pose.c
+      - android/jni/src/iw3_weapon_pose.h
+      - android/jni/src/gl_iw3_weapon_mesh.c
+      - android/jni/src/iw3_weapon_profiles_generated.h
+      - scripts/patch_viril_iw3_weapon_pose.py
+      - scripts/prepare_viril_iw3_android.sh
+      - scripts/iw3_weapon_profiles.py
+      - scripts/iw3_glb_to_iwvm.py
+      - scripts/iw3_private_weapon_pack.py
+      - scripts/iw3_bind_private_weapon.py
+      - scripts/iw3_match_oat_assets.py
+      - tests/iw3_pose_host.c
+      - tests/test_viril_iw3_weapon_pose.py
+      - tests/test_viril_iw3_glb_converter.py
+      - tests/test_viril_iw3_original_weapon_binding.py
+      - tests/test_viril_iw3_private_asset_refresh.py
+      - tests/test_viril_iw3_calibration.py
+permissions:
+  contents: read
+concurrency:
+  group: viril-iw3-native-weapon-bridge-build
+  cancel-in-progress: false
+jobs:
+  native-hybrid:
+    name: Verify IW3 pose adapter, build isolated full Android APK, audit assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/viril-iw3-native-weapon-bridge-20261102
+          fetch-depth: 1
+      - name: Verify all source integrations and protected original
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s third_party/viril-iw3-iw3-reference/src/cgame/cg_weapons.cpp
+          test -s third_party/viril-iw3-iw3-reference/src/bgame/bg_weapons_load_obj.cpp
+          test -s third_party/viril-iw3-iw3-reference/src/xanim/xanim.h
+          test -s third_party/viril-iw3-iw3-reference/src/gfx_d3d/r_scene.cpp
+          test -s third_party/viril-iw3-v026/vril/source/view.c
+          test -s third_party/viril-iw3-v026/quakec/source/shared/weapon_stats.qc
+          test -s third_party/viril-iw3-iw3-reference/LICENSE
+          echo "Original XZIEL v0.26 untouched. Native bridge branch only."
+      - name: Prove portable native C weapon-pose code
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcc -std=c99 -Wall -Wextra -Werror -O2 -I android/jni/src \
+            tests/iw3_pose_host.c android/jni/src/iw3_weapon_pose.c \
+            -lm -o /tmp/iw3-pose-host
+          /tmp/iw3-pose-host
+      - name: Test strict CoD4 weapon definition parser and patch scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/patch_viril_iw3_weapon_pose.py \
+            scripts/iw3_weapon_profiles.py \
+            scripts/iw3_glb_to_iwvm.py \
+            scripts/iw3_private_weapon_pack.py \
+            scripts/iw3_bind_private_weapon.py \
+            scripts/iw3_match_oat_assets.py
+          python3 -m unittest discover -s tests \
+            -p test_viril_iw3_weapon_pose.py -v
+          python3 -m unittest discover -s tests \
+            -p test_viril_iw3_glb_converter.py -v
+          python3 -m unittest discover -s tests \
+            -p test_viril_iw3_original_weapon_binding.py -v
+          python3 -m unittest discover -s tests \
+            -p test_viril_iw3_private_asset_refresh.py -v
+          python3 -m unittest discover -s tests \
+            -p test_viril_iw3_calibration.py -v
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android NDK and SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018"
+      - name: Assemble original NZP assets and instrument Vril renderer
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/prepare_viril_iw3_android.sh
+          grep -q 'IW3_WeaponPoseDelta' build/deps/vril/source/platform/sdl/gl/gl_rmain.c
+          grep -q 'IW3_WeaponMesh_Draw' build/deps/vril/source/platform/sdl/gl/gl_rmain.c
+          test -s build/deps/vril/source/platform/sdl/gl/gl_iw3_weapon_mesh.c
+          grep -q 'IWVM_BuildPath' build/deps/vril/source/platform/sdl/gl/gl_iw3_weapon_mesh.c
+          grep -q 'IW3_WeaponMesh_RegisterCvars' build/deps/vril/source/platform/sdl/gl/gl_rmisc.c
+          grep -q 'IW3_MESH_BOUNDS' build/deps/vril/source/platform/sdl/gl/gl_iw3_weapon_mesh.c
+          grep -q 'IW3_WeaponMesh_Draw' build/deps/vril/source/platform/sdl/gl/gl_iw3_weapon_mesh.c
+          grep -q 'Cvar_RegisterVariable (&iw3_weapon_bridge)' \
+            build/deps/vril/source/platform/sdl/gl/gl_rmisc.c
+          grep -q 'iw3_weapon_pose.c' build/android-project/app/jni/src/Android.mk
+          if grep -q 'KisakCOD' build/android-project/app/jni/src/Android.mk; then
+            echo "Direct3D KisakCOD source must not be linked into GLES build" >&2
+            exit 1
+          fi
+      - name: Compile standalone VIRIL IW3 hybrid Android APK
+        shell: bash
+        working-directory: build/android-project
+        run: ./gradlew --no-daemon :app:assembleDebug --stacktrace
+      - name: Verify Android application and asset evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp build/android-project/app/build/outputs/apk/debug/app-debug.apk \
+            dist/VIRIL-IW3-weapon-bridge-experimental.apk
+          "${ANDROID_HOME}/build-tools/35.0.0/aapt" dump badging \
+            dist/VIRIL-IW3-weapon-bridge-experimental.apk \
+            > dist/android-apk-metadata.txt
+          grep -q "package: name='com.xziel.viriliw3'" dist/android-apk-metadata.txt
+          unzip -Z1 dist/VIRIL-IW3-weapon-bridge-experimental.apk | \
+            grep -q 'assets/nzp-data.zip'
+          unzip -Z1 dist/VIRIL-IW3-weapon-bridge-experimental.apk | \
+            grep -q 'lib/arm64-v8a/libmain.so'
+          unzip -p dist/VIRIL-IW3-weapon-bridge-experimental.apk \
+            lib/arm64-v8a/libmain.so > /tmp/viril-iw3-arm64.so
+          strings /tmp/viril-iw3-arm64.so > /tmp/viril-iw3-arm64-strings.txt
+          grep -q 'IW3_MESH_LOAD_REQUEST' /tmp/viril-iw3-arm64-strings.txt
+          grep -q 'IW3_NATIVE_MESH_DRAW' /tmp/viril-iw3-arm64-strings.txt
+          echo "Verified actual arm64 APK contains native IW3 3D gun geometry loader and rendering telemetry."
+          cat > dist/VALIDATION.txt <<'EOF'
+          Source: original XZIEL v0.26 native gameplay + complete official NZP
+          weapons, models, maps and animations; experimental portable IW3
+          WeaponDef position adapter compiled into renderer.
+          CoD4 XModel -> GLB -> IWVM static rest-pose mesh rendering: IMPLEMENTED
+          via optional user-provided local 3D models under models/iw3/v_*.iwvm.
+          Original COD4 materials, hand skeletal skinning and XAnim gameplay:
+          NOT IMPLEMENTED. This public APK contains no original COD4 meshes.
+          CoD4 data files (.iwd, .ff): NOT PRESENT in source repositories.
+          WeaponDef pose table: zero official profiles until real .weapon metadata
+          and converted 3D models are provided and mapped.
+          Stable original Android package ID: com.xziel.nzp (not modified).
+          Experimental Android package ID: com.xziel.viriliw3.
+          Android app compiled only. Physical-phone gameplay NOT VERIFIED.
+          EOF
+          sha256sum dist/VIRIL-IW3-weapon-bridge-experimental.apk > dist/SHA256SUMS
+      - name: Upload reproducible experimental APK and limitations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: VIRIL-IW3-NATIVE-WEAPON-BRIDGE-APK
+          path: dist/
+          if-no-files-found: warn
+          retention-days: 30

@@ -9,6 +9,18 @@ cd "$ROOT"
 # gameplay, HUD and 12 button skins are all assembled by this script.
 bash scripts/prepare_android.sh
 
+# Experimental IW3-compatible pose transport; never touches the stable v0.26.
+# Only locally supplied, rights-cleared .weapon metadata can create profiles.
+if [[ -n "${XZIEL_IW3_WEAPON_DEFS_DIR:-}" ]]; then
+  test -d "$XZIEL_IW3_WEAPON_DEFS_DIR"
+  test -n "${XZIEL_IW3_WEAPON_MODEL_MAP:-}"
+  python3 "$ROOT/scripts/iw3_weapon_profiles.py" \
+    --definitions "$XZIEL_IW3_WEAPON_DEFS_DIR" \
+    --mapping "$XZIEL_IW3_WEAPON_MODEL_MAP" \
+    --output "$ROOT/android/jni/src/iw3_weapon_profiles_generated.h"
+fi
+python3 "$ROOT/scripts/patch_viril_iw3_weapon_pose.py" "$ROOT"
+
 APP_GRADLE="$ROOT/build/android-project/app/build.gradle"
 APP_STRINGS="$ROOT/build/android-project/app/src/main/res/values/strings.xml"
 python3 - "$APP_GRADLE" "$APP_STRINGS" <<'PY'
@@ -32,6 +44,18 @@ PY
 # Must ship an entire NZ:P game, not a minimal engine-only shell.
 DATA="$ROOT/build/android-project/app/src/main/assets/nzp-data.zip"
 test -s "$DATA"
+
+# If (and only if) user supplies a private CoD4 GLB copy, bind real geometry
+# to the selected NZP weapon. NEVER embed commercial CoD4 content in public CI.
+if [[ -n "${XZIEL_IW3_PRIVATE_GLB_DIR:-}" ]]; then
+  test -d "$XZIEL_IW3_PRIVATE_GLB_DIR"
+  test -s "${XZIEL_IW3_MODEL_REMAP_JSON:-}"
+  python3 "$ROOT/scripts/iw3_private_weapon_pack.py" \
+    --game-data-zip "$DATA" \
+    --glb-dir "$XZIEL_IW3_PRIVATE_GLB_DIR" \
+    --manifest "$XZIEL_IW3_MODEL_REMAP_JSON"
+fi
+
 python3 - "$DATA" <<'PY'
 import sys, zipfile
 path=sys.argv[1]

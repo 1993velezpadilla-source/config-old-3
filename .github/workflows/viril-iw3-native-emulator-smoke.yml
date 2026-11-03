@@ -1,0 +1,94 @@
+name: VIRIL IW3 hybrid Android emulator visual smoke
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/viril-iw3-native-weapon-bridge-20261102
+    paths:
+      - .github/workflows/viril-iw3-native-emulator-smoke.yml
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  android-first-frame:
+    name: Independent APK boots original NZP game and renders first frame
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/viril-iw3-native-weapon-bridge-20261102
+      - name: Get exact successful compiled hybrid APK - no rebuild needed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh run download 41410489752 \
+            --repo 1993velezpadilla-source/config-old-3 \
+            --name VIRIL-IW3-NATIVE-WEAPON-BRIDGE-APK --dir dist
+          test -s dist/VIRIL-IW3-weapon-bridge-experimental.apk
+      - name: Set up KVM Android 35 emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "emulator" "platforms;android-35" \
+            "system-images;android-35;google_apis;x86_64"
+          if [[ -e /dev/kvm ]]; then sudo chmod 666 /dev/kvm || true; fi
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/viril-iw3-avds"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+          AVDMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name avdmanager | sort | tail -n 1)"
+          printf 'no\n' | "$AVDMANAGER" create avd --force \
+            --name iw3-hybrid-ci --package "system-images;android-35;google_apis;x86_64" --device pixel_6
+          nohup "$ANDROID_HOME/emulator/emulator" @iw3-hybrid-ci \
+            -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect \
+            > dist/emulator-log.txt 2>&1 &
+      - name: Install and render real native v0.26 game frame in hybrid APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          timeout 160 "$ADB" wait-for-device
+          for i in $(seq 1 90); do
+            [[ "$("$ADB" shell getprop sys.boot_completed | tr -d '\r')" == "1" ]] && break
+            sleep 2
+          done
+          "$ADB" install -r dist/VIRIL-IW3-weapon-bridge-experimental.apk
+          "$ADB" logcat -c
+          "$ADB" shell settings put secure immersive_mode_confirmations confirmed || true
+          "$ADB" shell am start -W -n \
+            com.xziel.viriliw3/org.libsdl.app.NZPActivity \
+            --ez xziel_ci_hud_preview true | tee dist/android-launch.txt
+          sleep 35
+          "$ADB" exec-out screencap -p > dist/iw3-hybrid-first-frame.png
+          "$ADB" logcat -d -v threadtime > dist/hybrid-android-logcat.txt
+          "$ADB" shell run-as com.xziel.viriliw3 cat \
+            files/nzp-runtime/.xziel-stage > dist/first-frame-stage.txt
+          cat dist/first-frame-stage.txt
+          grep -q 'FIRST_FRAME_OK' dist/first-frame-stage.txt
+          ! grep -Eq 'Fatal signal|FATAL EXCEPTION|EGL_BAD_CONTEXT|stage=SYS_ERROR' \
+            dist/hybrid-android-logcat.txt
+          test "$(stat -c%s dist/iw3-hybrid-first-frame.png)" -gt 10000
+          echo "PASS: Original NZP game rendered a frame with IW3 native pose module linked." \
+            | tee dist/RESULT.txt
+          echo "NOT PASSED: Original COD4 XModels, native XAnims and reload animations."
+      - name: Upload runtime proof (no copyrighted CoD4 assets)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: VIRIL-IW3-EMULATOR-FIRST-FRAME-EVIDENCE
+          path: |
+            dist/android-launch.txt
+            dist/first-frame-stage.txt
+            dist/iw3-hybrid-first-frame.png
+            dist/hybrid-android-logcat.txt
+            dist/RESULT.txt
+            dist/emulator-log.txt
+          if-no-files-found: warn
+          retention-days: 14
