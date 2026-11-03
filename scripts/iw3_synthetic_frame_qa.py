@@ -33,12 +33,22 @@ def audit(path):
         sampled=len(range(0,mid.height,step))*len(range(0,mid.width,step))
         ratio=pink/sampled
         pale_ratio=pale/sampled
+        # Gameplay may face an almost monochrome Nacht wall while its
+        # periphery still clearly shows map, weapon and HUD. Checking only
+        # the center incorrectly rejected actual gameplay (34 center bins)
+        # even though the Android capture already verified 84 full bins.
+        # Keep popup/occluding-quad tests center-focused, but detect
+        # nonblank gameplay from the full screen like the live capturer.
+        whole=im.copy()
+        whole.thumbnail((128,72))
+        all_colors={(r//12,g//12,b//12) for r,g,b in whole.getdata()}
         return {"width":w,"height":h,"center_saturated_red_fraction":round(ratio,6),
-                "scene_palette_bins":len(colors),
+                "scene_palette_bins":len(all_colors),
+                "center_palette_bins":len(colors),
                 "center_neutral_bright_fraction":round(pale_ratio,6),
                 "android_launcher_anr_popup_rejected":pale_ratio<.18,
                 "old_center_occluding_quad_rejected":ratio<.085,
-                "nonblank_gameplay":len(colors)>50}
+                "nonblank_gameplay":len(all_colors)>50}
 if __name__=="__main__":
     p=argparse.ArgumentParser()
     p.add_argument("screenshot")
