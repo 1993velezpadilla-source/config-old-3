@@ -20,7 +20,7 @@ class ViewmodelScreenshotGateTests(unittest.TestCase):
             # Dark central wall with a varied map and HUD along the edges.
             # 84+ quantized color bins ensure full-frame activity.
             for x in range(0, 1280, 10):
-                for y in range(0, 150, 10):
+                for y in range(0, 80, 10):
                     pic.paste(((x//10*7)%256, (y//10*17)%256,
                                ((x+y)//10*9)%256), (x, y, x+10, y+10))
             path = Path(d) / "real_scene_like_synthetic.png"
