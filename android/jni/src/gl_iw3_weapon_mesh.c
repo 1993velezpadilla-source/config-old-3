@@ -67,6 +67,10 @@ static float iwsk_frame_rate;
 static int iwsk_frames_attempted;
 static int iwsk_logged_motion;
 static int iwsk_logged_actual_deformation;
+/* Real +reload input edge drives one original XAnim preview; NO idle loop. */
+static int iwsk_reload_pending;
+static int iwsk_reload_active;
+static float iwsk_reload_started_at;
 /* Explicit, reversible calibration for *optional* owner-supplied IW3 meshes.
  * Quake view-space X is forward, Y left, Z up. Live Android screenshots of
  * OAT's original USP showed its barrel pointing at screen-right (-Y), so
@@ -97,6 +101,18 @@ void IW3_WeaponMesh_RegisterCvars(void)
     Cvar_RegisterVariable(&iw3_vm_anim_speed);
 }
 
+/* Called only by the experimental Vril's native +reload touch/key path.
+ * This is source-driven PREVIEW motion, not official weapon-state parity. */
+void IW3_WeaponMesh_NotifyReload(void)
+{
+    if(iw3_vm_anim_preview.value < 0.5f) return;
+    iwsk_reload_pending=1;
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_INFO,"VIRIL_IW3",
+      "IW3_ORIGINAL_XANIM_RELOAD_INPUT source=native_plus_reload");
+#endif
+}
+
 static float IWVM_Bounded(float value, float lo, float hi, float fallback)
 {
     if (!isfinite(value)) return fallback;
@@ -124,6 +140,9 @@ static void IWVM_ResetGeometry(void)
     iwsk_frames_attempted=0;
     iwsk_logged_motion=0;
     iwsk_logged_actual_deformation=0;
+    iwsk_reload_active=0;
+    iwsk_reload_started_at=0.f;
+    /* Keep pending reload while a newly selected optional mesh lazy-loads. */
     iwsk_joints = NULL;
     iwsk_weights = NULL;
     iwsk_joint_count = 0;
@@ -418,10 +437,36 @@ static const iwvm_vertex_t *IWSF_SkinFrame(void)
        !iwsk_weights || iwsk_frame_count<2 || iwsk_joint_count==0 ||
        iw3_vm_anim_preview.value<0.5f)
         return iwvm_mesh.vertices;
+    if(iwsk_reload_pending) {
+        iwsk_reload_pending=0;
+        iwsk_reload_active=1;
+        iwsk_reload_started_at=(float)cl.time;
+        iwsk_logged_motion=0;
+        iwsk_logged_actual_deformation=0;
+#ifdef __ANDROID__
+        __android_log_print(ANDROID_LOG_INFO,"VIRIL_IW3",
+          "IW3_ORIGINAL_XANIM_RELOAD_TRIGGERED frames=%u fps=%.3f loop=0 exact_official=0",
+          (unsigned)iwsk_frame_count,iwsk_frame_rate);
+#endif
+    }
+    if(!iwsk_reload_active) return iwvm_mesh.vertices;
     rate=iwsk_frame_rate*IWVM_Bounded(iw3_vm_anim_speed.value,0.05f,4.f,1.f);
-    clock=(float)cl.time*rate;
-    if(!isfinite(clock)) return iwvm_mesh.vertices;
-    frame=(uint32_t)fmodf(fabsf(clock),(float)iwsk_frame_count);
+    clock=((float)cl.time-iwsk_reload_started_at)*rate;
+    if(!isfinite(clock) || clock<0.f) {
+        iwsk_reload_active=0;
+        return iwvm_mesh.vertices;
+    }
+    /* One-shot original reload; return intact bind pose instead of looping
+     * detached moving parts while idle or inventing animation frames. */
+    if(clock >= (float)iwsk_frame_count) {
+        iwsk_reload_active=0;
+#ifdef __ANDROID__
+        __android_log_print(ANDROID_LOG_INFO,"VIRIL_IW3",
+          "IW3_ORIGINAL_XANIM_RELOAD_COMPLETE restored=bind_pose loop=0");
+#endif
+        return iwvm_mesh.vertices;
+    }
+    frame=(uint32_t)clock;
     for(i=0;i<iwvm_mesh.vertex_count;++i) {
         uint32_t k;
         const iwvm_vertex_t *original=&iwvm_mesh.vertices[i];

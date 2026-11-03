@@ -9,6 +9,7 @@ on:
       - scripts/iw3_capture_live_viewmodel.py
       - scripts/iw3_synthetic_frame_qa.py
       - tests/test_viril_iw3_capture_overlay.py
+      - tests/test_viril_iw3_reload_trigger.py
       - scripts/iw3_glb_to_iwsk.py
       - scripts/iw3_xanim_to_iwsf.py
       - tests/test_viril_iw3_source_motion_iwsf.py
@@ -74,14 +75,14 @@ jobs:
           candidates={p.name.lower():p for p in (root/"converted").rglob("*")
                       if p.is_file() and p.parent.name=="xanim"}
           selected_reload=None
-          for k in ("reloadAnim","reloadEmptyAnim","fireAnim"):
+          for k in ("reloadAnim","reloadEmptyAnim"):
               val=source_fields.get(k)
               if isinstance(val,str) and val.lower() in candidates:
                   selected_reload=candidates[val.lower()]
                   print("Original IW3 animation selected from WeaponDef:",k)
                   break
           if selected_reload is None:
-              raise SystemExit("Original COD4 USP reload/fire XAnim not available")
+              raise SystemExit("Original COD4 USP reload XAnim not available; never substitute fire")
           shutil.copy2(selected_reload,root/"selected/original_weapon_motion.xanim")
           PY
           GLB="$(find "$D/selected" -maxdepth 1 -type f -name '*.glb' | head -1)"
@@ -137,6 +138,7 @@ jobs:
           PY
           python3 -m pip install --quiet 'Pillow>=11,<13'
           python3 -m unittest discover -s tests -p test_viril_iw3_capture_overlay.py -v
+          python3 -m unittest discover -s tests -p test_viril_iw3_reload_trigger.py -v
           python3 - "$D" <<'PY'
           import sys,zipfile,json
           from pathlib import Path
@@ -227,10 +229,12 @@ jobs:
             set -e
             adb install -r build/android-project/app/build/outputs/apk/debug/app-debug.apk
             adb logcat -c
-            python3 scripts/iw3_capture_live_viewmodel.py --out "$RUNNER_TEMP/viril-iw3-private/screenshots" --timeout 95
+            python3 scripts/iw3_capture_live_viewmodel.py --out "$RUNNER_TEMP/viril-iw3-private/screenshots" --timeout 95 --tap-reload
             adb shell pidof com.xziel.viriliw3
             adb shell run-as com.xziel.viriliw3 cat files/nzp-runtime/.xziel-stage
             python3 scripts/iw3_synthetic_frame_qa.py "$RUNNER_TEMP/viril-iw3-private/screenshots/01-first-live-frame.png"
+            test -s "$RUNNER_TEMP/viril-iw3-private/screenshots/03-reload-source-frame.png"
+            test -s "$RUNNER_TEMP/viril-iw3-private/screenshots/04-reload-source-late.png"
             adb logcat -d -v brief > "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             adb logcat -d -s VIRIL_IW3:I '*:S' | tail -35
             grep -q 'IW3_NATIVE_MESH_DRAW submitted model=models/iw3/v_colt.iwvm' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
@@ -238,6 +242,8 @@ jobs:
             grep -q 'IW3_COLOR_TEXTURE loaded=models/iw3/v_colt.iwvt.*glerr=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             grep -q 'IW3_ORIGINAL_SKIN_DATA_LOADED file=models/iw3/v_colt.iwsk.*animated=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             grep -q 'IW3_ORIGINAL_XANIM_PREVIEW_LOADED file=models/iw3/v_colt.iwsf.*exact_graph=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            grep -q 'IW3_ORIGINAL_XANIM_RELOAD_INPUT source=native_plus_reload' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
+            grep -q 'IW3_ORIGINAL_XANIM_RELOAD_TRIGGERED frames=40 fps=24.000 loop=0 exact_official=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             grep -q 'IW3_ORIGINAL_XANIM_SKELETAL_FRAME rendered=1 source=original_IW3.*exact_official=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             grep -q 'IW3_ORIGINAL_XANIM_SKIN_DEFORMED frame=.*vertices=[1-9].*exact_official=0' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"
             grep -q 'IW3_MESH_BOUNDS model=models/iw3/v_colt.iwvm' "$RUNNER_TEMP/viril-iw3-private/experiment-logcat.txt"

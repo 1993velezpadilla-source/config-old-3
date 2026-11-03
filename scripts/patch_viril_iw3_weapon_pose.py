@@ -98,6 +98,23 @@ after = replace_once(
 text = before + "void R_DrawViewModel (void)" + after
 rmain.write_text(text, encoding="utf-8")
 
+# Real reload command used by both Android touch and keyboard in pinned Vril.
+# Trigger just on the rising edge, without intercepting the game's reload.
+inp=root/"build/deps/vril/source/cl_input.c"
+input_text=inp.read_text(encoding="utf-8")
+input_text=replace_once(
+    input_text,
+    'void IN_ReloadDown (void) {KeyDown(&in_reload);}',
+    'extern void IW3_WeaponMesh_NotifyReload(void);\n'
+    'void IN_ReloadDown (void) {\n'
+    '\tint was_down = (in_reload.state & 1);\n'
+    '\tKeyDown(&in_reload);\n'
+    '\tif (!was_down && (in_reload.state & 1))\n'
+    '\t\tIW3_WeaponMesh_NotifyReload();\n'
+    '}',
+    "real native +reload touch/key edge")
+inp.write_text(input_text,encoding="utf-8")
+
 rmisc = vril / "gl_rmisc.c"
 text = rmisc.read_text(encoding="utf-8")
 text = replace_once(
@@ -124,4 +141,5 @@ mk.write_text(text, encoding="utf-8")
 # changes to the original recovery branch and no silent fallback to stock.
 assert "iw3_weapon_pose.c" in mk.read_text(encoding="utf-8")
 assert "IW3_WeaponPoseDelta" in rmain.read_text(encoding="utf-8")
+assert "IW3_WeaponMesh_NotifyReload();" in inp.read_text(encoding="utf-8")
 print("IW3 portable weapon pose bridge compiled into Vril native renderer.")

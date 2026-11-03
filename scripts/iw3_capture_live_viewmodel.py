@@ -84,7 +84,7 @@ def dismiss_os_anr_dialog(image:Image.Image):
     return True
 
 
-def capture(output:Path,timeout:int=90):
+def capture(output:Path,timeout:int=90,tap_reload:bool=False):
     output.mkdir(parents=True,exist_ok=True)
     adb("shell","settings","put","secure","immersive_mode_confirmations",
         "confirmed",timeout=12,check=False)
@@ -127,6 +127,18 @@ def capture(output:Path,timeout:int=90):
     adb("shell","input","swipe","1950","530","1670","535","250",timeout=12)
     time.sleep(1)
     screenshot(output/"02-live-look.png")
+    if tap_reload:
+        # v0.26 default normalized reload HUD center. Proof must come from
+        # native input and vertex deformation logs, not just this screenshot.
+        with Image.open(first) as img:
+            w,h=img.size
+        tx,ty=int(w*.805),int(h*.785)
+        print(f"ANDROID_RELOAD_TOUCH x={tx} y={ty} display={w}x{h}",flush=True)
+        adb("shell","input","tap",str(tx),str(ty),timeout=12)
+        time.sleep(.25)
+        screenshot(output/"03-reload-source-frame.png")
+        time.sleep(.5)
+        screenshot(output/"04-reload-source-late.png")
     return True
 
 
@@ -134,5 +146,6 @@ if __name__=="__main__":
     parser=argparse.ArgumentParser()
     parser.add_argument("--out",type=Path,required=True)
     parser.add_argument("--timeout",type=int,default=90)
+    parser.add_argument("--tap-reload",action="store_true")
     a=parser.parse_args()
-    capture(a.out,a.timeout)
+    capture(a.out,a.timeout,a.tap_reload)
