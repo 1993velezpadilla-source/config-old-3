@@ -71,6 +71,9 @@ static int iwsk_logged_actual_deformation;
 static int iwsk_reload_pending;
 static int iwsk_reload_active;
 static float iwsk_reload_started_at;
+static float iwsk_reload_input_at;
+static int iwsk_reload_input_frame;
+static int iwsk_reload_input_weapon;
 /* Explicit, reversible calibration for *optional* owner-supplied IW3 meshes.
  * Quake view-space X is forward, Y left, Z up. Live Android screenshots of
  * OAT's original USP showed its barrel pointing at screen-right (-Y), so
@@ -107,9 +110,14 @@ void IW3_WeaponMesh_NotifyReload(void)
 {
     if(iw3_vm_anim_preview.value < 0.5f) return;
     iwsk_reload_pending=1;
+    iwsk_reload_input_at=(float)cl.time;
+    iwsk_reload_input_frame=cl.stats[STAT_WEAPONFRAME];
+    iwsk_reload_input_weapon=cl.stats[STAT_ACTIVEWEAPON];
 #ifdef __ANDROID__
     __android_log_print(ANDROID_LOG_INFO,"VIRIL_IW3",
-      "IW3_ORIGINAL_XANIM_RELOAD_INPUT source=native_plus_reload");
+      "IW3_ORIGINAL_XANIM_RELOAD_INPUT source=native_plus_reload weapon=%d frame=%d mag=%d reserve=%d",
+      iwsk_reload_input_weapon,iwsk_reload_input_frame,
+      cl.stats[STAT_CURRENTMAG],cl.stats[STAT_AMMO]);
 #endif
 }
 
@@ -438,8 +446,32 @@ static const iwvm_vertex_t *IWSF_SkinFrame(void)
        iw3_vm_anim_preview.value<0.5f)
         return iwvm_mesh.vertices;
     if(iwsk_reload_pending) {
+        const float ack_age=(float)cl.time-iwsk_reload_input_at;
+        /* The actual QuakeC W_Reload() returns early on full magazine,
+         * empty reserve, busy weapon, sprint, etc. Do NOT move the original
+         * COD4 clip merely because +reload was tapped: wait for a real
+         * weapon animation frame advance from the server. A timeout makes
+         * rejected/full-mag reload requests a no-op, not a visual lie. */
+        if(!isfinite(ack_age) || ack_age<0.f ||
+           cl.stats[STAT_ACTIVEWEAPON]!=iwsk_reload_input_weapon ||
+           ack_age>1.0f) {
+            iwsk_reload_pending=0;
+#ifdef __ANDROID__
+            __android_log_print(ANDROID_LOG_INFO,"VIRIL_IW3",
+              "IW3_ORIGINAL_XANIM_RELOAD_REJECTED reason=no_server_frame_ack age=%.3f",
+              (double)ack_age);
+#endif
+            return iwvm_mesh.vertices;
+        }
+        if(cl.stats[STAT_WEAPONFRAME]==iwsk_reload_input_frame)
+            return iwvm_mesh.vertices;
         iwsk_reload_pending=0;
         iwsk_reload_active=1;
+#ifdef __ANDROID__
+        __android_log_print(ANDROID_LOG_INFO,"VIRIL_IW3",
+           "IW3_ORIGINAL_XANIM_RELOAD_ACK source=server_weaponframe before=%d after=%d age=%.3f",
+           iwsk_reload_input_frame,cl.stats[STAT_WEAPONFRAME],(double)ack_age);
+#endif
         iwsk_reload_started_at=(float)cl.time;
         iwsk_logged_motion=0;
         iwsk_logged_actual_deformation=0;

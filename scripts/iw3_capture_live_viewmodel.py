@@ -133,12 +133,23 @@ def capture(output:Path,timeout:int=90,tap_reload:bool=False):
         with Image.open(first) as img:
             w,h=img.size
         tx,ty=int(w*.805),int(h*.785)
+        fx,fy=int(w*.885),int(h*.585)
+        # Negative control: 8/32 full magazine MUST NOT start COD4 motion.
+        print(f"ANDROID_FULLMAG_RELOAD_PROBE x={tx} y={ty}",flush=True)
+        adb("shell","input","tap",str(tx),str(ty),timeout=12)
+        time.sleep(1.25) # native ack timeout, before any firing
+        screenshot(output/"03-fullmag-reload-rejected.png")
+        # Real touchscreen fire, 8/32 -> 7/32 before an accepted reload.
+        print(f"ANDROID_FIRE_TOUCH x={fx} y={fy}",flush=True)
+        adb("shell","input","tap",str(fx),str(fy),timeout=12)
+        time.sleep(.8) # Let the native gun-fire pose return to idle.
+        screenshot(output/"04-after-fire.png")
         print(f"ANDROID_RELOAD_TOUCH x={tx} y={ty} display={w}x{h}",flush=True)
         adb("shell","input","tap",str(tx),str(ty),timeout=12)
-        time.sleep(.25)
-        screenshot(output/"03-reload-source-frame.png")
-        time.sleep(.5)
-        screenshot(output/"04-reload-source-late.png")
+        time.sleep(.45)
+        screenshot(output/"05-real-reload-source-moving.png")
+        time.sleep(1.55)
+        screenshot(output/"06-real-reload-finished.png")
     return True
 
 

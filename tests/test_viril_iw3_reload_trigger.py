@@ -15,6 +15,8 @@ class OriginalOneShotReloadTests(unittest.TestCase):
     def test_native_touch_keyboard_input_edge(self):
         self.assertIn('void IW3_WeaponMesh_NotifyReload(void)',RENDER)
         self.assertIn('IW3_ORIGINAL_XANIM_RELOAD_INPUT',RENDER)
+        self.assertIn('IW3_ORIGINAL_XANIM_RELOAD_ACK source=server_weaponframe',RENDER)
+        self.assertIn('IW3_ORIGINAL_XANIM_RELOAD_REJECTED reason=no_server_frame_ack',RENDER)
         self.assertIn('int was_down = (in_reload.state & 1);',PATCH)
         self.assertIn('KeyDown(&in_reload);',PATCH)
         self.assertIn('IW3_WeaponMesh_NotifyReload();',PATCH)
@@ -22,6 +24,9 @@ class OriginalOneShotReloadTests(unittest.TestCase):
     def test_play_once_and_restore_full_rest_mesh(self):
         self.assertIn('iwsk_reload_active=0;',RENDER)
         self.assertIn('iwsk_reload_pending=0;',RENDER)
+        self.assertIn('cl.stats[STAT_WEAPONFRAME]==iwsk_reload_input_frame',RENDER)
+        self.assertIn('cl.stats[STAT_ACTIVEWEAPON]!=iwsk_reload_input_weapon',RENDER)
+        self.assertIn('ack_age>1.0f',RENDER)
         self.assertIn('clock >= (float)iwsk_frame_count',RENDER)
         self.assertIn('clock=((float)cl.time-iwsk_reload_started_at)*rate;',RENDER)
         self.assertIn('IW3_ORIGINAL_XANIM_RELOAD_COMPLETE restored=bind_pose loop=0',RENDER)
@@ -29,6 +34,11 @@ class OriginalOneShotReloadTests(unittest.TestCase):
 
     def test_ci_requires_real_touch_and_actual_deformed_vertices(self):
         self.assertIn('ANDROID_RELOAD_TOUCH',CAPTURE)
+        self.assertIn('ANDROID_FULLMAG_RELOAD_PROBE',CAPTURE)
+        self.assertIn('ANDROID_FIRE_TOUCH',CAPTURE)
+        self.assertIn('IW3_ORIGINAL_XANIM_RELOAD_ACK source=server_weaponframe',WORKFLOW)
+        self.assertIn('IW3_ORIGINAL_XANIM_RELOAD_REJECTED reason=no_server_frame_ack',WORKFLOW)
+        self.assertIn('IW3_ORIGINAL_XANIM_RELOAD_COMPLETE restored=bind_pose loop=0',WORKFLOW)
         self.assertIn('adb("shell","input","tap",str(tx),str(ty)',CAPTURE)
         self.assertIn('--tap-reload',WORKFLOW)
         self.assertIn('IW3_ORIGINAL_XANIM_RELOAD_TRIGGERED frames=40',WORKFLOW)
