@@ -83,8 +83,8 @@ static int iwsk_reload_input_weapon;
 static cvar_t iw3_vm_roll = {"iw3_vm_roll", "0"};
 static cvar_t iw3_vm_yaw = {"iw3_vm_yaw", "90"};
 static cvar_t iw3_vm_scale = {"iw3_vm_scale", "0.55"};
-/* Original OAT GLB meshes are centered at X ~0, behind Vril near clip.
- * 12 units moves the genuine gun in front of the FPS near plane. */
+/* Original OAT GLBs are centered near zero, behind the Vril near clip.
+ * The optional mesh must be placed forward from the camera to show safely. */
 static cvar_t iw3_vm_forward = {"iw3_vm_forward", "16"};
 static cvar_t iw3_vm_right = {"iw3_vm_right", "2.3"};
 static cvar_t iw3_vm_up = {"iw3_vm_up", "-2.5"};
@@ -178,6 +178,9 @@ static void IWVM_ResetGeometry(void)
     iwvm_mesh.vertex_count = 0;
     iwvm_mesh.index_count = 0;
     iwvm_reported_draw = 0;
+    iwvm_ads_blend = 0.f;
+    iwvm_ads_prev_time = -1.f;
+    iwvm_logged_mount_state = -1;
 }
 
 static uint32_t IWVM_Read32(const uint8_t *p)
