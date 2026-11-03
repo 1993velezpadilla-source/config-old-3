@@ -67,18 +67,20 @@ static float iwsk_frame_rate;
 static int iwsk_frames_attempted;
 static int iwsk_logged_motion;
 static int iwsk_logged_actual_deformation;
-/* Explicit, reversible first-person calibration for user-provided original
- * IW3 XModels. All values default to identity so a correct model is never
- * silently rotated or resized. Local X points forward, Y left, Z up.
- * The forward-axis rotation is the gun-roll correction (9->12 o'clock).
- * This is a developer calibration layer, not verified CoD4 1:1 pose. */
+/* Explicit, reversible calibration for *optional* owner-supplied IW3 meshes.
+ * Quake view-space X is forward, Y left, Z up. Live Android screenshots of
+ * OAT's original USP showed its barrel pointing at screen-right (-Y), so
+ * +90 degrees about Z puts that source barrel along +X into the scene.
+ * Pose defaults are experimental, NOT the official COD4 weapon offsets;
+ * original Vril/NZ:P MDL rendering is unaffected and all values are editable. */
 static cvar_t iw3_vm_roll = {"iw3_vm_roll", "0"};
-static cvar_t iw3_vm_scale = {"iw3_vm_scale", "1"};
+static cvar_t iw3_vm_yaw = {"iw3_vm_yaw", "90"};
+static cvar_t iw3_vm_scale = {"iw3_vm_scale", "0.65"};
 /* Original OAT GLB meshes are centered at X ~0, behind Vril near clip.
  * 12 units moves the genuine gun in front of the FPS near plane. */
 static cvar_t iw3_vm_forward = {"iw3_vm_forward", "12"};
-static cvar_t iw3_vm_right = {"iw3_vm_right", "0"};
-static cvar_t iw3_vm_up = {"iw3_vm_up", "0"};
+static cvar_t iw3_vm_right = {"iw3_vm_right", "3"};
+static cvar_t iw3_vm_up = {"iw3_vm_up", "-2"};
 /* Applies ONLY when a user-supplied original IWSF animation is present. */
 static cvar_t iw3_vm_anim_preview = {"iw3_vm_anim_preview", "1"};
 static cvar_t iw3_vm_anim_speed = {"iw3_vm_anim_speed", "1"};
@@ -86,6 +88,7 @@ static cvar_t iw3_vm_anim_speed = {"iw3_vm_anim_speed", "1"};
 void IW3_WeaponMesh_RegisterCvars(void)
 {
     Cvar_RegisterVariable(&iw3_vm_roll);
+    Cvar_RegisterVariable(&iw3_vm_yaw);
     Cvar_RegisterVariable(&iw3_vm_scale);
     Cvar_RegisterVariable(&iw3_vm_forward);
     Cvar_RegisterVariable(&iw3_vm_right);
@@ -576,6 +579,10 @@ int IW3_WeaponMesh_Draw(entity_t *view)
         IWVM_Bounded(iw3_vm_forward.value, -40.f, 40.f, 0.f),
         -IWVM_Bounded(iw3_vm_right.value, -40.f, 40.f, 0.f),
         IWVM_Bounded(iw3_vm_up.value, -40.f, 40.f, 0.f));
+    /* Source barrel originally points along -Y in the real Android USP
+     * capture. Apply yaw before per-gun roll; never to legacy Quake MDL. */
+    glRotatef(IWVM_Bounded(iw3_vm_yaw.value, -180.f, 180.f, 90.f),
+              0.f, 0.f, 1.f);
     glRotatef(IWVM_Bounded(iw3_vm_roll.value, -180.f, 180.f, 0.f),
               1.f, 0.f, 0.f);
     {
@@ -606,6 +613,11 @@ int IW3_WeaponMesh_Draw(entity_t *view)
 #ifdef __ANDROID__
     if (!iwvm_reported_draw) {
         const GLenum iwvm_draw_error = glGetError();
+        __android_log_print(ANDROID_LOG_INFO, "VIRIL_IW3",
+            "IW3_VM_CALIBRATION yaw=%.1f roll=%.1f scale=%.3f forward=%.1f right=%.1f up=%.1f experimental=1",
+            (double)iw3_vm_yaw.value,(double)iw3_vm_roll.value,
+            (double)iw3_vm_scale.value,(double)iw3_vm_forward.value,
+            (double)iw3_vm_right.value,(double)iw3_vm_up.value);
         __android_log_print(iwvm_draw_error == GL_NO_ERROR ?
             ANDROID_LOG_INFO : ANDROID_LOG_ERROR, "VIRIL_IW3",
             "IW3_NATIVE_MESH_DRAW submitted model=%s vertices=%u triangles=%u glerr=%u",
