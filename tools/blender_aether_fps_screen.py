@@ -48,8 +48,8 @@ def mat(name,rgba,metal=0.0,rough=.55):
         p.inputs["Metallic"].default_value=metal
         p.inputs["Roughness"].default_value=rough
     return m
-gunmaterial=mat("Gun steel, temporary viewport override",(.13,.15,.19,1),.5,.45)
-handmaterial=mat("Hand skin, temporary viewport override",(.54,.31,.21,1),0,.7)
+gunmaterial=mat("Gun steel, temporary viewport override",(.075,.095,.12,1),.12,.67)
+handmaterial=mat("Hand skin, temporary viewport override",(.42,.24,.16,1),0,.77)
 def assign_fallback(objs,material):
     for ob in objs:
         if ob.type!="MESH": continue
@@ -139,8 +139,8 @@ def light(name,pos,power,size,color):
     d=bpy.data.lights.new(name,"AREA");d.energy=power;d.shape="DISK";d.size=size;d.color=color
     o=bpy.data.objects.new(name,d);scene.collection.objects.link(o);o.location=pos
     o.rotation_euler=(Vector((0,.25,0))-o.location).to_track_quat("-Z","Y").to_euler()
-light("key",(1,-1,2),550,3,(.72,.86,1))
-light("fill",(-1,.5,.3),390,2.8,(1,.73,.48))
+light("key",(1,-1,2),100,3,(.72,.86,1))
+light("fill",(-1,.5,.3),60,2.8,(1,.73,.48))
 camera_data=bpy.data.cameras.new("FPS_camera")
 camera=bpy.data.objects.new("FPS_camera",camera_data);scene.collection.objects.link(camera)
 scene.camera=camera
@@ -160,6 +160,7 @@ poses=[
 for label,loc,yaw in poses:
     rig.location=loc
     rig.rotation_euler=(0,0,math.radians(yaw))
+    camera.location=(0,(-.1 if label=="HIPFIRE" else .30),0)
     bpy.context.view_layer.update()
     # camera calibration report captures source bounds for further validation
     a,b=bounds_world(wmeshes+hmeshes)
