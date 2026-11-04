@@ -1,0 +1,27 @@
+{
+  "model": "Project Aether MP40 actual GLB",
+  "hands": "T4 Marine hands actual animated GLB",
+  "mode": "Blender render (not video-game capture)",
+  "original_assets": [
+    "/home/runner/work/config-old-3/config-old-3/xogot/assets/weapons/aether_waw_real/mp40/viewmodel.glb",
+    "/home/runner/work/config-old-3/config-old-3/xogot/assets/weapons/aether_waw_hands/t4_marine/mp40/viewhands.glb"
+  ],
+  "render_count": 2,
+  "source_meshes": {
+    "weapon": 1,
+    "hands": 1
+  },
+  "viewmodel_scale": 1.0,
+  "source_bounds": [
+    [
+      -0.6185938715934753,
+      -0.3150029182434082,
+      -0.38794806599617004
+    ],
+    [
+      0.3924579918384552,
+      0.18954409658908844,
+      0.06707408279180527
+    ]
+  ]
+}
