@@ -1,0 +1,62 @@
+name: Blender genuine Aether MP40 hipfire ADS visual proof
+on:
+  push:
+    branches:
+      - art/blender-fps-aether-cod4-evidence-20261104
+    paths:
+      - tools/blender_aether_fps_screen.py
+      - .github/workflows/blender-mp40-fps-visual-proof.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            tools/blender_aether_fps_screen.py
+            xogot/assets/weapons/aether_waw_real/mp40
+            xogot/assets/weapons/aether_waw_hands/t4_marine/mp40
+            xogot/data/weapon_viewmodel_source_presentation.json
+            .github/workflows/blender-mp40-fps-visual-proof.yml
+          sparse-checkout-cone-mode: false
+      - name: Install actual Blender engine and offline renderer
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender xvfb libgl1-mesa-dri
+          blender --version | head -2
+      - name: Render genuine GLB weapon and hands with Blender
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p xogot/build/blender_fps_proof
+          timeout 1300 xvfb-run -a -s '-screen 0 1280x720x24' \
+             blender -b -t 2 --python tools/blender_aether_fps_screen.py \
+             2>&1 | tee xogot/build/blender_fps_proof/output.log
+          grep -q 'AETHER_MP40_BLENDER_TWO_POSES_SOURCE_ASSETS_GREEN' xogot/build/blender_fps_proof/output.log
+      - name: Commit PNG screenshots for direct viewing
+        shell: bash
+        if: success()
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          mkdir -p docs/blender-mp40-fps
+          cp xogot/build/blender_fps_proof/AETHER_MP40_*.png docs/blender-mp40-fps/
+          cp xogot/build/blender_fps_proof/audit.json docs/blender-mp40-fps/
+          git add docs/blender-mp40-fps
+          if ! git diff --cached --quiet; then
+            git commit -m 'Add Blender-rendered authentic Aether MP40 hipfire and ADS visual evidence'
+            git push
+          fi
+      - name: Upload Blender image and editable scene proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: AETHER_MP40_REAL_BLENDER_HIPFIRE_ADS
+          path: xogot/build/blender_fps_proof/
+          retention-days: 7
+          if-no-files-found: warn
