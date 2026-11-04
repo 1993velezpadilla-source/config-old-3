@@ -27,7 +27,7 @@ jobs:
       - name: Install actual Blender engine and offline renderer
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq blender xvfb libgl1-mesa-dri
+          sudo apt-get install -y -qq blender python3-numpy xvfb libgl1-mesa-dri
           blender --version | head -2
       - name: Render genuine GLB weapon and hands with Blender
         shell: bash
