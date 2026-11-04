@@ -47,7 +47,7 @@ jobs:
           mkdir -p docs/blender-mp40-fps
           cp xogot/build/blender_fps_proof/AETHER_MP40_*.png docs/blender-mp40-fps/
           cp xogot/build/blender_fps_proof/audit.json docs/blender-mp40-fps/
-          git add docs/blender-mp40-fps
+          git add --sparse docs/blender-mp40-fps
           if ! git diff --cached --quiet; then
             git commit -m 'Add Blender-rendered authentic Aether MP40 hipfire and ADS visual evidence'
             git push
