@@ -70,6 +70,17 @@ for o in hands+guns:
         print("MESH",o.name,"dims",tuple(round(v,4) for v in o.dimensions),"materials",[m.name if m else None for m in o.data.materials])
 assign_fallback(hmeshes,handmaterial)
 assign_fallback(wmeshes,gunmaterial)
+# GLBs preserve true meshes/rigs; override only preview shader (their
+# source material references external PNGs not present in sparse checkout).
+sleeve=mat("Preview T4 Marine sleeve",(.14,.16,.13,1),0,.75)
+hardware=mat("Preview fasteners",(.36,.34,.25,1),.45,.4)
+for ob in hmeshes:
+    for i,old in enumerate(ob.data.materials):
+        name=(old.name if old else "").lower()
+        ob.data.materials[i]=(sleeve if "cloth" in name else hardware if "button" in name else handmaterial)
+for ob in wmeshes:
+    for i in range(len(ob.data.materials)):
+        ob.data.materials[i]=gunmaterial
 
 def assign_idle(objs,keywords):
     actions=list(bpy.data.actions)
@@ -143,11 +154,12 @@ camera_data.clip_start=.005;camera_data.clip_end=300
 # UE (forward, right, up) => Blender (right, forward, up).
 # The action/rig movement is NOT invented from a generative drawing.
 poses=[
-  ("HIPFIRE",( .05, .22,-.05)),
-  ("ADS",(-.04142,.24045,.01040)),
+  ("HIPFIRE",(.18,.75,-.15),100),
+  ("ADS",(0,.75,-.03),90),
 ]
-for label,loc in poses:
+for label,loc,yaw in poses:
     rig.location=loc
+    rig.rotation_euler=(0,0,math.radians(yaw))
     bpy.context.view_layer.update()
     # camera calibration report captures source bounds for further validation
     a,b=bounds_world(wmeshes+hmeshes)
@@ -164,5 +176,5 @@ bpy.ops.wm.save_as_mainfile(filepath=str(OUT/"AETHER_MP40_ORIGINAL_VIEWMODELS.bl
  "render_count":2,"source_meshes":{"weapon":len(wmeshes),"hands":len(hmeshes)},
  "viewmodel_scale":scale,"source_bounds":[list(lo),list(hi)]
 },indent=2))
-assert all((OUT/f"AETHER_MP40_{s}_BLENDER.png").stat().st_size>4000 for s,_ in poses)
+assert all((OUT/f"AETHER_MP40_{s}_BLENDER.png").stat().st_size>4000 for s,_,_ in poses)
 print("AETHER_MP40_BLENDER_TWO_POSES_SOURCE_ASSETS_GREEN")
