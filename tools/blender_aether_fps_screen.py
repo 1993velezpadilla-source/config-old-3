@@ -27,9 +27,14 @@ def imp(path,prefix):
 
 hands=imp(ASSETS/"aether_waw_hands/t4_marine/mp40/viewhands.glb","MP40 original T4 Marine viewhands")
 guns=imp(ASSETS/"aether_waw_real/mp40/viewmodel.glb","MP40 original animated weapon")
-allmeshes=[o for o in guns+hands if o.type=="MESH"]
-wmeshes=[o for o in guns if o.type=="MESH"]
-hmeshes=[o for o in hands if o.type=="MESH"]
+for ob in guns+hands:
+    if ob.type=="MESH" and "icosphere" in ob.name.lower():
+        ob.hide_render=True
+        ob.hide_viewport=True
+        print("EXCLUDE_DEBUG_HELPER_SPHERE",ob.name)
+allmeshes=[o for o in guns+hands if o.type=="MESH" and not o.hide_render]
+wmeshes=[o for o in guns if o.type=="MESH" and not o.hide_render]
+hmeshes=[o for o in hands if o.type=="MESH" and not o.hide_render]
 print("SOURCE_MESH_COUNT",len(wmeshes),len(hmeshes))
 def has_parent_in(o,subset):
     return o.parent in subset
@@ -71,7 +76,7 @@ def assign_idle(objs,keywords):
     print("ACTION_NAMES", [a.name for a in actions][:45])
     for ob in objs:
         if ob.type!="ARMATURE": continue
-        matches=[a for a in actions if all(k in a.name.lower() for k in keywords)]
+        matches=[a for a in actions if all(k in a.name.lower() for k in keywords) and ob.name.lower() in a.name.lower()]
         if matches:
             action=matches[0]
             ob.animation_data_create()
